@@ -1,0 +1,337 @@
+{
+  "document": {
+    "title": "Nevsky Commands Reference",
+    "edition": "Second Edition",
+    "edition_date": "2023-06-07",
+    "rule_section_range": "4.2.2, 4.3-4.7",
+    "source": "Player Aid Card, cross-referenced with Rules of Play (Second Edition) and Second Edition Changes Summary",
+    "precedence": "Where this document and the printed PAC differ, the Rules of Play govern. This file reflects rule-corrected content."
+  },
+  "global_rules": {
+    "besieged_lord_allowed_commands": [
+      "sally",
+      "stone_kremlin_capability",
+      "pass"
+    ],
+    "sharing": {
+      "rule_ref": "1.5.2",
+      "rule": "Any Assets among Lords at the same Locale may be shared (Provender, Loot, Transport, Coin)."
+    },
+    "moved_fought_marker": {
+      "purpose": "Tracks Lords that acted on the current Command card; required for Feed at end of card.",
+      "rule_refs": [
+        "4.3",
+        "4.8.1"
+      ]
+    },
+    "asset_max_per_lord": {
+      "rule_ref": "1.7.3",
+      "limit": 8,
+      "applies_to": [
+        "Provender",
+        "Loot",
+        "Coin"
+      ]
+    }
+  },
+  "commands": {
+    "march": {
+      "rule_ref": "4.3",
+      "action_cost": {
+        "unladen": 1,
+        "laden": 2,
+        "notes": "Laden March requires and expends 2 actions per adjacent Locale entered."
+      },
+      "ends_card_when": [
+        "began_siege",
+        "battled"
+      ],
+      "requirements": [
+        "Active Lord (not Besieged)"
+      ],
+      "marking": "Mark each moving Lord with Moved/Fought (also if Avoided or Battled)",
+      "procedure": [
+        "Move Lord(s) to adjacent Locale via a Way",
+        "Marshal may take a group March (4.3.1)",
+        "Lieutenant takes Lower Lord (4.1.3)",
+        "Lord may take Legate along (4.1.1)",
+        "On Approach, enemy may Avoid (Unladen only) or Withdraw (4.3.4)",
+        "If enemy stands: Battle (4.4)",
+        "If entering Locale of Unbesieged enemy Stronghold: begin Siege (4.3.5)"
+      ]
+    },
+    "siege": {
+      "rule_ref": "4.5.1",
+      "action_cost": "entire_card",
+      "ends_card_when": [
+        "always"
+      ],
+      "requirements": [
+        "Active Besieging Lord at the Stronghold"
+      ],
+      "marking": "Mark all Lords at the Locale with Moved/Fought",
+      "procedure": [
+        {
+          "step": "surrender_check",
+          "condition": "No Besieged Lords inside the Stronghold",
+          "action": "Besieging side may roll 1d6",
+          "result_if_roll_le_siege_markers": [
+            "Stronghold Conquered (place/remove Conquered marker per 1.3.1)",
+            "Adjust VP (2.2.5, 5.1.1)",
+            "If Castle marker, flip it (Stonemasons via 1.9.1)",
+            "Remove Veche Coin if Novgorod (1.3.3)",
+            "No Spoils awarded"
+          ]
+        },
+        {
+          "step": "siegeworks_check",
+          "condition": "Besieging Lords at Locale >= Stronghold's Siege Capacity (1, 2, or 3)",
+          "action": "Add 1 Siege marker, to maximum of 4 markers"
+        }
+      ]
+    },
+    "storm": {
+      "rule_ref": "4.5.2",
+      "action_cost": "entire_card",
+      "ends_card_when": [
+        "always"
+      ],
+      "requirements": [
+        "Active Besieging Lord at the Stronghold"
+      ],
+      "marking": "Mark all Lords at the Locale with Moved/Fought",
+      "procedure": [
+        "Conduct Attack per Storm rules (Battle and Storm chart, page 2 of PAC)",
+        "If Conquered: SACK — permanently remove Besieged Lords (1.5.1); distribute Spoils (Loot, Provender, Coin equal to VP); adjust VP (5.1.1)"
+      ],
+      "second_edition_change": {
+        "rule_ref": "4.5.2",
+        "rule": "Maximum 6 Melee Hits per Lord per side per Round (Archery unlimited)."
+      }
+    },
+    "sally": {
+      "rule_ref": "4.5.3",
+      "action_cost": "entire_card",
+      "ends_card_when": [
+        "always"
+      ],
+      "requirements": [
+        "Besieged Lord (one of only 3 actions a Besieged Lord may take: Sally, Stone Kremlin, Pass)"
+      ],
+      "marking": "Mark all Lords at the Locale with Moved/Fought",
+      "procedure": [
+        "Conduct Attack per Battle rules (4.5.3, 4.4)",
+        "Sallying side does not benefit from Walls or Garrison",
+        "Defenders (Besiegers) receive Siegeworks as Walls",
+        "If Sallying Attackers lose: Withdraw back inside Stronghold (4.4.3, not Retreat); reduce Siege markers at Locale to 1 (RAID)"
+      ]
+    },
+    "supply": {
+      "rule_ref": "4.6",
+      "action_cost": 1,
+      "requirements": [
+        "Active Unbesieged Lord",
+        "Valid Supply Source(s) reachable by Route"
+      ],
+      "procedure": [
+        "Select Supply Source(s), Route(s), and Transport (4.6.1-2)",
+        "Each of up to 2 Seat Sources adds 1 Provender (max 8 per Lord)",
+        "Russians: Novgorod (via Ships) adds 1 Provender per each of up to 2 Ships used",
+        "Teutons: any Seaport (via Ships) adds 1 Provender per each of up to 2 Ships used",
+        "Ships not usable in Winter (so Ship-based Supply unavailable in Winter)"
+      ],
+      "second_edition_change": {
+        "rule_ref": "4.6.2",
+        "rule": "1 usable Transport required per Provender per Way of each Route. Transports cannot do double duty across multiple Sources or multiple Provender.",
+        "supersedes": "First-edition PAC line 'A given Transport can be used for multiple Sources' is obsolete."
+      }
+    },
+    "forage": {
+      "rule_ref": "4.7.1",
+      "action_cost": 1,
+      "requirements": [
+        "Active Unbesieged Lord",
+        "Locale is NOT Ravaged",
+        "AT_LEAST_ONE_OF: Lord at a Friendly Stronghold OR season is Summer (not Winter, not Rasputitsa)"
+      ],
+      "procedure": [
+        "Add 1 Provender to the Foraging Lord's mat (max 8)"
+      ],
+      "notes": "Forage requires no Sources or Transport, but is more limited than Supply."
+    },
+    "ravage": {
+      "rule_ref": "4.7.2",
+      "action_cost": {
+        "default": 1,
+        "if_unbesieged_enemy_lord_adjacent": 2
+      },
+      "requirements": [
+        "Active Unbesieged Lord",
+        "Locale is enemy territory (NOT own territory)",
+        "Locale is NOT Conquered",
+        "Locale is NOT Friendly to the Active Lord's side",
+        "Locale is NOT already Ravaged"
+      ],
+      "procedure": [
+        "Place a Ravaged marker in own color at the Locale (white for Russians, black for Teutons); the marker is worth 1/2 VP, adjust VP total",
+        "Add 1 Provender to the Ravaging Lord",
+        "If Locale type is anything other than Region (i.e. Stronghold, Town, or Trade Route): also add 1 Loot"
+      ],
+      "second_edition_change": {
+        "rule_ref": "4.7.2",
+        "rule": "Ravage requires 2 Command actions if an Unbesieged enemy Lord is adjacent to the target Locale."
+      },
+      "interaction_notes": [
+        "May Ravage at an enemy Locale while Besieging its Stronghold (4.3.5)",
+        "End of each Rasputitsa (turns 8 & 16): Grow phase removes Ravaged markers down to half their number, rounded up (4.9.1)"
+      ]
+    },
+    "sail": {
+      "rule_ref": "4.7.3",
+      "action_cost": "entire_card",
+      "requirements": [
+        "Active Unbesieged Lord at a Seaport",
+        "Season is NOT Winter (Rasputitsa or Summer permitted)",
+        "Destination Seaport must be free of Unbesieged enemy Lords"
+      ],
+      "marking": "Mark all Sailing Lords with Moved/Fought",
+      "ship_requirements_per_unit_or_asset": {
+        "teuton_horse_unit": 1,
+        "russian_horse_unit": 2,
+        "per_provender": 1,
+        "per_loot": 2
+      },
+      "procedure": [
+        "Move directly to any other Seaport (must be free of Unbesieged enemy Lords)",
+        "Groups move together as per March (4.3.1); Marshals may take group, Lieutenants take Lower Lords, Teutons may take Legate (4.1.1)",
+        "If Sailing to an Unbesieged enemy Stronghold: place a Siege marker"
+      ],
+      "limitations": [
+        "Cannot Sail to attack enemy Lords directly",
+        "Lords never Retreat via Seaport (4.7.3)"
+      ]
+    },
+    "tax": {
+      "rule_ref": "4.7.4",
+      "action_cost": "entire_card",
+      "requirements": [
+        "Active Unbesieged Lord at his own Seat"
+      ],
+      "procedure": [
+        "Add 1 Coin to the Taxing Lord's mat (max 8)"
+      ]
+    },
+    "pass": {
+      "rule_ref": "4.7.5",
+      "action_cost": "any (replaces remaining actions)",
+      "requirements": [
+        "Any Lord, including a Besieged Lord"
+      ],
+      "procedure": [
+        "Do nothing; forfeit any unused actions on this Command card"
+      ]
+    }
+  },
+  "supply_mechanics": {
+    "rule_ref": "4.6.1-4.6.2",
+    "valid_sources": {
+      "russians": [
+        "Active Lord's Seat(s) shown by Coats-of-Arms (Archbishopric Novgorod and Ordensburgen Commanderies count as Seats per 1.3.1, 1.9.1)",
+        "Novgorod via Ships (Rasputitsa or Summer only)"
+      ],
+      "teutons": [
+        "Active Lord's Seat(s) shown by Coats-of-Arms",
+        "Any Seaport via Ships (Rasputitsa or Summer only); Teutons may use a Seaport in Rus as a Supply Source if not blocked"
+      ]
+    },
+    "route_definition": "Unbroken chain of Locales and Ways between Active Lord and a Source, served by usable Transport.",
+    "route_restrictions": [
+      "Route may NOT enter a Locale containing enemy's Lord, Stronghold, or Conquered marker — unless the enemy Lord/Stronghold is Besieged there"
+    ],
+    "transport_rule_second_edition": {
+      "rule": "Lord must have or share 1 usable Transport for each Provender drawn, along each Way crossed by each Route from each Source.",
+      "sharing_allowed": "Transport may be shared from Lords at the Active Lord's Locale (1.5.2).",
+      "supersedes_pac_text": "'A given Transport can be used for multiple Sources' (no longer applies)."
+    }
+  },
+  "usable_transport": {
+    "rule_ref": "1.7.4",
+    "by_type": {
+      "sleds": {
+        "ways_usable": "Any Ways",
+        "seasons": [
+          "Winter",
+          "Rasputitsa"
+        ]
+      },
+      "carts": {
+        "ways_usable": "Trackways only",
+        "seasons": [
+          "Summer"
+        ]
+      },
+      "boats": {
+        "ways_usable": "Waterways",
+        "seasons": [
+          "Summer",
+          "Rasputitsa"
+        ]
+      },
+      "ships": {
+        "ways_usable": "Seaports, or Novgorod (for Russian Supply)",
+        "seasons": [
+          "Summer",
+          "Rasputitsa"
+        ],
+        "not_in_winter": true
+      }
+    }
+  },
+  "laden": {
+    "rule_ref": "4.3.2",
+    "definition": "A Lord is Laden if carrying any Loot, OR if Provender count exceeds usable Transport count (up to 2x usable Transport, including shared via 1.5.2).",
+    "discard_rule": "If Provender > 2x usable Transport, the Lord may not move unless he discards the excess (1.7, 1.7.4).",
+    "consequences": [
+      "March costs 2 Command actions instead of 1",
+      "Lords may not Avoid Battle while Laden (must be Unladen to Avoid)"
+    ]
+  },
+  "greed": {
+    "rule_ref": "1.7.2",
+    "rule": "Lords may discard Assets ONLY when triggered by one of these events: March Laden, March Unladen, Avoid Battle, Retreat, or Sail.",
+    "trigger_rule_refs": [
+      "4.3.2",
+      "4.3.4",
+      "4.4.3",
+      "4.7.3"
+    ],
+    "purpose": "Prevents Lords from freely shedding Assets to optimize their position; Loot/Provender must be Fed or paid via legitimate game actions."
+  },
+  "errata_and_changes_applied": [
+    {
+      "location": "Supply Sources and Routes box",
+      "change": "Removed obsolete first-edition note 'A given Transport can be used for multiple Sources'; replaced with 1 Transport per Provender per Way rule.",
+      "source": "Second Edition Changes Summary; Rules 4.6.2"
+    },
+    {
+      "location": "Ravage Requirements",
+      "change": "Added: 2 Command actions required if Unbesieged enemy Lord is adjacent to target Locale.",
+      "source": "Second Edition Changes Summary; Rules 4.7.2"
+    },
+    {
+      "location": "Storm",
+      "change": "Noted: maximum 6 Melee Hits per Lord per side per Round (affects Battle and Storm chart on PAC page 2).",
+      "source": "Second Edition Changes Summary; Rules 4.5.2"
+    },
+    {
+      "location": "Sail Procedure",
+      "change": "Added omitted rule: Sailing to an Unbesieged enemy Stronghold places a Siege marker.",
+      "source": "Rules 4.7.3"
+    },
+    {
+      "location": "Ravage Procedure",
+      "change": "Clarified Ravaged marker is worth 1/2 VP.",
+      "source": "Rules 4.7.2; marker artwork"
+    }
+  ]
+}

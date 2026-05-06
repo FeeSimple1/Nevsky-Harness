@@ -1,0 +1,612 @@
+NEVSKY: TEUTONS AND RUS IN COLLISION, 1240-1242
+STRATEGY RECOMMENDATIONS (Second Edition)
+================================================================
+ 
+Sources: GMT Playbook (Albright/Wagner play hints, Ruhnke design notes),
+Second Edition Rules of Play, Second Edition Changes Summary, project map
+reference, Volko Ruhnke's "Nevsky: Scenario Balance and Strategy" on
+InsideGMT, BGG threads, and Stuart Ellis-Gorman's reviews. Where the
+Rules and the Scenario Adjustments / Errata diverge, the latter govern.
+ 
+The "Book of Strategy" attributed to the Byzantine Emperor Maurice
+(c. 600 AD) frames the whole game: hurt the enemy by deceit, raids,
+or hunger; never be enticed into a pitched battle, which depends more
+on luck than bravery. Nevsky rewards exactly that mindset. The
+chronicles record only four field battles in the entire 1240-1242
+conflict. Plan for ravage, siege, and starvation; treat battle as a
+closing move or a desperate one.
+ 
+ 
+================================================================
+I. CORE PRINCIPLES THAT GOVERN EVERY DECISION
+================================================================
+ 
+1. THE CALENDAR IS THE REAL OPPONENT.
+   Every Lord's Service marker is a doomsday clock. The game ends not
+   when one side runs out of soldiers but when one side runs out of
+   willing Lords. Work backward from each Lord's Disband box and ask:
+   what do I get out of him before he goes home? A Lord who Disbands
+   in a Friendly Locale with Coin or Loot to spare was wasted; a Lord
+   who Disbands at the end of a successful sack was used correctly.
+ 
+2. LOGISTICS DICTATE GEOGRAPHY.
+   Forces and Assets exist on Lord mats; what you can do with them
+   exists on the map. The bridge between the two is Transport, which
+   only works in certain Seasons:
+     - Sleds: Winter only, all Ways.
+     - Carts: Summer only, Trackways only.
+     - Boats: Rasputitsa and Summer, Waterways only.
+     - Ships: Rasputitsa and Summer, Seaports only (and Novgorod for
+       Russians).
+   Rasputitsa is the most restrictive: no Trackway transport at all
+   (Sleds gone, Carts not yet usable). Anything you want to ship over
+   Trackways in mud has to walk, which limits Provender to the amount
+   the Lord can carry on his back.
+ 
+3. PROVENDER IS THE CURRENCY OF MOVEMENT.
+   A Lord with 6 or fewer units consumes 1 Provender per Move/Fight;
+   7+ units consumes 2. So that seventh Vassal you Levied "for the
+   muscle" is a permanent supply tax. Only call up the units you need
+   for the mission ahead. Hermann or Aleksandr maxed out is a fine
+   storming hammer for one campaign and an unfeedable mob the next.
+ 
+4. THE FRIENDLY LOCALE TEST.
+   At the END of every Campaign, ask of each of your Lords: where will
+   he be standing, and is it Friendly to him? Friendly means his side's
+   home territory or a Stronghold his side has Conquered. Lords need
+   Friendly ground to:
+     - Muster (add Capabilities, Levy Vassals, Levy Transport).
+     - Pay with Loot (Coin works at the same Locale anywhere; Loot
+       does not).
+     - Forage outside Summer (Friendly Stronghold required in Winter
+       and Rasputitsa).
+   Russian Veche Coin is the great exception: it can shift any
+   non-Besieged Russian Lord's Service from afar. Treat that
+   exception as the Russians' single biggest flexibility lever.
+ 
+5. PAY > DISBAND.
+   Loot is easier to obtain than Coin (especially for Teutons), so
+   plan campaigns that end with Lords in Friendly Locales holding Loot.
+   Coin can travel between co-located Lords, including via Sharing.
+   Veche Coin can travel anywhere. Don't hoard Coin; spend it on the
+   Lord whose Service is up first, and ravage to refill.
+ 
+6. RAVAGE IS NOT FREE ANYMORE (2ND EDITION).
+   Under the Second Edition, Ravage costs TWO actions if an Unbesieged
+   enemy Lord is adjacent. That changes the calculus on raids in
+   contested zones: you cannot hit-and-run while a defender stares at
+   you across one Way. Force the defender to leave first, or
+   accompany your raider with a screening Lord.
+ 
+7. RAVAGE ALSO DECAYS (2ND EDITION).
+   At end of each Rasputitsa (turns 8 and 16), the side whose
+   territory was Ravaged removes Ravaged markers down to half their
+   number, rounded up. So Ravage VP earned in the first half-year of
+   either campaign year erodes if you don't keep ravaging. Ravage is
+   tempo, not a savings account.
+ 
+8. STORM IS CAPPED (2ND EDITION).
+   Storm Melee is now capped at 6 Hits per Lord per Round. Big stacks
+   of Knights still wreck a Fort, but a single super-Lord cannot one-
+   shot a City the way he sometimes did under First Edition. Think in
+   terms of multiple Lords for big walls, or sieges + waiting.
+ 
+9. WHEN DRAWN AS EVENTS, "NO" CARDS ARE GONE FOREVER (2ND EDITION).
+   Each side has three "No Event/No Capability" cards. Drawing one as
+   an Event removes it from play. The Event deck thins and your odds
+   of useful draws improve over the game. Plan for the late game to
+   be more Event-rich than the early game. Pleskau scenario removes
+   them at the start; the full Crusade on Novgorod scenario keeps them.
+ 
+ 
+================================================================
+II. THE LEVY PHASE - WHAT TO BUILD
+================================================================
+ 
+Levy is where most games are won or lost. Spend Lordship actions
+deliberately. The hierarchy of value is roughly:
+ 
+Capability cards >= Vassals (for combat power) > Transport > extra
+Forces from already-Mustered Vassals.
+ 
+CAPABILITIES YOU SHOULD ALMOST ALWAYS WANT
+ 
+TEUTONS:
+  - WILLIAM OF MODENA. Brings the Legate into play. Adds a Command
+    action when Co-located with a Lord on Campaign, allows Mustering
+    a Lord without rolling Fealty, and provides a free Lord shift
+    during Call to Arms. The drawback: enemy Lords can endanger and
+    discard the Legate. Worth it in nearly every scenario long enough
+    to use him more than once. Cost is the Grand Prince Event being
+    out of play (which would have delayed Aleksandr/Andrey).
+  - TREATY OF STENSBY. +1 Command for both Heinrich and Knud & Abel.
+    Excellent if either Dane is in play. The trade-off is removing
+    the Grand Prince Event (which is also taken out by William of
+    Modena, so doubling up is no loss).
+  - ORDENSBURGEN. Turns Commanderies into extra Seats and grants
+    +1 Command when a Teutonic Lord starts at one. Powerful with
+    Andreas (Wenden) and any Dorpat-based push.
+  - HALBBRUEDER (T9/T10). Sergeants AND Men-at-Arms get Armor +1.
+    Pin this on Hermann or Andreas in any scenario where they expect
+    to fight. Routs only - doesn't help Loss rolls.
+  - WARRIOR MONKS (T7/T15). One Knights re-roll per Archery and
+    Melee step. Stack with Halbbrueder on your hammer Lord.
+  - BALISTARII Crossbowmen (T4-T6). Gives that Lord's Men-at-Arms
+    Archery with -2 enemy Armor. The only way Teutons get Battle
+    Archery in the open field. Vital if you expect to defend.
+  - HILLFORTS OF THE SWORD BRETHREN (T8). Each Feed skips one
+    Unbesieged Teutonic Lord in Livonia. Free meals while consolidating.
+  - COGS (T18). Big Sail capacity for Knud & Abel and Heinrich, plus
+    blocks Russian Baltic Sea Trade. A nasty combo if you can keep
+    the Danes operating.
+ 
+RUSSIANS:
+  - BLACK SEA TRADE (R8). 1 Coin per Call to Arms unless Lovat or
+    Novgorod is Conquered. Hard for the Teutons to disrupt. The
+    Playbook recommends taking it almost every game and that is
+    correct - Coin is the Russians' problem and this directly fixes
+    it. Better than Baltic Sea Trade because Baltic depends on ship
+    counts and the Neva.
+  - ARCHBISHOPRIC OF NOVGOROD (R15). Novgorod becomes a Seat for
+    every Russian Lord, plus +1 Command starting from Novgorod.
+    Stacks brilliantly with the Volkhov-Ladoga waterway spine for
+    Supply.
+  - LUCHNIKI (R1/R2). Light Horse and Militia get Archery. Combined
+    with Streltsy, the Russians can deliver brutal first-Round
+    Archery before the Teutons close to Melee.
+  - DRUZHINA (R5/R6). +1 Command and Defending Round 1-2 Archery
+    not halved. A Knights piece on the mat is the only requirement.
+  - STEPPE WARRIORS (R10). Lets Aleksandr and Andrey muster Asiatic
+    Horse - mounted archers with Evade. Great in Battle, fragile in
+    Storm. Disbands if discarded, so don't drop the card carelessly.
+  - STONE KREMLIN. Gives one Lord Walls +1 to place at Strongholds.
+    Park it on Domash and use the actions to fortify Novgorod, Pskov,
+    Ladoga over multiple turns. Discard later for two This-Lord
+    Capabilities.
+  - SMERDI (R4). Pool of Serfs that can be re-Mustered each campaign,
+    even after losses. Cheap arrow-fodder for big battles or storms.
+  - LODYA (R16). Russian Boats count as Ships for blockade math.
+    Worth pairing with Black Sea Trade or as a hedge against Cogs.
+  - RAIDERS (R12/R14) - Russian variant. A mounted Lord can ravage
+    one adjacent unoccupied Locale per Command card. Dramatically
+    extends the reach of Domash, Karelians, or Andrey for VP.
+ 
+CAPABILITIES TO PASS ON OR DEFER
+ 
+  - "This Lord" Capabilities pinned on a Lord who is about to Disband
+    are wasted; they are discarded when he leaves.
+  - Capabilities matched to Lords not yet on the map are speculative;
+    if your scenario is short, only buy them when the Lord arrives.
+  - Crusade on Novgorod (T11) Summer Crusaders disband each Late Winter -
+    plan to use them Summer, NOT into a Winter siege.
+ 
+EVENT VS CAPABILITY TENSION
+Picking up a Capability removes its Event from the deck, AND prevents
+the same card's Event from being drawn against you. Sometimes the
+defensive purpose alone justifies the buy: e.g., Russians taking
+Baltic Sea Trade may be more about the Coin, but Teutons taking
+Treaty of Stensby keeps the awkward Event from biting them. Always
+read both halves before deciding.
+ 
+ 
+================================================================
+III. CALL TO ARMS - PAPAL LEGATE AND THE VECHE
+================================================================
+ 
+LEGATE (Teutonic, only when William of Modena is in play):
+  - Place him at any Bishopric. The four Teutonic Bishoprics (Riga,
+    Dorpat, Leal, Reval) cover the whole map; pick the one closest to
+    where you need an extra action this campaign.
+  - Use him to Muster a Ready Lord without a Fealty roll. Save this
+    for unreliable Lords (low Fealty) or critical timing.
+  - Use him to bump a Lord's Calendar marker by one box left.
+  - Use him to give a Lord a free extra Muster at full Lordship.
+    This is huge on a Lord at a Friendly Locale with a long Service.
+  - PROTECT HIM. He's discarded if he's with a Lord who Avoids
+    Battle, Withdraws, Retreats, or is left alone with Russians.
+    Don't strap him to your raiding Lord; he belongs on the Lord
+    you intend to stand with.
+ 
+VECHE (Russian):
+  - Each conquered VP marker spent shifts an Aleksandr/Andrey
+    cylinder LEFT 2 boxes (was 1 in 1st Edition). That's the bigger
+    Russian lever now.
+  - Or auto-Muster a Ready Russian Lord (no roll).
+  - Or grant a Russian Lord an immediate extra Muster at full
+    Lordship.
+  - Decline a Ready Aleksandr or Andrey to gain 1 VP.
+ 
+THE ALEKSANDR/ANDREY DECISION (THE CORE RUSSIAN PUZZLE):
+  - Bringing them in: they are the strongest Russian Lords with the
+    biggest forces and best Command. Aleksandr is always Marshal
+    when on map.
+  - Declining them: each decline is +1 VP into the Veche box, which
+    can later pay any Russian Lord on or off the front.
+  - Rule of thumb: decline early when the front is quiet, then bring
+    them in when the Teutons threaten Novgorod or you need a hammer.
+    Don't simply hoard VP; declined VP is Coin-to-be, not score on
+    the calendar - and Veche box is capped at 8.
+  - In short scenarios (Pleskau, Watland), the prince in question
+    should usually come out only if you have a clear use; the
+    longer the scenario, the more declining-then-spending pays off.
+ 
+ 
+================================================================
+IV. PLAN AND COMMAND - THE STACK
+================================================================
+ 
+Plan (the face-down Command card stack) is the most underrated phase.
+Two players stack simultaneously, then alternate flipping. You can
+include up to as many Command cards as your Season allows: 6 in
+Summer, 5 in Rasputitsa, 4 in Winter. Pad with Pass cards as needed.
+ 
+PLANNING IDEAS:
+ 
+1. PUT YOUR MOST FLEXIBLE LORD LATE.
+   The card flipped last knows the most. Lords with high Command
+   ratings (3 actions) like Aleksandr, Andreas, Hermann, Andrey are
+   ideal late-stack pivots that can react to whatever happened.
+ 
+2. PUT FORCED-MOVES EARLY.
+   Lords whose Service is about to run out, who must reach a
+   Friendly Locale, or who must sail before Rasputitsa, go FIRST
+   while you still know the campaign has room.
+ 
+3. PASS CARDS ARE NOT WASTED CARDS.
+   A Pass let you do nothing while opponents commit. Stack them
+   against the opponent's expected key actions. Conversely, fewer
+   Pass cards mean you've Mustered more Lords - which is what you
+   want.
+ 
+4. LIEUTENANTS - THE FORCE-CONCENTRATION HACK.
+   During Planning, a non-Marshal Lord can stack ON TOP of another
+   non-Marshal Lord at the same Locale, becoming Lieutenant. They
+   move together for the entire Campaign. The Lower Lord's Command
+   card becomes a Pass when revealed. So two Lords with 2 Commands
+   each, joined as Lieutenant + Lower, give you 2 actions on the
+   Lieutenant's card and a free Pass on the Lower's. That's 2 active
+   moves for two cards instead of 4 - usually worse, BUT it lets
+   you operate two Lords as one army without needing a Marshal, and
+   the Lower Lord's Forces add to combat. Effective when Hermann
+   isn't a Marshal (because Andreas is on map), or when you need
+   Yaroslav to follow Hermann around.
+ 
+5. MARSHAL GROUP MARCH.
+   Marshals (Aleksandr, Andreas, plus Andrey/Hermann if their
+   primary Marshal isn't on map) can drag any same-side Unbesieged
+   Lords at their Locale along on a March for free. This is the
+   key to building a battle force: have your Lords physically
+   converge during earlier campaigns, then let the Marshal march
+   the whole stack.
+ 
+ 
+================================================================
+V. CAMPAIGN ACTIONS - DOING THINGS WITH WHAT YOU BUILT
+================================================================
+ 
+MARCH:
+  - Movement is by Way (Trackway or Waterway), one Locale per Command.
+    Marshal can take everyone. Lieutenant must take Lower Lord.
+  - Laden March (more Provender than usable Transport, but no more
+    than double) costs 2 actions per Locale. Loot ALWAYS makes you
+    Laden regardless of Transport.
+  - Avoid Battle and Retreat are Unladen-only - so if you're Laden
+    and offered combat, you MUST fight or discard down. Plan an
+    escape route before you stick your nose into enemy land.
+ 
+SUPPLY (2ND EDITION):
+  - Now requires 1 Transport per Provender per Way (no double-duty
+    Transport). This is a real nerf to long supply lines.
+  - From a Seat (or Archbishopric Novgorod for Russians, Commanderies
+    for Teutons), 1 Provender per Source, max 2 Sources per action.
+  - Plus 1 Provender per Ship at Seaport (Russians: at Novgorod), max
+    2 Ships per action.
+  - In Winter only Seats provide Supply (no Ships).
+  - The further your Lord ranges, the more Sleds/Boats you need to
+    bring food forward. Stockpile Transport during Levy.
+ 
+FORAGE:
+  - 1 Provender per action.
+  - In Summer, anywhere not Ravaged.
+  - In Winter/Rasputitsa, only at a Friendly Stronghold.
+  - DO NOT Ravage the countryside around a Stronghold you intend to
+    Conquer and Forage from later - the Playbook flags this as a
+    common Hermann-deep-in-Rus problem.
+ 
+RAVAGE:
+  - Towns/Strongholds/Trade Routes: 1/2 VP + 1 Provender + 1 Loot.
+  - Regions: 1/2 VP + 1 Provender (no Loot).
+  - 2 actions if Unbesieged enemy Lord adjacent (2nd Ed).
+  - 1 action otherwise.
+  - Cannot Ravage a Locale already Ravaged or your own Locale.
+  - Ravaged markers half-decay at end of each Rasputitsa, so build
+    them up shortly before scenario end if going for a VP win.
+ 
+SAIL:
+  - Costs ALL actions on the card.
+  - Rasputitsa or Summer only.
+  - Requires 1 Ship per Horse unit (Teuton) or 2 Ships per Horse
+    (Russian), plus 1 Ship per Provender, plus 2 per Loot.
+  - Cannot Sail into a Locale with an Unbesieged enemy Lord.
+  - Excellent for Danes (Knud & Abel) crossing the Baltic, less
+    common for Russians.
+ 
+TAX:
+  - All actions on the card. 1 Coin to your mat, at your Seat only.
+  - Yaroslav's Seat is Pskov when Conquered by Teutons, so a parked
+    Yaroslav there generates Coin without leaving the walls.
+  - Aleksandr at Novgorod (Archbishopric capability) is similar.
+ 
+BESIEGE / STORM / SALLY:
+  - Set down a Siege marker by entering an enemy Stronghold.
+  - Each Siege action with enough Lords for Siege Capacity adds
+    one more Siege marker, up to 4. Strongholds have Surrender odds
+    equal to current Siege markers; sometimes terms beat storm.
+  - Storm: Attacker generates Hits as in Battle, but Defender's
+    Walls equal Stronghold Walls value. Garrison units defend first.
+    Attackers Storm with Walls = Siege markers there.
+  - Storm Melee is capped at 6 Hits per Lord per Round (2nd Ed).
+  - Don't Storm a fully-staffed City unless you have the Lords
+    and the time. Forts (Walls 1-3) are reasonable Storm targets;
+    Castles (with Walls +1 from Stonemasons or starting marker) and
+    Cities (Walls 1-4) are not, except as a last move.
+  - Surrender via Siege gives no Spoils but removes the Lord and
+    Conquers the Stronghold. Storm gives Loot/Provender/Coin = VP
+    of the Stronghold and removes all losing Lords PERMANENTLY.
+ 
+BATTLE:
+  - Initiative order: Defending Archery, Attacking Archery, Defending
+    Horse Melee, Attacking Horse Melee, Defending Foot Melee,
+    Attacking Foot Melee.
+  - In Pursuit (after one side Concedes), the conceding side's Hits
+    are halved per step.
+  - Concede at the START of the round, before Strikes. You give up
+    the field but keep Forces and Assets. Conceding to a Pursuit is
+    often correct: surviving with a Lord intact beats winning a
+    Pyrrhic battle.
+  - Retreat after a lost battle: Service gets a die roll to shift
+    LEFT (half rounded up). Withdraw into a Stronghold instead if
+    you can - no Service penalty, no Spoils to enemy.
+ 
+KEY BATTLE EVENTS TO REMEMBER (Hold cards):
+  Russian:
+    - HILL (R hold) - Defending, Round 1-2 Archery is x1.
+    - BRIDGE - opponent's front center Lord can Strike with limited
+      units in early rounds (devastating in non-Winter).
+    - MARSH - Defending, non-Winter, Russian Horse blocks enemy
+      Horse Strikes for two Rounds (Rus side calls it differently).
+    - AMBUSH - blocks Avoid Battle or ignores enemy left/right in
+      Round 1.
+  Teutonic:
+    - HILL (T hold) - Defending, Round 1-2 Teutonic Archery is x1.
+    - FIELD ORGAN - Round 1, his Knights AND Sergeants Melee
+      Strike +1 (huge first-round shock). Stack on Andreas/Hermann.
+ 
+If you draw multiple Hold Events, keep them under your mat and play
+on the right Lord at the right moment. They are why the second half
+of a campaign is more dangerous than the first - and the second half
+of the game more dangerous than the first, since "No" cards exit
+permanently after being drawn.
+ 
+ 
+================================================================
+VI. SIDES - HOW EACH ONE WANTS TO WIN
+================================================================
+ 
+THE TEUTONS - INVADER WITH A CLOCK
+ 
+Comparative advantages:
+  - Knights (4-Armor heavy cavalry) are the best raw combat unit.
+  - Multiple Bishoprics (2 VP each) and a Legate that uses them.
+  - Halbbrueder + Warrior Monks combos make a single Lord nearly
+    unstoppable in the field.
+  - Hermann starts forward (Dorpat) with usable units.
+  - Sea power via Knud & Abel, Heinrich (Cogs).
+ 
+Comparative disadvantages:
+  - Most Lords' Service is short or fragile (Knud & Abel get pulled
+    by Khan Baty event; Andreas drawn off by Osilian Revolt).
+  - Few archers in field battle without Balistarii Capability.
+  - Ravage in Rus is fine for VP but the countryside is sparse.
+  - Andreas and Rudolf, if removed, are out for many turns - more
+    so than Karelians/Yaroslav for the Russians.
+ 
+Strategic plan:
+  - Win by Conquered Strongholds (1 or 2 VP each + sustained
+    Friendly base for further operations) and by Ravage VP in Rus.
+  - Pskov (2 VP) and Novgorod (3 VP) are the trophies; Izborsk
+    Fort (1 VP) is the doorstep and is the realistic Pleskau target.
+  - Use Hermann as the army-builder out of Dorpat. Andreas, if/when
+    Mustered, anchors Livonia and can hammer Vod.
+  - Keep the Danes (Knud & Abel, Heinrich) on the coast or sailing.
+    They can Conquer Koporye/Kaibolovo and pin Vladislav from the
+    sea. Threat alone often suffices.
+  - Maintain a Friendly base IN Rus once you Conquer a Fort, so
+    you can re-Muster, re-Levy, and Forage.
+  - Watch your Lord placement at the end of each Campaign. Hermann
+    sitting outside an unconquered Fort with his Service expiring
+    is the signature Teutonic blunder.
+ 
+THE RUSSIANS - DEFENDER WITH A LATE GAME
+ 
+Comparative advantages:
+  - Veche Coin can pay any Lord anywhere (huge logistical flexibility).
+  - Archery edge (Luchniki + Streltsy + horse archers via Steppe
+    Warriors).
+  - Aleksandr (Marshal) and Andrey, when summoned, are top-tier.
+  - The Volkhov-Ladoga-Novgorod-Rusa-Lovat waterway spine plus
+    Archbishopric Capability gives the best supply network in the
+    game.
+  - Black Sea Trade Capability is hard to disrupt.
+ 
+Comparative disadvantages:
+  - Starts the game with very few Lords on map. Early game can be
+    a crisis if Hermann moves fast.
+  - No archery in field battle without Capability cards.
+  - Aleksandr/Andrey are slow to arrive without spending VP.
+  - Small Russian Forts have Walls 1-3 and small Garrisons - Teutons
+    can Storm them.
+ 
+Strategic plan:
+  - Survive the opening, then counter-punch.
+  - Take Black Sea Trade at first opportunity. Take Archbishopric
+    when Novgorod is your supply hub.
+  - Use the Veche to either decline princes for VP early (when the
+    front is quiet) or summon them when needed.
+  - Drag the Teutons toward unfavorable Sieges that exhaust their
+    Service. Yaroslav at Pskov, if unsupported, will eventually
+    Disband on his own from short Service - keep him under Siege so
+    he can't Tax.
+  - Don't fight pitched battles you don't have to. Russian defenders
+    with Hill, Druzhina, and a fortified position are very tough;
+    Russians attacking Knights in the open are not.
+  - Aleksandr at the Neva or Vod with sufficient Light Horse and
+    Streltsy is the historical Battle of the Ice setup; it works in
+    the game too.
+ 
+ 
+================================================================
+VII. SCENARIO-SPECIFIC NOTES
+================================================================
+ 
+PLESKAU (1240, 2 turns) - Teaching scenario, Teuton offensive.
+ 
+  Per Volko Ruhnke on InsideGMT: balanced under optimal play.
+  Hermann should take Izborsk turn 1 by STORM to sack it (sieging to
+  surrender denies Spoils). The conquered Izborsk becomes Friendly,
+  letting the Teutons Levy and Muster from there for the second
+  Levy. The Teutons need not march on Pskov at all - if Gavrilo
+  stands at Pskov, ravage the countryside (1/2 VP a pop) instead.
+  Special victory condition: each Lord Disband or removal = 1 VP.
+  Watch Vladislav of Ladoga; he can ravage Estonia. Keep the Danes
+  visible at Reval/Narwia to deter him. (2nd Ed: "No" cards removed
+  before play, so Event deck is dense.)
+ 
+WATLAND (1241, up to 5 turns) - Teutonic invasion of Vod.
+ 
+  Volko's own retrospective acknowledges this scenario favors the
+  Teutons. The Russians realistically can't push back before
+  Rasputitsa shuts down trackway movement. The 2nd Ed special rule
+  raises the Teutonic threshold (need 7 VP AND double Russian VP),
+  which helps.
+  Russian focus: spend Veche VP early to bring Andrey on as soon as
+  possible (the only scenario that really showcases the Aleksandr/
+  Andrey decision in isolation), build Black Sea Trade Coin, hold
+  Novgorod and the Volkhov spine, and use Vladislav for Estonian
+  raids while Hermann/Andreas are committed in Vod.
+  Teutonic focus: Andreas at Fellin should drive on Koporye. Knud &
+  Abel sail to Wesenberg/Reval and threaten down the coast. Yaroslav
+  at Pskov holds the south.
+ 
+PEIPUS (1242, up to 4 turns) - Russian counter-offensive.
+ 
+  The scenario starts with 4 VP Conquered for Russians and 3 Coin
+  in the Veche. Aleksandr, Andrey, Domash, Karelians all start at
+  Novgorod. The Russians MUST move fast - 2 Winter turns then 2
+  Rasputitsa turns where Trackways die.
+  Volko's advice: don't fixate on Pskov. Yaroslav alone at Pskov
+  will Disband on his own from short Service if you SIEGE him so
+  he cannot Tax. Pair this with Ransom Capability (R7) for Coin.
+  Alternative: ravage past Pskov (Izborsk if free, Ostrov, Velikaya
+  River) and conquer undefended Teutonic Castles before Rasputitsa.
+  Levy Raiders Capability for extra ravaging reach. Levy Boats
+  before Rasputitsa hits because Sleds/Carts become useless.
+  Ships + Lodya make Baltic Sea Trade work post-Winter. Spend Veche
+  Coin liberally - it pays Lords anywhere, mud or no mud.
+ 
+RETURN OF THE PRINCE (1241-1242, up to 8 turns).
+ 
+  Longer Russian counter-campaign. Aleksandr starts at Novgorod;
+  Andreas at Koporye. The Russians must reverse Vodian losses and
+  ideally wreck Teutonic VP before time runs out. Black Sea Trade
+  early. Stone Kremlin on Domash to harden Novgorod and Ladoga.
+  Plan a winter campaign to retake Koporye while Sleds are usable.
+ 
+NICOLLE VARIANT - alternate Return of the Prince setup based on
+  David Nicolle's interpretation. Strategically similar but with
+  Hermann at Dorpat instead of out of play, expanding Teutonic
+  options southward.
+ 
+CRUSADE ON NOVGOROD (1240-1242, full 16-turn).
+ 
+  The biggest scenario, and the one where the Disband/re-Muster
+  cycle pays off. Lords like the Karelians and Rudolf turn over
+  fast - that's fine, they re-enter. Andreas and Andrey, if they
+  leave, are gone for a long time. Don't let those two be wasted.
+  "No" cards are NOT removed when drawn here, so the event deck
+  stays slow throughout - a longer game of measured tempo.
+  Teutons: the early campaigns are yours. Pskov in 1240, Watland
+  in 1241. Stack VP early because Aleksandr is coming.
+  Russians: tough early. Veche VP, decline princes, Black Sea Trade,
+  build Coin. Bring Aleksandr in around the start of 1241 once Vod
+  is in danger; bring Andrey in by winter 1241/42 for the Peipus
+  campaign. The game IS called Nevsky for a reason.
+ 
+ 
+================================================================
+VIII. THE TWENTY MOST USEFUL HABITS
+================================================================
+ 
+1. Read both halves of every Capability card before you Levy it.
+   You're forfeiting an Event to gain a Capability.
+ 
+2. Never Muster a Vassal that takes you over 6 units unless this
+   campaign clearly justifies the doubled Provender cost.
+ 
+3. End every Campaign asking: "Is each of my Lords on Friendly
+   ground? Does each who needs to Pay have Loot or Coin?"
+ 
+4. Loot is for Friendly Locales (or for Feeding anywhere). If you're
+   raiding, plan a route home before you start.
+ 
+5. Discard surplus Provender to Avoid Battle - don't get caught
+   Laden by a fast-moving enemy.
+ 
+6. Don't Ravage the immediate hinterland of a Fort you intend to
+   capture and Forage from. (Hermann at Pskov problem.)
+ 
+7. Concede the field early if a battle is going badly. Pursuit
+   halves Hits and you keep your Lord and Forces.
+ 
+8. Withdraw into a friendly Stronghold instead of Retreating across
+   the open. Same outcome, no Service penalty.
+ 
+9. Lieutenants are an underused tool when you have two slow Lords
+   in the same place and no Marshal to share with.
+ 
+10. Plan Command stacks with reaction Lords late: Aleksandr,
+    Andreas, Hermann, Andrey want to flip last.
+ 
+11. Use the Legate on Lords with low Fealty; spare your Lordship
+    actions for Capabilities and Vassals.
+ 
+12. Spend Veche Coin proactively. Hoarded Veche Coin caps at 8 -
+    everything past that is wasted.
+ 
+13. Decline Aleksandr/Andrey early, then summon when needed. Don't
+    flip the order.
+ 
+14. Take Black Sea Trade and Archbishopric for Russians; William of
+    Modena for Teutons. These three bend the system.
+ 
+15. Storm small Russian Forts with mass Knights; siege Cities and
+    Bishoprics or pass them by.
+ 
+16. Carry one or two Hold Events into Battle - they swing close
+    fights. Hill, Bridge, Marsh, Field Organ, Ambush.
+ 
+17. In Rasputitsa, don't be deep in enemy territory across
+    Trackways unless you have Provender on legs (Loot) and an
+    escape via Waterway.
+ 
+18. Re-evaluate your Capability cards each Campaign. Discard
+    "This Lord" cards that have lost their target rather than let
+    them clog up your two-Capability cap.
+ 
+19. Track your opponent's Service markers; one Lord Disbanding is
+    often worth 2-3 VP of pressure to engineer.
+ 
+20. Remember Maurice's dictum. Hurt the enemy with hunger and
+    raids. Battle is the last resort, not the first.
+ 
+End of strategy notes.

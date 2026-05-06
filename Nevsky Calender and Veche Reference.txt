@@ -1,0 +1,365 @@
+NEVSKY CALENDAR & VECHE — Reference
+====================================
+Compiled per Rules of Play (Second Edition, 2023), Sections 1.3.2,
+1.3.3, 1.4.2, 2.2, 3.5.2, 4.9, and the Second Edition Changes
+Summary. Where they conflict, Second Edition Rules of Play govern.
+ 
+ 
+================================================================
+PART I — THE CALENDAR
+================================================================
+ 
+PURPOSE  (Rule 1.3.2)
+The Calendar tracks (a) time, (b) Lord Service expiry, (c) Lord
+readiness to Muster, and (d) victory scores. It also displays
+printed reminders for several seasonal mechanics.
+ 
+ 
+----------------------------------------------------------------
+LAYOUT
+----------------------------------------------------------------
+The Calendar shows EIGHT Seasons across two rows, divided into
+SIXTEEN numbered 40-Days boxes (two boxes per Season). The full
+range covers Summer 1240 through Rasputitsa 1242:
+ 
+  Row 1 (1240–1241):
+    Box  1– 2:  Summer 1240
+    Box  3– 4:  Early Winter 1240–41
+    Box  5– 6:  Late Winter 1240–41
+    Box  7– 8:  Rasputitsa 1241
+ 
+  Row 2 (1241–1242):
+    Box  9–10:  Summer 1241
+    Box 11–12:  Early Winter 1241–42
+    Box 13–14:  Late Winter 1241–42
+    Box 15–16:  Rasputitsa 1242
+ 
+Each 40-Days box has a Levy circle, a Campaign circle, and a
+Victory circle (used as described below).
+ 
+ 
+----------------------------------------------------------------
+PRINTED REMINDERS ON THE CALENDAR
+----------------------------------------------------------------
+The Calendar surface itself prints reminders for:
+  - Command cards per side per Plan stack, by Season:
+      Early Winter or Late Winter ........ 4 cards
+      Rasputitsa ......................... 5 cards
+      Summer ............................. 6 cards
+  - Usable Transport, by Season (see 1.7.4):
+      Boats:   Rasputitsa, Summer (Waterways; also Seaports for
+               Ships and Novgorod for Russian Supply)
+      Ships:   Rasputitsa, Summer (Seaports only)
+      Sleds:   Early Winter, Late Winter (any Way)
+      Carts:   Summer (Trackways only)
+  - Crusade Capability auto-discard at the start of each year's
+    first Late Winter 40 Days (boxes 5 and 13).
+  - Ravage halving at end of each Rasputitsa (Grow, 4.9.1).
+  - Cart/Sled flipping at end of Summer and end of Late Winter
+    (Plow and Reap, 4.9.3).
+ 
+The Second Edition Changes Summary added a green "Ravaged to ½
+(round up)" reminder at the lower-right corner of the Calendar.
+ 
+ 
+----------------------------------------------------------------
+MARKING TIME — Levy/Campaign Marker  (Rule 2.2.2)
+----------------------------------------------------------------
+The round Levy/Campaign marker:
+  - Sits in the current 40-Days box.
+  - Shows "Levy" face up during the Levy phase (placed in the
+    Levy circle).
+  - Flipped to "Campaign" face up during the Campaign phase.
+  - Advances to the next 40-Days box after End Campaign (4.9.5),
+    flipped back to "Levy" face up.
+ 
+When the marker advances out of the scenario's final 40 Days,
+the game ends (4.9.2).
+ 
+ 
+----------------------------------------------------------------
+MARKING SERVICE — Lord Cylinders & Service Markers  (Rule 2.2.3)
+----------------------------------------------------------------
+Lord CYLINDERS sit on the Calendar while Lords are Ready (off
+map but available to be Mustered). Cylinders enter the Calendar
+either at scenario setup (per scenario) or upon Disband (3.3.2).
+ 
+Lord SERVICE MARKERS sit on the Calendar while Lords are
+Mustered (on the map). The Service marker's box is the 40 Days
+in which the Lord will Disband if not Paid. Vassal Service
+markers also live here ONLY if the Vassal Service Advanced Rule
+(3.4.2) is in use; otherwise Vassal markers stay on Lord mats.
+ 
+PLACEMENT ON MUSTER  (Rule 3.4.1):
+  When a Lord Musters, his Service marker is placed N boxes
+  ahead of the current 40-Days box, where N = his Service rating.
+ 
+SHIFTING:
+  Various Events, Capabilities, Veche actions, and end-of-card
+  rules shift Service markers and cylinders left or right by a
+  specified number of boxes.
+    - "Right" = toward higher box numbers (more time).
+    - "Left"  = toward lower box numbers (less time).
+  When a direction is not specified, the player executing the
+  shift chooses.
+ 
+OFF-CALENDAR PLACEMENT:
+  If a marker or cylinder would be placed or shifted past either
+  end of the Calendar:
+    - Left of box 1:  place just off the left edge.
+    - Right of box 16: place just off the right edge.
+  Further shifts in that same direction are IGNORED. The first
+  shift back toward the Calendar places the marker into box 1
+  (from the left) or box 16 (from the right).
+ 
+DISBAND TRIGGER  (Rule 3.3.1):
+  At the start of each Levy, every Lord whose Service marker is
+  left of the current 40-Days box (i.e., his Service has run out)
+  Disbands.
+ 
+ 
+----------------------------------------------------------------
+TRACKING VICTORY POINTS  (Rule 2.2.5)
+----------------------------------------------------------------
+Each side has a round Victory marker placed in the Victory
+circle of the 40-Days box matching its current VP score:
+  - Box 1 = 1 VP.
+  - Box 16 = 16 VP.
+  - Off the Calendar to the LEFT of box 1 = 0 VP (or ½ VP).
+  - Off the Calendar to the RIGHT of box 16 = 17 VP (or 17½ VP).
+ 
+The Victory marker has two faces:
+  - Whole-number face (e.g., 5).
+  - +½ face (e.g., 5½), used to mark half-points from Ravaged
+    markers (5.1).
+ 
+CAP: A side may never exceed 17½ VP — any excess is forfeit.
+ 
+PLESKAU-SPECIFIC: In the Pleskau scenario only, additional VP
+are earned for enemy Lords removed (5.1); these are tracked
+with the round markers provided, on the Calendar, in addition
+to the standard Victory marker.
+ 
+ 
+----------------------------------------------------------------
+END-OF-CAMPAIGN CALENDAR EVENTS  (Rule 4.9)
+----------------------------------------------------------------
+GROW (4.9.1):
+  At the END of each Rasputitsa (turn 8 and turn 16):
+  Teutons then Russians remove enemy Ravaged markers from the
+  map down to half their original count (round UP).
+  EXAMPLE: 5 black Ravaged on the map at end of Rasputitsa →
+           reduce to 3 (5 / 2 = 2.5, round up to 3).
+ 
+GAME END (4.9.2):
+  If the concluded Campaign was the scenario's final 40 Days,
+  the game ends and highest VP wins (5.3). Otherwise proceed.
+ 
+PLOW AND REAP (4.9.3):
+  At end of the second Summer 40 Days (boxes 2 and 10), all
+  Lords flip all their Carts to Sleds.
+  At end of the second Late Winter 40 Days (boxes 6 and 14),
+  all Lords flip all their Sleds to Carts.
+  Each Lord then DISCARDS Sleds or Carts down to half his
+  pre-flip count (round UP).
+  EXAMPLE: A Lord with 5 Carts and 0 Sleds at end of Summer
+           flips to 5 Sleds, then discards down to 3 Sleds.
+ 
+WASTAGE (4.9.4):
+  Teutons then Russians: each Lord with more than one of any
+  Asset type or more than one This Lord Capability card must
+  discard exactly one Asset or one such card from that Lord.
+  Wastage applies to LORDS only, not to the Veche box.
+ 
+RESET (4.9.5):
+  - Unstack any Lieutenants and Lower Lords.
+  - Remove all Serfs from Russian mats (even if Besieged) to
+    the Smerdi Capability card.
+  - Discard all "This Campaign" Events.
+  - Each side may discard any Arts of War cards back to its
+    deck (Teutons then Russians).
+  - Advance the Levy/Campaign marker to the next 40-Days box,
+    flipped to Levy.
+  - If the new 40 Days is the year's first Late Winter (box 5 or
+    box 13), discard the Crusade Capability if in play and
+    Disband the Summer Crusaders Special Vassal.
+ 
+ 
+================================================================
+PART II — THE NOVGOROD VECHE
+================================================================
+ 
+PURPOSE  (Rule 1.3.3, 1.4.2)
+The Veche box, located at one corner of the map, holds Russian
+Coin and 1VP Conquered markers representing Novgorod's wealth
+and political independence. The Veche is the Russian higher
+authority — analog of the Teutonic Papal Legate — and may help
+Muster Lords, grant extra Levy actions, or generate VP via Call
+to Arms.
+ 
+ 
+----------------------------------------------------------------
+CONTENTS AND CAPACITY  (Rule 1.4.2 Wastage)
+----------------------------------------------------------------
+The Veche box may hold AT MOST:
+  - 8 Coin markers, AND
+  - 8 white 1VP Conquered markers (i.e., 8 Veche VP).
+ 
+Any excess earned beyond these caps is FORFEIT (lost
+immediately upon being added). This is a hard ceiling on Veche
+buildup.
+ 
+ 
+----------------------------------------------------------------
+SCENARIO STARTING VECHE
+----------------------------------------------------------------
+Each scenario specifies the Veche's starting contents:
+ 
+  Pleskau ............... 1 white 1VP Conquered.
+  Watland ............... 1 white 1VP Conquered, Coin x1.
+  Return of the Prince .. 3 white 1VP Conquered, Coin x2.
+  ROTP Nicolle Variant .. 3 white 1VP Conquered, Coin x2.
+  Peipus ................ 4 white 1VP Conquered, Coin x3.
+  Crusade on Novgorod ... 1 white 1VP Conquered.
+ 
+Bidding for Sides (6.0): if used, the Russian player adds
+1VP Conquered markers to the Veche box equal to the bid.
+ 
+ 
+----------------------------------------------------------------
+COIN INTERACTIONS WITH THE VECHE
+----------------------------------------------------------------
+ADDING COIN:
+  Coin enters the Veche only via Events, Capabilities (e.g., the
+  R8 Black Sea Trade Capability), or scenario setup. Lord Tax
+  (4.7.4) adds Coin to a Lord's mat, NOT to the Veche.
+ 
+SPENDING COIN:
+  Veche Coin is NOT spent by Lords directly. Veche Coin is used
+  during Veche Call to Arms (3.5.2) — see actions below — and
+  via specific cards. Coin held on Lord mats is separate.
+ 
+NOVGOROD CONQUERED  (Rule 1.4.2):
+  If the Teutons Conquer Novgorod (4.5):
+    - Remove ALL Coin from the Veche box.
+    - If Novgorod was Sacked (Stormed and lost by Defenders),
+      add the removed Coin to the Storm's Spoils (4.5.2).
+    - The Veche box may continue Call to Arms even while
+      Novgorod is Conquered (3.5.2).
+ 
+ 
+----------------------------------------------------------------
+VECHE CALL TO ARMS  (Rule 3.5.2)
+----------------------------------------------------------------
+After the Teutonic Papal Legate step (3.5.1), the Russian player
+may take ONE Veche action this Levy, OR do nothing. The Veche
+may act EVEN WHILE NOVGOROD IS CONQUERED.
+ 
+The Russian player chooses ONE of the following:
+ 
+  ACTION A — Slide a Lord cylinder LEFT
+    Cost: Remove 1× 1VP Conquered marker from the Veche box.
+          (Adjust the white Victory marker on the Calendar.)
+    Effect: Slide one Lord cylinder on the Calendar 2 boxes
+            LEFT (i.e., toward Ready / earlier Muster).
+ 
+  ACTION B — Auto-Levy a Russian Lord
+    Cost: Remove 1× 1VP Conquered marker from the Veche box.
+    Effect: Automatically Levy ONE Ready Russian Lord (3.4.1)
+            without rolling Fealty.
+ 
+  ACTION C — Bonus Lordship for one Russian Lord
+    Cost: Remove 1× 1VP Conquered marker from the Veche box.
+    Effect: One Russian Lord at any Friendly Locale (NOT a
+            Siege Locale) immediately performs an EXTRA Muster
+            using his Lordship rating (3.4).
+ 
+  ACTION D — Decline a Suzdalian Prince (gain Veche VP)
+    Slide Aleksandr's and/or Andrey's cylinder(s) on the
+    Calendar from Ready (at or left of current Levy) to ONE
+    BOX RIGHT of the current Levy box.
+    If both are Ready, the Russian must slide BOTH cylinders.
+    Add ONE white 1VP Conquered marker total to the Veche box
+    (subject to the 8-VP Wastage cap, 1.4.2).
+ 
+ALEKSANDR EXCEPTION  (Rule 1.5.3, 3.5.2):
+  Aleksandr has NO Fealty rating. No other Lord may Levy him.
+  The Veche is the ONLY way to bring Aleksandr from Ready to
+  Mustered (via Action B above, or via specific Capabilities/
+  Events that add him to the map).
+ 
+ 
+----------------------------------------------------------------
+VECHE VP TRACKING
+----------------------------------------------------------------
+Veche 1VP Conquered markers count toward the Russian VP total
+(5.1) just as if they were on the map:
+  - Each marker in the Veche box = 1 Russian VP.
+  - The white Victory marker on the Calendar reflects the
+    cumulative Russian total INCLUDING Veche markers.
+ 
+When Veche VP markers are spent (Actions A, B, or C above),
+adjust the Russian Victory marker DOWN by 1 each time. When
+Action D adds a marker, adjust the Russian Victory marker UP
+by 1 (subject to the 8-marker Wastage cap on the Veche box,
+and the 17½ cap on the Calendar).
+ 
+ 
+================================================================
+PART III — QUICK REFERENCE TABLES
+================================================================
+ 
+SEASON-TO-BOX MAPPING:
+  Box  Season              Year     Plan-Stack Size
+  ---  ------------------  ----     ---------------
+   1   Summer              1240     6
+   2   Summer              1240     6
+   3   Early Winter        1240–41  4
+   4   Early Winter        1240–41  4
+   5   Late Winter         1240–41  4   [Crusade auto-discards]
+   6   Late Winter         1240–41  4   [Plow & Reap: Sleds→Carts]
+   7   Rasputitsa          1241     5
+   8   Rasputitsa          1241     5   [Grow: Ravaged ÷2]
+   9   Summer              1241     6
+  10   Summer              1241     6   [Plow & Reap: Carts→Sleds]
+  11   Early Winter        1241–42  4
+  12   Early Winter        1241–42  4
+  13   Late Winter         1241–42  4   [Crusade auto-discards]
+  14   Late Winter         1241–42  4   [Plow & Reap: Sleds→Carts]
+  15   Rasputitsa          1242     5
+  16   Rasputitsa          1242     5   [Grow: Ravaged ÷2]
+ 
+ 
+TRANSPORT USABILITY BY SEASON:
+                  Summer  EWinter  LWinter  Rasputitsa
+  Boats             Y       —        —         Y
+  Ships             Y       —        —         Y
+  Sleds             —       Y        Y         —
+  Carts             Y       —        —         —
+ 
+ 
+VECHE ACTIONS QUICK CARD:
+  Cost                Action
+  ------------------- -------------------------------------------
+  1 VP marker         Slide a Lord cylinder 2 boxes LEFT.
+  1 VP marker         Auto-Levy 1 Ready Russian Lord (no roll).
+  1 VP marker         1 Russian Lord at Friendly Locale gets
+                      extra Muster using his Lordship.
+  Decline prince(s)   Slide Aleksandr/Andrey cylinder(s) to
+                      1 box RIGHT of current Levy. Gain 1 VP.
+                      Both must be slid if both are Ready.
+  ------------------- -------------------------------------------
+  At most ONE Veche action per Levy. Veche may act even while
+  Novgorod is Conquered.
+ 
+ 
+CALENDAR-WIDE PERIODIC EFFECTS:
+  End of box 2 / 10:  Plow & Reap (Carts → Sleds, halved).
+  End of box 5 / 13:  Crusade Capability auto-discards
+                      (occurs at start of these Late Winter
+                      Levies per 4.9.5; Summer Crusaders
+                      Disband).
+  End of box 6 / 14:  Plow & Reap (Sleds → Carts, halved).
+  End of box 8 / 16:  Grow (Ravaged markers halved, round up).
+  End of box 16:      Game end (full-length scenarios).
+ 

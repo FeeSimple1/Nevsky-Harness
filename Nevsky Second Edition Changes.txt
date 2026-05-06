@@ -1,0 +1,68 @@
+NEVSKY Second Edition – Changes Summary                                  7 June 2023
+ 
+ 
+LORD MATS
+=========
+Hermann and Knud & Abel: Forces replace 1x Men-at-Arms with 1x Militia.
+Knud & Abel: Add Coin x1.
+ 
+ 
+FOLDOUT PAC
+===========
+Commands: Update Supply, Ravage, and Supply Sources and Routes summaries per Rules of Play below.
+Forces: Knights – Add helmet Armor icon to counter image. (Correct Men-at-Arms Melee to "x1".)
+Strongholds: Bishopric and Castle Garrisons – reduce each by 1x Men-at-Arms.
+Battle and Storm: Update Storm Procedure Strike to max 6 Hits/Lord in Melee.
+ 
+ 
+TEUTONS AND RUS PACs
+====================
+Update Hermann and Knud & Abel Forces and Coin per Lord Mats above. Remove Andrey exception.
+ 
+ 
+RULES OF PLAY
+=============
+Arts of War: Each time after drawing a No Event/No Capability card, remove that card from play.
+ 
+Disband: Count cylinder placement from next box if Disbanding during Campaign.
+ 
+Muster and Call to Arms - delete Andrey exception, improve Rus cylinder shift.
+ 
+Vassal Service Advanced Rule: Place Vassal on Calendar only if to left of that Lord's Service marker.
+ 
+Storm: Update to Maximum 6 Melee Hits per Lord per new L&C standard.
+ 
+Supply: Update to 1x Transport/Provender (no double duty on multiple Sources) per new L&C standard.
+ 
+Ravage: Modify to use 2x actions if Unbesieged Enemy Lord is adjacent to the target Locale.
+ 
+End of Campaign: End of each Rasputista (turns 8 & 16), Grow to remove Ravage to ½ total markers.
+ 
+Scenarios: Add a Bidding for sides option, similar to that in Almoravid.
+ 
+Pleskau – Special Rule: Remove all "No Event" Arts of War cards before play.
+ 
+Watland – Updated Lords setup. Special Rule: Victory for Teutons requires 2x Russian VP and reaching 7 VP.
+ 
+Return of the Prince – Gavrilo sets up box 9.
+ 
+Crusade on Novgorod – Andreas sets up box 3; Special: Keep "No" cards.
+ 
+Correct errata and clarify various rules text (such as Battle Array, Relief Sally, and Flanking).
+ 
+ 
+BACKGROUND BOOK
+===============
+Add Quickstart Scenario setup, Battle mini-game.
+Correct errata, update to Second Edition rules, and clarify various text.
+ 
+ 
+NOT INCLUDED IN UPDATE KIT MATERIALS—
+=====================================
+Countersheets: Replace 12x Siege and Conquered with two added sets of "1" to "6" number markers.
+Add helmet Armor icon to Knights counter image.
+ 
+Forces Pieces: Lighter gray steel Sergeants and Men-at-Arms, duller buff Asiatic Horse and tan Serfs.
+Replace 2x Men-at-Arms with 2x Militia (to account for Hermann and Knud & Abel Forces changes above).
+ 
+Gameboard: Add tiny green "Ravaged to ½ (round up)" at lower right corner of Calendar.

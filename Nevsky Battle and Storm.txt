@@ -1,0 +1,447 @@
+{
+  "section": "Battle and Storm",
+  "edition": "2nd (2023)",
+  "sources": [
+    "Rules of Play 4.4-4.5",
+    "Foldout PAC",
+    "Second Edition Changes"
+  ],
+  "rule_refs": {
+    "battle": "4.4.1-4.4.5",
+    "storm": "4.5.2",
+    "sally": "4.5.3"
+  },
+  "lookups": {
+    "initiative": {
+      "battle": [
+        "archery.defender",
+        "archery.attacker",
+        "melee.horse.defender",
+        "melee.horse.attacker",
+        "melee.foot.defender",
+        "melee.foot.attacker"
+      ],
+      "storm": [
+        "archery.defender",
+        "archery.attacker",
+        "melee.all_defenders",
+        "melee.all_attackers"
+      ]
+    },
+    "strike_caps": {
+      "battle": {
+        "archery": "unlimited",
+        "melee": "unlimited"
+      },
+      "storm": {
+        "archery": "unlimited",
+        "melee_hits_per_lord": 6,
+        "rule_ref": "4.5.2 (2E)"
+      }
+    },
+    "protection": {
+      "walls": {
+        "rolled_when": [
+          "storm",
+          "sally",
+          "by_event"
+        ],
+        "rolled_in_battle_only_if_event": true,
+        "dice_per_hit": 1,
+        "effect": "roll within range cancels 1 Hit",
+        "applies_before": "assigning Hits to units"
+      },
+      "armor": {
+        "rolled_when": [
+          "any_strike"
+        ],
+        "effect": "roll within range absorbs Hit without Rout",
+        "stacks": "absorbing unit may take multiple Hits if it keeps succeeding"
+      },
+      "evade": {
+        "rolled_when": [
+          "any_strike"
+        ],
+        "blocked_when": [
+          "hit_is_archery",
+          "phase==storm"
+        ],
+        "effect": "roll within range absorbs Hit without Rout"
+      },
+      "unarmored": {
+        "rolled_when": [
+          "no_armor AND no_evade AND not_serf"
+        ],
+        "effect": "roll of 1 absorbs Hit without Rout"
+      },
+      "serf": {
+        "rolled_when": [],
+        "effect": "remove unit on any Hit; no roll"
+      }
+    },
+    "service_shift_on_retreat": {
+      "applies_to": [
+        "lord_retreated"
+      ],
+      "excludes": [
+        "lord_withdrew_into_stronghold"
+      ],
+      "vassals_shift": "only under advanced Vassal Service rule (3.4.2)",
+      "die_to_boxes": {
+        "1": 1,
+        "2": 1,
+        "3": 2,
+        "4": 2,
+        "5": 3,
+        "6": 3
+      },
+      "formula": "ceil(die / 2)"
+    },
+    "pursuit": {
+      "trigger": "side Concedes the Field at start of Round (battle only)",
+      "effect": "enemy gains Pursuit; Conceder's total Hits halved (round up by step) that Round",
+      "rule_ref": "4.4.2"
+    },
+    "garrison_in_storm": {
+      "place_when": "start of Storm",
+      "remove_when": [
+        "routed",
+        "storm_ended"
+      ],
+      "men_at_arms_archery": {
+        "has_archery": true,
+        "armor_modifier_vs_target": -2,
+        "rule_ref": "4.5.2"
+      },
+      "knights": {
+        "has_archery": false
+      },
+      "hit_assignment_rule": "Defender must assign Hits to Garrison until Routed, then to Front Lord's units",
+      "strikes_combine_with": "Defending Front Lord (round up combined totals)",
+      "affected_by_lord_cards": false
+    },
+    "siegeworks_in_storm": {
+      "value": "Walls range = 1..siege_markers",
+      "vs": [
+        "archery",
+        "melee"
+      ],
+      "max_markers": 4,
+      "rule_ref": "4.5.2"
+    }
+  },
+  "round_phase": {
+    "loop_until": "side loses (all Lords Rout, OR Conceded, OR Storm round count == siege markers)",
+    "steps": [
+      {
+        "id": "array_and_events",
+        "name": "Array Lords / Play Events",
+        "battle": {
+          "active_attacker_position": "front.center",
+          "other_attackers": "fill front.left and front.right (one each), remainder to reserve",
+          "defenders": "place opposite each Front Attacker, center first then left/right",
+          "max_lords_per_front_slot": 1,
+          "events": "attacker first, then defender, play any held Events",
+          "see_also": [
+            "sally",
+            "relief_sally"
+          ]
+        },
+        "storm": {
+          "active_attacker_position": "front (sole Front Lord)",
+          "other_attackers": "reserve",
+          "defenders": "one Lord in front, others reserve",
+          "garrison_setup": "defender places Garrison per Strongholds table",
+          "siegeworks_setup": "attacker treats siege markers as Walls",
+          "events": "attacker first, then defender, play any held Events"
+        }
+      },
+      {
+        "id": "concede_or_reposition",
+        "name": "Concede? / Reposition",
+        "battle": {
+          "concede": {
+            "order": [
+              "attacker",
+              "defender"
+            ],
+            "effect": "declare this Round as last; conceder loses; enemy gains Pursuit (halves conceder Hits this Round)",
+            "rule_ref": "4.4.2"
+          },
+          "reposition": {
+            "applies_in_round_1": false,
+            "sequence": [
+              "advance_reserves: attacker then defender slide reserves into any empty front slot",
+              "fill_center:     if center empty, attacker then defender must slide a Front Lord from left or right into center",
+              "flanking_resolves: any Front Lord with no enemy opposite Flanks the closest enemy in that row"
+            ]
+          }
+        },
+        "storm": {
+          "concede": {
+            "order": [
+              "attacker"
+            ],
+            "effect": "attacker ends Storm now as loser; no Pursuit",
+            "rule_ref": "4.5.2"
+          },
+          "reposition": {
+            "applies_in_round_1": false,
+            "sequence": [
+              "switch_front_reserve: attacker then defender may swap their Front Lord with any one Reserve Lord",
+              "fill_routed_front:   if starting new Round and Front Lord Routed, advance any one Reserve Lord to Front"
+            ]
+          }
+        }
+      },
+      {
+        "id": "strike",
+        "name": "Strike",
+        "rule_for": "each Strike step in initiative order",
+        "battle": {
+          "initiative": "lookups.initiative.battle",
+          "target_rule": "Strike opposite Lord; if Flanking, Strike closest enemy Lord in that row"
+        },
+        "storm": {
+          "initiative": "lookups.initiative.storm",
+          "target_rule": "Strike opposite Lord (Storm uses single Front lane)",
+          "melee_cap_per_lord_hits": 6,
+          "archery_cap": "unlimited"
+        }
+      },
+      {
+        "id": "hits",
+        "name": "Hits",
+        "shared": {
+          "hit_generation": "automatic per unit type and Strike type from Forces table; sum opposite + Flanks + Garrison; round up",
+          "rounding": "round up at step end (not per source)",
+          "pursuit_modifier": "if active Round, halve Conceder's total Hits (round up)",
+          "russian_archery_round_up_special": "when Streltsy/Asiatic mix produces Armor reduction, round up halves that cause the reduction"
+        },
+        "battle": {
+          "walls_rolled": false,
+          "hit_assignment": "Hits go to opposed Lord; Flanking Lord may absorb if no other Flanker on target; owner picks unit per Hit"
+        },
+        "storm": {
+          "walls_rolled": true,
+          "siegeworks_rolled_for": "attacker (siege markers as Walls)",
+          "stronghold_walls_rolled_for": "defender",
+          "hit_assignment_attacker": "Armored units must absorb Hits before unarmored",
+          "hit_assignment_defender": "Garrison units absorb all Hits before Front Lord units"
+        }
+      },
+      {
+        "id": "protection",
+        "name": "Protection",
+        "by_type": "lookups.protection",
+        "process": [
+          "roll Walls (if applicable) per Hit; cancel Hits within range",
+          "owner assigns each remaining Hit to a unit",
+          "unit rolls its Protection (Armor > Evade > Unarmored > Serf, by what it has)",
+          "fail = Rout that unit; pass = unit absorbs Hit, keeps standing, may absorb more"
+        ]
+      },
+      {
+        "id": "rout",
+        "name": "Rout",
+        "shared": {
+          "unit_rout_effect": "slide unit to Routed area of Lord's mat; cannot Strike or absorb further Hits this Battle/Storm",
+          "garrison_rout_effect": "remove Garrison unit from play (return to pool at Storm end anyway)",
+          "lord_rout": "when last Unrouted unit Routs, the Lord Routs; remove from Array immediately",
+          "row_rout": "when entire row Routs, ignore remaining Hits against that row",
+          "flanking_recheck": "Lord Rout may create new Flanking; apply remaining Hits accordingly"
+        }
+      },
+      {
+        "id": "new_round_check",
+        "name": "New Round?",
+        "battle": {
+          "loss_conditions_for_side": [
+            "all that side's Lords Routed",
+            "that side Conceded the Field this Round"
+          ],
+          "if_no_loss": "begin new Round at concede_or_reposition"
+        },
+        "storm": {
+          "loss_conditions_for_side": [
+            "all that side's Lords Routed (attacker or defender)",
+            "rounds_completed >= siege_markers (attacker loses by default)",
+            "attacker conceded"
+          ],
+          "if_no_loss": "begin new Round at concede_or_reposition"
+        }
+      }
+    ]
+  },
+  "ending_phase": {
+    "trigger": "a side has lost per round_phase.new_round_check",
+    "steps": [
+      {
+        "id": "retreat_withdraw_remove",
+        "name": "Retreat / Withdraw / Conquered",
+        "battle": {
+          "loser_lord_options": [
+            {
+              "option": "retreat",
+              "to": "adjacent Locale with no Unbesieged enemy Lords or Strongholds",
+              "constraints": [
+                "defenders may not retreat along any Way attackers used to Approach",
+                "marching attackers must retreat to Locale they Approached from",
+                "no retreat via Seaport"
+              ]
+            },
+            {
+              "option": "withdraw",
+              "to": "friendly Stronghold at Battle Locale",
+              "capacity": "up to siege Capacity",
+              "required_for": [
+                "sallying_attackers"
+              ]
+            },
+            {
+              "option": "remove",
+              "effect": "Lord permanently removed (1.5.1)"
+            }
+          ],
+          "legate_loss": "if Legate with Withdrawing/Retreating Teutonic Lord, remove pawn and discard William of Modena"
+        },
+        "storm": {
+          "if_defender_loses": {
+            "result": "Sack",
+            "effects": [
+              "all Besieged Lords permanently removed",
+              "attackers Conquer Stronghold; place/remove Conquered markers; adjust VP",
+              "remove all siege markers",
+              "award Stronghold spoils (see spoils.storm)"
+            ]
+          },
+          "if_attacker_loses": {
+            "result": "Storm ends; Siege continues",
+            "effects": [
+              "return siege markers to map",
+              "no Retreat",
+              "no Spoils"
+            ]
+          }
+        }
+      },
+      {
+        "id": "losses",
+        "name": "Losses",
+        "shared": {
+          "process": "for each Routed unit, roll 1 die; failed roll = remove unit",
+          "thresholds": [
+            {
+              "applies_to": "unit of Lord who Retreated WITHOUT Conceding",
+              "needs_roll_of": [
+                1
+              ]
+            },
+            {
+              "applies_to": "unit of Attacker in Storm",
+              "needs_roll_of": [
+                1
+              ]
+            },
+            {
+              "applies_to": "unit of any other Lord (Withdrew, Conceded+Retreated, etc.)",
+              "needs_roll_of": "within unmodified Protection range (Armor / Evade / Unarmored)"
+            }
+          ],
+          "asiatic_horse_special": "always uses Evade range",
+          "lord_with_zero_units": "permanently remove from game"
+        }
+      },
+      {
+        "id": "spoils",
+        "name": "Spoils",
+        "battle": {
+          "transfer_from_loser_to_winner": [
+            {
+              "loser_state": "removed",
+              "transfer": "all Assets except Ships"
+            },
+            {
+              "loser_state": "retreated_without_conceding",
+              "transfer": "all Assets except Ships"
+            },
+            {
+              "loser_state": "conceded_then_retreated",
+              "transfer": "all Loot + excess Provender beyond Retreat carry capacity (so Retreat is not Laden)"
+            },
+            {
+              "loser_state": "withdrew",
+              "transfer": "none"
+            }
+          ],
+          "ships_never_taken": true
+        },
+        "storm": {
+          "applies_when": "defender_lost_via_sack",
+          "from_lords": "as Battle (all Assets except Ships from removed Lords)",
+          "from_stronghold": {
+            "loot": "= stronghold VP",
+            "provender": "= stronghold VP",
+            "coin": "= stronghold VP"
+          },
+          "novgorod_special": {
+            "trigger": "Teutonic Lords Sack Novgorod",
+            "effect": "all Veche Coin to attackers as Spoils",
+            "rule_ref": "4.5.2 + 1.3.3"
+          },
+          "if_attacker_lost": "no spoils"
+        }
+      },
+      {
+        "id": "service",
+        "name": "Service",
+        "rule": {
+          "applies_to": "each Retreating Lord (NOT Withdrawing Lord)",
+          "process": "roll 1 die per such Lord; shift Service marker left by lookups.service_shift_on_retreat.die_to_boxes[roll]",
+          "vassals": "shift each Vassal's marker the same number, ONLY under advanced Vassal Service rule (3.4.2)"
+        }
+      },
+      {
+        "id": "aftermath",
+        "name": "Aftermath",
+        "rule_ref": "4.4.5",
+        "actions": [
+          "mark all participating Lords Moved/Fought (incl. Storm Reserves)",
+          "discard any 'Hold' Events used this Battle/Storm",
+          "if Battle/Storm started Siege: add 1 siege marker",
+          "if Battle/Storm lifted Siege: remove all siege markers there",
+          "if Sally Raid (4.5.3): reduce siege to 1 marker",
+          "if boxed Locale (Trade Route or Stronghold) changed hands: adjust Conquered markers and VP",
+          "if Novgorod Conquered: see spoils.storm.novgorod_special"
+        ],
+        "recovery": "no further Actions on current Command card; proceed to Feed/Pay/Disband (4.8)"
+      }
+    ]
+  },
+  "second_edition_corrections_applied": [
+    {
+      "change": "Storm Strike: max 6 Melee Hits per Lord (Archery unlimited)",
+      "location_in_this_doc": "round_phase.steps[strike].storm.melee_cap_per_lord_hits",
+      "source": "Second Edition Changes + Rules 4.5.2"
+    },
+    {
+      "change": "Vassal Service shift labeled as advanced rule (3.4.2) only",
+      "location_in_this_doc": "lookups.service_shift_on_retreat.vassals_shift",
+      "source": "Rules 4.4.3"
+    },
+    {
+      "change": "Walls roll only in Storm/Sally/by Event (not normal Battle)",
+      "location_in_this_doc": "lookups.protection.walls.rolled_when",
+      "source": "Rules 4.4.2"
+    },
+    {
+      "change": "Garrison Men-at-Arms have Archery with -2 Armor on target",
+      "location_in_this_doc": "lookups.garrison_in_storm.men_at_arms_archery",
+      "source": "Rules 4.5.2"
+    }
+  ],
+  "panel_excludes": [
+    "Strongholds table (separate panel; Bishopric/Castle Garrisons reduced -1 Men-at-Arms in 2E)",
+    "Forces table (separate panel; Knights gain Armor helmet icon in 2E; Men-at-Arms Melee corrected to x1)"
+  ]
+}

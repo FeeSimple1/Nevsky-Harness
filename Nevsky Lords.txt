@@ -1,0 +1,906 @@
+NEVSKY LORDS — Mat Reference
+============================
+Compiled per Rules of Play (Second Edition) and Second Edition Changes.
+Defaults assumed for every Lord unless noted otherwise:
+  - Resource maximum: 8 each
+  - Mat carries the note "(no Ships)" where applicable
+  - Teutonic Lords' mats carry the note: If Ordensburgen: Commanderies
+    (Commanderies count as added Seats; +1 Command when starting a
+    Command card already at a Commandery — per Capability T12)
+  - Russian Lords' mats carry the note: If Archbishopric: Novgorod
+    (Novgorod counts as an added Seat for ALL Russian Lords; +1 Command
+    when starting a Command card already at Novgorod — per Capability R15)
+ 
+ 
+================================================================
+HERMANN, BISHOP OF DORPAT  (Teutonic)
+================================================================
+Seats:        Dorpat, Odenpäh
+Mat note:     If Ordensburgen: Commanderies
+ 
+Ratings:
+  Fealty:     4
+  Service:    4
+  Lordship:   3
+  Command:    3
+ 
+Cylinder:     Command "3" on sticker.
+              Two cylinders provided — Marshal (with gold ring) used
+              when Andreas is not on the map; non-Marshal cylinder used
+              when Andreas is on the map.
+ 
+Forces (start):  [Per 2nd Edition Changes: 1x Men-at-Arms replaced with 1x Militia]
+  1x Knight
+  1x Sergeant
+  1x Men-at-Arms
+  1x Militia
+ 
+Assets (start):
+  Coin x1
+  Transport x1 (no Ship)
+  Provender x1
+  Mat: max 8 each; (no Ships)
+ 
+Vassals:
+  Helmold von Lüneburg ........ 1x Knight, 1x Men-at-Arms .... Service 2
+  Ugaunian Auxiliaries ........ 1x Light Horse, 1x Militia ... Service 1
+  Johannes von Dolen .......... 1x Knight, 1x Men-at-Arms .... Service 2
+ 
+See also:
+  T7 Tverdilo — Pskovan ally (Teutonic Event) —
+      Hold. Play on Hermann OR Yaroslav to shift that Lord's
+      cylinder 2 Calendar boxes (Teutons choose direction)
+      OR for Lordship +2. Lordship bonus may apply to either
+      the Muster or Call to Arms segment. Discard the moment
+      used. Models pro-Mstislavich Pskovan nobleman Tverdilo
+      Ivankovich opening Pskov's gates to the Teutons in 1240.
+ 
+ 
+================================================================
+RUDOLF VON KASSEL, CASTELLAN OF WENDEN  (Teutonic)
+================================================================
+Seats:        Wenden
+Mat note:     If Ordensburgen: Commanderies
+ 
+Ratings:
+  Fealty:     5
+  Service:    2
+  Lordship:   1
+  Command:    3
+ 
+Cylinder:     Command "3" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Knight
+  1x Sergeant
+  1x Men-at-Arms
+ 
+Assets (start):
+  Transport x1 (no Ship)
+  Provender x1
+  (No starting Coin)
+  Mat: max 8 each; (no Ships)
+ 
+Vassals:
+  Ex-Sword Brethren .......... 1x Knight, 1x Sergeant ........ Service 2
+  Jerwen Teutonic Vassals .... 1x Knight, 1x Men-at-Arms ..... Service 2
+  Summer Crusaders ........... 2x Knights .................... Service 2
+      Special Vassal — requires Crusade Capability (T11) in play.
+      Musters only in Summer; auto-Musters for free if Lord is
+      Mustered and Unbesieged. Disbands when Crusade is discarded
+      (auto-discard at the first Late Winter 40-Days each year).
+ 
+See also:
+  T8 Teutonic Fervor (Teutonic Event) —
+      Hold. Play on Rudolf to shift cylinder 2 Calendar boxes
+      OR for Lordship +2. Discard the moment used. Rudolf may
+      use the bonus to Levy the Capability on the same card.
+      May be combined with T17 Dietrich von Grüningen at the
+      same time. While Russian Event R17 Dietrich von Grüningen
+      is in effect, Rudolf may not use any Lordship even with
+      Teutonic Fervor.
+  T11 Crusade (Capability) — Andreas and Rudolf are the two
+      named Lords who receive Summer Crusader Knights as a
+      free auto-Muster each Summer Levy if Mustered and
+      Unbesieged. See Rudolf's Summer Crusaders Vassal entry
+      above for full mechanics.
+  T17 Dietrich von Grüningen focuses Order on Rus (Teutonic Event) —
+      Hold. Play on Andreas OR Rudolf to shift cylinder 2 boxes
+      OR for Lordship +2. Discard the moment used. Andreas or
+      Rudolf may use the bonus to Levy the Capability on the
+      same card. While Russian Event R17 is in effect, neither
+      Lord may use any Lordship even with this Event.
+  R17 Dietrich von Grüningen leads Order to Kurland (Russian Event) —
+      On Calendar, shift Andreas OR Rudolf cylinder OR their
+      Service 1 box (Russians choose direction); this Levy, no
+      Muster of OR by them. Blocks their Lordship use, including
+      during Call to Arms and via any Teutonic Events. Discard
+      at end of Levy. Models the 1241 Teutonic campaign west
+      into Curonia that pulled the Order's leadership away
+      from the Rus front.
+ 
+ 
+================================================================
+HEINRICH, BISHOP OF ÖSEL-WIEK  (Teutonic)
+================================================================
+Seats:        Leal
+Mat note:     If Ordensburgen: Commanderies
+ 
+Ratings:
+  Fealty:     3
+  Service:    4
+  Lordship:   2
+  Command:    1
+ 
+Cylinder:     Command "1" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Knight
+  1x Sergeant
+  1x Men-at-Arms
+ 
+Assets (start):
+  Coin x1
+  Ship x2     [exception to the standard "(no Ships)" default —
+               Heinrich's mat carries a positive "Ships" notation,
+               authorizing him to Levy Ships per Rule 3.4.3]
+  Provender x1
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Odward von Lode ............ 1x Knight, 1x Men-at-Arms .... Service 2
+  Heinrich von Lode .......... 1x Knight, 1x Men-at-Arms .... Service 2
+ 
+See also:
+  T1 Treaty of Stensby (Capability) — Heinrich AND Knud & Abel
+      Command +1. Affects both Lords; not "This Lord". Bonus
+      is cumulative with Legate effects and with T3 Converts.
+      Models the 1238 Danish-Teutonic settlement over Estonia.
+  T13 Heinrich Sees the Curia (Teutonic Event) —
+      Hold. Play to immediately Disband Heinrich (regardless
+      of Service or situation) and add 4 non-Loot Assets each
+      to 2 on-map Teutonic Lords. Other Disband rules apply.
+      If Heinrich is not on map when this Event is drawn, it
+      delays Levy of the William of Modena Capability until
+      this Event is discarded or Heinrich Musters. Permanent
+      removal of Heinrich in Battle or Storm does NOT trigger
+      or equate to play of this Event. Models Heinrich's 1241
+      personal trip to Rome to lobby the Pope.
+  R9 Osilian Revolt (Russian Event) —
+      On Calendar, Teutons choose to shift Service of Andreas
+      OR Heinrich 2 boxes left, to the degree able. If only
+      one is on the map, his marker shifts. If both are on
+      the map, the Teutons player selects, as long as neither
+      marker is yet in box 1 or off the left end of the
+      Calendar. Discard immediately. Models the winter
+      1241–1242 pagan revolt on Ösel (Saaremaa) that Heinrich
+      could not suppress alone, drawing Andreas across the
+      sea ice.
+ 
+ 
+================================================================
+YAROSLAV, EXILE OF PSKOV  (Teutonic side; Russian prince)
+================================================================
+Seats:        Pskov (only if Conquered by the Teutons —
+                     i.e., black Conquered markers present at Pskov,
+                     per Rule 3.4.1 procedure note)
+              Odenpäh
+Mat note:     If Ordensburgen: Commanderies
+ 
+Ratings:
+  Fealty:     4
+  Service:    2
+  Lordship:   1
+  Command:    2
+ 
+Cylinder:     Command "2" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Knight
+  1x Men-at-Arms
+  1x Light Horse
+ 
+Assets (start):
+  Transport x1 (no Ship)
+  Provender x1
+  (No starting Coin)
+  Mat: max 8 each; (no Ships)
+ 
+Vassals:
+  Mstislavich Partisans ...... 2x Militia .................... Service 2
+ 
+See also:
+  T7 Tverdilo — Pskovan ally (Teutonic Event) —
+      Hold. Play on Hermann OR Yaroslav to shift that Lord's
+      cylinder 2 Calendar boxes OR for Lordship +2. Discard
+      the moment used. See Hermann's See also for full text.
+ 
+ 
+================================================================
+KNUD & ABEL, PRINCES OF DENMARK  (Teutonic)
+================================================================
+Seats:        Reval, Wesenberg
+Mat note:     If Ordensburgen: Commanderies
+ 
+Ratings:
+  Fealty:     2
+  Service:    3
+  Lordship:   3
+  Command:    2
+ 
+Cylinder:     Command "2" on sticker. (Not a Marshal.)
+ 
+Forces (start):  [Per 2nd Edition Changes: 1x Men-at-Arms replaced with 1x Militia]
+  1x Knight
+  1x Sergeant
+  2x Men-at-Arms
+  1x Militia
+ 
+Assets (start):  [Per 2nd Edition Changes: Coin x1 added]
+  Coin x1
+  Ship x2     [exception to the standard "(no Ships)" default —
+               Knud & Abel's mat carries a positive "Ships" notation,
+               authorizing them to Levy Ships per Rule 3.4.3.
+               Per Playbook, Knud & Abel always start with Ships.]
+  Provender x2
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Estonian Auxiliaries ....... 1x Light Horse, 1x Militia ... Service 1
+  Dietrich von Kivel ......... 1x Knight, 1x Men-at-Arms .... Service 2
+  Otto von Lüneburg .......... 1x Knight, 1x Men-at-Arms .... Service 2
+ 
+See also:
+  T1 Treaty of Stensby (Capability) — Heinrich AND Knud & Abel
+      Command +1. Affects both Lords; not "This Lord". Models the
+      1238 Danish-Teutonic settlement over Estonia.
+  R11 Valdemar — Danish unrest after king's death (Russian Event) —
+      On Calendar, shift Knud & Abel cylinder OR their Service
+      marker up to 1 box (Russian chooses direction). This Levy:
+      no Muster of OR by Knud & Abel (blocks their Lordship use,
+      including during Call to Arms). Discard at end of Levy. May
+      recur. Models the 1241 death of Valdemar II and the Danish
+      succession crisis that drew the brothers home.
+ 
+ 
+================================================================
+ANDREAS VON FELBEN, LANDMEISTER IN LIVONIA  (Teutonic)
+================================================================
+Seats:        Riga, Wenden
+Mat note:     If Ordensburgen: Commanderies
+ 
+Ratings:
+  Fealty:     2
+  Service:    4
+  Lordship:   3
+  Command:    3
+ 
+Cylinder:     Command "3" on sticker.
+              Marshal cylinder (with gold ring) — Andreas is the
+              permanent Teutonic Marshal whenever on the map
+              (per 1.5.1). Only one cylinder; no non-Marshal
+              alternate (unlike Hermann/Andrey).
+ 
+Forces (start):
+  1x Knight
+  2x Sergeants
+  1x Men-at-Arms
+ 
+Assets (start):
+  Transport x2 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        Andreas's mat consequently carries a
+                        positive "Ships" notation, authorizing him
+                        to Levy Ships per Rule 3.4.3.]
+  Provender x2
+  (No starting Coin)
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Teutonic Vassals ........... 1x Knight, 2x Men-at-Arms .... Service 3
+  Lettgallian Auxiliaries .... 1x Light Horse, 1x Militia ... Service 1
+  Summer Crusaders ........... 3x Knights .................... Service 2
+      Special Vassal — requires Crusade Capability (T11) in play.
+      Musters only in Summer; auto-Musters for free if Lord is
+      Mustered and Unbesieged. Disbands when Crusade is discarded
+      (auto-discard at the first Late Winter 40-Days each year).
+      Note: Andreas's Summer Crusaders contingent (3 Knights) is
+      larger than Rudolf's (2 Knights), reflecting the Landmeister's
+      authority to draw the bulk of arriving pilgrim crusaders.
+ 
+See also:
+  T11 Crusade (Capability) — Andreas and Rudolf are the two
+      named Lords who receive Summer Crusader Knights as a
+      free auto-Muster each Summer Levy if Mustered and
+      Unbesieged. See Andreas's Summer Crusaders Vassal entry
+      above for full mechanics.
+  T17 Dietrich von Grüningen focuses Order on Rus (Teutonic Event) —
+      Hold. Play on Andreas OR Rudolf to shift cylinder 2 boxes
+      OR for Lordship +2. Discard the moment used. Andreas or
+      Rudolf may use the bonus to Levy the Capability on the
+      same card. While Russian Event R17 is in effect, neither
+      Lord may use any Lordship even with this Event.
+  R9 Osilian Revolt (Russian Event) —
+      On Calendar, Teutons choose to shift Service of Andreas
+      OR Heinrich 2 boxes left, to the degree able. Discard
+      immediately. See Heinrich's See also for full text.
+      Models Andreas's 1241–1242 march across the Baltic Sea
+      ice to suppress the Ösel pagan revolt.
+  R10 Batu Khan — Mongols turn west (Russian Event) —
+      On Calendar, shift Andreas cylinder OR Service up to 2
+      boxes (Russians choose direction); off-Calendar positions
+      do not force opposite shifts; shifting just one box off
+      the Calendar from box 1 or box 16 is allowed. Discard
+      immediately. Models the Mongol invasion of Poland and
+      Hungary in 1241–1242 (incl. the Order's defeat at
+      Liegnitz, April 1241) drawing Teutonic resources west.
+  R14 Prussian Revolt (Russian Event) —
+      If Andreas is on map and Unbesieged and nothing at Riga
+      (no Lords, no Legate, no Conquered marker, no Ravage,
+      no piece or marker of any kind at the Riga Locale),
+      put him there; if on Calendar, shift him 2 boxes right.
+      Discard immediately.
+  R17 Dietrich von Grüningen leads Order to Kurland (Russian Event) —
+      On Calendar, shift Andreas OR Rudolf cylinder OR their
+      Service 1 box (Russians choose direction); this Levy, no
+      Muster of OR by them. Blocks their Lordship use, including
+      during Call to Arms and via any Teutonic Events. Discard
+      at end of Levy. Models the 1241 Teutonic campaign west
+      into Curonia that pulled the Order's leadership away
+      from the Rus front.
+ 
+================================================================
+VLADISLAV, BAILIFF OF LADOGA  (Russian)
+================================================================
+Seats:        Ladoga
+              Novgorod (only if Archbishopric Capability R15 in play)
+Mat note:     If Archbishopric: Novgorod
+ 
+Ratings:
+  Fealty:     5
+  Service:    3
+  Lordship:   2
+  Command:    3
+ 
+Cylinder:     Command "3" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Sergeant
+  1x Light Horse
+  2x Men-at-Arms
+ 
+Assets (start):
+  Transport x1 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        Vladislav's mat consequently carries a
+                        positive "Ships" notation, authorizing him
+                        to Levy Ships per Rule 3.4.3.]
+  Provender x1
+  (No starting Coin)
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Izhoran Auxiliaries ........ 1x Militia .................... Service 1
+  Ingrian Auxiliaries ........ 1x Militia .................... Service 1
+  Vodian Auxiliaries ......... 1x Militia .................... Service 1
+  Vepsian Auxiliaries ........ 1x Militia .................... Service 1
+ 
+See also:
+  R13 Pelgui — Baptized Ingrian elder (Russian Event) —
+      Hold. Play on Vladislav OR Karelians to shift cylinder 2
+      Calendar boxes OR for Lordship +2. Lordship bonus may
+      apply to either the Muster or Call to Arms segment.
+      Discard the moment used. Vladislav may use the bonus to
+      Levy the Capability on the same card. Models the
+      historical Pelgui, a baptized elder of the Ingrian people
+      southwest of Ladoga, mentioned in Aleksandr's hagiography
+      for his role in the 1240 Neva campaign.
+  T18 Swedish Crusade into Tavastia (Teutonic Event) —
+      On Calendar, shift cylinder OR Service of Vladislav AND
+      Karelians each 1 box (Teutons choose direction;
+      off-Calendar positions do not force opposite shifts).
+      Discard immediately. Models a Swedish drive to
+      Christianize the Tavastian Finns, which would have
+      diverted Ladogan and Karelian forces away from the
+      Teutonic front.
+ 
+ 
+================================================================
+ANDREY, PRINCE OF SUZDAL  (Russian)
+================================================================
+Seats:        Novgorod
+Mat note:     If Archbishopric: Novgorod (already a Seat — under R15
+                  Archbishopric, Novgorod counts as TWO Seats for him)
+Mat note:     Extra Seat if Archbishopric: Rusa
+                  [Per Rule 1.3.1, the Orthodox cross icon on the
+                   mat is the Archbishopric symbol; "If Extra
+                   [cross]: Rusa" therefore reads as "Extra Seat
+                   if R15 Archbishopric Capability in play: Rusa."
+                   This is a mat-specific rule unique to Andrey
+                   and Aleksandr, granting them Rusa as an
+                   additional Extra Seat beyond the standard
+                   Novgorod doubling that R15 provides to all
+                   Russian Lords.]
+ 
+Ratings:
+  Fealty:     4
+  Service:    5
+  Lordship:   3
+  Command:    2
+ 
+Cylinder:     Command "2" on sticker.
+              Two cylinders provided — Marshal (with gold ring) used
+              when Aleksandr is not on the map; non-Marshal cylinder
+              used when Aleksandr is on the map. (Andrey is a Marshal
+              only if the other Marshal on his side is not currently
+              on the map, per Rule 1.5.1.)
+ 
+2nd Edition:  The "Andrey exception" of the 1st Edition (Andrey only
+              Musterable by Aleksandr) is REMOVED. Per the Sequence
+              of Play file and the 2nd Edition Changes summary, any
+              Russian Lord may now Levy Andrey by the standard
+              Muster procedure (3.4.1), and the Veche may also
+              auto-Muster him. The PAC text reflecting the old
+              exception is obsolete.
+ 
+Forces (start):
+  3x Knights
+  2x Men-at-Arms
+ 
+Assets (start):
+  Transport x2 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        Andrey's mat consequently carries a positive
+                        "Ships" notation, authorizing him to Levy
+                        Ships per Rule 3.4.3.]
+  (No starting Provender)
+  (No starting Coin)
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Vladimir ................... 1x Men-at-Arms ................ Service 4
+  Suzdal ..................... 1x Men-at-Arms ................ Service 4
+  Kipchaqs (1) ............... 3x Asiatic Horse .............. Service 3
+      Special Vassal — requires Steppe Warriors Capability
+      (R10) in play. Only available for Muster while R10 is
+      in effect; Disbands immediately (even if Besieged) upon
+      discard of the Steppe Warriors card.
+  Kipchaqs (2) ............... 3x Asiatic Horse .............. Service 3
+      Second Kipchaq Special Vassal — same Steppe Warriors
+      requirement and same Disband-on-discard behavior as
+      Kipchaqs (1). Andrey is the only Russian Lord with two
+      Kipchaq Vassal slots, reflecting the historical reading
+      that Andrey brought large numbers of horse archers as
+      reinforcements for Aleksandr's 1242 drive on Pskov.
+ 
+See also:
+  T1 Grand Prince favors a son (Teutonic Event) —
+      On Calendar, shift Aleksandr OR Andrey OR furthest
+      right Service of either 2 boxes (Teutons choose
+      direction; off-Calendar positions do not force opposite
+      shifts). If both cylinders are on the Calendar, Teutons
+      choose which to shift. If both Service markers are,
+      the one in the highest Calendar box shifts. If both
+      Service are in the same box, or if one cylinder and one
+      Service is on the Calendar, Teutons choose. Discard
+      immediately. Models the Grand Prince's apparent 1241
+      preference to send Andrey rather than Aleksandr to
+      Novgorod's defense — which the Novgorod veche refused.
+  T12 Khan Baty — Mongols' return feared (Teutonic Event) —
+      On Calendar, shift Aleksandr OR Andrey OR Service of
+      either 2 boxes (Teutons choose direction; off-Calendar
+      positions do not force opposite shifts; shifting just
+      one box off the Calendar from box 1 or box 16 is
+      allowed). Discard immediately. Models the lingering
+      Russian fear that Batu Khan's Mongols would return to
+      the Suzdalian heartland, pulling princely attention
+      east.
+  R10 Steppe Warriors (Capability) —
+      Kipchaqs and Mongols (Asiatic Horse Special Vassals)
+      may Muster while this Capability is in play; they
+      Disband immediately if this card is discarded (even
+      if Besieged). This Capability is the prerequisite for
+      Andrey's two Kipchaq Vassal slots above. (Aleksandr
+      also has Mongol/Kipchaq Special Vassal slots — see his
+      entry once added.)
+  R11 House of Suzdal — Preeminent dynasty (Capability) —
+      This Lord Command +1 while Aleksandr AND Andrey are
+      both on the map. The Capability attaches to only one
+      Lord at a time (either Aleksandr or Andrey) and only
+      benefits THAT Lord, but requires both brothers'
+      cylinders to be on map simultaneously. May be combined
+      with R5/R6 Druzhina for +2 Command total. Models the
+      historical effectiveness of the brothers when fighting
+      together in 1242.
+ 
+ 
+================================================================
+DOMASH, TYSYATSKIY OF NOVGOROD  (Russian)
+================================================================
+Seats:        Novgorod
+Mat note:     If Archbishopric: Novgorod (already a Seat — under R15
+                  Archbishopric, Novgorod counts as TWO Seats for him,
+                  per the explicit example in Rule 1.3.1 / R15 Tips)
+Mat note:     Extra Seat if Archbishopric: [no additional Locale]
+                  [Per Rule 1.3.1, the Orthodox cross icon on the
+                   mat is the Archbishopric symbol. Domash's mat
+                   prints "Extra if [cross]:" with no Locale name
+                   following the cross — the line restates the
+                   standard R15 mechanism (Novgorod as Extra Seat
+                   under Archbishopric) without granting any
+                   additional Locale. Aleksandr and Andrey, by
+                   contrast, print Rusa after the cross icon,
+                   uniquely upgrading them. Domash gets only the
+                   standard R15 benefit (Novgorod doubled), which
+                   the rules already explicitly call out for him
+                   in the R15 Tips: "Novgorod would be two seats
+                   for Domash."]
+ 
+Ratings:
+  Fealty:     4
+  Service:    4
+  Lordship:   2
+  Command:    2
+ 
+Cylinder:     Command "2" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Sergeant
+  2x Men-at-Arms
+  1x Light Horse
+  1x Militia
+ 
+Assets (start):
+  Transport x1 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        Domash's mat consequently carries a positive
+                        "Ships" notation, authorizing him to Levy
+                        Ships per Rule 3.4.3.]
+  Provender x1
+  (No starting Coin)
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Novgorod (1) ............... 2x Militia .................... Service 2
+  Novgorod (2) ............... 2x Militia .................... Service 2
+  Novgorod (3) ............... 2x Militia .................... Service 2
+      All three Vassals are identical Novgorodan urban militia
+      contingents — each token brings 2 Militia at Service 2.
+      Reflects Domash's office of tysyatskiy ("man of a
+      thousand"), the Novgorodan chief of militia who commanded
+      the urban levy. Together with his starting Militia,
+      a fully-Mustered Domash with all three Novgorod Vassals
+      fields 7 Militia — the largest Militia concentration on
+      either side of the game, embodying Novgorod's mass urban
+      foot levy that historically tipped Raven's Rock in 1242.
+ 
+See also:
+  T2 Torzhok — Mongols deny Novgorod grain (Teutonic Event) —
+      Remove 3 Assets from Domash OR 3 Coin from the Veche
+      (Teutons choose). Teutons may select Domash or the Veche
+      even if that choice would remove fewer than three Assets
+      or Coin. Discard immediately. Models the Mongols' 1238
+      seizure of Torzhok, the southeastern Novgorodan stronghold
+      that guarded Novgorod's grain supply route from the upper
+      Volga. Domash is the Asset target specifically because his
+      Vassals and office tie him to the city's urban supply
+      base — squeezing the city squeezes him.
+  R18 Stone Kremlin readied (Capability) —
+      Not keyed to Domash by name (it can attach to any Russian
+      Lord), but the Strategy file specifically calls Domash out
+      as the natural carrier for it: "Stone Kremlin on Domash
+      to harden Novgorod and Ladoga." Cross-referenced here for
+      planning convenience, not because the card text names him.
+ 
+ 
+================================================================
+GAVRILO, VOYEVODA OF PSKOV  (Russian)
+================================================================
+Seats:        Pskov
+              Novgorod (only if Archbishopric Capability R15 in play)
+Mat note:     If Archbishopric: Novgorod
+ 
+Ratings:
+  Fealty:     3
+  Service:    4
+  Lordship:   3
+  Command:    2
+ 
+Cylinder:     Command "2" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Knight
+  1x Man-at-Arms
+  1x Light Horse
+  1x Militia
+ 
+Assets (start):
+  Coin x1
+  Transport x1 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        Gavrilo's mat consequently carries a
+                        positive "Ships" notation, authorizing him
+                        to Levy Ships per Rule 3.4.3.]
+  Provender x2
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Pskov (1) .................. 1x Men-at-Arms ................ Service 4
+      Represents Gavrilo's heavier Pskovan retainers — longer
+      Service, more durable foot.
+  Pskov (2) .................. 2x Militia .................... Service 2
+      Represents Gavrilo's broader Pskovan urban militia
+      contingent — shorter Service, larger numbers.
+  Borderland Russians ........ 1x Light Horse, 1x Militia ... Service 1
+ 
+Scenario notes:
+  - Crusade on Novgorod (full-length, 1240–1242):
+      Gavrilo starts Mustered at Pskov.
+  - Pleskau (Summer 1240):
+      Gavrilo starts Mustered at Pskov; Service marker in box 4.
+      Per the scenario victory conditions, this is the campaign
+      where the historical Gavrilo fell defending Pskov.
+  - Watland (Early Winter 1240–Rasputitsa 1241):
+      Gavrilo cylinder, mat, and Service markers REMOVED from
+      play (per scenario setup). The Playbook flavor text:
+      "He fell in Summer 1240."
+  - Peipus (Late Winter 1242–Rasputitsa 1242):
+      Gavrilo cylinder begins on the Calendar at Box 13, alongside
+      Heinrich, Knud & Abel, and Rudolf cylinders. The Playbook
+      explicitly notes: "Gavrilo here represents rallied
+      pro-Aleksandr Pskovans" — that is, the Gavrilo piece in
+      Peipus is functionally a stand-in for Pskovan partisans
+      who rose for Aleksandr after his liberation of the city,
+      not the historical Gavrilo (who was already dead).
+ 
+See also:
+  [No Arts of War cards appear to be keyed specifically to
+   Gavrilo. T7 Tverdilo (Pskovan ally) is keyed to Hermann
+   and Yaroslav and concerns Pskovan dynastic politics on the
+   Teutonic side, not Gavrilo. If a card keyed to Gavrilo
+   surfaces in later passes, it can be added here.]
+ 
+ 
+================================================================
+KARELIANS, TRIBUTARIES OF NOVGOROD  (Russian)
+================================================================
+Seats:        Ladoga
+              Novgorod (only if Archbishopric Capability R15 in play)
+Mat note:     If Archbishopric: Novgorod
+ 
+Ratings:
+  Fealty:     4
+  Service:    2
+  Lordship:   1
+  Command:    2
+ 
+Cylinder:     Command "2" on sticker. (Not a Marshal.)
+ 
+Forces (start):
+  1x Light Horse
+  4x Militia
+ 
+Assets (start):
+  Transport x1 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        The Karelians' mat consequently carries a
+                        positive "Ships" notation, authorizing them
+                        to Levy Ships per Rule 3.4.3.]
+  (No starting Provender)
+  (No starting Coin)
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  None.
+ 
+Operational note:
+  - The Karelians have the shortest Service rating of any
+    Russian Lord (2) and a Lordship of only 1, paired with no
+    starting Provender and no Coin. They Disband quickly and
+    have minimal independent action capacity. The Strategy file
+    explicitly groups them with Rudolf as Lords that "can cycle
+    on and off fairly quickly" — Disbanding and re-Mustering as
+    a tactical option rather than a setback. With four Militia
+    and a Light Horse, their combat value is in mass cheap foot
+    plus a screening/raiding cavalry element, not in sustained
+    operations.
+ 
+See also:
+  R13 Pelgui — Baptized Ingrian elder (Russian Event) —
+      Hold. Play on Vladislav OR Karelians to shift cylinder 2
+      Calendar boxes OR for Lordship +2. Lordship bonus may
+      apply to either the Muster or Call to Arms segment.
+      Discard the moment used. Models the historical Pelgui,
+      a baptized elder of the Ingrian people southwest of
+      Ladoga, mentioned in Aleksandr's hagiography for his role
+      in the 1240 Neva campaign. The Lordship +2 is unusually
+      valuable for the Karelians because their base Lordship
+      of 1 makes the bonus a tripling of capacity for one
+      action window.
+  T18 Swedish Crusade into Tavastia (Teutonic Event) —
+      On Calendar, shift cylinder OR Service of Vladislav AND
+      Karelians each 1 box (Teutons choose direction;
+      off-Calendar positions do not force opposite shifts).
+      Discard immediately. Models a Swedish drive to
+      Christianize the Tavastian Finns, which would have
+      diverted Ladogan and Karelian forces away from the
+      Teutonic front.
+ 
+ 
+================================================================
+ALEKSANDR, PRINCE OF NOVGOROD  (Russian)
+================================================================
+Seats:        Novgorod
+Mat note:     If Archbishopric: Novgorod (already a Seat — under R15
+                  Archbishopric, Novgorod counts as TWO Seats for him)
+Mat note:     Extra Seat if Archbishopric: Rusa
+                  [Per Rule 1.3.1, the Orthodox cross icon on the
+                   mat is the Archbishopric symbol; "Extra if [cross]:
+                   Rusa" therefore reads as "Extra Seat if R15
+                   Archbishopric Capability in play: Rusa." This is
+                   a mat-specific rule unique to Aleksandr and Andrey,
+                   granting them Rusa as an additional Extra Seat
+                   beyond the standard Novgorod doubling that R15
+                   provides to all Russian Lords. Confirmed: the
+                   Arts of War reference contains no card text
+                   referencing Rusa or any Extra-Seat mechanism
+                   outside of T12 Ordensburgen (Teutonic) and R15
+                   Archbishopric (Russian).]
+ 
+Ratings:
+  Fealty:     —  (NO Fealty rating; Aleksandr is the only Lord
+                  without one. Per Rule 1.5.3: "Aleksandr has no
+                  Fealty rating because no Lord may Levy him, only
+                  the Veche without a roll (3.5.2).")
+  Service:    6  (highest in the game on either side)
+  Lordship:   4  (highest in the game on either side)
+  Command:    3
+ 
+Cylinder:     Command "3" on sticker.
+              Marshal cylinder (with gold ring) — Aleksandr is the
+              permanent Russian Marshal whenever on the map (per
+              Rule 1.5.1). Only one cylinder; no non-Marshal
+              alternate (parallel to Andreas; unlike Hermann/Andrey).
+ 
+Special Muster rules:
+  - NO LORD MAY MUSTER ALEKSANDR. Standard Levy actions (3.4.1)
+    cannot be used to attempt a Muster roll on him under any
+    circumstance. This is an absolute rule exception.
+  - The ONLY way Aleksandr enters play is via the Novgorod Veche
+    during Call to Arms (3.5.2):
+      * Russians spend 1 Conquered (1VP) marker from the Veche
+        box to auto-Levy a Ready Russian Lord without a roll.
+        Used on Aleksandr, this brings him onto the map at his
+        Seat (Novgorod) without any Fealty check.
+      * Alternatively, the Russian player may DECLINE a Ready
+        Aleksandr during Call to Arms to add 1 VP to the Veche
+        box (subject to the Veche's 8-marker cap).
+  - The Veche route exists precisely because no Fealty roll
+    applies to him. Holding Aleksandr in reserve and converting
+    declines into Veche VP is one of the core Russian strategic
+    decisions in the game (per Strategy file: "Bringing them in
+    vs. declining them: each decline is +1 VP into the Veche box,
+    which can later pay any Russian Lord on or off the front").
+ 
+Forces (start):
+  3x Knights
+  2x Men-at-Arms
+ 
+Assets (start):
+  Transport x2 (any)   [exception to the standard "(no Ships)"
+                        default — "any" means the player at setup
+                        selects any single Transport type INCLUDING
+                        Ship, per Rule 3.4.1 procedure.
+                        Aleksandr's mat consequently carries a
+                        positive "Ships" notation, authorizing him
+                        to Levy Ships per Rule 3.4.3.]
+  (No starting Provender)
+  (No starting Coin)
+  Mat: max 8 each; Ships allowed
+ 
+Vassals:
+  Pereyaslavl ................ 1x Men-at-Arms ................ Service 4
+  Rostov ..................... 1x Men-at-Arms ................ Service 3
+  Yaroslavl .................. 1x Men-at-Arms ................ Service 3
+      [Note: this Vassal is the city of Yaroslavl, NOT the Lord
+       Yaroslav, Exile of Pskov. Different entities — the city
+       is in Suzdalia, a Vsevolodovich seat; the Lord is the
+       exiled Mstislavich claimant on the Teutonic side.]
+  Mongols (1) ................ 2x Asiatic Horse .............. Service 3
+      Special Vassal — requires Steppe Warriors Capability
+      (R10) in play. Only available for Muster while R10 is
+      in effect; Disbands immediately (even if Besieged) upon
+      discard of the Steppe Warriors card.
+  Mongols (2) ................ 2x Asiatic Horse .............. Service 3
+      Second Mongol Special Vassal — same Steppe Warriors
+      requirement and same Disband-on-discard behavior as
+      Mongols (1). The two Mongol tokens are identical.
+ 
+See also:
+  T1 Grand Prince favors a son (Teutonic Event) —
+      On Calendar, shift Aleksandr OR Andrey OR furthest
+      right Service of either 2 boxes (Teutons choose
+      direction; off-Calendar positions do not force opposite
+      shifts). If both cylinders are on the Calendar, Teutons
+      choose which to shift. If both Service markers are,
+      the one in the highest Calendar box shifts. If both
+      Service are in the same box, or if one cylinder and one
+      Service is on the Calendar, Teutons choose. Discard
+      immediately. Models the Grand Prince's apparent 1241
+      preference to send Andrey rather than Aleksandr to
+      Novgorod's defense — which the Novgorod veche refused.
+  T12 Khan Baty — Mongols' return feared (Teutonic Event) —
+      On Calendar, shift Aleksandr OR Andrey OR Service of
+      either 2 boxes (Teutons choose direction; off-Calendar
+      positions do not force opposite shifts; shifting just
+      one box off the Calendar from box 1 or box 16 is
+      allowed). Discard immediately. Models the lingering
+      Russian fear that Batu Khan's Mongols would return to
+      the Suzdalian heartland, pulling princely attention
+      east.
+  R10 Steppe Warriors (Capability) —
+      Kipchaqs and Mongols (Asiatic Horse Special Vassals)
+      may Muster while this Capability is in play; they
+      Disband immediately if this card is discarded (even
+      if Besieged). This Capability is the prerequisite for
+      Aleksandr's two Mongol Vassal slots above. Andrey
+      similarly carries two Kipchaq slots — between them, the
+      brothers bring the only Asiatic Horse units in the game.
+  R11 House of Suzdal — Preeminent dynasty (Capability) —
+      This Lord Command +1 while Aleksandr AND Andrey are
+      both on the map. The Capability attaches to only one
+      Lord at a time (either Aleksandr or Andrey) and only
+      benefits THAT Lord, but requires both brothers'
+      cylinders to be on map simultaneously. May be combined
+      with R5/R6 Druzhina for +2 Command total. Models the
+      historical effectiveness of the brothers when fighting
+      together in 1242.
+ 
+ 
+================================================================
+NOTATION RESOLUTION — "EXTRA IF [CROSS]" SEAT MECHANIC
+================================================================
+This block formerly held the open question on the "Extra if:"
+Seat notation appearing on Aleksandr's, Andrey's, and Domash's
+mats. The notation has been resolved as follows:
+ 
+The Orthodox cross icon printed on the Russian Lord mats in the
+"Extra if:" position is the Archbishopric symbol — the same
+cross symbol Rule 1.3.1 establishes as marking Novgorod on the
+map as the Archbishopric Seat. The mat-side notation reads:
+ 
+    "Extra Seat if [Archbishopric in play]: [Locale]"
+ 
+Confirmed by full scan of the Arts of War Reference document:
+no Capability or Event card references Rusa, and no "Extra"-Seat
+mechanism exists outside of T12 Ordensburgen (Teutonic Lords,
+Commanderies) and R15 Archbishopric of Novgorod (Russian Lords,
+Novgorod). The Rusa upgrade for Aleksandr and Andrey is therefore
+a mat-specific rule particular to those two Lords and not tied
+to any card the player Levies.
+ 
+Three Russian Lords carry the notation:
+    Aleksandr — Extra Seat if Archbishopric: Rusa
+    Andrey    — Extra Seat if Archbishopric: Rusa
+    Domash    — Extra Seat if Archbishopric: [no additional Locale;
+                                              standard R15 only]
+ 
+All other Russian Lords (Vladislav, Gavrilo, Karelians) receive
+only the standard R15 Archbishopric default — Novgorod becomes
+an Extra Seat for them when R15 is in play, with Command +1 if
+they start a Command card already at Novgorod.
+ 
+The per-Lord Mat note lines have been updated throughout the
+document to reflect this resolution.

@@ -1,0 +1,322 @@
+NEVSKY MAP REFERENCE
+====================
+ 
+LOCALE TYPES (per Rule 1.3.1):
+Regions, Towns, Trade Routes, Forts, Castles, Bishoprics, Cities, Novgorod.
+Strongholds = Forts, Castles, Bishoprics, Cities, Novgorod (can be Besieged/Stormed).
+Conquerable = all except Regions and Towns (receive VP markers when taken).
+VP marker count: 1 for Forts/Castles, 2 for Bishoprics/Cities, 3 for Novgorod.
+ 
+ 
+===============================================================
+LOCALES (51 total)
+===============================================================
+ 
+TEUTONIC TERRITORY
+------------------
+ 
+Danish Estonia (6):
+  Warbola         - town
+  Harrien         - region
+  Wierland        - region
+  Revala          - region
+  Reval           - bishopric, port             [Seat: Knud & Abel]
+  Wesenberg       - castle                      [Seat: Knud & Abel]
+  Narwia          - town, port
+ 
+Crusader Livonia (17):
+  Leal            - bishopric, port             [Seat: Heinrich]
+  Pernau          - town, port
+  Fellin          - castle
+  Jerwen          - region
+  Waiga           - region
+  Dorpat          - bishopric                   [Seat: Hermann]
+  Odenpah         - castle                      [Seat: Hermann, Yaroslav]
+  Ugaunia         - region
+  Kirrumpah       - town
+  Adsel           - castle
+  Wenden          - castle                      [Seat: Andreas, Rudolf]
+  Sackala         - region
+  Metsepole       - region
+  Riga            - bishopric, port             [Seat: Andreas]
+  Rositten        - town
+  Tolowa          - region
+  Lettgallia      - region
+ 
+ 
+NOVGORODAN RUS (28)
+-------------------
+  Luga            - trade route, port
+  Kaibolovo       - fort
+  Koporye         - fort, port
+  Neva            - trade route, port
+  Karelia         - region
+  Ladoga          - city                        [Seat: Vladislav, Karelians]
+  Volkhov         - trade route
+  Izhora          - region
+  Vod             - region
+  Ingria          - region
+  Tesovo          - town
+  Zheltsy         - town
+  Sablia          - town
+  Plyussa River   - region
+  Gdov            - town
+  Zhelcha River   - region
+  Uzmen           - region
+  Shelon River    - region
+  Novgorod        - archbishopric (3 VP)        [Seat: Aleksandr, Andrey, Domash]
+                                                [Extra Seat for ALL Russian Lords if R15
+                                                 Archbishopric Capability in play]
+  Rusa            - city                        [Extra Seat: Aleksandr, Andrey,
+                                                 only if R15 Archbishopric in play]
+  Lovat           - trade route
+  Velikiye Luki   - fort
+  Porkhov         - fort
+  Sorot River     - region
+  Velikaya River  - region
+  Ostrov          - town
+  Pskov           - city                        [Seat: Gavrilo]
+                                                [Seat: Yaroslav (Teutonic side),
+                                                 only while Conquered by the Teutons —
+                                                 i.e., black Conquered markers present,
+                                                 per Rule 3.4.1 procedure note]
+  Izborsk         - fort
+  Dubrovno        - town
+ 
+ 
+===============================================================
+TRACKWAYS (51 total)
+===============================================================
+Overland routes - portages, roads, tracks.
+Usable Transport varies by season (see Rule 1.7.4).
+ 
+Within Danish Estonia:
+  Narwia       <-> Wierland
+  Wierland     <-> Wesenberg
+  Wesenberg    <-> Jerwen
+  Wesenberg    <-> Revala
+  Revala       <-> Reval
+  Reval        <-> Warbola
+  Warbola      <-> Harrien
+  Harrien      <-> Jerwen
+ 
+Within Crusader Livonia:
+  Wierland     <-> Waiga
+  Waiga        <-> Dorpat
+  Warbola      <-> Leal
+  Leal         <-> Pernau
+  Fellin       <-> Sackala
+  Sackala      <-> Metsepole
+  Metsepole    <-> Wenden
+  Dorpat       <-> Odenpah
+  Dorpat       <-> Ugaunia
+  Odenpah      <-> Kirrumpah
+  Kirrumpah    <-> Adsel
+  Adsel        <-> Tolowa
+  Adsel        <-> Lettgallia
+  Tolowa       <-> Wenden
+  Tolowa       <-> Lettgallia
+  Tolowa       <-> Rositten
+  Rositten     <-> Lettgallia
+ 
+Within Novgorodan Rus:
+  Karelia      <-> Neva
+  Neva         <-> Izhora
+  Neva         <-> Vod
+  Ladoga       <-> Izhora
+  Vod          <-> Koporye
+  Koporye      <-> Kaibolovo
+  Izhora       <-> Ingria
+  Vod          <-> Ingria
+  Ingria       <-> Tesovo
+  Tesovo       <-> Novgorod
+  Novgorod     <-> Sablia
+  Sablia       <-> Shelon River
+  Zheltsy      <-> Plyussa River
+  Plyussa River <-> Gdov
+  Plyussa River <-> Zhelcha River
+  Zhelcha River <-> Pskov
+  Pskov        <-> Izborsk
+  Pskov        <-> Dubrovno
+  Dubrovno     <-> Porkhov
+  Porkhov      <-> Sorot River
+  Velikaya River <-> Velikiye Luki
+ 
+Cross-border (Teutonic <-> Russian):
+  Narwia       <-> Kaibolovo
+  Ugaunia      <-> Uzmen
+  Ugaunia      <-> Izborsk
+  Lettgallia   <-> Izborsk
+  Lettgallia   <-> Ostrov
+ 
+ 
+===============================================================
+WATERWAYS (34 total)
+===============================================================
+Rivers and lake shores. The Baltic Sea is NOT a waterway -
+crossings between Seaports use Sail (Rule 4.7.3).
+ 
+Livonia/Estonia interior:
+  Jerwen       <-> Pernau
+  Jerwen       <-> Fellin
+  Pernau       <-> Fellin
+  Fellin       <-> Odenpah
+  Fellin       <-> Dorpat
+  Dorpat       <-> Odenpah
+  Adsel        <-> Wenden
+  Wenden       <-> Riga          (Riga's only connection)
+ 
+Lake Peipus long waterway (all 4 locales mutually adjacent):
+  Dorpat       <-> Narwia
+  Dorpat       <-> Gdov
+  Dorpat       <-> Uzmen
+  Narwia       <-> Gdov
+  Narwia       <-> Uzmen
+  Gdov         <-> Uzmen
+ 
+Peipus spurs:
+  Narwia       <-> Plyussa River
+  Zhelcha River <-> Uzmen
+  Uzmen        <-> Pskov
+ 
+Velikaya River system:
+  Pskov        <-> Ostrov
+  Ostrov       <-> Velikaya River
+  Sorot River  <-> Velikaya River
+ 
+Volkhov / Lake Ladoga / Neva:
+  Ladoga       <-> Neva
+  Ladoga       <-> Volkhov
+  Volkhov      <-> Novgorod
+ 
+Vod approach:
+  Zheltsy      <-> Kaibolovo
+  Kaibolovo    <-> Luga
+ 
+Novgorod / Shelon / Lovat:
+  Novgorod     <-> Rusa
+  Novgorod     <-> Shelon River
+  Rusa         <-> Shelon River
+  Rusa         <-> Lovat
+  Lovat        <-> Velikiye Luki
+  Shelon River <-> Dubrovno
+  Shelon River <-> Porkhov
+  Tesovo       <-> Zheltsy
+  Sablia       <-> Zheltsy
+ 
+ 
+===============================================================
+LORD SEATS
+===============================================================
+Each Lord Musters at one of his Seats (per Rule 3.4.1). A Seat
+must be free of enemy Lords AND not Conquered by the enemy to
+serve as a Muster Locale.
+
+TEUTONIC LORDS
+--------------
+  Andreas von Felben       - Riga, Wenden
+  Hermann                  - Dorpat, Odenpah
+  Heinrich                 - Leal
+  Knud & Abel              - Reval, Wesenberg
+  Rudolf von Kassel        - Wenden
+  Yaroslav (Exile of Pskov)- Odenpah
+                            + Pskov (only while Conquered by the
+                              Teutons; black Conquered markers
+                              required per Rule 3.4.1)
+
+  Conditional default for ALL Teutonic Lords:
+    + Commanderies (any Stronghold marked with the Order symbol)
+      become Extra Seats while T12 Ordensburgen Capability is
+      in play. A Teutonic Lord starting his Command card already
+      at a Commandery Locale gains Command +1 on that card.
+      Wenden is the only Commandery explicitly named in the
+      rules text (the example "Wenden would be two Seats each
+      for Andreas and Rudolf"); Fellin is confirmed as a
+      Commandery via the Playbook example of Heinrich Mustering
+      there. Other Commanderies are identified by the Order
+      symbol on the map.
+
+RUSSIAN LORDS
+-------------
+  Aleksandr                - Novgorod
+                            + Rusa (only if R15 Archbishopric
+                              Capability in play)
+  Andrey                   - Novgorod
+                            + Rusa (only if R15 Archbishopric
+                              Capability in play)
+  Domash                   - Novgorod
+  Gavrilo                  - Pskov
+  Karelians                - Ladoga
+  Vladislav                - Ladoga
+
+  Conditional default for ALL Russian Lords:
+    + Novgorod becomes an Extra Seat while R15 Archbishopric
+      Capability in play. A Russian Lord starting his Command
+      card already at Novgorod gains Command +1 on that card.
+      For Aleksandr, Andrey, and Domash (whose primary Seat is
+      already Novgorod), this means Novgorod counts as TWO
+      Seats under R15. For other Russian Lords, Novgorod becomes
+      a second Seat option for Muster.
+
+LOCALES SHARED AS SEATS BY MULTIPLE LORDS
+-----------------------------------------
+  Wenden       - Andreas + Rudolf (Teutonic)
+  Odenpah      - Hermann + Yaroslav (Teutonic)
+  Pskov        - Gavrilo (Russian); Yaroslav also (Teutonic) if
+                 Conquered by Teutons. The only Locale that can
+                 simultaneously be a Seat for opposing sides,
+                 contingent on its Conquered status.
+  Ladoga       - Vladislav + Karelians (Russian)
+  Novgorod     - Aleksandr + Andrey + Domash (Russian); also
+                 default Extra Seat for all other Russian Lords
+                 under R15 Archbishopric
+
+LOCALES THAT ARE SEATS BUT NOT BISHOPRICS / CITIES / NOVGOROD
+-------------------------------------------------------------
+  Wenden       - castle (Andreas, Rudolf)
+  Wesenberg    - castle (Knud & Abel)
+  Odenpah      - castle (Hermann, Yaroslav)
+  Wenden, Wesenberg, and Odenpah are the only castle-class
+  Strongholds that double as Seats.
+
+
+===============================================================
+NOTES AND OBSERVATIONS
+===============================================================
+ 
+LAKES (terrain only, not Locales): Peipus, Pskov, Ilmen, Ladoga.
+Waterways trace along their shores; the lakes themselves
+do not host cylinders or markers.
+ 
+WINTER HIGHWAYS: Sleds are the only Waterway transport in
+Winter, but they move freely. The Lake Peipus long waterway
+becomes a 4-way junction (Dorpat / Narwia / Gdov / Uzmen all
+mutually adjacent). Rasputitsa shuts down all Waterway and
+Trackway movement options that don't use Sleds or Boats; the
+spring thaw is the most restrictive season. The Battle on the
+Ice (April 5, 1242) sits at the late Winter / Rasputitsa hinge.
+ 
+ASYMMETRIC WATER NETWORKS: Russians have a year-round river
+spine (Volkhov - Ladoga - Novgorod - Rusa - Lovat). Teutons
+have only the Fellin-Dorpat-Odenpah triangle plus the Adsel-
+Wenden-Riga thread. Crossing Lake Peipus outside Winter
+requires Sail or detour through Ugaunia.
+ 
+BISHOPRIC IMBALANCE: Four Teutonic Bishoprics (Riga, Dorpat,
+Leal, Reval) versus one Russian Archbishopric at Novgorod.
+Each Bishopric is worth 2 VP markers when conquered; Novgorod
+is worth 3. With William of Modena in play, the Legate pawn
+can be placed at any Bishopric for a free Call to Arms Levy.
+ 
+LOCALES WITH NO TRACKWAY (Waterway-only):
+  Riga, Luga, Volkhov, Lovat, Rusa.
+ 
+LOCALES WITH ONLY ONE TRACKWAY:
+  Pernau, Fellin (Livonia)
+  Karelia, Ladoga, Shelon River, Zheltsy, Gdov, Uzmen,
+  Ostrov, Sorot River, Velikaya River, Velikiye Luki (Rus)
+ 
+ 
+===============================================================
+SOURCES
+===============================================================

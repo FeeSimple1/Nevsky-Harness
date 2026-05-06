@@ -1,0 +1,279 @@
+# NEVSKY — FORCES REFERENCE (structured / YAML in .txt)
+#
+# Source authority order (highest first):
+#   1. Rules of Play, 2nd Edition (2023)
+#   2. Second Edition Changes (7 June 2023)
+#   3. Player Aid Foldout (PAC), Forces table
+# Where (3) conflicts with (1) or (2), this file follows (1)/(2).
+# Notable correction applied: Men-at-Arms Melee Strike = 1 (per 2E Changes,
+# explicit "Correct Men-at-Arms Melee to 'x1'"), not the 1/2 shown in the
+# original PAC counter art.
+ 
+metadata:
+  edition: "Nevsky 2nd Edition (2023)"
+  rules_of_play_refs:
+    - "1.6 Forces"
+    - "4.4.2 Strike, Hits, Protection, Rout"
+    - "4.5.2 Storm; Garrison Forces During Storm"
+    - "4.9 End Campaign"
+    - "6.0 No Horseback Archery variant"
+  second_edition_changes_applied:
+    - "PAC Forces: Men-at-Arms Melee corrected to x1."
+    - "PAC Battle and Storm: Storm Procedure Strike capped at max 6 Melee Hits per Lord."
+ 
+schema:
+  description: |
+    Each unit record carries structured combat fields plus the verbatim PAC
+    Notes column. Combat data is the authoritative answer for any unit query;
+    pac_notes_verbatim is preserved as-is for cross-reference and audit.
+  field_definitions:
+    category: "Mounted | Foot"
+    piece_color: "Color of the physical counter, per PAC Piece column."
+    melee_strike:
+      battle: "Hits per unit per Melee Strike step, in Battle. 0 = no melee."
+      storm: "Hits per unit per Melee Strike step, in Storm. 0 = no melee."
+    archery_strike:
+      hits_per_unit: "Hits per unit per Archery Strike step. 0 or null = no archery."
+      condition: "Free-text spec of when archery is active (e.g., always, capability required, garrison-only)."
+      target_armor_modifier: "Modifier to target's Armor range (e.g., -2 for Crossbowmen). 0 if none."
+      rounding_special: "Optional. Any non-default rounding rule that applies."
+    protection:
+      battle_melee:    "Roll spec applied to Hits assigned during Battle Melee steps."
+      battle_archery:  "Roll spec applied to Hits assigned during Battle Archery steps."
+      storm_any:       "Roll spec applied to Hits assigned during Storm (Melee or Archery)."
+      value_grammar:   "'Armor X-Y' | 'Evade X-Y' | 'Unarmored' | 'None'"
+      value_meanings:
+        armor_X_Y:    "Roll d6; X..Y absorbs the Hit (no Rout). Modifiable by capabilities/events."
+        evade_X_Y:    "Roll d6 like Armor, but ONLY against Battle Melee Hits. Against Archery (any) or in Storm, falls back to Unarmored. (Rules 4.4.2)"
+        unarmored:    "Roll d6; only 1 absorbs the Hit. Otherwise Rout."
+        none:         "No Protection roll. Any assigned Hit removes the unit (Serfs only)."
+    lifecycle: "Any non-standard removal rule beyond Rout/Loss/Sack."
+    capability_interactions: "List of Arts of War cards (Capabilities/Events) that interact with this unit type. Each entry has id, name, side, effect."
+    pac_notes_verbatim: "Lines from the PAC Forces 'Notes / optional counter' column, preserved verbatim. ALL CAPS where the PAC uses small caps; '*' is the PAC's footnote marker linking back to the asterisked archery value in the Strikes column."
+ 
+global_rules:
+  hit_rounding: "Sum all Hits within a Strike step (opposed Lord + Flanking + Garrison if Storm), then round up at step end. Per-unit fractions are NOT individually rounded. (Rules 4.4.2)"
+  russian_archery_special_rounding: "When Russian -2-Armor Crossbowmen archery (Garrison Men-at-Arms during Storm, or a Lord's Men-at-Arms with Streltsy R3) combines with other Russian archery, round up any 1/2 Hit that causes the Armor reduction. (Rules 4.4.2 Russian Archery)"
+  storm_melee_cap_per_lord: 6   # 2E Change. Archery in Storm is uncapped.
+  walls_protection_when:
+    - Storm
+    - Sally
+    - "By Event/Capability (e.g., Hold the Walls)"
+  storm_hit_assignment:
+    attacker: "Must absorb Hits with any Armored units before others. (Rules 4.5.2)"
+    defender: "Garrison units absorb Hits before the Front Lord's units. (Rules 4.5.2)"
+  no_horseback_archery_variant: "Optional rule (6.0). Asiatic Horse Defense rolls always succeed only on '1' — Unarmored in all situations, including Battle Melee. Negates the Evade entry below."
+ 
+units:
+ 
+  knights:
+    category: Mounted
+    piece_color: silver
+    melee_strike:
+      battle: 2
+      storm: 1
+    archery_strike: null
+    protection:
+      battle_melee:   "Armor 1-4"
+      battle_archery: "Armor 1-4"
+      storm_any:      "Armor 1-4"
+    lifecycle: standard
+    capability_interactions:
+      - id: "R5/R6"
+        name: DRUZHINA
+        side: Russian
+        effect: "This Lord with Knights: Command +1."
+      - id: "T2"
+        name: RAIDERS
+        side: Teutonic
+        effect: "This Lord with Knight, Sergeant, or Light Horse may Ravage Locale adjacent by Trackway (no enemy Lord) once per Command card; Loot allowed."
+      - id: "T7/T15"
+        name: WARRIOR MONKS
+        side: Teutonic
+        effect: "This Lord may reroll 1 Knights' Armor roll each Archery step AND each Melee step."
+    pac_notes_verbatim:
+      - "Armor; DRUZHINA Command +1;"
+      - "RAIDERS Ravage across Trackway,"
+      - "WARRIOR MONKS reroll Armor"
+ 
+  sergeants:
+    category: Mounted
+    piece_color: steel
+    melee_strike:
+      battle: 1
+      storm: 1
+    archery_strike: null
+    protection:
+      battle_melee:   "Armor 1-3"
+      battle_archery: "Armor 1-3"
+      storm_any:      "Armor 1-3"
+    lifecycle: standard
+    capability_interactions:
+      - id: "T9/T10"
+        name: HALBBRÜDER
+        side: Teutonic
+        effect: "This Lord's Sergeants AND Men-at-Arms have Armor +1. Affects Rout rolls, NOT Loss rolls. Max one HALBBRÜDER per Lord."
+      - id: "T2"
+        name: RAIDERS
+        side: Teutonic
+        effect: "This Lord with Knight, Sergeant, or Light Horse may Ravage Locale adjacent by Trackway (no enemy Lord) once per Command card; Loot allowed."
+    pac_notes_verbatim:
+      - "Armor"
+      - "HALBBRÜDER Armor +1"
+      - "RAIDERS Ravage across Trackway"
+ 
+  light_horse:
+    category: Mounted
+    piece_color: brown
+    melee_strike:
+      battle: 0.5
+      storm: 0.5
+    archery_strike:
+      hits_per_unit: 0.5
+      condition: "Active only if the Lord has the LUCHNIKI capability (Russian R1/R2). Without LUCHNIKI, Light Horse have no archery."
+      target_armor_modifier: 0
+    protection:
+      battle_melee:   "Unarmored"
+      battle_archery: "Unarmored"
+      storm_any:      "Unarmored"
+    lifecycle: standard
+    capability_interactions:
+      - id: "R1/R2"
+        name: LUCHNIKI
+        side: Russian
+        effect: "This Lord's Militia and Light Horse have Archery (x1/2 each)."
+      - id: "T3"
+        name: CONVERTS
+        side: Teutonic
+        effect: "This Lord's (or his group's) March with Light Horse reaches its 1st Locale each Command card for 0 actions."
+      - id: "R12/R14"
+        name: RAIDERS
+        side: Russian
+        effect: "This Lord with Light or Asiatic Horse may Ravage adjacent Locales (no enemy Lords) but takes NO Loot. May be used multiple times per Command card."
+      - id: "T2"
+        name: RAIDERS
+        side: Teutonic
+        effect: "This Lord with Knight, Sergeant, or Light Horse may Ravage Locale adjacent by Trackway (no enemy Lord) once per Command card; Loot allowed."
+    pac_notes_verbatim:
+      - "Melee round up; Unarmored"
+      - "*Archery also if LUCHNIKI (round up)"
+      - "CONVERTS March to 1st Locale for 0 actions"
+      - "RAIDERS Ravage adjacent (Russian: no Loot)"
+ 
+  asiatic_horse:
+    category: Mounted
+    piece_color: buff
+    melee_strike:
+      battle: 0
+      storm: 0
+    archery_strike:
+      hits_per_unit: 0.5
+      condition: always
+      target_armor_modifier: 0
+    protection:
+      battle_melee:   "Evade 1-3"
+      battle_archery: "Unarmored"   # Evade does not apply against Archery (Rules 4.4.2).
+      storm_any:      "Unarmored"   # Evade does not apply in Storm (Rules 4.4.2 / 4.5.2).
+    no_horseback_archery_variant_protection: "Unarmored in all situations, including Battle Melee (Rules 6.0)."
+    lifecycle: standard
+    capability_interactions:
+      - id: "R10"
+        name: STEPPE WARRIORS
+        side: Russian
+        effect: "Kipchaq and Mongol Asiatic Horse Special Vassals may Muster; they Disband immediately if R10 is discarded (even if Besieged)."
+      - id: "R12/R14"
+        name: RAIDERS
+        side: Russian
+        effect: "This Lord with Light or Asiatic Horse may Ravage adjacent Locales (no enemy Lords) but takes NO Loot. May be used multiple times per Command card."
+    pac_notes_verbatim:
+      - "Archery only (round up)"
+      - "Evade Battle Melee only"
+      - "Unarmored if Archery or Storm"
+      - "RAIDERS Ravage adjacent (Russian: no Loot)"
+ 
+  men_at_arms:
+    category: Foot
+    piece_color: steel
+    melee_strike:
+      battle: 1   # 2E Changes: PAC corrected from 1/2 to 1.
+      storm: 1
+    archery_strike:
+      hits_per_unit: 0.5
+      condition: |
+        Active only when one of these applies:
+          (a) The unit is a Stronghold Garrison Men-at-Arms during Storm
+              (Rules 4.5.2 Garrison Forces During Storm). Garrison archery
+              is automatic; Knights in Garrison do NOT have archery.
+          (b) The Lord has the STRELTSY capability (Russian R3).
+          (c) The Lord has the BALISTARII capability (Teutonic T4-T6).
+        Without one of these, Men-at-Arms have no archery.
+      target_armor_modifier: -2
+      rounding_special: "Russian Archery rule (4.4.2): when -2 Armor Crossbowmen Hits combine with other Russian archery, round up any 1/2 Hit that causes the Armor reduction."
+    protection:
+      battle_melee:   "Armor 1-3"
+      battle_archery: "Armor 1-3"
+      storm_any:      "Armor 1-3"
+    lifecycle: standard
+    capability_interactions:
+      - id: "T9/T10"
+        name: HALBBRÜDER
+        side: Teutonic
+        effect: "This Lord's Sergeants AND Men-at-Arms have Armor +1."
+      - id: "R3/R13"
+        name: STRELTSY
+        side: Russian
+        effect: "This Lord's Men-at-Arms have Archery with -2 to target's Armor. Crossbowmen Strike with both Archery and Melee. Karelians have no Men-at-Arms."
+      - id: "T4-T6"
+        name: BALISTARII
+        side: Teutonic
+        effect: "This Lord's Men-at-Arms have Archery with -2 to target's Armor. Crossbowmen Strike with both Archery and Melee."
+    pac_notes_verbatim:
+      - "Armor; HALBBRÜDER Armor +1"
+      - "*Archery also with enemy Armor −2 (round up)"
+      - "   if Garrison or Crossbowmen"
+ 
+  militia:
+    category: Foot
+    piece_color: brown
+    melee_strike:
+      battle: 0.5
+      storm: 0.5
+    archery_strike:
+      hits_per_unit: 0.5
+      condition: "Active only if the Lord has the LUCHNIKI capability (Russian R1/R2). Without LUCHNIKI, Militia have no archery."
+      target_armor_modifier: 0
+    protection:
+      battle_melee:   "Unarmored"
+      battle_archery: "Unarmored"
+      storm_any:      "Unarmored"
+    lifecycle: standard
+    capability_interactions:
+      - id: "R1/R2"
+        name: LUCHNIKI
+        side: Russian
+        effect: "This Lord's Militia and Light Horse have Archery (x1/2 each)."
+    pac_notes_verbatim:
+      - "Melee round up; Unarmored"
+      - "*Archery also if LUCHNIKI (round up)"
+ 
+  serfs:
+    category: Foot
+    piece_color: tan
+    melee_strike:
+      battle: 0.5
+      storm: 0.5
+    archery_strike: null
+    protection:
+      battle_melee:   "None"
+      battle_archery: "None"
+      storm_any:      "None"
+    lifecycle: "Removed automatically at end of every Campaign (PAC Forces note; Rules 4.9). Serfs return to the SMERDI card when removed and may be re-Mustered while that card is in play."
+    capability_interactions:
+      - id: "R4"
+        name: SMERDI
+        side: Russian
+        effect: "Start 6 Serfs on the card. A Russian Command action by an Unbesieged Lord in Rus may Muster 1 Serf. Serfs return to this card when removed."
+    pac_notes_verbatim:
+      - "Melee round up; no Protection"
+      - "Remove at end of Campaign"
+ 

@@ -1,0 +1,427 @@
+NEVSKY SCENARIOS — Setup Reference
+==================================
+Compiled per Rules of Play (Second Edition, 2023) Section 6.0 and the
+Second Edition Changes Summary. Where the two conflict, Second Edition
+Rules of Play govern. Historical flavor text from the rulebook is
+omitted; only setup, span, and gameplay-relevant rules are captured.
+ 
+The Quickstart Scenario noted in the Second Edition Changes Summary
+("Add Quickstart Scenario setup, Battle mini-game") is published in
+the Second Edition Background Book, which is NOT among the project
+files. Quickstart setup is therefore not reproduced here.
+ 
+ 
+================================================================
+COMMON SETUP PROCEDURE  (Rule 6.0)
+================================================================
+Before choosing a scenario, agree on which optional rules are in
+use:
+  - Hidden Mats option (1.5.2)
+  - Optional unit counters (1.6) — substitute counters for wood
+  - Advanced Vassal Service rule (3.4.2)
+  - Bidding for sides (added 2nd Ed; see below)
+  - No Horseback Archery variant (see below)
+ 
+Set up table layout per 2.1, then perform scenario setup:
+ 
+MAP AND CALENDAR:
+  Place markers and cylinders on the map and Calendar exactly as
+  the scenario lists.
+ 
+LORD MATS:
+  Set out each Mustered Lord's mat as if just Levied (3.4.1):
+    - Place that Lord's starting Forces on the mat.
+    - Place that Lord's starting Assets on the mat.
+    - Place all available Vassals' Service markers (Coat of Arms
+      up) onto the mat — Vassal Forces are NOT placed; they enter
+      only as the Lord later Musters them (3.4.2).
+    - Special Vassals (Summer Crusaders, Steppe Warriors,
+      Mongols/Kipchaqs) are NOT placed at setup; they require
+      their respective Capabilities (T11 Crusade, R10 Steppe
+      Warriors).
+ 
+TRANSPORT CHOICE AT SETUP:
+  For mats that show "any" Transport, the player (Teutonic, then
+  Russian) selects any single Transport type INCLUDING Ships.
+  For mats that show "no Ship", the player selects any single
+  Transport type EXCEPT Ships. Some Lords begin with a fixed
+  number of Ships already specified.
+ 
+FIRST LEVY:
+  Begin play with the first Levy. Each side shuffles its Arts of
+  War deck and randomly draws two cards as Capabilities (3.1.1
+  through 3.1.2).
+ 
+ 
+================================================================
+BIDDING FOR SIDES  (added 2nd Ed; Rule 6.0)
+================================================================
+After choosing a scenario but BEFORE assigning sides, players may
+bid to play the Russians:
+ 
+  1. Each player secretly puts zero, one, or more dice under a
+     cupped hand.
+  2. Reveal simultaneously. Total pips showing is that player's
+     bid.
+  3. The player with the LOWER bid takes the Russians, and adds
+     1VP markers equal to that bid to the Veche box (adjusts the
+     Russian victory total accordingly).
+  4. If bids tied, add that number of 1VP markers to the Veche
+     and assign sides randomly.
+ 
+ 
+================================================================
+NO HORSEBACK ARCHERY VARIANT  (Rule 6.0)
+================================================================
+Optional. If used:
+  - Asiatic Horse units' Defense rolls always succeed only on
+    "1" (treated as Unarmored), instead of using the Evade
+    Defense rule.
+  - All other Asiatic Horse properties are unchanged.
+ 
+ 
+================================================================
+UNIVERSAL VICTORY RULES  (Rule 5.0)
+================================================================
+A side may win immediately during play; otherwise victory is
+determined at scenario end.
+ 
+VICTORY POINTS (Rule 5.1):
+  - 1 VP per Conquered marker of your color on the map (including
+    those held in the Veche box).
+  - 1 VP per Castle marker of your color on the map.
+  - ½ VP per Ravaged marker of your color on the map.
+  - PLESKAU SCENARIO ONLY: +1 VP per enemy Lord removed from the
+    map by any means.
+ 
+Track VP on the Calendar's numbered 40-Days boxes (using the
+round Victory markers, on the +½ side as appropriate). Cap is
+17½ VP — any excess earned is forfeit.
+ 
+CAMPAIGN VICTORY (Rule 5.2):
+  If at any moment during a Campaign one side has zero Mustered
+  Lords on the map, the game ends immediately and the OTHER side
+  wins, regardless of VP.
+ 
+END-OF-SCENARIO VICTORY (Rule 5.3):
+  At end of the scenario's final Campaign, the side with higher
+  VP wins. Ties are draws — EXCEPT in Watland, where ties are
+  Russian wins (per the Watland-specific victory clause below).
+ 
+ 
+================================================================
+SCENARIO 1 — PLESKAU (1240)
+================================================================
+Span:         2 turns (one Season).
+              Begin first Levy of Summer 1240 (40-Days box 1).
+              Play through end of Summer 1240 (box 2).
+              Teutons on the offensive.
+ 
+Markers on Map:
+  None.
+ 
+Mustered Lords:
+  Teutons:
+    Hermann (Marshal) at Dorpat
+    Knud & Abel       at Reval
+    Yaroslav          at Odenpäh
+  Russians:
+    Gavrilo  at Pskov
+    Vladislav at Neva
+ 
+Veche:
+  One white 1VP Conquered marker.
+ 
+Calendar:
+  Box 1: white Victory marker, Levy marker, Rudolf cylinder,
+         Domash cylinder.
+  Box 2: Yaroslav Service marker.
+  Box 3: Knud & Abel Service marker, Vladislav Service marker.
+  Box 4: Hermann Service marker, Gavrilo Service marker.
+ 
+Remove from Play:
+  All cylinders, mats, and Service markers of every Lord NOT
+  listed above (i.e., remove Andreas, Heinrich, Aleksandr, Andrey,
+  Karelians).
+ 
+Special Rules:
+  - Per 2nd Edition: BEFORE play begins, each side removes its
+    three "No Event" Arts of War cards from its deck.
+  - The 2nd Ed Changes Summary lists this as the most significant
+    Pleskau update; the 1st Ed Pleskau kept the No Events in.
+ 
+Victory:
+  In addition to the universal VP sources (5.1), in this scenario
+  ONLY: earn 1 VP each time an enemy Lord Disbands or is removed
+  from the map. Track on the Calendar with the round markers
+  provided.
+ 
+ 
+================================================================
+SCENARIO 2 — WATLAND (1241)
+================================================================
+Span:         Up to 5 turns.
+              Begin second Levy of Early Winter 1240 (40-Days
+              box 4). Play through end of Rasputitsa 1241 (box 8).
+              Teutons on the offensive.
+ 
+Markers on Map:
+  - Black Conquered marker at Izborsk.
+  - Two black Conquered markers at Pskov.
+  - Black Ravaged markers at Pskov and Dubrovno.
+ 
+Mustered Lords:
+  Teutons:
+    Andreas      at Fellin
+    Knud & Abel  at Wesenberg
+    Yaroslav     at Pskov
+  Russians:
+    Domash    at Novgorod
+    Vladislav at Ladoga          [2nd Ed setup; differs from 1st Ed]
+ 
+Veche:
+  One white 1VP Conquered marker, Coin x1.
+ 
+Calendar:
+  Box 1: white Victory marker.
+  Box 4: black Victory marker, Levy marker, Heinrich cylinder,
+         Rudolf cylinder, Karelians cylinder.
+  Box 5: Andrey cylinder, Yaroslav Service marker.
+  Box 6: Knud & Abel Service marker, Vladislav Service marker.
+  Box 7: Aleksandr cylinder, Andreas Service marker, Domash
+         Service marker.
+  Box 8: Hermann cylinder.
+ 
+Remove from Play:
+  Gavrilo cylinder, mat, and Service markers.
+  ("He fell in Summer 1240.")
+ 
+Special Rules:
+  None beyond standard rules.
+ 
+Victory (2nd Ed change — replaces standard 5.3):
+  At scenario end, the Teutons win only if they have AT LEAST
+  7 VP AND at least DOUBLE the Russian VP total. Otherwise the
+  Russians win. There is NO TIE in this scenario.
+ 
+ 
+================================================================
+SCENARIO 3 — RETURN OF THE PRINCE (1241–1242)
+================================================================
+Span:         Up to 8 turns.
+              Begin first Levy of Summer 1241 (40-Days box 9).
+              Play through end of Rasputitsa 1242 (box 16).
+              Russian counter-campaign.
+ 
+Markers on Map:
+  - Black Conquered markers at Kaibolovo and Koporye.
+  - Black Castle marker at Koporye.
+  - Black Conquered marker at Izborsk.
+  - Two black Conquered markers at Pskov.
+  - Black Ravaged markers at Vod, Zheltsy, Tesovo, Sablia, Pskov,
+    and Dubrovno.
+ 
+Mustered Lords:
+  Teutons:
+    Andreas at Koporye
+  Russians:
+    Aleksandr at Novgorod
+ 
+Veche:
+  Three white 1VP Conquered markers, Coin x2.
+ 
+Calendar:
+  Box 3:  white Victory marker.
+  Box 9:  black Victory marker, Levy marker, Hermann cylinder,
+          Rudolf cylinder, Yaroslav cylinder, Andrey cylinder,
+          Gavrilo cylinder [added by 2nd Ed Changes],
+          Karelians cylinder.
+  Box 10: Vladislav cylinder.
+  Box 11: Heinrich cylinder, Knud & Abel cylinder, Domash cylinder.
+  Box 12: Andreas Service marker.
+  Box 14: Aleksandr Service marker.
+ 
+Remove from Play:
+  No explicit removal — all other Lords arrive via the Calendar.
+ 
+Special Rules:
+  Gavrilo (per Calendar box 9) historically fell in 1240 but
+  here represents a potential rallying of pro-Aleksandr Pskovans.
+ 
+Victory:
+  Standard end-of-scenario victory (5.3).
+ 
+ 
+================================================================
+SCENARIO 3a — RETURN OF THE PRINCE: NICOLLE VARIANT
+================================================================
+Span:         Up to 8 turns.
+              Begin first Levy of Summer 1241 (40-Days box 9).
+              Play through end of Rasputitsa 1242 (box 16).
+              Alternate dating: Teutonic assault on Pskov in 1241
+              rather than 1240; Teutons press south of Lake Chud
+              while Aleksandr counterattacks in the north.
+ 
+Markers on Map:
+  - Black Conquered markers at Kaibolovo and Koporye.
+  - Black Castle marker at Koporye.
+  - Black Ravaged markers at Vod, Zheltsy, Tesovo, and Sablia.
+  (NOTE: NO Conquered/Ravaged markers at Pskov, Izborsk, or
+   Dubrovno — Teutons have not yet reached the south.)
+ 
+Mustered Lords:
+  Teutons:
+    Andreas      at Riga
+    Hermann      at Dorpat
+    Knud & Abel  at Koporye
+  Russians:
+    Aleksandr at Novgorod
+    Gavrilo   at Pskov
+ 
+Veche:
+  Three white 1VP Conquered markers, Coin x2.
+ 
+Calendar:
+  Box 3:  white Victory marker.
+  Box 5:  black Victory marker.
+  Box 9:  Levy marker, Rudolf cylinder, Yaroslav cylinder, Andrey
+          cylinder, Karelians cylinder.
+  Box 10: Vladislav cylinder.
+  Box 11: Heinrich cylinder, Domash cylinder, Knud & Abel
+          Service marker.
+  Box 12: Andreas Service marker, Hermann Service marker, Gavrilo
+          Service marker.
+  Box 14: Aleksandr Service marker.
+ 
+Remove from Play:
+  No explicit removal — all other Lords arrive via the Calendar.
+ 
+Special Rules:
+  None beyond standard rules.
+ 
+Victory:
+  Standard end-of-scenario victory (5.3).
+ 
+ 
+================================================================
+SCENARIO 4 — PEIPUS (1242)
+================================================================
+Span:         Up to 4 turns.
+              Begin first Levy of Late Winter 1242 (40-Days
+              box 13). Play through end of Rasputitsa 1242
+              (box 16). Russians on the offensive.
+ 
+Markers on Map:
+  - White Castle marker at Koporye.
+  - Black Conquered marker at Izborsk.
+  - Two black Conquered markers at Pskov.
+  - Black Ravaged markers at Vod, Zheltsy, Tesovo, Sablia, Pskov,
+    and Dubrovno.
+ 
+Mustered Lords:
+  Teutons:
+    Hermann (Marshal) at Dorpat
+    Yaroslav          at Pskov
+  Russians (all at Novgorod):
+    Aleksandr
+    Andrey
+    Domash
+    Karelians
+ 
+Veche:
+  Four white 1VP Conquered markers, Coin x3.
+ 
+Calendar:
+  Box 5:  white Victory marker.
+  Box 6:  black Victory marker.
+  Box 13: Levy marker, Heinrich cylinder, Knud & Abel cylinder,
+          Rudolf cylinder, Gavrilo cylinder.
+  Box 14: Yaroslav Service marker, Karelians Service marker.
+  Box 15: Vladislav cylinder.
+  Box 16: Hermann Service marker, Aleksandr Service marker,
+          Andrey Service marker, Domash Service marker.
+ 
+Remove from Play:
+  Andreas cylinder, mat, and Service markers.
+  ("Andreas departed the Russian campaign in 1241.")
+ 
+Special Rules:
+  Gavrilo (per Calendar box 13) historically fell in 1240 but
+  here represents rallied pro-Aleksandr Pskovans.
+ 
+Victory:
+  Standard end-of-scenario victory (5.3).
+ 
+ 
+================================================================
+SCENARIO 5 — CRUSADE ON NOVGOROD (1240–1242)
+================================================================
+Span:         Up to 16 turns. Full-length scenario.
+              Begin first Levy of Summer 1240 (40-Days box 1).
+              Play through end of Rasputitsa 1242 (box 16).
+ 
+Markers on Map:
+  None.
+ 
+Mustered Lords:
+  Teutons:
+    Hermann (Marshal) at Dorpat
+    Knud & Abel       at Reval
+    Yaroslav          at Odenpäh
+  Russians:
+    Gavrilo   at Pskov
+    Vladislav at Neva
+ 
+Veche:
+  One white 1VP Conquered marker.
+ 
+Calendar:
+  Box 1: white Victory marker, Levy marker, Heinrich cylinder,
+         Rudolf cylinder, Domash cylinder.
+  Box 2: Yaroslav Service marker.
+  Box 3: Andreas cylinder [added by 2nd Ed Changes],
+         Karelians cylinder, Knud & Abel Service marker,
+         Vladislav Service marker.
+  Box 4: Hermann Service marker, Gavrilo Service marker.
+  Box 5: Aleksandr cylinder, Andrey cylinder.
+ 
+Remove from Play:
+  No explicit removal — all 12 Lords are in play across the
+  scenario span.
+ 
+Special Rules:
+  Arts of War: Do NOT remove "No Event/No Capability" cards
+  (i.e., the standard 3.1.2–3.1.3 removal rule is suspended for
+  this scenario; Crusade on Novgorod intentionally retains the
+  three No-cards in each deck throughout play).
+ 
+Victory:
+  Standard end-of-scenario victory (5.3).
+ 
+ 
+================================================================
+QUICK SCENARIO COMPARISON
+================================================================
+Scenario              Turns  Range          Aggressor   Mustered Start
+                                                        Teu  Rus
+--------------------  -----  -------------  ----------  ---  ---
+Pleskau                  2   Sum 1240        Teutons     3    2
+Watland               up 5   EW 1240–Rasp 41 Teutons     3    2
+Return of the Prince  up 8   Sum 1241–Rasp 42 Russians   1    1
+ROTP Nicolle Variant  up 8   Sum 1241–Rasp 42 Russians   3    2
+Peipus                up 4   LW 1242–Rasp 42 Russians    2    4
+Crusade on Novgorod   up 16  Sum 1240–Rasp 42 Both       3    2
+(Quickstart not in project files; see 2nd Ed Background Book.)
+ 
+ 
+================================================================
+SECOND EDITION SCENARIO CHANGES — AT-A-GLANCE SUMMARY
+================================================================
+  Pleskau:              Remove "No Event" cards before play.
+  Watland:              Lords setup updated (Vladislav at Ladoga
+                        in 2E); Teuton victory now requires 7 VP
+                        AND 2x Russian VP; no tie.
+  Return of the Prince: Gavrilo set up at Calendar box 9.
+  Crusade on Novgorod:  Andreas set up at Calendar box 3;
+                        retain "No" cards (suspended removal).
+  All scenarios:        Bidding for Sides option available.

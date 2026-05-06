@@ -1,0 +1,677 @@
+NEVSKY MISCELLANEOUS RULES — Reference
+=======================================
+Compiled per Rules of Play (Second Edition, 2023). Sources cited
+inline by section number. This document consolidates rules that
+are referenced throughout the other reference files but do not
+otherwise have a dedicated home — Asset rules, Locale mechanics,
+the Papal Legate, Marker definitions, general setup, and a
+glossary of key terms.
+ 
+ 
+================================================================
+PART I — ASSETS  (Section 1.7)
+================================================================
+ 
+ASSET TYPES:
+  - Transport ... Boat, Cart, Sled, Ship.
+                  Helps move Provender (Supply, March) and
+                  enables Sail. Lords themselves can move
+                  without Transport.
+  - Provender ... Food and supplies. Consumed when Lords Feed
+                  after Marching/Fighting, and to enable Laden
+                  movement.
+  - Coin ........ Money. Used to Pay (extend Service).
+                  Carried on Lord mats AND held in the Veche
+                  box (1.3.3, 1.4.2).
+  - Loot ........ Livestock and other booty. Used to Pay (at
+                  Friendly Locales) or to Feed (anywhere).
+                  Acquired by Ravage and as Sack Spoils.
+ 
+Asset markers are placed on Lord mats. Plain markers represent
+1 each; "x2", "x3", "x4" markers represent those amounts (1.7.1).
+ 
+ACCOUNTING (1.7.1):
+  Lords may add and expend each type of Asset as if money,
+  making change as needed. Veche Coin functions the same way.
+ 
+GREED (1.7.2):
+  A Lord may DISCARD Assets (as opposed to USE them) ONLY when
+  the discard is needed to enable one of these movement actions:
+    - March Laden       (4.3.2)
+    - March Unladen     (4.3.2)
+    - Avoid Battle      (4.3.4)
+    - Retreat           (4.4.3)
+    - Sail              (4.7.3)
+  Outside these triggers, a Lord may not discard Assets.
+  EXAMPLE: A Lord with surplus Provender at a Friendly Locale
+  cannot simply "drop" it; the only way to lose it voluntarily
+  is to expend it (Feed, Laden modifier) or via Wastage (4.9.4).
+ 
+WASTAGE — PER LORD (1.7.3):
+  Each Lord's mat may hold AT MOST 8 of each Asset type
+  (8 Sleds, 8 Boats, 8 Carts, 8 Ships, 8 Provender, 8 Coin,
+  8 Loot). Any excess gained beyond 8 is lost immediately.
+ 
+WASTAGE — VECHE BOX (1.4.2):
+  The Veche box holds AT MOST 8 Coin and 8 Conquered (1VP)
+  markers. Any excess is lost.
+ 
+WASTAGE — END OF CAMPAIGN (4.9.4):
+  At end of each Campaign, Teutons then Russians: each Mustered
+  Lord with MORE THAN ONE of any single Asset type, OR more
+  than one This Lord Capability card, must DISCARD exactly one
+  Asset or one such card from that Lord. (Owning player chooses
+  which.) Wastage applies to LORDS only — not to Veche.
+ 
+ 
+----------------------------------------------------------------
+TRANSPORT — Usability Matrix  (Rule 1.7.4)
+----------------------------------------------------------------
+Transport is usable for March, Avoid Battle, Retreat, Supply,
+and Sail. Each Transport type is usable only in certain Seasons
+and along certain Way types:
+ 
+  Type    Seasons              Where Usable
+  ------  -------------------  -----------------------------------
+  Boat    Rasputitsa, Summer   Waterways
+  Ship    Rasputitsa, Summer   Seaports (Sail). Russians: also
+                               Novgorod for Supply (4.6.3).
+                               REMINDER: the Baltic Sea is NOT
+                               a Waterway; cross it only by Sail.
+  Sled    Early Winter,        Any Way (Trackway OR Waterway)
+          Late Winter
+  Cart    Summer               Trackways only
+ 
+CONVERSION (4.9.3 — Plow & Reap):
+  At end of the second Summer 40 Days, all Lords flip Carts to
+  Sleds, then halve (round up).
+  At end of the second Late Winter 40 Days, all Lords flip Sleds
+  to Carts, then halve (round up).
+  Unusable Transport otherwise stays with its Lord for future use.
+ 
+ 
+----------------------------------------------------------------
+PAY — Coin and Loot Restrictions  (Rules 3.2.1, 3.2.2)
+----------------------------------------------------------------
+Coin and Loot may ONLY be removed during the Pay step (Levy
+3.2 or Campaign 4.8.2) so as to actually shift Service markers.
+Each marker spent shifts a single Service marker 1 box right.
+ 
+PAY WITH COIN (3.2.1):
+  A Lord may spend Coin from his own mat, OR from the Veche
+  box (Russians only), to shift Service of:
+    - The paying Lord himself, OR
+    - Another Lord at the same Locale, OR
+    - (Veche Coin only) Any one Russian Lord who is NOT
+      Besieged.
+  Coin may be spent from any location it sits on (Lord mat or
+  Veche). Each Coin = 1 box right.
+  IMPORTANT: The only Coin that can affect a Besieged Lord is
+  his own or that of another Lord Besieged with him.
+ 
+PAY WITH LOOT (3.2.2):
+  A Lord may spend Loot from his mat ONLY if HE is in a
+  Friendly Locale, to shift Service of:
+    - His own marker, OR
+    - The marker of a Lord at the same Locale.
+  Each Loot = 1 box right.
+  IMPORTANT: A Siege Locale is never Friendly (1.3.1), so
+  Besieged Lords may NEVER Pay with Loot. A Lord at a
+  Stronghold Conquered FROM the enemy (and so Friendly to
+  this side) MAY Pay with Loot there.
+ 
+THE FEED-VS-PAY DISTINCTION:
+  Loot can be SPENT to Pay only at Friendly Locales.
+  Loot can be CONSUMED to Feed (4.8.1) anywhere — including
+  at Sieges and unfriendly Locales. Provender works the same
+  way (Feed only). This is why Loot is sometimes more valuable
+  than Provender deep in enemy territory.
+ 
+ 
+----------------------------------------------------------------
+SHARING  (Rule 1.5.2)
+----------------------------------------------------------------
+Lords on the same side at the SAME Locale may SHARE Assets to
+help one another:
+  - Transport, Provender, Coin, and Loot are all shareable.
+ 
+Lords NEVER share:
+  - Vassals
+  - Forces (units)
+  - This Lord Capability cards
+  - Anything else card-based.
+ 
+CRITICAL: Sharing is USE in place, not transfer. Markers do
+NOT move from one Lord's mat to another. Each Asset stays on
+its owner's mat; the using Lord simply spends or relies on it
+during the relevant action.
+ 
+EXAMPLES OF SHARING:
+  - A Lord shares Carts to speed a group's March (4.3.1) or to
+    enable Avoid Battle when another Lord's Provender exceeds
+    his own usable Transport (4.3.2-.4).
+  - A Lord shares Provender or Loot to Feed Forces of a
+    co-located Lord whose own supply is exhausted (4.8.1
+    Sharing).
+  - A Lord shares Transport during Supply along the Active
+    Lord's Route (4.6).
+ 
+WHAT SHARING DOES NOT MEAN:
+  Sharing is not generosity. During Feed, Lords MUST share
+  remaining Provender/Loot to feed any co-located ally short on
+  supply (4.8.1). Players may not withhold.
+ 
+ 
+================================================================
+PART II — LOCALE MECHANICS  (Section 1.3.1)
+================================================================
+ 
+LOCALE TYPES:
+  Region, Town, Trade Route, Fort, Castle, Bishopric, City,
+  Novgorod.
+ 
+CONQUERABLE  (Rule 1.3.1):
+  All Locales EXCEPT Regions and Towns receive Conquered
+  markers when taken from the enemy. The frame border on the
+  printed Locale name shows the VP value:
+    Single border ........ 1 VP marker  (Forts, Castles,
+                                          Trade Routes)
+    Double border ........ 2 VP markers (Cities, Bishoprics)
+    Triple border ........ 3 VP markers (Novgorod)
+  When the original owner retakes a Locale, REMOVE all
+  Conquered markers there.
+ 
+STRONGHOLDS:
+  Strongholds = Novgorod, Cities, Bishoprics, Castles, Forts.
+  Strongholds can host Lords Withdrawn inside them, and can
+  be Besieged and Stormed. Each Stronghold has a Siege
+  Capacity (1, 2, or 3) — see Strongholds Reference.
+ 
+  Trade Routes are Conquerable but are NOT Strongholds — no
+  Capacity, no Walls, no Garrison; they flip from a Lord's
+  presence without Storm.
+ 
+ 
+----------------------------------------------------------------
+FRIENDLY LOCALES  (Rule 1.3.1)
+----------------------------------------------------------------
+A Locale is Friendly to a side IF AND ONLY IF BOTH conditions
+hold:
+ 
+  Condition 1 — Territory or Conquered:
+    The Locale is in that side's territory (Estonia or Livonia
+    for Teutons; Rus for Russians), OR
+    The Locale is a Stronghold Conquered by that side (i.e.,
+    holds that side's Conquered markers in enemy territory).
+ 
+  Condition 2 — Free of Enemy:
+    The Locale has NO enemy Lords AT it,
+    NO Unconquered Strongholds (i.e., enemy-side Strongholds
+    that this side has not yet Conquered), AND
+    NO Conquered markers of the OTHER color.
+ 
+A Locale may be Friendly to NEITHER side.
+ 
+CONSEQUENCES — A Locale is NEVER Friendly if:
+  - It is a Siege Locale (4.3.5).
+  - It is a Region, Town, or Trade Route in ENEMY territory,
+    even if currently empty or occupied by your own Lord.
+  - It has any enemy Conquered marker, even if currently
+    empty of enemy Lords.
+ 
+EXAMPLES (per the rules):
+  - Vod or Volkhov, if empty: Friendly to Russians (in Rus).
+  - Neva with a Conquered marker: Friendly to NEITHER side.
+  - Izborsk Conquered by Teutons: Friendly to Teutons only,
+    until retaken by Russians.
+ 
+WHY FRIENDLY MATTERS:
+  - Muster requires a Friendly Locale (3.4).
+  - Pay with Loot requires a Friendly Locale (3.2.2).
+  - Levy Transport (3.4.3) requires a Friendly Locale.
+  - Levy Capabilities (3.4.4) requires a Friendly Locale.
+  - Withdraw into a Stronghold requires it be Friendly to your
+    side (4.3.4).
+ 
+ 
+----------------------------------------------------------------
+WAYS  (Rule 1.3.1)
+----------------------------------------------------------------
+Ways are the lines linking Locales. Two types exist:
+ 
+  WATERWAYS — trace along rivers and any lakeshore.
+              The Baltic Sea is NOT a Waterway (1.3.1).
+              Used by: Boats (Rasputitsa/Summer),
+                       Sleds (Winter only).
+ 
+  TRACKWAYS — overland routes (portages, roads, tracks).
+              Used by: Carts (Summer only),
+                       Sleds (Winter only).
+ 
+ADJACENT  (Rule 1.3.1):
+  Two Locales are "adjacent" if connected by EITHER a
+  Waterway OR a Trackway. Adjacency is what March, Avoid
+  Battle, Retreat, Supply Routes, and Raiders Capability all
+  trace along.
+ 
+WAYS ARE SEPARATE: Trackways and Waterways are not
+interchangeable for movement purposes. To go from Narwia to
+Ugaunia you must first move Narwia → Uzmen or Dorpat by
+Waterway, then Uzmen/Dorpat → Ugaunia by Trackway. That is
+two moves.
+ 
+ 
+----------------------------------------------------------------
+SEAPORTS  (Rule 1.3.1)
+----------------------------------------------------------------
+Locales marked with an anchor symbol are Seaports. Seaports
+matter for:
+  - Sail (4.7.3): Lords can Sail between any two Seaports
+    free of Unbesieged enemy Lords, in Rasputitsa or Summer.
+    The Baltic Sea is not a Waterway, so the only way to
+    cross it is Sail.
+  - Supply (4.6.3): Ships at Seaports (Teutonic) and at
+    Novgorod (Russian) can serve as Supply Sources for up to
+    2 Provender each.
+ 
+ 
+----------------------------------------------------------------
+SEATS  (Rule 1.3.1)
+----------------------------------------------------------------
+A Lord's Seat is a Locale where his Coat of Arms is printed.
+Lords Muster (Levy 3.4) only at one of their Seats. Multiple
+Lords may share a Seat. Special Seat conditions:
+ 
+  PSKOV — Yaroslav (Teutonic side) treats the Russian City of
+          Pskov as a Seat ONLY while it is Conquered by the
+          Teutons (black markers present).
+ 
+  ARCHBISHOPRIC — Novgorod bears a cross icon. While the R15
+                  Archbishopric Capability is in play, Novgorod
+                  is an EXTRA Seat for ALL Russian Lords. For
+                  Aleksandr, Andrey, and Domash (whose primary
+                  Seat is already Novgorod), Novgorod under R15
+                  counts as TWO Seats (per 1.3.1).
+                  Aleksandr and Andrey ALSO gain Rusa as an
+                  extra Seat under R15 (per their mats).
+ 
+  COMMANDERIES — Strongholds with the Order symbol serve as
+                 EXTRA Seats for the relevant Teutonic Lords
+                 while the T12 Ordensburgen Capability is in
+                 play.
+ 
+ 
+----------------------------------------------------------------
+"ON MAP" vs "OFF MAP"  (Rule 1.3.1)
+----------------------------------------------------------------
+The phrase "on the map" or "on map" means a Lord or marker is
+either AT a Locale, or (for markers only) in the Veche box.
+ 
+A Lord's CYLINDER on the Calendar is NOT "on map" — that Lord
+is Ready (or set up to enter), not in play.
+ 
+ 
+================================================================
+PART III — THE PAPAL LEGATE  (Sections 1.4.1, 3.5.1, 4.2)
+================================================================
+ 
+ENABLING:
+  The Legate (purple pawn) is in play ONLY while the
+  William of Modena Capability card is in effect. When the
+  Teutons Levy William of Modena, place the pawn on the
+  card; it enters the map at a Bishopric during the next
+  Call to Arms.
+ 
+LOCATION:
+  Once on the map, the Legate sits at a Locale alongside
+  Teutonic Lords. The Legate is NOT a Lord; he occupies a
+  Locale but does not Battle, hold Forces, or carry Assets.
+ 
+MOVEMENT:
+  The Legate may March (4.3) or Sail (4.7.3) along with any
+  Teutonic Lord he is co-located with — automatically, at the
+  Lord's discretion when that Lord moves. The Legate moves
+  with the Lord; he does not consume Transport.
+ 
+ 
+----------------------------------------------------------------
+LEGATE EFFECTS DURING CALL TO ARMS  (Rule 3.5.1)
+----------------------------------------------------------------
+During Call to Arms, the Teutonic player may take EITHER ONE
+of the following:
+ 
+  ACTION 1 — Move the Legate pawn to any Friendly Locale.
+ 
+  ACTION 2 — USE the Legate (then return him to the William
+             of Modena Capability card). Choose ONE:
+ 
+      i.   At the Seat of a Ready Lord:
+           Muster that Lord there WITHOUT rolling Fealty.
+ 
+      ii.  At the Seat of a Lord on the Calendar:
+           Slide that Lord's cylinder 1 box LEFT
+           (closer to Ready).
+ 
+      iii. At a Friendly Locale with a Lord:
+           That Lord performs an immediate EXTRA Muster
+           using his FULL Lordship Rating.
+ 
+(Compare to Veche 3.5.2 — the Legate's Action iii option
+mirrors the Veche's Extra-Muster option, but Legate-driven
+extra Musters cost no VP.)
+ 
+ 
+----------------------------------------------------------------
+LEGATE EFFECTS DURING CAMPAIGN  (Rule 4.2 LEGATE)
+----------------------------------------------------------------
+Whenever a Teutonic Lord starts his Activation (his Command
+card is revealed) at the SAME Locale as the Legate pawn:
+  - The Teutonic player may add +1 to that Lord's Command
+    Rating for the current card.
+  - REMOVE the pawn back to the William of Modena Capability
+    card if and when the Lord uses the extra action.
+ 
+The Legate may grant this +1 only ONCE per appearance on the
+map; using it sends him back to the card. He'll only re-enter
+the map next Call to Arms (3.5.1) — and only if William of
+Modena hasn't been discarded.
+ 
+ 
+----------------------------------------------------------------
+ENDANGERED — Removal Conditions  (Rules 1.4.1, 4.3.4)
+----------------------------------------------------------------
+If ANY of the following happen, REMOVE the Legate pawn AND
+DISCARD the William of Modena Capability card:
+ 
+  1. The Legate is with a Teutonic Lord who Avoids Battle
+     (4.3.4) OR Withdraws into a Stronghold (4.3.4) OR
+     Retreats (4.4.3).
+ 
+  2. The Legate is at a Locale with one or more Russian
+     Lords AND no Teutonic Lord remains there (e.g., the
+     last Teutonic Lord at the Locale was just removed,
+     leaving the Legate alone with Russians).
+ 
+Once William of Modena is discarded, the Capability is gone
+for the rest of the scenario. It can re-enter only if drawn
+again as a Capability later — but in standard play, William
+of Modena returns to the deck only when discarded down to
+two This-Lord cards (which doesn't apply, because it's not
+This Lord) or by 4.9.5 end-of-Campaign discard. Once
+Endangered-discarded mid-Campaign, William of Modena returns
+to the deck and is shuffled in for the next Levy.
+ 
+ 
+================================================================
+PART IV — OTHER MARKERS  (Section 1.8)
+================================================================
+ 
+ROUND MARKERS:
+  - Levy/Campaign marker:   tracks current phase. One per
+                            Calendar; flipped between sides.
+  - Victory markers:        white and black; one per side.
+                            Two faces: whole number, +½.
+  - Battle/Storm markers:   numbered 1–6 round markers used
+                            to flag the Battle/Storm Locale
+                            and to log Storm Round count.
+ 
+SQUARE MARKERS:
+  - Conquered (1VP):        5/8" square markers. White for
+                            Russian-Conquered, black for
+                            Teutonic-Conquered. Placed on
+                            taken Strongholds and Trade
+                            Routes (per VP value, 1.3.1) or
+                            in the Veche box (Russian VP).
+  - Walls markers:          square; placed via Russian R18
+                            Stone Kremlin Capability to mark
+                            a Russian Fort, City, or Novgorod
+                            with Walls +1.
+ 
+RECTANGULAR MARKERS:
+  - Castle markers:         Russian R-side and Teutonic T-side.
+                            Marks a Stronghold upgrade. The
+                            Teuton-built Castle markers convert
+                            Russian Forts via T17 Stonemasons.
+                            A Russian Castle marker can be
+                            replaced by a Teuton one (and vice
+                            versa) on conquest.
+  - Sea Trade Blocked:      placed via card events to flip off
+                            the Black or Baltic Sea Trade
+                            Capability for that Levy/Campaign.
+ 
+SIEGE MARKERS:
+  - Siege markers:          placed at Besieged Strongholds
+                            (Siege Capacity gates how fast they
+                            stack), max 4 per Locale. They
+                            represent the besieging works and
+                            also serve as Siegeworks (Walls) in
+                            Storm or Sally (4.5.2, 4.5.3).
+ 
+LORD-RELATED:
+  - Moved/Fought markers:   placed on a Lord cylinder when the
+                            Lord conducts March, Avoid Battle,
+                            Battle, Siege, Storm, or Sail. Have
+                            a Supply Source reminder on the
+                            back (4.6.1). Removed at end of
+                            each Command card after Feed/Pay/
+                            Disband.
+  - Numbered markers (1–6): general-purpose tokens for logging
+                            actions, combat rounds, altered
+                            ratings, and other temporary
+                            tracking needs.
+ 
+RAVAGED MARKERS:
+  - 5/8" square markers placed on a Locale when Ravaged
+    (4.7.2). White = Russian-Ravaged Teutonic Locale;
+    black = Teutonic-Ravaged Russian Locale. Each is worth
+    ½ VP to the side that placed it. Halved (round up) at
+    end of each Rasputitsa (4.9.1 Grow).
+ 
+ 
+================================================================
+PART V — GENERAL SETUP  (Section 2.1)
+================================================================
+ 
+LAY OUT  (Rule 2.1.1):
+  - Seat players opposite each other; place the board between
+    them. Allow table room on all sides for mats, cards,
+    Forces, and marker pools.
+  - Apply Lord cylinder STICKERS from the small sheet
+    provided: white sticker on white cylinder, black on
+    black, one sticker per cylinder (14 cylinders total).
+  - The Battle mat (4.4.1) lives off-board until Battle/
+    Storm.
+ 
+POOLS:
+  - Forces pool: all wooden unit pieces (everything except
+    Lord cylinders and the Legate pawn).
+  - Asset pool: Transport (Boats, Carts, Sleds, Ships),
+    Provender, Coin, and Loot markers.
+  - Marker pool: all other markers (1.8) — Conquered,
+    Ravaged, Siege, Castle, Walls, Moved/Fought, numbered
+    markers.
+ 
+DECKS:
+  Sort the playing cards into FOUR decks:
+  - Russian Arts of War
+  - Teutonic Arts of War
+  - Russian Command (3 per Russian Lord = 18 cards)
+  - Teutonic Command (3 per Teutonic Lord = 18 cards)
+ 
+UNUSED MATS:
+  Lord mats not in the current scenario sit in an Unused area
+  to one side. Mats return here when a Lord Disbands but is
+  not permanently removed (3.3.2).
+ 
+OPTIONAL ITEMS:
+  - Hidden Mats Option (1.5.2): one screen per player.
+  - Sequence of Play foldout: one per player, kept handy.
+ 
+SCENARIO SETUP (2.1.2):
+  Choose a scenario (6.0). Agree on optional rules:
+    - Hidden Mats (1.5.2)
+    - Optional unit counters (1.6)
+    - Advanced Vassal Service (3.4.2)
+    - Bidding for Sides (6.0)
+    - No Horseback Archery variant (6.0)
+  Then place markers, cylinders, and Lord mats as the scenario
+  prescribes (see Scenario Reference). Begin with the first
+  Levy.
+ 
+ 
+================================================================
+PART VI — KEY TERMS GLOSSARY  (Rules p. 24)
+================================================================
+Rule references in parentheses point to the Rules of Play.
+ 
+40-Days        — Calendar box; a turn (1.3.2).
+Active         — Acting on Campaign (4.0).
+Adjacent       — Linked by a Way (1.3.1).
+Approach       — March to enemy (4.3.4).
+Archbishopric  — Seat by Capability (1.3.1).
+Archery        — Strike type (4.4.2).
+Armor          — Unit Protection roll (4.4.2).
+Array          — Lords in Battle or Storm (4.4.1).
+Arts of War    — card and deck (1.9.1, 3.1).
+Asiatic Horse  — Forces type (1.6).
+Asset          — Coin, Loot, Provender, Transport (1.7).
+Attack         — Engage in Battle or Storm as Active side
+                 (4.4, 4.5.2).
+Avoid Battle   — Back off from enemy Approach (4.3.4).
+Battle         — Fight due to March (4.4).
+Battle mat     — Array option (4.4.1).
+Besieged       — Under Siege (4.3.5).
+Bishopric      — Stronghold type (1.3.1).
+Boat           — Transport type (1.7.4).
+Calendar       — Turn/Service/Victory tracker (1.3.2, 2.2).
+Call to Arms   — Levy step (3.5).
+Campaign       — Phase of each 40 Days (4.0).
+Capability     — Card aspect (1.9.1, 3.4.4).
+Capacity       — Stronghold aspect (1.3.1).
+Cart           — Transport type (1.7.4).
+Castle         — Stronghold type (1.3.1).
+City           — Stronghold type (1.3.1).
+Coat of Arms   — Lord's symbol (1.5.1).
+Coin           — Asset type (1.7).
+Command        — Rating (1.5.3); card (1.9.2);
+                 Activation (4.2); actions (4.3-.7).
+Commandery     — Seat by Capability (1.3.1, 1.9.1).
+Concede        — Declare end to Battle as loser (4.4.2).
+Conquerable    — Locale aspect (1.3.1).
+Conquered      — VP marker (1.3.1, 5.1).
+Crossbowmen    — Archers with Armor advantage (1.9.1, 4.5.2).
+Cylinder       — Lord's piece (1.5.1).
+Defend         — Face an Attack (4.4, 4.5.2).
+Disband        — Remove Lord from map (3.3).
+Encamp         — End Command actions on starting Siege (4.3.5).
+Endanger       — Remove Legate (1.4.1).
+Evade          — Unit Protection roll (4.4.2).
+Event          — Arts of War card aspect (1.9.1).
+Fealty         — Lord rating (1.5.3).
+Feed           — Eat after Marched/Fought (4.8.1).
+Flank          — Fight non-opposite (4.4.2).
+Foot           — Forces category (1.6).
+Forage         — Command action (4.7.1).
+Forces         — Foot and Horse units (1.6).
+Fort           — Stronghold type (1.3.1).
+Friendly       — Aspect of a Locale (1.3.1).
+Front          — Forward Array row (4.4.1).
+Garrison       — Storm Defense units (4.5.2).
+Greed          — Discard restriction (1.7.2, 3.1.4).
+Higher Auth.   — Legate, Veche (1.4).
+Hit            — Battle effect harming a unit (4.4.2).
+Hold/Held      — Event type (1.9.1).
+Horse          — Forces category (1.6).
+Initiative     — Strike order (4.4.2).
+Knights        — Horse Forces type (1.6).
+Laden          — Slowed by Assets (4.3.2).
+Legate         — Higher Authority pawn (1.4.1, 3.5.1).
+Levy           — Phase of each 40 Days (3.0); bring into
+                 play (3.4-3.5).
+Lieutenant     — Lord temporarily leading another (4.1.3).
+Light Horse    — Forces type (1.6).
+Locale         — Map space (1.3.1).
+Loot           — Asset type (1.7).
+Lord           — Military Leader (1.5.1).
+Lordship       — Lord rating (1.5.3).
+Loss           — Unit removal in combat (4.4.4).
+Lower Lord     — Led by Lieutenant (4.1.3).
+Map            — Game board section (1.3.1).
+March          — Command type (4.3).
+Marshal        — Lord leading Lords (1.5.1).
+Mat            — Display for Lord, Array (1.5, 4.4.1).
+Men-at-Arms    — Foot Forces type (1.6).
+Militia        — Foot Forces type (1.6).
+Moved/Fought   — Marker (4.3, 4.4, 4.8).
+Muster         — Levy segment (3.4); enter play (3.4-3.5).
+Novgorod       — Stronghold type (1.3.1).
+On Map         — At a Locale or in Veche box (1.3.1, 1.3.3).
+Pass           — Command card (1.9.2, 4.2.3); action (4.7.5).
+Pay            — Expend Coin or Loot (3.2.1-.2).
+Plan           — Stack of Command cards (4.1).
+Protection     — Saving roll (4.4.2).
+Provender      — Asset type (1.7).
+Pursuit        — Battle advantage (4.4.2).
+Raid           — Siege reduction by Sally (4.5.3).
+Rasputitsa     — A Season (2.2.1).
+Ravage         — Command action (4.7.2).
+Ready          — Able to Muster (3.4.1-.2).
+Rearguard      — Relief Sally position (4.4.1).
+Recovery       — End Command actions after Battle/Storm
+                 (4.4.5).
+Region         — Locale type (1.3.1).
+Relief Sally   — Besieged Lords joining an Attack from
+                 outside Approach (4.4.1).
+Reposition     — Move in Array (4.4.2, 4.5.2).
+Reserve        — Array back row (4.4.1, 4.5.2).
+Retreat        — Forced out by Battle (4.4.3).
+Rout           — Battle harm to unit/Lord (4.4.2).
+Sack           — Obtain Spoils from Storm (4.5.2).
+Sail           — Action to move to Seaport (4.7.3).
+Sally          — Besieged Attack (4.4.1, 4.5.3).
+Seaport        — Locale aspect (1.3.1).
+Season         — Pair of 40 Days (2.2.1).
+Seat           — Stronghold aspect (1.3.1).
+Serfs          — Forces type (1.6).
+Sergeants      — Horse Forces type (1.6).
+Service        — Lord/Vassal rating (1.5.3-.4); marker
+                 (1.5.1); advanced rule (3.4.2).
+Share          — Use Asset for other Lord (1.5.2).
+Ship           — Transport type (1.7.4).
+Siege          — Marker (4.3.5); action (4.5.1).
+Siegeworks     — Besiegers' Walls (4.5.2).
+Sled           — Transport type (1.7.4).
+Source         — Supply origin (4.6).
+Special Vassal — Vassal type (1.5.4).
+Spoils         — Battle/Storm gain (4.4.3, 4.5.2).
+Storm          — Command action (4.5.2).
+Strike         — Inflict Hits (4.4.2).
+Stronghold     — Locale type (1.3.1).
+Summer         — A Season (2.2.1).
+Supply         — Command action (4.6).
+Supply Route   — Chain of Locales and Ways with Transport
+                 (4.6.1).
+Supply Source  — Locale providing Provender via Supply
+                 (4.6.1).
+Surrender      — Stronghold taken via Siege (4.5.1).
+Tax            — Command action (4.7.4).
+Terms          — No Spoils in Surrender (4.5.1).
+This Lord      — Capability type (3.4.4).
+Town           — Locale type (1.3.1).
+Trackway       — Overland Way (1.3.1).
+Trade Route    — Locale type (1.3.1).
+Transport      — Asset type (1.7.4).
+Unarmored      — Unit Protection roll (4.4.2).
+Unit           — Forces piece (1.6).
+Unready        — Unable to Muster (3.4.1-.2).
+Usable         — Transport effective by Season and Way
+                 (1.7.4).
+Vassal         — Forces a Lord can Levy (1.5.4).
+Veche          — Higher Authority (1.4.2, 3.5.2).
+Walls          — Saving roll (4.5.2).
+Wastage        — Asset/VP marker limit (1.4.2, 1.7.3),
+                 erosion at end of Campaign (4.9.4).
+Waterway       — River or lakeshore (1.3.1).
+Way            — Link between Locales (1.3.1).
+Winter         — Early or Late; Seasons (2.2.1).
+Withdraw       — Enter Stronghold instead of Battle (4.3.4).

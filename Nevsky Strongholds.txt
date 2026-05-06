@@ -1,0 +1,27 @@
+Nevsky — Strongholds Reference
+Sources: Rules of Play 2nd Edition (1.3.1, 4.5.1, 4.5.2); Second Edition Changes Summary; Foldout PAC Strongholds table.
+Conquest vs. Sack: A Stronghold becomes Conquered either by Surrender (Siege roll ≤ Siege markers, no Lord inside) or by Sack (won by Storm). Both yield the VP. Only Sack yields Loot, Provender, and Coin equal to the VP value (4.5.1 Terms; 4.5.2 Sack).
+
+Russian-Built Strongholds
+TypeCapacityWallsGarrisonVP if ConqueredSpoils if SackedNovgorod (Archbishopric)31–33 Men-at-Arms*3 VP3 Loot, 3 Provender, 3 CoinCity31–33 Men-at-Arms*2 VP2 Loot, 2 Provender, 2 CoinFort11–31 Man-at-Arms*1 VP1 Loot, 1 Provender, 1 CoinTrade Routenonenonenone1 VP— (cannot be Sacked; no Garrison/Walls to Storm)
+Teuton-Built Strongholds
+TypeCapacityWallsGarrisonVP if ConqueredSpoils if SackedBishopric31–42 Men-at-Arms* + 1 Knights2 VP2 Loot, 2 Provender, 2 CoinCastle21–41 Man-at-Arms* + 1 Knights1 VP1 Loot, 1 Provender, 1 Coin
+* Garrison Men-at-Arms have both Melee and Archery, with enemy Armor at –2 against their Archery Hits (as if with a Crossbowmen Capability). Garrison Knights have Melee only — no Archery.
+
+Notes
+
+Surrender vs. Sack matters strategically. A long Siege that ends in Surrender hands the besieger VP but no assets — and any inside Lord goes through normal Disband, providing Coin via Ransom. A Storm risks units and Lords but pays the assets if it succeeds.
+Sack also permanently removes any Besieged Lord(s) inside (1.5.1) — Surrender does not.
+Novgorod is the only Archbishopric, and only via Aleksandr's R15 Archbishopric of Novgorod Capability (which adds it as his Seat). The Stronghold itself is always treated as a Novgorod-row entry on the table.
+Trade Routes are boxed Locales: they take a Conquered marker for 1 VP but have no Walls, Capacity, or Garrison. They flip simply by an enemy Lord's presence with no friendly Lord contesting — no Storm involved, hence no Spoils.
+Walls are rolled only in Storm, Sally, or by specific Event — not in normal Battle (4.4.2, 4.5.2).
+Capacity governs Siegeworks: a Besieging army with Lords ≥ Capacity may add a Siege marker per Siege action, up to four. Below Capacity, the Besiegers can only starve the defenders out.
+Garrison hits absorbed first. In Storm, the Defender must assign Hits to Garrison units until they Rout, before any Defending Lord's units take Hits.
+Garrisons are independent of the Defending Lord's cards. Halbbrüder does not give Garrison MaA Armor +1; Crossbowmen does not stack on the Garrison's built-in –2 Armor effect. A Besieged Lord's Balistarii gives his units (not the Garrison) Archery.
+Stone Kremlin (R18) can mark a Russian Fort, City, or Novgorod with Walls +1 (becoming Walls 1–4). Stonemasons (T17) can convert a Fort into a Castle (Walls 1–4 with Castle garrison/spoils), removing any Walls +1 marker there.
+Storm Melee cap: each Lord per side adds at most 6 Melee Hits per Round; Archery is unlimited (4.5.2, 2nd Ed change).
+
+Difference from input
+
+The Second Edition Changes Summary reduced Bishopric and Castle garrisons by one Men-at-Arms each, so Bishopric 2 MaA + 1 Knight and Castle 1 MaA + 1 Knight supersede the original PAC printing.
+Loot/Provender/Coin moved into a separate "Spoils if Sacked" column to reflect that they are awarded only on Storm, not on Siege Surrender.

@@ -1,0 +1,651 @@
+================================================================
+NEVSKY: CALL TO ARMS — COMPLETE RULES REFERENCE
+Levy & Campaign Series, Volume I (Teutons and Rus, 1240–1242)
+Sources: Rules of Play 2nd Edition (3.5, 1.4, 1.4.1, 1.4.2),
+         Second Edition Changes Summary (3.5.2),
+         Arts of War Reference (R8, R9, R13, R8 Pelgui-class
+         Lordship Holds; T7, T8, T17 Lordship Holds),
+         Playbook (Watland walkthrough, Pay & Disband example).
+Where Rules of Play 2nd Edition or Second Edition Changes
+contradict any other source, those two trump.
+================================================================
+ 
+----------------------------------------------------------------
+PART 1. OVERVIEW
+----------------------------------------------------------------
+ 
+Call to Arms is the FINAL step of the Levy phase, executed
+AFTER both sides have completed Muster (3.4). During Call to
+Arms, each side's higher religious or civil authority — the
+Papal Legate (Teutonic) or the Novgorod Veche (Russian) —
+may mobilize additional strength.
+ 
+Order of execution: TEUTONIC FIRST, then RUSSIAN.
+ 
+  3.5.1  Papal Legate            (Teutons)
+  3.5.2  Novgorod Veche          (Russians)
+  3.5.3  Discard "This Levy"     (both sides)
+ 
+A side may always elect to do nothing in its segment.
+ 
+----------------------------------------------------------------
+PART 2. SEQUENCE OF OPERATIONS (atomic order)
+----------------------------------------------------------------
+ 
+STEP 1. Teutonic 3.5.1 Papal Legate.
+  1a. CHECK: Is William of Modena Capability in effect?
+        NO  -> Teutons skip Call to Arms. Go to Step 2.
+        YES -> continue.
+  1b. ARRIVES: If Legate pawn is on the William of Modena card
+       at the start of Call to Arms, Teutons MAY place the pawn
+       at any Bishopric (Riga, Dorpat, Leal, or Reval).
+  1c. ACTIVE: Once the Legate pawn is on the map, Teutons MAY
+       choose AT MOST ONE of the following:
+        (a) Move the pawn to any Friendly Locale (1.3.1), OR
+        (b) USE the Legate (then return pawn to William of
+            Modena card) to do exactly ONE of:
+              i.  At the Seat of a Ready Lord:
+                  Muster that Lord there (3.4.1) WITHOUT
+                  rolling Fealty.
+              ii. At the Seat of a Lord on the Calendar:
+                  Slide that Lord's cylinder 1 box LEFT.
+              iii.At a Friendly Locale with a Lord:
+                  That Lord performs an immediate EXTRA Muster
+                  using his FULL Lordship Rating (3.4).
+ 
+STEP 2. Russian 3.5.2 Novgorod Veche.
+  2a. SEA-TRADE COIN (if Capabilities in effect):
+        If R8 Black Sea Trade in effect AND not blocked:
+          add 1 Coin to the Veche box.
+        If R9 Baltic Sea Trade in effect AND not blocked AND
+        season is not Early/Late Winter:
+          add 2 Coin to the Veche box.
+        These Coin additions can occur at any time during
+        Russian Call to Arms, including in the same Levy in
+        which the Capability was just Mustered.
+        Cap: Veche box holds at most 8 Coin (excess lost).
+  2b. VECHE ACTION: Russians may either DO NOTHING or take
+        EXACTLY ONE of the following:
+        Option A  SLIDE LEFT (cost 1 VP):
+          Remove one 1VP Conquered marker from Veche box
+          (and slide the white Victory marker on the
+          Calendar one box left to match) to slide one Lord's
+          cylinder on the Calendar 2 BOXES LEFT.
+        Option B  AUTO-MUSTER (cost 1 VP):
+          Remove one 1VP Conquered marker from the Veche box
+          to automatically Levy one Ready Russian Lord (3.4.1)
+          WITHOUT rolling Fealty.
+          NOTE: Aleksandr can ONLY enter play via this option
+          (no Lord may Muster him).
+        Option C  EXTRA MUSTER (cost 1 VP):
+          Remove one 1VP Conquered marker from the Veche box
+          to enable one Russian Lord at a Friendly Locale
+          (never at a Siege) to perform an immediate EXTRA
+          Muster using his Lordship Rating (3.4).
+        Option D  DECLINE (gains 1 VP):
+          Slide Aleksandr and/or Andrey, whichever is Ready
+          (cylinder at or left of the current Levy box), to
+          1 box RIGHT of the current Levy.
+          If BOTH are Ready, BOTH cylinders MUST be slid.
+          Add ONE white 1VP Conquered marker to the Veche
+          box (single marker, even if both princes were slid).
+          Slide the white Victory marker on the Calendar one
+          box right to match.
+          Cap: Veche box holds at most 8 VP markers (excess
+          lost).
+ 
+STEP 3. 3.5.3 Discard Events.
+  Both sides discard any Events that applied only to "This
+  Levy" (3.1.3). Levy ends. Flip the Levy/Campaign turn
+  marker to Campaign (2.2.2, 4.0).
+ 
+----------------------------------------------------------------
+PART 3. TEUTONIC CALL TO ARMS — DETAILS (3.5.1)
+----------------------------------------------------------------
+ 
+PRECONDITION (1.4.1, 3.5.1 INDISPOSED):
+  The Legate is in play if and only if the William of Modena
+  Capability (T13) is currently in effect on the Teutonic
+  side (1.9.1, 3.4.4).
+  Without William of Modena, Teutons SKIP Call to Arms
+  entirely — no placement, no movement, no use.
+ 
+LEGATE PAWN LOCATIONS:
+  Either: on the William of Modena card (off-map), OR
+  At a map Locale (entered via "ARRIVES" or moved with a
+  Lord during Campaign, 1.4.1, 4.2).
+ 
+THE FOUR BISHOPRICS (placement targets for ARRIVES):
+  Riga, Dorpat, Leal, Reval.
+  These are the Teutonic religious centers. (The Russian
+  Archbishopric at Novgorod is NOT a Teutonic Bishopric.)
+ 
+LEGATE OPTIONS DURING CALL TO ARMS (choose at most ONE):
+  Option 1: Move the pawn to any Friendly Locale (1.3.1).
+            The pawn stays on the map; no Lord effect.
+  Option 2: USE the Legate, then return the pawn to the
+            William of Modena card. The pawn must currently
+            be at a Locale that satisfies one of the three
+            sub-options below. The chosen sub-option
+            determines what the use does:
+ 
+  Sub-option 2a (LEGATE AT SEAT OF READY LORD):
+    Auto-Muster that Lord at that Seat per 3.4.1 procedure
+    (place cylinder, mat, starting Forces/Assets/Vassals,
+    Service marker = Service Rating boxes right of Levy).
+    NO Fealty roll required.
+ 
+  Sub-option 2b (LEGATE AT SEAT OF LORD ON CALENDAR):
+    Slide that Lord's cylinder 1 box LEFT on the Calendar.
+    This may make a not-Ready Lord become Ready.
+ 
+  Sub-option 2c (LEGATE AT FRIENDLY LOCALE WITH ANY LORD):
+    That Lord (must be Mustered and at this Friendly Locale)
+    performs an immediate EXTRA Muster using his FULL
+    Lordship Rating.  All Muster options (3.4.1–3.4.4) are
+    available to him — Levy other Lords, Levy Vassals, Levy
+    Transport, Levy Capabilities — at this moment, in
+    addition to whatever he did during the regular Muster
+    segment.
+ 
+ENDANGERED (1.4.1):
+  This is a Campaign-phase risk, not a Call to Arms event,
+  but it removes the Legate pawn and discards William of
+  Modena, which then prevents Call to Arms next Levy. Watch
+  for it.
+  Trigger conditions: the Legate is with a Teutonic Lord who
+  Avoids Battle, Withdraws, or Retreats (4.3.4, 4.4.3), OR is
+  in a Locale with any Russian Lord(s) and no Teutonic Lord.
+  Effect: remove the pawn from the map; discard William of
+  Modena.
+ 
+----------------------------------------------------------------
+PART 4. RUSSIAN CALL TO ARMS — DETAILS (3.5.2)
+----------------------------------------------------------------
+ 
+WHAT THE VECHE HOLDS (1.3.3, 1.4.2):
+  Two distinct token types in the Veche box:
+    Conquered (1VP) markers — white, used for Veche
+      actions A/B/C and produced by Veche action D
+      (also seeded by scenario setup).
+    Coin markers — gold, used during Pay (3.2.1) to shift
+      any non-Besieged Russian Lord's Service. NOT spent
+      during Call to Arms itself.
+  Caps: max 8 VP markers AND max 8 Coin in the Veche box;
+        any excess is lost (1.4.2 WASTAGE).
+ 
+CALL TO ARMS PROCEEDS EVEN IF NOVGOROD IS CONQUERED.
+  The Veche may continue its Call to Arms even while the
+  Novgorod Locale is held by the Teutons (3.5, 1.4.2).
+  However:
+    If Teutons CONQUER Novgorod (4.5), all Coin in the
+      Veche box is removed. (If Sacked, that Coin is added
+      to Spoils, 4.5.2.)
+    VP markers in the Veche box are NOT removed by
+      Conquest of Novgorod.
+    R8 Black Sea Trade: blocked while Novgorod OR Lovat is
+      Conquered by Teutons; resumes if Russians retake.
+    R9 Baltic Sea Trade: blocked while Novgorod OR Neva is
+      Conquered, OR while Teutons have more Ships than Rus;
+      season-restricted to non-Winter regardless.
+ 
+VECHE ACTION OPTIONS — DETAILS:
+ 
+  Option A. SLIDE LEFT (slide one Lord 2 boxes left).
+    Cost: remove 1× white 1VP Conquered marker from Veche
+          box. Slide the white Victory marker on the
+          Calendar 1 box left.
+    Target: ANY ONE Lord cylinder, on the Calendar OR on
+            map. (Practical use: princes still ahead on the
+            Calendar.)
+    Effect: 2 boxes LEFT (per Second Edition; PAC says
+            1 box and is OBSOLETE).
+    Note: A Lord whose cylinder is on the map cannot be
+          slid by this option (no Calendar position to move).
+          The Russian source files explicitly call this a
+          slide of a "Lord cylinder on the Calendar."
+    Use case: bring a not-yet-Ready Lord into Ready range
+              (cylinder ends up at or left of Levy marker,
+              i.e. eligible for Muster).
+ 
+  Option B. AUTO-MUSTER (Levy a Ready Lord without rolling).
+    Cost: remove 1× 1VP Conquered marker from Veche box.
+          Adjust white Victory.
+    Target: any READY Russian Lord (cylinder at or left of
+            current Levy box, with at least one free Seat).
+    Effect: place that Lord per 3.4.1 procedure WITHOUT a
+            Fealty roll (cylinder at chosen free Seat, mat
+            in front of player, starting Forces/Assets/
+            available Vassal Service markers, Service
+            marker = Service Rating boxes right of Levy).
+    SPECIAL RULE: Aleksandr has NO Fealty rating and may
+            NEVER be Mustered by any Lord (3.4.1). The
+            Veche auto-Muster (Option B) is the ONLY way
+            Aleksandr can enter play.
+ 
+  Option C. EXTRA MUSTER (a Russian Lord uses his Lordship).
+    Cost: remove 1× 1VP Conquered marker from Veche box.
+          Adjust white Victory.
+    Target: ONE already-Mustered Russian Lord at a Friendly
+            Locale (1.3.1). Never a Lord at a Siege.
+    Effect: that Lord performs an immediate EXTRA Muster
+            using his FULL Lordship Rating (3.4). All
+            Muster options 3.4.1–3.4.4 are available
+            (Levy other Lords, Vassals, Transport,
+            Capabilities), in addition to whatever he did
+            during the regular Muster segment.
+    Note: A Lord who was JUST brought onto the map this
+          Call to Arms (e.g., via Option B) CANNOT be the
+          recipient of Option C in the same Call to Arms,
+          per the general Muster rule that newly arrived
+          Lords cannot use their Lordship in the same
+          Muster segment (3.4). The Rules text explicitly
+          extends this: "He may be able to do so during
+          that Levy's Call to Arms (3.5)" — meaning a Lord
+          Mustered DURING the standard Muster segment can
+          use his Lordship via Option C, but a Lord
+          Mustered VIA Option B (auto-Muster) within Call
+          to Arms cannot then turn around and be the
+          subject of Option C in the same Call to Arms.
+ 
+  Option D. DECLINE (gain 1 VP for the Veche).
+    Cost: NONE (this is the income action).
+    Target: Aleksandr and/or Andrey, whichever has a
+            cylinder that is READY (at or left of current
+            Levy box).
+    Procedure:
+      1. Identify which of Aleksandr / Andrey are Ready.
+      2. If exactly one is Ready, slide that one to 1 box
+         RIGHT of current Levy.
+      3. If BOTH are Ready, BOTH cylinders MUST be slid to
+         1 box right of current Levy. (You may not decline
+         only one when both are Ready.)
+      4. Add EXACTLY ONE white 1VP Conquered marker to the
+         Veche box (one marker total, even when both were
+         slid). Slide the white Victory marker on the
+         Calendar 1 box right to match.
+    Cap: Veche VP cap is 8. If the box already holds 8 VP,
+         the new marker is forfeit (1.4.2 WASTAGE).
+    Worked example (per Rules of Play): It is Call to Arms
+    of 40-Days box 7; Andrey and Aleksandr cylinders are in
+    box 5. The Russian player declines both, sliding their
+    cylinders to box 8 and adding a 1VP Conquered marker to
+    the Veche box.
+    Reminder: only the Veche may Levy Aleksandr (3.4.1).
+ 
+----------------------------------------------------------------
+PART 5. SEA-TRADE COIN ADDITIONS (R8, R9)
+----------------------------------------------------------------
+ 
+R8 BLACK SEA TRADE.
+  Card text: "Each Call to Arms, add 1 Coin to Veche unless
+  Novgorod or Lovat Conquered."
+  Tip: Add the Coin once at any time during Russian Call to
+  Arms, including in the same Levy as Mustering the
+  Capability.
+  Marker handling: place the appropriate Coin marker on the
+  card as a reminder, then move it to the Veche box during
+  Russian Call to Arms.
+  Blocked: while Novgorod OR Lovat is Conquered by Teutons.
+  Place a "SEA TRADE Blocked" marker on the card while
+  blocked. If Russians retake the Conquered Locale, the
+  benefit resumes the next Call to Arms.
+ 
+R9 BALTIC SEA TRADE.
+  Card text: "Each non-Winter Call to Arms, add 2 Coin to
+  Veche unless Teutons have more Ships than Rus OR Novgorod
+  or Neva Conquered."
+  Tip: Same handling as R8.
+  Blocked: while Novgorod OR Neva is Conquered, OR while
+  Teutons have more Ships than Rus, OR during Early Winter
+  or Late Winter (no Coin in those seasons regardless).
+  Ship count: R16 Lodya may double a Russian Lord's Boats
+  for purposes of this comparison; T18 Cogs may also count
+  toward the Teutonic Ship total. Compare totals at the
+  moment Coin is to be added.
+ 
+WHERE THE COIN GOES:
+  Directly to the Veche box (not to any Lord's mat).
+  These Coin tokens are spent later, during Pay (3.2.1), to
+  shift the Service of any non-Besieged Russian Lord by
+  1 box right per Coin spent. Veche Coin can travel to any
+  Russian Lord on the map regardless of Locale (the only
+  cross-locale Coin in the game).
+ 
+WHEN COIN IS ADDED RELATIVE TO THE VECHE ACTION:
+  The Russian player may add the Coin BEFORE or AFTER
+  taking the Veche action (Options A–D) within the Russian
+  Call to Arms segment. The "once any time during Russian
+  Call to Arms" wording is permissive.
+ 
+VP MARKERS — NOT FROM SEA TRADE:
+  Sea-Trade Capabilities add Coin only, never VP. The only
+  routes to put VP markers into the Veche are scenario
+  setup and Option D (Decline) above.
+ 
+----------------------------------------------------------------
+PART 6. DISCARD EVENTS — 3.5.3
+----------------------------------------------------------------
+ 
+After both Call to Arms segments, both sides discard any
+Events that applied only to "This Levy" (3.1.3). These were
+revealed during the Arts of War step at the start of the
+current Levy and remained in effect for the entire Levy.
+ 
+Hold Events do NOT discard here. They remain hidden in the
+holding player's area until played per their text or
+discarded later (e.g., during End Campaign Reset, 4.9.5).
+ 
+"This Campaign" Events also do NOT discard here; they
+discard at end of Campaign (4.9.5).
+ 
+----------------------------------------------------------------
+PART 7. VECHE BOX MECHANICS — CONSOLIDATED
+----------------------------------------------------------------
+ 
+CONTENTS OF VECHE BOX:
+  - White 1VP Conquered markers (max 8).
+  - Gold Coin markers (max 8).
+ 
+ADDING VP MARKERS:
+  - Scenario setup (e.g., Pleskau, Watland, Peipus all start
+    with at least one VP marker; Peipus starts with 4).
+  - Veche Option D (Decline) during Russian Call to Arms.
+    There are no other in-game routes to add VP to the box.
+ 
+REMOVING VP MARKERS:
+  - Spending one for Veche Options A, B, or C during
+    Russian Call to Arms (3.5.2).
+  - Each spent VP slides the white Victory marker on the
+    Calendar 1 box LEFT to reflect the loss of Russian VP.
+ 
+ADDING COIN:
+  - R8 Black Sea Trade during Russian Call to Arms.
+  - R9 Baltic Sea Trade during non-Winter Russian Call to
+    Arms (subject to blocks).
+  - There is no other in-game route to add Coin to the box.
+ 
+REMOVING COIN:
+  - Pay step (3.2.1): spend Veche Coin to shift the Service
+    of any non-Besieged Russian Lord 1 box right per Coin.
+  - Conquest of Novgorod by Teutons removes ALL Coin from
+    the Veche box (1.4.2). If Novgorod was Sacked, that
+    Coin is added to Teutonic Spoils (4.5.2). VP markers
+    are not affected by Conquest.
+ 
+VICTORY POINT BOOKKEEPING:
+  Each VP marker in the Veche box corresponds to one box of
+  white Victory marker advance on the Calendar (toward the
+  Russian end). Adding a VP marker to the box advances the
+  Victory marker right by 1; removing one slides it left by
+  1. Adjust Calendar Victory whenever the box VP count
+  changes.
+ 
+----------------------------------------------------------------
+PART 8. INTERACTIONS WITH EVENTS AND CAPABILITIES
+----------------------------------------------------------------
+ 
+EVENTS THAT REMOVE THE LEGATE / DISCARD WILLIAM OF MODENA:
+  R15 Death of the Pope.
+    Drawn during Arts of War (3.1.3). If William of Modena
+    is currently in play as a Capability, immediately
+    discard it and remove the Legate pawn from the map
+    (even if Besieged). For the rest of THIS LEVY, no
+    William of Modena may be Levied.
+    Effect on Call to Arms: Teutons SKIP Call to Arms this
+    Levy (no Legate, no William of Modena Capability).
+    The card discards at end of this Levy. William of
+    Modena may be re-Levied in a later 40 Days.
+    Death of the Pope can occur multiple times in a game.
+ 
+EVENTS THAT BLOCK A LORD'S LORDSHIP DURING CALL TO ARMS:
+  R11 Valdemar.
+    "On Calendar, shift Knud & Abel OR their Service up to
+    1 box; this Levy, no Muster of or by them."
+    Tip: blocks Knud & Abel's use of Lordship, INCLUDING
+    during Call to Arms.
+    Effect: Knud & Abel cannot be the recipient of the
+    Legate's Sub-option 2c (Extra Muster) or Auto-Muster
+    sub-option 2a this Levy.
+  R17 Dietrich von Grüningen leads Order to Kurland.
+    "On Calendar, shift Andreas OR Rudolf OR their Service
+    1 box; this Levy, no Muster of or by them."
+    Tip: blocks Andreas's and Rudolf's use of Lordship,
+    INCLUDING during Call to Arms and via any Teutonic
+    Events. Andreas and Rudolf cannot be the recipient of
+    Legate Sub-option 2c, nor can the Legate auto-Muster
+    them via 2a, this Levy.
+ 
+EVENTS THAT SHIFT ALEKSANDR / ANDREY ON THE CALENDAR
+(affecting whether Decline is even available):
+  T1  Grand Prince favors a son.
+    On Calendar, shift Aleksandr OR Andrey OR furthest-right
+    Service of either by 2 boxes (Teutons choose direction).
+    Discard immediately. (Removed from deck while William
+    of Modena Capability is in play.)
+  T12 Khan Baty — Mongols' return feared.
+    On Calendar, shift Aleksandr OR Andrey OR Service of
+    either up to 2 boxes (Teutons choose direction).
+    Discard immediately.
+  R10 Batu Khan — Mongols turn west.
+    On Calendar, shift Andreas cylinder OR Service up to 2
+    boxes (Russians choose direction). Discard immediately.
+ 
+HOLD EVENTS THAT GRANT LORDSHIP +2 IN CALL TO ARMS:
+  These all read "shift cylinder 2 Calendar boxes OR
+  Lordship +2." The Lordship +2 can be used during the
+  Muster segment OR during the Call to Arms segment of the
+  same Levy. Each is one-shot ("Discard the moment used").
+    R8  Prince of Polotsk — any Russian Lord.
+    R13 Pelgui — Vladislav OR Karelians.
+    T7  Tverdilo — Hermann OR Yaroslav.
+    T8  Teutonic Fervor — Rudolf only.
+    T17 Dietrich von Grüningen focuses Order on Rus —
+        Andreas OR Rudolf.
+  Practical use in Call to Arms: a Lord receiving Legate
+  Sub-option 2c or Veche Option C (extra Muster at full
+  Lordship) can stack his Lordship +2 to perform more
+  Muster actions in that extra Muster.
+  Caveat (R8 Prince of Polotsk, T8 Teutonic Fervor, T17):
+  the receiving Lord may use the bonus to Levy the
+  Capability on the same card as part of that extra Muster.
+  R13 Pelgui: only Vladislav (not Karelians) may use the
+  bonus to Levy the Capability on the same card.
+ 
+CAPABILITIES MUSTERED MID-LEVY THAT TAKE EFFECT IN THIS
+SAME CALL TO ARMS:
+  R8 Black Sea Trade: explicitly may add its Coin "in the
+  same Levy as Mustering the Capability."
+  R9 Baltic Sea Trade: same per R8 reference.
+  William of Modena (T13): if Mustered during this Levy's
+  Muster segment, the Legate pawn enters play, and the
+  Teutons may use it normally during the immediately
+  following Call to Arms (place at any Bishopric per
+  ARRIVES, then optionally USE).
+ 
+----------------------------------------------------------------
+PART 9. GLOSSARY OF KEY TERMS
+----------------------------------------------------------------
+ 
+READY (3.4.1, 2.2):
+  A Lord whose cylinder is in a 40-Days box AT or LEFT of
+  the current Levy marker. (Cylinders RIGHT of the Levy
+  marker are not Ready.)
+ 
+FREE SEAT (3.4.1):
+  A Seat free of enemy Lords and not Conquered by the
+  enemy. Required for any Muster (whether by Lord, Veche,
+  or Legate).
+ 
+FRIENDLY LOCALE (1.3.1):
+  All four conditions met:
+    1. Locale is in own side's territory (Estonia/Livonia
+       for Teutons, Rus for Russians) OR is a Stronghold
+       Conquered by the own side.
+    2. No enemy Lord at the Locale.
+    3. No enemy Stronghold at the Locale.
+    4. No enemy Conquered marker at the Locale.
+  A Siege Locale (4.3.5) is NEVER Friendly to either side.
+ 
+SEAT (1.3.1):
+  A Locale bearing a Lord's Coat of Arms. Extra Seats may
+  be granted by Capabilities:
+    R15 Archbishopric — Novgorod is an extra Seat for ALL
+        Russian Lords (so Novgorod = 2 Seats for Aleksandr,
+        Andrey, Domash; for some, e.g. Aleksandr, Andrey
+        per their mats, Rusa is also an Extra Seat under
+        the cross icon).
+    T12 Ordensburgen — each Teutonic Commandery is an
+        extra Seat for the indicated Teutonic Lords.
+    Pskov — a Seat for Yaroslav while Conquered by
+        Teutons.
+ 
+BISHOPRIC (1.3.1, 1.4.1):
+  Teutonic religious Stronghold. The four are Riga, Dorpat,
+  Leal, Reval. The Legate's ARRIVES placement during Call
+  to Arms must be at one of these four (no need for it to
+  be Friendly per 3.5.1, though by default they will be on
+  the Teutonic side).
+ 
+BESIEGED (4.3.5):
+  A Lord at a Locale where the enemy has begun a Siege.
+  Besieged Lords cannot Muster, cannot use Veche Coin to
+  pay them via 3.2.1 (only their own or another Besieged
+  Lord's Coin works), and cannot be the recipient of Veche
+  Option C.
+ 
+LORDSHIP RATING (1.5.3):
+  The number of Levy actions the Lord can take during a
+  Muster segment. Used in Call to Arms only via Legate
+  Sub-option 2c (Extra Muster) and Veche Option C (Extra
+  Muster), both of which use the recipient Lord's FULL
+  Lordship Rating, plus any Hold-Event bonus active at
+  that moment.
+ 
+----------------------------------------------------------------
+PART 10. DECISION CHECKLIST FOR SELF-PLAY
+----------------------------------------------------------------
+ 
+TEUTONIC PRE-CHECKS (3.5.1):
+  [ ] Is William of Modena currently in play?
+        If NO  -> skip to Russian segment.
+        If YES -> continue.
+  [ ] Where is the Legate pawn?
+        On William of Modena card -> ARRIVES allowed: place
+            at any Bishopric.
+        On the map at a Locale -> evaluate USE options.
+  [ ] If pawn is on the map, evaluate which Locale Class
+      the pawn currently occupies:
+        Seat of a Ready Lord                   -> 2a available
+        Seat of a Lord on the Calendar         -> 2b available
+        Friendly Locale with any Mustered Lord -> 2c available
+        None of the above                      -> only Option 1
+                                                  (move pawn)
+  [ ] Score each available USE option against scenario goals:
+        2a worth most when target Lord has low Fealty
+            (avoiding the failed-roll cost).
+        2b worth most when target Lord is 1 box off Ready.
+        2c worth most when target Lord has high Lordship and
+            sits on multiple useful Levy targets, especially
+            with a Hold Event giving Lordship +2.
+  [ ] If using USE: pawn returns to William of Modena card.
+      If using Option 1 (move): pawn stays on map.
+ 
+RUSSIAN PRE-CHECKS (3.5.2):
+  [ ] Is Novgorod Conquered by Teutons?
+        If YES: Veche may still act, but Coin (if any) was
+        wiped at Conquest. R8 still works unless Lovat is
+        also Conquered. R9 also requires Neva not Conquered.
+  [ ] If R8 in effect and not blocked, add 1 Coin to Veche.
+  [ ] If R9 in effect and not blocked AND season is non-
+      Winter, add 2 Coin to Veche.
+  [ ] How many VP markers are in the Veche box?
+        0      -> Options A, B, C unavailable; only D or
+                  do nothing.
+        1–7    -> All four options available; pick best.
+        8      -> Decline cap reached: Option D produces no
+                  VP gain (still slides princes if you choose
+                  it, but the marker is forfeit).
+  [ ] Are Aleksandr or Andrey Ready?
+        If neither -> Option D unavailable.
+        If exactly one -> Option D slides only him.
+        If both -> Option D MUST slide both.
+  [ ] Score each option against scenario tempo:
+        A worth most when sliding either prince (or another
+            Lord) by 2 boxes brings him to Ready in time
+            for next Levy or this segment.
+        B worth most for getting Aleksandr in (his only
+            entry route) or for low-Fealty princes.
+        C worth most when a high-Lordship Lord (Aleksandr 4,
+            Andrey 3) sits on multiple Levy targets,
+            especially with a Hold Event.
+        D worth most early game when the front is quiet and
+            VP banking yields more flexibility than a prince
+            on the map. Note Veche cap is 8.
+ 
+GENERAL TIPS (from project sources):
+  - Decline early, summon late. Each declined VP becomes
+    flexible Veche resources later.
+  - Veche Coin paid via 3.2.1 reaches any non-Besieged
+    Russian Lord, anywhere — the Russians' single biggest
+    logistical lever.
+  - Hoarded Veche Coin caps at 8; spend proactively to
+    avoid wastage (1.4.2 WASTAGE).
+  - Aleksandr in Pleskau scenario: cylinder is removed
+    from play (he is not in the deck for that scenario).
+    Verify scenario rules before assuming Aleksandr is
+    available.
+ 
+----------------------------------------------------------------
+PART 11. COMMON ERRORS AND OBSOLETE RULES
+----------------------------------------------------------------
+ 
+OBSOLETE 1ST EDITION TEXT (do NOT use):
+  PAC text says Veche slides a cylinder "1 Calendar box
+  left." This is OBSOLETE. Second Edition is 2 BOXES LEFT.
+ 
+OBSOLETE PAC EXCEPTION (deleted in 2nd Edition):
+  PAC text says "(not Aleksandr, Andrey only by Aleksandr)."
+  The Andrey-only-by-Aleksandr restriction was REMOVED in
+  Second Edition. In 2E, only Aleksandr is restricted to
+  Veche-only Muster; Andrey may be Mustered like any other
+  Russian Lord.
+ 
+COMMON ERRORS:
+  - Adding Sea-Trade Coin to a Lord's mat instead of the
+    Veche box. Sea-Trade Coin always goes to the Veche.
+  - Spending Veche Coin during Call to Arms. Coin is spent
+    during PAY (3.2.1), not Call to Arms. Call to Arms
+    spends VP markers, not Coin.
+  - Sliding only one prince when both are Ready under
+    Option D. The rule REQUIRES both be slid if both are
+    Ready.
+  - Adding 2 VP markers when both princes are declined.
+    The decline yields ONE marker total, regardless of
+    whether one or both princes were slid.
+  - Forgetting to slide the white Calendar Victory marker
+    when VP markers enter or leave the Veche box.
+  - Trying to use Veche Option C on a Lord who is at a
+    Siege. Option C requires a Friendly Locale; Sieges
+    are never Friendly (1.3.1).
+  - Trying to use Legate Sub-option 2a or 2c on Knud & Abel
+    while R11 Valdemar is in effect this Levy, or on
+    Andreas/Rudolf while R17 Dietrich is in effect this
+    Levy. Both Events block use of those Lords' Lordship
+    AND block their Muster.
+  - Skipping Russian Call to Arms because Novgorod is
+    Conquered. Russians may still act with the Veche.
+    Only Coin is lost to Conquest; VP markers and Veche
+    actions persist.
+  - Forgetting that Aleksandr's only entry path is Veche
+    Option B. The Legate cannot Muster Aleksandr (no
+    Fealty rating to roll against), and no Lord can
+    Muster him.
+  - Using the Legate to grant a Command bonus during Call
+    to Arms. The Legate's Command bonus is a CAMPAIGN-only
+    use (4.2). Call to Arms uses are limited to the four
+    listed in 3.5.1.
+ 
+================================================================
+END OF CALL TO ARMS RULES REFERENCE
+================================================================

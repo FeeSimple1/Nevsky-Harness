@@ -1,0 +1,519 @@
+# ============================================================
+# NEVSKY: Teutons and Rus in Collision 1240-1242
+# Sequence of Play — Machine-readable, Second Edition
+# ------------------------------------------------------------
+# Sources, in authority order (later overrides earlier on conflict):
+#   1. Player Aid Card, Sequence of Play page (1st ed printing)
+#   2. Second Edition Changes Summary, 7 June 2023
+#   3. Rules of Play, Second Edition (highest authority)
+#
+# Format conventions:
+#   - Rule citations use the rulebook section number (e.g. 3.4.1).
+#   - Game-specific tokens are UPPER_SNAKE_CASE (see glossary).
+#   - Player order: T = Teutons, R = Russians. Default order is
+#     "T_then_R" unless noted; play of Command cards alternates.
+#   - Each step has: ref (rule), order (player order), and either
+#     `actions` (sequential) or `options`/`choose_one` (branching).
+#   - Fields named `pac_*` flag where the printed PAC differs from
+#     2E rules; the corrected behavior is in the surrounding step.
+# ============================================================
+ 
+meta:
+  game: nevsky
+  edition: 2
+  page: sequence_of_play
+  default_player_order: T_then_R          # ref 2.2.4
+  player_order_exceptions:
+    - command_card_play_alternates_T_R    # ref 4.2
+    - battle_siege_storm_order_depends_on_active_attacker_archery_cavalry  # ref 4.4, 4.5.2
+ 
+glossary:
+  SERVICE_RATING: Lord's Service value (1.5.3); used for Calendar placement on Muster and Disband.
+  LORDSHIP_RATING: Lord's Lordship value (1.5.3); points spendable on Levy actions during Muster.
+  FEALTY_RATING: Lord's Fealty value (1.5.3); target for d6 Muster roll.
+  COMMAND_RATING: Lord's Command value (1.5.3); number of Command actions on a Command card.
+  FRIENDLY_LOCALE: see reference.friendly_locale (1.3.1).
+  READY: cylinder is in a 40-Days box at or left of the Levy marker (3.4.1).
+  BESIEGED: Lord at a Locale with an enemy Siege (4.3.5).
+  MOVED_FOUGHT: Lord marker placed when Lord conducts March, Avoid Battle, Battle, Siege, Storm, or Sail.
+  VECHE: Novgorod Veche box; Russian-side resource pool (1.4.2).
+  THIS_LORD_CAPABILITY: Capability whose card is tucked under one Lord's mat (3.4.4).
+ 
+# ============================================================
+# LEVY (3.0) — opens each 40 Days
+# ============================================================
+levy:
+  ref: 3.0
+  trigger: start_of_each_40_days
+  steps:
+ 
+    # -------- 3.1 Arts of War --------
+    - id: arts_of_war
+      ref: 3.1
+      order: T_then_R
+      sub_steps:
+        - id: shuffle
+          ref: 3.1.1
+          action: shuffle own Arts of War deck
+          include:
+            - all unused AoW cards
+            - all 3 No Event/No Capability cards
+          exclude:
+            - held_events                  # 3.1.3
+            - capabilities_in_play         # 3.4.4
+        - id: draw_two_and_implement
+          action: draw 2 cards; implement in order drawn
+          branch:
+            - if: first_levy_of_scenario
+              implement_as: capabilities   # bottom half (1.9.1, 3.1.2)
+            - if: any_subsequent_levy
+              implement_as: events         # top half (1.9.1, 3.1.3)
+        - id: remove_no_cards              # 2E change vs PAC
+          ref: 3.1.3
+          rule: any "No Event" or "No Capability" card drawn is permanently removed from play
+          authority: rules_2e + changes_summary
+      event_handling:
+        plain_event: reveal immediately, return to deck after Events segment
+        this_levy_or_this_campaign:
+          duration: in effect for entire ensuing Levy or Campaign
+          return_to_deck: end of that Levy or Campaign for both sides
+          side_effect: capability on bottom half is unavailable this Levy
+        hold_event:
+          on_draw: keep hidden
+          on_play_against_lord: tuck card under top edge of that Lord's mat with Event text showing
+      scenario_overrides:
+        pleskau: "removes all No Event AoW cards before play (6.0)"
+        crusade_on_novgorod: "does NOT remove drawn No Event/No Capability cards (6.0)"
+ 
+    # -------- 3.2 Pay --------
+    - id: pay
+      ref: 3.2
+      order: T_then_R
+      purpose: shift Service markers RIGHT on Calendar (delay Disband)
+      methods:
+        - id: pay_with_coin
+          ref: 3.2.1
+          actor: any Lord with Coin marker on mat (or VECHE for Russians)
+          per_unit_spent: shift 1 Service marker right by 1 box
+          eligible_targets:
+            - paying_lord_own_service
+            - service_of_other_lord_at_same_locale
+            - if_from_veche: any Russian Lord who is not BESIEGED
+          besieged_constraint: a BESIEGED Lord's Service can be shifted only by his own Coin or Coin from another Lord besieged together with him
+        - id: pay_with_loot
+          ref: 3.2.2
+          actor: Lord at FRIENDLY_LOCALE only
+          per_unit_spent: shift 1 Service marker right by 1 box
+          eligible_targets:
+            - paying_lord_own_service
+            - service_of_other_lord_at_same_friendly_locale
+          excluded_locales: [siege]
+          allowed_locales: [own_territory, conquered_enemy_stronghold]
+ 
+    # -------- 3.3 Disband --------
+    - id: disband
+      ref: 3.3
+      order: T_then_R
+      sub_steps:
+        - id: beyond_service_limit
+          ref: 3.3.1
+          condition: Service marker is left of Levy marker (lower-numbered box)
+          effect: Lord permanently removed from game
+          cleanup:
+            - return all Forces and Assets to pools
+            - return any THIS_LORD_CAPABILITY at this Lord's mat to deck
+            - remove cylinder(s), Service marker, mat from game
+          advanced_vassal_rule:
+            beyond_limit: permanently remove Vassal markers (3.4.2)
+        - id: at_service_limit
+          ref: 3.3.2
+          condition: Service marker in same box as Levy/Campaign marker
+          effect: Lord must Disband; may Muster again later
+          procedure:
+            - place cylinder onto Calendar (even if BESIEGED)
+            - boxes_to_right: SERVICE_RATING
+            - count_origin_box:                     # 2E change vs PAC
+                if_during_levy: current_box
+                if_during_campaign: next_box        # ref 3.3.2 + 4.8.2
+            - return Forces and Assets to pools
+            - discard cards at mat
+            - move mat, Service marker, remaining Vassal markers to Unused area
+          past_box_16: place cylinder just off the board on right edge
+          advanced_vassal_rule:
+            at_limit: place Vassal marker on Lord's mat Coat-of-Arms DOWN (Unready until after next Muster)
+            if_lord_left_with_no_forces: Disband Lord (1.6)
+ 
+    # -------- 3.4 Muster --------
+    - id: muster
+      ref: 3.4
+      order: T_then_R
+      actor_eligibility: Lord must START Muster in a FRIENDLY_LOCALE (never at a Siege)
+      action_budget: LORDSHIP_RATING points per Lord (1 point per option below)
+      important:
+        - newly arrived Lord cannot use his Lordship in the same Muster segment
+        - each Lord completes all his actions before the next Lord, in any chosen order
+      options:
+ 
+        - id: muster_lord
+          ref: 3.4.1
+          spend: 1 Lordship action
+          target: a READY Lord with at least one free Seat
+          free_seat_definition: Seat free of enemy Lords AND not Conquered by enemy
+          procedure:
+            - roll: 1d6
+            - success_on: roll <= target_lord.FEALTY_RATING
+            - on_success:
+                - place cylinder at chosen free Seat
+                - place mat in front of player
+                - place starting Forces, Assets, available Vassal Service markers (CoA up)
+                - special_vassals: hold aside if their Capability is not in effect (Steppe Warriors / Crusade)
+                - place Service marker = SERVICE_RATING boxes right of current Levy box
+            - on_failure:
+                - levying Lord may spend additional Lordship actions to retry the same target
+          exceptions:
+            - aleksandr: NEVER Mustered by any Lord; only via VECHE auto-Muster (3.5.2)
+          deleted_in_2e:
+            - andrey_only_by_aleksandr      # PAC text now obsolete
+          authority: rules_2e + changes_summary
+ 
+        - id: muster_vassal
+          ref: 3.4.2
+          spend: 1 Lordship action
+          target: one Vassal of this Lord with face-up Service marker on mat
+          basic_rule:
+            - slide Vassal Service marker into Forces section of mat
+            - place Vassal's pictured Forces from pool onto/near marker
+            - ignore numeric ratings on Vassal markers
+          advanced_rule:
+            place_on_calendar_if: vassal's Service-Rating placement would land LEFT of this Lord's Service marker  # 2E clarification
+            else: keep marker on Lord's mat
+            shift_with_lord: any shift of Lord's Service shifts all his Calendar Vassals same direction same number of boxes
+            after_segment: flip up all CoA-down (Unready) Vassal markers to Ready
+          special_vassals:
+            mongols, kipchaqs: require Steppe Warriors capability in play
+            summer_crusaders: auto-muster free if Crusade in play AND season is Summer; may Serve into Early Winter
+ 
+        - id: levy_transport
+          ref: 3.4.3
+          spend: 1 Lordship action
+          adds: 1 Transport (Boat | Cart | Sled | Ship)
+          ship_constraint: only if Lord's mat states "Ships"
+          max_per_type_per_lord: 8
+ 
+        - id: levy_capability
+          ref: 3.4.4
+          spend: 1 Lordship action per card
+          source: side's currently unused AoW cards
+          this_lord_capability:
+            placement: tuck under bottom edge of Lord's mat (Event hidden)
+            max_per_lord: 2
+            on_excess: must immediately discard down to 2
+            duplicate_named_capability: forbidden (e.g., T7 + T15 both Warrior Monks)
+          side_capability:
+            placement: tuck under player's board edge
+            max_per_lord: unlimited
+          campaign_start_check: side discards Capabilities at board edge in excess of own Mustered Lord count (4.0)
+ 
+    # -------- 3.5 Call to Arms --------
+    - id: call_to_arms
+      ref: 3.5
+      order: T_then_R
+      sub_steps:
+ 
+        - id: papal_legate
+          ref: 3.5.1
+          actor: T
+          skip_if: William of Modena Capability is NOT in effect
+          phases_in_order:
+            - id: arrives
+              if: Legate pawn is on the William of Modena card at start of Call to Arms
+              may: place pawn at any Bishopric
+            - id: active
+              if: William of Modena in effect AND Legate pawn on map
+              choose_at_most_one:
+                - move Legate pawn to any FRIENDLY_LOCALE
+                - use Legate, then return pawn to William of Modena card; choose ONE:
+                    - at_seat_of_ready_lord: auto-Muster that Lord (3.4.1) without rolling
+                    - at_seat_of_lord_on_calendar: slide that Lord's cylinder 1 box LEFT
+                    - at_friendly_locale_with_a_lord: that Lord performs an extra Muster using full LORDSHIP_RATING (3.4)
+          campaign_use:
+            during_command: Legate on map can move with Lords; can be removed to William of Modena card to grant +1 Command action to a co-located Lord (4.2)
+ 
+        - id: novgorod_veche
+          ref: 3.5.2
+          actor: R
+          available_even_if_novgorod_conquered: true
+          choose_at_most_one:
+            - id: veche_slide_one_lord                # 2E corrects PAC's "1 box"
+              cost: remove 1x 1VP Conquered marker from VECHE box (adjust white VP)
+              effect: slide one Lord's cylinder on Calendar 2 boxes LEFT
+              authority: rules_2e + changes_summary
+              pac_text_obsolete: "1 Calendar box left"
+            - id: veche_auto_muster
+              cost: remove 1x 1VP Conquered marker from VECHE box
+              effect: auto-Levy one Ready Russian Lord (3.4.1) without rolling
+              note: only the VECHE can Muster Aleksandr
+            - id: veche_extra_muster
+              cost: remove 1x 1VP Conquered marker from VECHE box
+              effect: enable one Russian Lord at any FRIENDLY_LOCALE (not at Siege) to perform an extra Muster using his Lordship (3.4)
+            - id: veche_decline_lords
+              effect: slide Aleksandr and/or Andrey (whichever is READY) to 1 box RIGHT of current Levy
+              if_both_ready: must slide BOTH cylinders
+              gain: add 1x white 1VP Conquered marker to VECHE box (single marker, even if both slid)
+              veche_vp_max: 8
+ 
+        - id: discard_this_levy_events
+          ref: 3.5.3
+          rule: both sides discard any Events that applied only to "This Levy"
+ 
+# ============================================================
+# CAMPAIGN (4.0) — follows Levy each 40 Days
+# ============================================================
+campaign:
+  ref: 4.0
+  trigger: after_levy_complete
+  prep:
+    - flip Levy marker to Campaign side
+    - capability_discard:
+        ref: 4.0
+        order: T_then_R
+        rule: each side discards Capability cards under board edge in excess of own Mustered Lord count
+        excludes: THIS_LORD_CAPABILITY (counted separately, 3.4.4)
+  steps:
+ 
+    # -------- 4.1 Plan --------
+    - id: plan
+      ref: 4.1
+      order: simultaneous
+      action: build a facedown ordered stack ("Plan") of Command cards
+      stack_size_by_season:
+        early_winter: 4
+        late_winter: 4
+        rasputitsa: 5
+        summer: 6
+      sourcing:
+        - select from any currently Mustered Lord's three Command cards
+        - if not enough Mustered Lords, fill with Pass cards (1.9.2)
+      visibility: each side may inspect own Plan and opponent's PLAYED cards only
+      lieutenants:
+        ref: 4.1.3
+        timing: planning_phase_only
+        action: place one own-side Lord cylinder on top of another at the same Locale
+        constraints:
+          - Lieutenant has at most 1 Lower Lord at a time
+          - Lower Lord cannot also be a Lieutenant
+          - neither may currently be a Marshal (1.5.1)
+          - neither may be under Siege (4.5.1)
+        effects:
+          - move together in March, Retreat, etc., as if Lieutenant were Marshal
+          - if either is removed/Disbanded, the survivor reverts to a normal Lord
+          - revealing Lower Lord's Command card resolves as Pass (4.2.3)
+        capacity_warning: Lieutenant + Lower Lord cannot Withdraw into a Fort (Capacity 1)
+ 
+    # -------- 4.2 Command Activation (loop) --------
+    - id: command_activation
+      ref: 4.2
+      order: alternating_T_R                  # T card, R card, T card, ...
+      per_card_sequence:
+        - id: reveal
+          action: flip top Command card of active side
+        - id: pass_check
+          ref: 4.2.3
+          pass_if_any:
+            - card is Pass
+            - card belongs to a Lower Lord
+            - Lord on card is not on map
+          on_pass: no actions; play returns to other side
+        - id: actions
+          ref: 4.3-4.7
+          actor: Lord on revealed card
+          budget: COMMAND_RATING actions
+          legate_bonus:
+            condition: Legate pawn co-located with active Lord
+            option: remove Legate pawn to William of Modena card; gain +1 action this Command
+          available_action_types:        # procedures on right-hand PAC panel
+            - march
+            - siege
+            - storm
+            - sally
+            - supply
+            - forage
+            - ravage
+            - sail
+            - tax
+            - pass
+        - id: feed_pay_disband
+          ref: 4.8
+          order: T_then_R
+          phases:
+            - id: feed
+              ref: 4.8.1
+              applies_to: Lords marked MOVED_FOUGHT (any side)
+              cost_per_lord:
+                units_1_to_6: 1 Provender or Loot
+                units_7_or_more: 2 Provender or Loot
+              order_of_consumption:
+                1: each Lord Feeds own Forces from own Provender/Loot first
+                2: surplus is shared with other own-side Lords at SAME Locale who came up short
+              loot_geography:
+                feed_anywhere: true
+                pay_only_at_friendly_locale: true   # 3.2.2
+              cannot_withhold: true
+              unfed_penalty:
+                effect: shift Lord's Service marker 1 box LEFT
+                advanced_vassal: also shift his Vassals' Service markers 1 box LEFT
+                partial_feed: a Lord requiring 2 with only 1 available consumes the 1 AND incurs Unfed penalty
+            - id: pay
+              ref: 4.8.2
+              same_as: levy.pay              # uses 3.2 mechanics
+            - id: disband_check
+              ref: 4.8.2 -> 3.3
+              note: at-Service-Limit Disband during Campaign counts cylinder placement from NEXT box (3.3.2 2E)
+            - id: remove_markers
+              ref: 4.8.3
+              action: remove all MOVED_FOUGHT markers
+      loop_until: both Plan stacks fully revealed
+ 
+    # -------- 4.9 End Campaign --------
+    - id: end_campaign
+      ref: 4.9
+      steps:
+ 
+        - id: grow                            # 2E ADDITION — absent from PAC
+          ref: 4.9.1
+          condition: turn == 8 OR turn == 16  # end of each Rasputitsa
+          order: T_then_R
+          action: each side removes ENEMY Ravaged markers from the map down to half their number, rounded UP
+          authority: rules_2e + changes_summary
+ 
+        - id: game_end_check
+          ref: 4.9.2
+          condition: just-finished campaign was scenario's final 40 Days
+          on_true: end game; highest VP wins (5.3)
+          on_false: continue to next steps
+ 
+        - id: plow_and_reap
+          ref: 4.9.3
+          conditions:
+            - if: end_of_final_40_days_of_summer
+              effects:
+                - all Lords flip ALL Carts to Sleds
+                - each Lord then discards Sleds/Carts down to half original number, rounded UP
+            - if: end_of_late_winter           # 2E PAC clarification
+              effects:
+                - all Lords flip ALL Sleds to Carts
+                - each Lord then discards Sleds/Carts down to half original number, rounded UP
+          pac_correction:
+            pac_text: "last 40 Days of Summer or Winter"
+            corrected: applies to end-of-Summer and end-of-Late-Winter only (NOT Early Winter)
+ 
+        - id: wastage
+          ref: 4.9.4
+          order: T_then_R
+          rule_per_lord: each Mustered Lord with more than 1 of any Asset type OR more than 1 THIS_LORD_CAPABILITY discards 1 of (Asset OR THIS_LORD_CAPABILITY)
+          scope: per Lord; does NOT affect VECHE box
+          pac_correction:
+            pac_text: "discard any one Asset or card"
+            corrected: must be an Asset or a THIS_LORD_CAPABILITY card (not other card types)
+ 
+        - id: reset
+          ref: 4.9.5
+          actions_in_order:
+            - unstack all Lieutenants and Lower Lords (4.1.3)
+            - remove all Serfs from Russian mats (even if BESIEGED) to the Smerdi card
+            - discard all "This Campaign" Events (3.1.3)     # not listed on PAC
+            - T then R may discard any Arts of War cards desired (to own decks)
+            - advance Campaign marker to next 40-Days box and flip to Levy (2.2.2)
+            - if new 40 Days is the year's first Late Winter:
+                - discard CRUSADE card if in play
+                - Disband Summer Crusaders (3.4.2)
+ 
+# ============================================================
+# REFERENCE BOXES (PAC side panels)
+# ============================================================
+reference:
+ 
+  friendly_locale:
+    ref: 1.3.1
+    all_required:
+      - location is in own side's territory OR is a Stronghold Conquered by own side
+      - no enemy Lord at the location
+      - no enemy Stronghold at the location
+      - no enemy Conquered marker at the location
+ 
+  feed_costs:
+    ref: 4.8.1
+    by_unit_count:
+      1_to_6_units: 1 Provender or Loot
+      7_plus_units: 2 Provender or Loot
+ 
+  campaign_loss:
+    ref: 5.2
+    rule: a side with no Lords on the map loses
+ 
+  end_of_scenario_vp:
+    ref: [5.1, 5.3]
+    awards:
+      conquered_marker: 1 VP each
+      castle_marker: 1 VP each
+      ravaged_marker: 0.5 VP each
+    vp_cap: 17.5 (excess forfeit; 2.2.5)
+ 
+# ============================================================
+# DELTAS: PAC (1st ed printing) -> 2E rules
+# Each entry identifies a PAC item that is incomplete or wrong.
+# ============================================================
+pac_to_2e_deltas:
+  - id: aow_no_card_removal
+    ref: 3.1.3
+    pac_says: silent
+    correction: any drawn No Event or No Capability card is permanently removed from play
+    authority: rules_2e + changes_summary
+ 
+  - id: disband_count_origin
+    ref: 3.3.2
+    pac_says: 'boxes to right equal to his Service (no Levy/Campaign distinction)'
+    correction: count from CURRENT box if during Levy; count from NEXT box if during Campaign
+    authority: rules_2e + changes_summary
+ 
+  - id: andrey_exception_deleted
+    ref: 3.4.1
+    pac_says: "(not Aleksandr, Andrey only by Aleksandr)"
+    correction: only Aleksandr is restricted (Veche-only Muster); Andrey can be Mustered like any other Russian Lord
+    authority: rules_2e + changes_summary
+ 
+  - id: vassal_calendar_constraint
+    ref: 3.4.2 (advanced)
+    pac_says: "[Advanced Vassal Service: flip markers up to Ready]"
+    correction: place Vassal Service marker on Calendar ONLY if its Service-Rating placement would land left of the Lord's Service marker; otherwise keep on mat
+    authority: rules_2e + changes_summary
+ 
+  - id: veche_slide_distance
+    ref: 3.5.2
+    pac_says: "slide Lord cylinder by 1 Calendar box left"
+    correction: slide 2 boxes LEFT
+    authority: rules_2e + changes_summary
+ 
+  - id: end_campaign_grow
+    ref: 4.9.1
+    pac_says: silent
+    correction: at end of each Rasputitsa (turn 8 and turn 16), T then R remove ENEMY Ravaged markers down to half (round up); this is the FIRST step of End Campaign
+    authority: rules_2e + changes_summary
+ 
+  - id: plow_reap_winter_specificity
+    ref: 4.9.3
+    pac_says: "If last 40 Days of Summer or Winter, flip Sleds/Carts and reduce them to ½ (round up)"
+    correction: applies at end of Summer (Carts -> Sleds) and end of Late Winter only (Sleds -> Carts); NOT Early Winter
+    authority: rules_2e
+ 
+  - id: wastage_card_scope
+    ref: 4.9.4
+    pac_says: "discard any one Asset or card"
+    correction: must be an Asset or a THIS_LORD_CAPABILITY card (not other card types)
+    authority: rules_2e
+ 
+  - id: reset_this_campaign_events
+    ref: 4.9.5
+    pac_says: silent
+    correction: as part of Reset, both sides discard all "This Campaign" Events
+    authority: rules_2e
