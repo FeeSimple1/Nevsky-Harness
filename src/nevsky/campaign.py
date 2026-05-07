@@ -422,8 +422,12 @@ def _consume_actions(state: GameState, n: int) -> None:
 
 
 def _is_besieged(state: GameState, lord_id: str) -> bool:
+    """A Lord is Besieged when he is INSIDE a Stronghold (in_stronghold=True)
+    at a Locale with siege_markers > 0 (4.3.5)."""
     lord = state.lords[lord_id]
     if lord.state != "mustered" or lord.location is None:
+        return False
+    if not lord.in_stronghold:
         return False
     return state.locales[lord.location].siege_markers > 0
 
@@ -1339,6 +1343,7 @@ def _h_withdraw(
         loc2.siege_markers = 1
     for did in cp.defender_lords:
         state.lords[did].moved_fought = True
+        state.lords[did].in_stronghold = True
     state.combat_pending = None
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
@@ -1440,3 +1445,341 @@ HANDLERS_PHASE_3B = {
 }
 
 HANDLERS.update(HANDLERS_PHASE_3B)
+
+# ---------------------------------------------------------------------------
+# 4.5 Siege / Storm / Sally (Phase 3c)
+# ---------------------------------------------------------------------------
+
+
+def _stronghold_at(locale_id: str) -> dict[str, Any] | None:
+    """Return the Strongholds-table entry for the locale's type, or None
+    if the locale has no Stronghold for Siege/Storm purposes (region,
+    town, commandery)."""
+    from nevsky.static_data import load_locales, load_strongholds
+
+    static = load_locales()[locale_id]
+    return load_strongholds().get(static["type"])
+
+
+def _besieging_lords_at(state: GameState, locale_id: str, side: Side) -> list[str]:
+    """Lords of `side` at `locale_id` who are NOT inside the Stronghold."""
+    return [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered" and l.location == locale_id and l.side == side
+        and not l.in_stronghold
+    ]
+
+
+def _besieged_lords_at(state: GameState, locale_id: str, side: Side) -> list[str]:
+    """Lords of `side` Besieged INSIDE a Stronghold at `locale_id`."""
+    return [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered" and l.location == locale_id and l.side == side
+        and l.in_stronghold
+    ]
+
+
+def _h_cmd_siege(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.5.1 Siege. Entire card.
+
+    Procedure:
+      1. Surrender check: if no Besieged Lords inside, the besieging
+         side may roll 1d6; if roll <= siege_markers, the Stronghold is
+         Conquered (place Conquered marker, adjust VP; flip Castle
+         marker via Stonemasons -- deferred to Phase 4; remove all
+         Veche Coin if Novgorod -- 1.3.3; no Spoils awarded).
+      2. Siegeworks check: if besieging Lords at the locale >=
+         Stronghold Capacity, add 1 Siege marker (max 4).
+    """
+    from nevsky.rng import roll_d6
+
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Active Lord is Besieged; use sally/pass")
+    locale_id = lord.location
+    if locale_id is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    sh = _stronghold_at(locale_id)
+    if sh is None:
+        raise IllegalAction("no_stronghold", f"{locale_id} has no Stronghold for Siege/Storm")
+    if state.locales[locale_id].siege_markers == 0:
+        raise IllegalAction("no_siege", f"no siege at {locale_id}; March in to begin a Siege")
+
+    # Sieging side is `sd`; defending side is the Stronghold owner.
+    defending_side: Side = sh["side"]
+    # Phase 3c: Besieged Lords are own-side Lords at the locale who match
+    # the Stronghold's owning side (the defenders inside).
+    besieged = _besieged_lords_at(state, locale_id, defending_side)
+
+    # Mark all Lords at the Locale MOVED_FOUGHT (4.5.1 marking rule).
+    for lid, l in state.lords.items():
+        if l.location == locale_id:
+            l.moved_fought = True
+
+    surrender_result: dict[str, Any] | None = None
+    dice: list[dict[str, Any]] = []
+    if not besieged:
+        roll = roll_d6(state)
+        sm = state.locales[locale_id].siege_markers
+        success = roll <= sm
+        dice.append({"surrender_roll": roll, "vs_siege_markers": sm, "success": success})
+        if success:
+            # Conquered. Place Conquered marker per 1.3.1 and adjust VP.
+            sh_side = sh["side"]
+            attacker = sd
+            if attacker == "teutonic":
+                state.locales[locale_id].teutonic_conquered += sh["vp"]
+                state.calendar.teutonic_vp += float(sh["vp"])
+            else:
+                state.locales[locale_id].russian_conquered += sh["vp"]
+                state.calendar.russian_vp += float(sh["vp"])
+            # Novgorod special: remove all Veche Coin (1.3.3) -- not Sacked,
+            # so Coin is removed (not transferred as spoils).
+            if locale_id == "novgorod":
+                lost_coin = state.veche.coin
+                state.veche.coin = 0
+                surrender_result = {"conquered": True, "veche_coin_removed": lost_coin}
+            else:
+                surrender_result = {"conquered": True}
+        else:
+            surrender_result = {"conquered": False}
+
+    # Siegeworks check: add siege marker if besiegers >= Capacity.
+    siege_added = False
+    besiegers = [
+        lid for lid in _besieging_lords_at(state, locale_id, sd)
+        if lid not in besieged
+    ]
+    if len(besiegers) >= sh["capacity"] and state.locales[locale_id].siege_markers < 4:
+        state.locales[locale_id].siege_markers += 1
+        siege_added = True
+
+    # Siege ends the card.
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"locale": locale_id, "surrender": surrender_result, "siege_added": siege_added,
+             "siege_markers": state.locales[locale_id].siege_markers}, dice)
+
+
+def _h_cmd_storm(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.5.2 Storm. Entire card. Conduct Attack per Storm rules.
+
+    On defender Sack (defender loses):
+      - All Besieged Lords permanently removed (1.5.1).
+      - Attackers Conquer Stronghold; place/remove Conquered markers.
+      - Adjust VP (5.1.1).
+      - Remove all siege markers.
+      - Award Stronghold spoils (loot/provender/coin = VP each).
+      - If Novgorod: all Veche Coin to attackers as Spoils (4.5.2 + 1.3.3).
+    On attacker loss: Storm ends; siege continues; no Spoils.
+    """
+    from nevsky.battle import resolve_storm
+
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Active Lord is Besieged; use sally/pass")
+    locale_id = lord.location
+    if locale_id is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    sh = _stronghold_at(locale_id)
+    if sh is None:
+        raise IllegalAction("no_stronghold", f"{locale_id} has no Stronghold")
+    if sh.get("no_storm"):
+        raise IllegalAction("no_storm", f"{locale_id} cannot be Stormed (e.g., Trade Route)")
+    if state.locales[locale_id].siege_markers == 0:
+        raise IllegalAction("no_siege", f"no siege at {locale_id}")
+
+    defending_side: Side = sh["side"]
+    besieged = _besieged_lords_at(state, locale_id, defending_side)
+    attackers = [
+        lid for lid in _besieging_lords_at(state, locale_id, sd)
+        if lid not in besieged
+    ]
+    if not attackers:
+        raise IllegalAction("no_attackers", "no besieging Lords at this Stronghold")
+
+    # Mark all Lords at Locale MOVED_FOUGHT (4.5.2 marking).
+    for lid, l in state.lords.items():
+        if l.location == locale_id:
+            l.moved_fought = True
+
+    result = resolve_storm(
+        state, attacker_side=sd,
+        attacker_lords=attackers,
+        defender_lords=besieged,
+        locale_id=locale_id,
+        walls_max=sh["walls_max"],
+        siege_markers=state.locales[locale_id].siege_markers,
+        garrison=dict(sh["garrison"]),
+    )
+
+    aftermath: dict[str, Any] = {"battle": result}
+    if result["winner"] == "attacker":
+        # Sack: permanently remove Besieged Lords.
+        from nevsky.actions import _remove_lord_permanently as _rem
+        from nevsky.static_data import load_lords
+        for lid in list(besieged):
+            spoils_from_lord = {k: state.lords[lid].assets.get(k, 0) for k in ("coin", "provender", "loot", "boat", "cart", "sled") if state.lords[lid].assets.get(k, 0) > 0}
+            # Transfer to attacker's first Lord.
+            if attackers:
+                w = state.lords[attackers[0]]
+                for k, v in spoils_from_lord.items():
+                    w.assets[k] = w.assets.get(k, 0) + v  # type: ignore[index]
+            state.lords[lid].assets.clear()
+            _rem(state, lid, load_lords()[lid])
+        aftermath["besieged_removed"] = list(besieged)
+        # Conquer Stronghold.
+        if sd == "teutonic":
+            state.locales[locale_id].teutonic_conquered += sh["vp"]
+            state.calendar.teutonic_vp += float(sh["vp"])
+        else:
+            state.locales[locale_id].russian_conquered += sh["vp"]
+            state.calendar.russian_vp += float(sh["vp"])
+        # Remove siege markers.
+        state.locales[locale_id].siege_markers = 0
+        # Spoils: loot/provender/coin = VP each, awarded to attacker[0].
+        spoils = sh.get("spoils") or {}
+        if attackers and spoils:
+            w = state.lords[attackers[0]]
+            for k, v in spoils.items():
+                w.assets[k] = min(8, w.assets.get(k, 0) + v)  # type: ignore[index]
+        aftermath["stronghold_spoils"] = spoils
+        # Novgorod special: all Veche Coin to attackers.
+        if locale_id == "novgorod" and state.veche.coin > 0:
+            if attackers:
+                w = state.lords[attackers[0]]
+                w.assets["coin"] = min(8, w.assets.get("coin", 0) + state.veche.coin)
+            aftermath["veche_coin_taken"] = state.veche.coin
+            state.veche.coin = 0
+    else:
+        # Attacker lost: Storm ends; Siege continues.
+        aftermath["storm_failed"] = True
+
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return (aftermath, [])
+
+
+def _h_cmd_sally(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.5.3 Sally. Entire card. Besieged Lord conducts Battle.
+
+    Sallying side does NOT benefit from Walls or Garrison (they remain
+    behind in the Stronghold). Defenders (Besiegers) receive Siegeworks
+    as Walls. On Sallying Attackers loss: Withdraw back inside; reduce
+    Siege markers at Locale to 1 (RAID).
+    """
+    from nevsky.battle import resolve_battle
+
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    lord = state.lords[lord_id]
+    if not _is_besieged(state, lord_id):
+        raise IllegalAction("not_besieged", "Sally requires Besieged Lord (4.5.3)")
+    locale_id = lord.location
+    if locale_id is None:
+        raise IllegalAction("no_location", "Lord has no location")
+
+    # Sallying attackers = besieged Lords of sd at locale.
+    attackers = [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered" and l.location == locale_id and l.side == sd
+    ]
+    # Defending besiegers = enemy Lords at the same locale (the besiegers).
+    defenders = [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered" and l.location == locale_id and l.side != sd
+    ]
+    if not defenders:
+        raise IllegalAction("no_defenders", "no besieging enemy Lords to Sally against")
+
+    # Mark all Lords at Locale MOVED_FOUGHT.
+    for lid, l in state.lords.items():
+        if l.location == locale_id:
+            l.moved_fought = True
+
+    result = resolve_battle(
+        state, attacker_side=sd,
+        attacker_lords=attackers,
+        defender_lords=defenders,
+    )
+    aftermath: dict[str, Any] = {"battle": result}
+
+    if result["loser"] == sd:
+        # Sallying side lost: Withdraw back inside (4.5.3).
+        # Siege markers reduced to 1 (RAID).
+        state.locales[locale_id].siege_markers = 1
+        aftermath["raid_siege_to_1"] = True
+        aftermath["sally_outcome"] = "withdrew"
+    else:
+        # Sallying side won. Besieging side Lords lose per 4.4 Battle
+        # aftermath. Siege is lifted (remove all siege markers).
+        from nevsky.actions import _remove_lord_permanently as _rem
+        from nevsky.battle import apply_retreat_service_shift, transfer_spoils
+        from nevsky.static_data import load_lords
+        for lid in list(defenders):
+            if lid not in state.lords:
+                continue
+            l = state.lords[lid]
+            if not l.forces:
+                spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                _rem(state, lid, load_lords()[lid])
+                aftermath.setdefault("removed", []).append(lid)
+                aftermath.setdefault("spoils", []).append(spoil)
+            else:
+                # Retreat to first clear neighbor.
+                target = None
+                for w in load_ways():
+                    cand = w["b"] if w["a"] == locale_id else (w["a"] if w["b"] == locale_id else None)
+                    if cand is None:
+                        continue
+                    if any(ll.location == cand and ll.side != l.side for ll in state.lords.values()):
+                        continue
+                    target = cand
+                    break
+                if target is None:
+                    spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                    _rem(state, lid, load_lords()[lid])
+                    aftermath.setdefault("removed", []).append(lid)
+                    aftermath.setdefault("spoils", []).append(spoil)
+                else:
+                    l.location = target
+                    shift = apply_retreat_service_shift(state, lid)
+                    spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                    aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
+                    aftermath.setdefault("spoils", []).append(spoil)
+        # Siege lifted.
+        state.locales[locale_id].siege_markers = 0
+        aftermath["siege_lifted"] = True
+        aftermath["sally_outcome"] = "broken_siege"
+
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return (aftermath, [])
+
+
+# Register Phase 3c handlers.
+HANDLERS_PHASE_3C = {
+    "cmd_siege": _h_cmd_siege,
+    "cmd_storm": _h_cmd_storm,
+    "cmd_sally": _h_cmd_sally,
+}
+HANDLERS.update(HANDLERS_PHASE_3C)
