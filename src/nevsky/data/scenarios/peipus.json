@@ -1,0 +1,50 @@
+{
+  "id": "peipus",
+  "display_name": "Peipus",
+  "year_label": "Late Winter 1242 - Rasputitsa 1242",
+  "aggressor": "russian",
+  "span": {
+    "start_box": 13,
+    "end_box": 16
+  },
+  "setup": {
+    "markers_on_map": [
+      { "locale_id": "koporye", "marker_type": "castle", "side": "russian" },
+      { "locale_id": "izborsk", "marker_type": "conquered", "side": "teutonic", "count": 1 },
+      { "locale_id": "pskov", "marker_type": "conquered", "side": "teutonic", "count": 2 },
+      { "locale_id": "vod", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "zheltsy", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "tesovo", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "sablia", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "pskov", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "dubrovno", "marker_type": "ravaged", "side": "teutonic" }
+    ],
+    "mustered_lords": [
+      { "lord_id": "hermann", "locale_id": "dorpat" },
+      { "lord_id": "yaroslav", "locale_id": "pskov" },
+      { "lord_id": "aleksandr", "locale_id": "novgorod" },
+      { "lord_id": "andrey", "locale_id": "novgorod" },
+      { "lord_id": "domash", "locale_id": "novgorod" },
+      { "lord_id": "karelians", "locale_id": "novgorod" }
+    ],
+    "calendar": [
+      { "box": 5, "russian_victory_marker": true },
+      { "box": 6, "teutonic_victory_marker": true },
+      {
+        "box": 13,
+        "levy_campaign_marker": "levy",
+        "cylinders": ["heinrich", "knud_and_abel", "rudolf", "gavrilo"]
+      },
+      { "box": 14, "service_markers": ["yaroslav", "karelians"] },
+      { "box": 15, "cylinders": ["vladislav"] },
+      {
+        "box": 16,
+        "service_markers": ["hermann", "aleksandr", "andrey", "domash"]
+      }
+    ],
+    "veche": { "vp_markers": 4, "coin": 3 },
+    "removed_from_play": ["andreas"]
+  },
+  "special_rules": {},
+  "source": "reference/Nevsky Scenario Reference.txt"
+}

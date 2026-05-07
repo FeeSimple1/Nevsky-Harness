@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GameState",
+  "description": "Top-level Nevsky game state. Phase 0 sketch; regenerated from src/nevsky/state.py via scripts/generate_schema.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meta",
+    "calendar",
+    "veche"
+  ],
+  "properties": {
+    "meta": { "$ref": "#/$defs/Meta" },
+    "calendar": { "$ref": "#/$defs/Calendar" },
+    "veche": { "$ref": "#/$defs/Veche" },
+    "lords": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/Lord" },
+      "default": {}
+    },
+    "locales": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/Locale" },
+      "default": {}
+    },
+    "decks": { "$ref": "#/$defs/Decks" },
+    "legate": { "$ref": "#/$defs/Legate" },
+    "pending_decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PendingDecision" },
+      "default": []
+    },
+    "history": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/HistoryEntry" },
+      "default": []
+    }
+  },
+  "$defs": {
+    "Meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "schema_version", "seed", "box"],
+      "properties": {
+        "scenario_id": { "type": "string" },
+        "edition": { "const": "2", "default": "2" },
+        "schema_version": { "type": "string" },
+        "seed": { "type": "integer" },
+        "sequence": { "type": "integer", "default": 0 },
+        "box": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "phase": { "enum": ["levy", "campaign"], "default": "levy" },
+        "active_player": { "anyOf": [ { "enum": ["teutonic", "russian"] }, { "type": "null" } ], "default": null }
+      }
+    },
+    "CalendarBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["box"],
+      "properties": {
+        "box": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "cylinders": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "service_markers": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "has_levy_campaign_marker": { "type": "boolean", "default": false },
+        "levy_campaign_face": { "anyOf": [ { "enum": ["levy", "campaign"] }, { "type": "null" } ], "default": null },
+        "russian_victory_marker": { "type": "boolean", "default": false },
+        "teutonic_victory_marker": { "type": "boolean", "default": false }
+      }
+    },
+    "Calendar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "boxes": { "type": "array", "items": { "$ref": "#/$defs/CalendarBox" }, "default": [] },
+        "off_left": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "off_right": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_vp": { "type": "number", "default": 0.0 },
+        "teutonic_vp": { "type": "number", "default": 0.0 },
+        "pleskau_lords_removed_russian": { "type": "integer", "default": 0 },
+        "pleskau_lords_removed_teutonic": { "type": "integer", "default": 0 }
+      }
+    },
+    "Veche": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coin": { "type": "integer", "minimum": 0, "maximum": 8, "default": 0 },
+        "vp_markers": { "type": "integer", "minimum": 0, "maximum": 8, "default": 0 },
+        "novgorod_conquered": { "type": "boolean", "default": false }
+      }
+    },
+    "Lord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lord_id", "side"],
+      "properties": {
+        "lord_id": { "type": "string" },
+        "side": { "enum": ["teutonic", "russian"] },
+        "location": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "default": null },
+        "state": { "enum": ["ready", "mustered", "disbanded", "removed"], "default": "ready" },
+        "moved_fought": { "type": "boolean", "default": false },
+        "placeholder": { "type": "object", "additionalProperties": true, "default": {} }
+      }
+    },
+    "Locale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locale_id"],
+      "properties": {
+        "locale_id": { "type": "string" },
+        "russian_conquered": { "type": "integer", "minimum": 0, "default": 0 },
+        "teutonic_conquered": { "type": "integer", "minimum": 0, "default": 0 },
+        "russian_ravaged": { "type": "boolean", "default": false },
+        "teutonic_ravaged": { "type": "boolean", "default": false },
+        "russian_castle": { "type": "boolean", "default": false },
+        "teutonic_castle": { "type": "boolean", "default": false },
+        "walls_plus_one": { "type": "boolean", "default": false },
+        "siege_markers": { "type": "integer", "minimum": 0, "maximum": 4, "default": 0 }
+      }
+    },
+    "Decks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "teutonic_deck": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_deck": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "teutonic_discard": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_discard": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "teutonic_removed": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_removed": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "teutonic_capabilities_in_play": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_capabilities_in_play": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "teutonic_holds": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_holds": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "teutonic_plan": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "russian_plan": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+    "Legate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "william_of_modena_in_play": { "type": "boolean", "default": false },
+        "location": { "enum": ["card", "locale"], "default": "card" },
+        "locale_id": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "default": null }
+      }
+    },
+    "PendingDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "owed_by"],
+      "properties": {
+        "kind": { "type": "string" },
+        "owed_by": { "enum": ["teutonic", "russian"] },
+        "context": { "type": "object", "additionalProperties": true, "default": {} }
+      }
+    },
+    "HistoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "actor", "action"],
+      "properties": {
+        "sequence": { "type": "integer" },
+        "actor": { "enum": ["teutonic", "russian", "system"] },
+        "action": { "type": "object", "additionalProperties": true },
+        "dice": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "default": [] },
+        "result": { "type": "object", "additionalProperties": true, "default": {} }
+      }
+    }
+  }
+}

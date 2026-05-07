@@ -1,0 +1,43 @@
+{
+  "id": "crusade_on_novgorod",
+  "display_name": "Crusade on Novgorod",
+  "year_label": "Summer 1240 - Rasputitsa 1242",
+  "aggressor": "both",
+  "span": {
+    "start_box": 1,
+    "end_box": 16
+  },
+  "setup": {
+    "markers_on_map": [],
+    "mustered_lords": [
+      { "lord_id": "hermann", "locale_id": "dorpat" },
+      { "lord_id": "knud_and_abel", "locale_id": "reval" },
+      { "lord_id": "yaroslav", "locale_id": "odenpah" },
+      { "lord_id": "gavrilo", "locale_id": "pskov" },
+      { "lord_id": "vladislav", "locale_id": "neva" }
+    ],
+    "calendar": [
+      {
+        "box": 1,
+        "russian_victory_marker": true,
+        "levy_campaign_marker": "levy",
+        "cylinders": ["heinrich", "rudolf", "domash"]
+      },
+      { "box": 2, "service_markers": ["yaroslav"] },
+      {
+        "box": 3,
+        "cylinders": ["andreas", "karelians"],
+        "service_markers": ["knud_and_abel", "vladislav"]
+      },
+      { "box": 4, "service_markers": ["hermann", "gavrilo"] },
+      { "box": 5, "cylinders": ["aleksandr", "andrey"] }
+    ],
+    "veche": { "vp_markers": 1, "coin": 0 },
+    "removed_from_play": []
+  },
+  "special_rules": {
+    "keep_no_event_cards": true,
+    "keep_no_event_cards_notes": "Per Second Edition Changes: Crusade on Novgorod retains the three No Event/No Capability cards in each deck for the entire scenario; the standard 3.1.2-3.1.3 removal rule is suspended."
+  },
+  "source": "reference/Nevsky Scenario Reference.txt"
+}

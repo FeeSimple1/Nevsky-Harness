@@ -1,0 +1,49 @@
+{
+  "id": "watland",
+  "display_name": "Watland",
+  "year_label": "Early Winter 1240 - Rasputitsa 1241",
+  "aggressor": "teutonic",
+  "span": {
+    "start_box": 4,
+    "end_box": 8
+  },
+  "setup": {
+    "markers_on_map": [
+      { "locale_id": "izborsk", "marker_type": "conquered", "side": "teutonic", "count": 1 },
+      { "locale_id": "pskov", "marker_type": "conquered", "side": "teutonic", "count": 2 },
+      { "locale_id": "pskov", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "dubrovno", "marker_type": "ravaged", "side": "teutonic" }
+    ],
+    "mustered_lords": [
+      { "lord_id": "andreas", "locale_id": "fellin" },
+      { "lord_id": "knud_and_abel", "locale_id": "wesenberg" },
+      { "lord_id": "yaroslav", "locale_id": "pskov" },
+      { "lord_id": "domash", "locale_id": "novgorod" },
+      { "lord_id": "vladislav", "locale_id": "ladoga" }
+    ],
+    "calendar": [
+      { "box": 1, "russian_victory_marker": true },
+      {
+        "box": 4,
+        "teutonic_victory_marker": true,
+        "levy_campaign_marker": "levy",
+        "cylinders": ["heinrich", "rudolf", "karelians"]
+      },
+      { "box": 5, "cylinders": ["andrey"], "service_markers": ["yaroslav"] },
+      { "box": 6, "service_markers": ["knud_and_abel", "vladislav"] },
+      {
+        "box": 7,
+        "cylinders": ["aleksandr"],
+        "service_markers": ["andreas", "domash"]
+      },
+      { "box": 8, "cylinders": ["hermann"] }
+    ],
+    "veche": { "vp_markers": 1, "coin": 1 },
+    "removed_from_play": ["gavrilo"]
+  },
+  "special_rules": {
+    "victory_override": "watland",
+    "victory_override_notes": "Teutons win only with at least 7 VP AND at least 2x Russian VP. Otherwise Russians win. No tie."
+  },
+  "source": "reference/Nevsky Scenario Reference.txt"
+}

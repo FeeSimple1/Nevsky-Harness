@@ -1,0 +1,7 @@
+{
+  "id": "quickstart",
+  "display_name": "Quickstart",
+  "status": "placeholder",
+  "notes": "Quickstart scenario setup is published in the Second Edition Background Book, which is not yet in the project's source materials. This file is a placeholder so the file slot exists; Phase 1's state-building loader will reject placeholder scenarios with a clear error. Replace the contents of this file once the Background Book is added to sources/ and the scenario reference is updated.",
+  "source": null
+}

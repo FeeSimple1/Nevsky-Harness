@@ -1,0 +1,46 @@
+{
+  "id": "return_of_the_prince",
+  "display_name": "Return of the Prince",
+  "year_label": "Summer 1241 - Rasputitsa 1242",
+  "aggressor": "russian",
+  "span": {
+    "start_box": 9,
+    "end_box": 16
+  },
+  "setup": {
+    "markers_on_map": [
+      { "locale_id": "kaibolovo", "marker_type": "conquered", "side": "teutonic", "count": 1 },
+      { "locale_id": "koporye", "marker_type": "conquered", "side": "teutonic", "count": 1 },
+      { "locale_id": "koporye", "marker_type": "castle", "side": "teutonic" },
+      { "locale_id": "izborsk", "marker_type": "conquered", "side": "teutonic", "count": 1 },
+      { "locale_id": "pskov", "marker_type": "conquered", "side": "teutonic", "count": 2 },
+      { "locale_id": "vod", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "zheltsy", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "tesovo", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "sablia", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "pskov", "marker_type": "ravaged", "side": "teutonic" },
+      { "locale_id": "dubrovno", "marker_type": "ravaged", "side": "teutonic" }
+    ],
+    "mustered_lords": [
+      { "lord_id": "andreas", "locale_id": "koporye" },
+      { "lord_id": "aleksandr", "locale_id": "novgorod" }
+    ],
+    "calendar": [
+      { "box": 3, "russian_victory_marker": true },
+      {
+        "box": 9,
+        "teutonic_victory_marker": true,
+        "levy_campaign_marker": "levy",
+        "cylinders": ["hermann", "rudolf", "yaroslav", "andrey", "gavrilo", "karelians"]
+      },
+      { "box": 10, "cylinders": ["vladislav"] },
+      { "box": 11, "cylinders": ["heinrich", "knud_and_abel", "domash"] },
+      { "box": 12, "service_markers": ["andreas"] },
+      { "box": 14, "service_markers": ["aleksandr"] }
+    ],
+    "veche": { "vp_markers": 3, "coin": 2 },
+    "removed_from_play": []
+  },
+  "special_rules": {},
+  "source": "reference/Nevsky Scenario Reference.txt"
+}
