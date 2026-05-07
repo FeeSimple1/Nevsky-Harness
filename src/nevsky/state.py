@@ -158,6 +158,29 @@ class CampaignTurn(BaseModel):
     fpd_completed_r: bool = False
 
 
+class CombatPending(BaseModel):
+    """Pending Approach / Battle decision (4.3.4 - 4.4).
+
+    Set by cmd_march when Marching into a Locale containing enemy
+    Lord(s). Defender (whose Lords are at the target) chooses one of:
+    avoid_battle (Unladen, 4.3.4), withdraw (4.3.4 into a Friendly
+    Stronghold), or stand_battle (4.4 begins).
+    Cleared after the chosen response resolves.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    attacker_side: Side
+    attacker_group: list[str] = Field(default_factory=list)
+    from_locale: str
+    to_locale: str
+    way_type: str
+    defender_side: Side
+    defender_lords: list[str] = Field(default_factory=list)
+    pending_response_by: Side
+    laden: bool = False
+
+
 class VassalState(BaseModel):
     """Per-Vassal mutable state.
 
@@ -340,5 +363,6 @@ class GameState(BaseModel):
     decks: Decks = Field(default_factory=Decks)
     legate: Legate = Field(default_factory=Legate)
     campaign_turn: CampaignTurn = Field(default_factory=CampaignTurn)
+    combat_pending: CombatPending | None = None
     pending_decisions: list[PendingDecision] = Field(default_factory=list)
     history: list[HistoryEntry] = Field(default_factory=list)
