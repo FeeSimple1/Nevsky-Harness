@@ -53,7 +53,18 @@ def test_legal_moves_call_to_arms_r_offers_veche_actions_when_vp_in_box() -> Non
     assert veche_options  # non-empty
 
 
-def test_legal_moves_empty_when_not_levy_phase() -> None:
+def test_legal_moves_returns_campaign_moves_in_campaign_phase() -> None:
+    """Phase 3a: legal_moves returns Campaign-phase actions when phase=campaign."""
     s = load_scenario("watland", seed=42)
     s.meta.phase = "campaign"
+    s.meta.campaign_step = "plan"
+    s.meta.active_player = "teutonic"
+    moves = legal_moves(s)
+    types = {m["type"] for m in moves}
+    assert "plan_add_card" in types or "finalize_plan" in types
+
+
+def test_legal_moves_empty_when_no_active_player() -> None:
+    s = load_scenario("watland", seed=42)
+    s.meta.active_player = None
     assert legal_moves(s) == []
