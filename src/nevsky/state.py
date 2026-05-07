@@ -1,25 +1,29 @@
 """Pydantic models for the Nevsky game state.
 
-Phase 1: full state representation. Sub-models cover Lords (with current
-Forces, Assets, Vassals, This-Lord Capabilities), Locales (with markers),
-Calendar (16 boxes with cylinders, Service markers, Levy/Campaign marker,
-Victory markers), Veche, Decks (per-side AoW deck/discard/removed/holds/
-in-play Capabilities/Plan), Legate, pending decisions, action history.
+Phase 2 expansion: adds Levy phase machinery on top of Phase 1's static
+inventory of state. New fields:
 
-Static data (Lord ratings/starting forces/seats, Locale type/territory/
-seaports, Way graph, AoW card metadata) lives in src/nevsky/data/static
-JSON files and is looked up by id; only mutable state lives here.
-
-Schema notes:
-  - `meta.seed` (RNG seed) lives in state per BRIEF determinism req.
-  - `calendar.off_left` / `off_right` track cylinders past the ends
-    (rules 2.2.3 explicitly handles these positions).
-  - `veche` enforces 8/8 caps via field constraints (rules 1.4.2).
-  - `pending_decisions` queue per BRIEF `pending` interface req.
-  - Pleskau-only enemy-Lord-removed VP counter is a Calendar-level
-    field so it does not need scenario-conditional modeling later.
-  - Force types and Asset types are enumerated as Literal types so
-    pydantic validates dict keys; typo'd unit/asset names fail loudly.
+  - `meta.levy_step` tracks where we are within the Levy SoP (3.0):
+      `arts_of_war` (3.1) -> `pay` (3.2) -> `disband` (3.3) ->
+      `muster` (3.4) -> `call_to_arms` (3.5) -> `done`
+  - `meta.levy_step_completed_t` / `_r` flag whether each side has
+    finished the current Levy step (T-then-R order per SoP 2.2.4).
+  - `meta.first_levy_done` tracks whether the scenario's opening Levy
+    has been processed (governs Capabilities-on-first-Levy vs Events on
+    subsequent Levies, rule 3.1.2 / 3.1.3).
+  - `Lord.lordship_used` counts Lordship spent this Muster; Phase 2
+    enforces budget = LORDSHIP_RATING (3.4).
+  - `Lord.just_arrived_this_levy` flags Lords newly Mustered this
+    Levy; they cannot use Lordship in the same Muster segment (3.4
+    important note) -- reset at end of Levy.
+  - `SideDeck.pending_draw` holds AoW cards drawn but not yet
+    implemented (3.1.2 / 3.1.3 step-by-step resolution).
+  - `SideDeck.this_levy_events` and `this_campaign_events` hold cards
+    revealed for those persistence buckets (3.1.3 / 4.9.5).
+  - `Legate.acted_this_call_to_arms` enforces the at-most-one option
+    per 3.5.1.
+  - `Veche.acted_this_call_to_arms` enforces the at-most-one option
+    per 3.5.2.
 """
 
 from __future__ import annotations
@@ -48,6 +52,14 @@ AssetType = Literal[
     "ship",
 ]
 LordState = Literal["ready", "mustered", "disbanded", "removed"]
+LevyStep = Literal[
+    "arts_of_war",
+    "pay",
+    "disband",
+    "muster",
+    "call_to_arms",
+    "done",
+]
 
 
 class Meta(BaseModel):
@@ -61,8 +73,13 @@ class Meta(BaseModel):
     schema_version: str
     seed: int
     sequence: int = 0
+    rng_state: int = 0
     box: int = Field(ge=1, le=16, description="Current 40-Days box; advances at end of Campaign.")
     phase: Literal["levy", "campaign"] = "levy"
+    levy_step: LevyStep = "arts_of_war"
+    levy_step_completed_t: bool = False
+    levy_step_completed_r: bool = False
+    first_levy_done: bool = False
     active_player: Side | None = None
     span_start_box: int = Field(ge=1, le=16)
     span_end_box: int = Field(ge=1, le=16)
@@ -107,6 +124,7 @@ class Veche(BaseModel):
     coin: int = Field(ge=0, le=8, default=0)
     vp_markers: int = Field(ge=0, le=8, default=0)
     novgorod_conquered: bool = False
+    acted_this_call_to_arms: bool = False
 
 
 class VassalState(BaseModel):
@@ -120,8 +138,9 @@ class VassalState(BaseModel):
 
     `on_calendar` and `calendar_box` cover the Advanced Vassal Service
     optional rule (3.4.2) where a Vassal's Service marker is placed on
-    the Calendar instead of staying on the Lord's mat. For Phase 1 this
-    is captured but unused; Phase 2 wires up Levy Vassal mechanics.
+    the Calendar instead of staying on the Lord's mat. For Phase 2 this
+    is captured but not exercised by any default action; the basic
+    Muster Vassal action keeps markers on the mat.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -140,14 +159,17 @@ class Lord(BaseModel):
 
     `forces` is the Lord's CURRENT force composition: starting forces
     plus any Mustered Vassal forces, minus combat losses. Force counts
-    are integers per type; rules treat ½-counts as a marker side, but
-    the harness tracks integers and emits ½ Hits during combat
+    are integers per type; rules treat half-counts as a marker side, but
+    the harness tracks integers and emits half Hits during combat
     resolution rather than storing fractional units (Phase 3).
 
     `assets` carries Coin / Provender / Loot plus Transport sub-types
     (Boat, Cart, Sled, Ship). Whether Ships are allowed for the Lord is
     determined by static data (`ships_authorized`); the loader rejects
     Ship counts > 0 for Lords who lack the authorization.
+
+    `lordship_used` and `just_arrived_this_levy` are Phase 2 fields used
+    during Muster (3.4) and reset at end of Levy.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -164,6 +186,8 @@ class Lord(BaseModel):
     assets: dict[AssetType, int] = Field(default_factory=dict)
     vassals: dict[str, VassalState] = Field(default_factory=dict)
     this_lord_capabilities: list[str] = Field(default_factory=list)
+    lordship_used: int = 0
+    just_arrived_this_levy: bool = False
 
     @field_validator("forces", "assets")
     @classmethod
@@ -203,14 +227,17 @@ class Locale(BaseModel):
 class SideDeck(BaseModel):
     """One side's Arts of War deck state.
 
-    `deck` is the face-down draw pile (shuffled at start of each Levy).
-    `discard` is the face-up pile that returns to deck on shuffle except
-    for `removed` cards. `capabilities_in_play` are side-wide
-    capabilities under the player's board edge (this-lord capabilities
-    live on the Lord's mat in `Lord.this_lord_capabilities`).
-    `holds` are face-down Hold-event cards in the player's hand. `plan`
-    is the Command-card stack for the current Campaign (entries are
-    Command card identifiers; Phase 1 leaves this empty).
+    `deck` is the face-down draw pile (shuffled at start of each Levy
+    via 3.1.1). `discard` is the face-up pile that returns to deck on
+    shuffle except for `removed` cards. `capabilities_in_play` are
+    side-wide capabilities under the player's board edge (this-lord
+    capabilities live on the Lord's mat in `Lord.this_lord_capabilities`).
+    `holds` are face-down Hold-event cards in the player's hand.
+    `pending_draw` are cards drawn during the current Arts of War step
+    that have not yet been implemented (3.1.2 / 3.1.3).
+    `this_levy_events` and `this_campaign_events` are persistence
+    buckets per 3.1.3.
+    `plan` is the Command-card stack for the current Campaign (4.1).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -220,6 +247,9 @@ class SideDeck(BaseModel):
     removed: list[str] = Field(default_factory=list)
     capabilities_in_play: list[str] = Field(default_factory=list)
     holds: list[str] = Field(default_factory=list)
+    pending_draw: list[str] = Field(default_factory=list)
+    this_levy_events: list[str] = Field(default_factory=list)
+    this_campaign_events: list[str] = Field(default_factory=list)
     plan: list[str] = Field(default_factory=list)
 
 
@@ -240,6 +270,7 @@ class Legate(BaseModel):
     william_of_modena_in_play: bool = False
     location: Literal["card", "locale"] = "card"
     locale_id: str | None = None
+    acted_this_call_to_arms: bool = False
 
 
 class PendingDecision(BaseModel):

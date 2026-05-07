@@ -20,8 +20,6 @@ from nevsky.state import (
     Decks,
     GameState,
     Locale,
-    Lord,
-    PendingDecision,
     Veche,
 )
 from nevsky.static_data import load_cards, load_locales, load_lords

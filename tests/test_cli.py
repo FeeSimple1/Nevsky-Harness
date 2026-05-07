@@ -114,20 +114,24 @@ def test_history_empty_at_setup(tmp_path: Path) -> None:
     assert "no history" in result.output
 
 
-def test_legal_moves_phase2_stub(tmp_path: Path) -> None:
-    """legal-moves remains stubbed in Phase 1."""
+def test_legal_moves_returns_json(tmp_path: Path) -> None:
+    """legal-moves emits a JSON list (Phase 2)."""
     p = tmp_path / "p.json"
     runner.invoke(app, ["new", "pleskau", "-o", str(p)])
     result = runner.invoke(app, ["legal-moves", str(p)])
-    # NotImplementedError surfaces as exit code 1 from typer.
-    assert result.exit_code != 0
+    assert result.exit_code == 0
+    import json
+    moves = json.loads(result.stdout)
+    assert isinstance(moves, list)
+    # advance_step is always available
+    assert any(m["type"] == "advance_step" for m in moves)
 
 
-def test_do_phase2_stub(tmp_path: Path) -> None:
-    """do remains stubbed in Phase 1."""
+def test_do_rejects_invalid_action(tmp_path: Path) -> None:
+    """do exits 2 on a malformed action (Phase 2)."""
     p = tmp_path / "p.json"
     af = tmp_path / "act.json"
     af.write_text("{}", encoding="utf-8")
     runner.invoke(app, ["new", "pleskau", "-o", str(p)])
     result = runner.invoke(app, ["do", str(p), str(af)])
-    assert result.exit_code != 0
+    assert result.exit_code == 2
