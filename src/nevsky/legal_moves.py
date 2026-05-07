@@ -32,25 +32,26 @@ from nevsky.static_data import load_cards, load_lords
 
 def legal_moves(state: GameState) -> list[dict[str, Any]]:
     """Return a list of currently-legal action stubs."""
-    if state.meta.phase != "levy":
-        return []
     side = state.meta.active_player
     if side is None:
         return []
 
-    step = state.meta.levy_step
     moves: list[dict[str, Any]] = []
-    if step == "arts_of_war":
-        moves.extend(_aow_moves(state, side))
-    elif step == "pay":
-        moves.extend(_pay_moves(state, side))
-    elif step == "disband":
-        moves.extend(_disband_moves(state, side))
-    elif step == "muster":
-        moves.extend(_muster_moves(state, side))
-    elif step == "call_to_arms":
-        moves.extend(_call_to_arms_moves(state, side))
-    moves.append({"type": "advance_step", "side": side, "args": {}})
+    if state.meta.phase == "levy":
+        step = state.meta.levy_step
+        if step == "arts_of_war":
+            moves.extend(_aow_moves(state, side))
+        elif step == "pay":
+            moves.extend(_pay_moves(state, side))
+        elif step == "disband":
+            moves.extend(_disband_moves(state, side))
+        elif step == "muster":
+            moves.extend(_muster_moves(state, side))
+        elif step == "call_to_arms":
+            moves.extend(_call_to_arms_moves(state, side))
+        moves.append({"type": "advance_step", "side": side, "args": {}})
+    elif state.meta.phase == "campaign":
+        moves.extend(_campaign_moves(state, side))
     return moves
 
 
@@ -327,4 +328,67 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 })
             out.append({"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
         out.append({"type": "aow_discard_this_levy", "side": "russian", "args": {}})
+    return out
+
+
+def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
+    from nevsky.campaign import _plan_target_size
+
+    out: list[dict[str, Any]] = []
+    cstep = state.meta.campaign_step
+    if cstep == "plan":
+        deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
+        target = _plan_target_size(state.meta.box)
+        already = (state.meta.plan_complete_t if side == "teutonic" else state.meta.plan_complete_r)
+        if not already:
+            if len(deck.plan) < target:
+                mustered = [lid for lid, l in state.lords.items()
+                            if l.side == side and l.state == "mustered"]
+                out.append({
+                    "type": "plan_add_card",
+                    "side": side,
+                    "args_template": {"card": "<lord_id>|pass"},
+                    "candidates": {"lords": mustered, "filler": "pass"},
+                    "note": f"Plan {len(deck.plan)}/{target}",
+                })
+            else:
+                out.append({"type": "finalize_plan", "side": side, "args": {}})
+        return out
+    if cstep == "command":
+        if state.campaign_turn.in_feed_pay_disband:
+            out.append({"type": "fpd_resolve", "side": side, "args": {}})
+            return out
+        if state.campaign_turn.actions_remaining == 0:
+            # waiting to reveal
+            if state.campaign_turn.next_to_reveal == side:
+                out.append({"type": "command_reveal", "side": side, "args": {}})
+            return out
+        # active Lord performing actions
+        active_lord = state.campaign_turn.active_lord
+        if active_lord is None or state.lords[active_lord].side != side:
+            return out
+        out.append({"type": "cmd_pass", "side": side,
+                    "args": {"lord_id": active_lord},
+                    "note": "forfeit remaining actions"})
+        out.append({"type": "cmd_tax", "side": side,
+                    "args": {"lord_id": active_lord},
+                    "note": "+1 Coin at own Seat (entire card)"})
+        out.append({"type": "cmd_forage", "side": side,
+                    "args": {"lord_id": active_lord},
+                    "note": "+1 Provender (1 action)"})
+        out.append({"type": "cmd_ravage", "side": side,
+                    "args": {"lord_id": active_lord},
+                    "note": "Ravage current Locale (1-2 actions)"})
+        out.append({"type": "cmd_supply", "side": side,
+                    "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
+                    "note": "Supply (1 action)"})
+        out.append({"type": "cmd_sail", "side": side,
+                    "args_template": {"lord_id": "<id>", "destination": "<seaport_id>", "group": "[<id>]"},
+                    "note": "Sail Seaport->Seaport (entire card)"})
+        out.append({"type": "end_card", "side": side, "args": {},
+                    "note": "voluntarily end this Command card"})
+        return out
+    if cstep == "end_campaign":
+        out.append({"type": "end_campaign_resolve", "side": side, "args": {}})
+        return out
     return out

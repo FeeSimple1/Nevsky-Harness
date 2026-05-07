@@ -219,8 +219,27 @@ def _h_advance_step(
             # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
             state.legate.acted_this_call_to_arms = False
             state.veche.acted_this_call_to_arms = False
+        if next_step == "done":
+            # Levy complete -- transition to Campaign Plan (4.0).
+            state.meta.phase = "campaign"
+            state.meta.campaign_step = "plan"
+            state.meta.plan_complete_t = False
+            state.meta.plan_complete_r = False
+            state.meta.active_player = "teutonic"
+            # 4.0 capability discard (in excess of own Mustered Lord count)
+            for sd_ in ("teutonic", "russian"):
+                deck = state.decks.teutonic if sd_ == "teutonic" else state.decks.russian
+                mustered_count = sum(
+                    1 for lord in state.lords.values()
+                    if lord.side == sd_ and lord.state == "mustered"
+                )
+                while len(deck.capabilities_in_play) > mustered_count:
+                    deck.discard.append(deck.capabilities_in_play.pop())
 
-    return ({"new_step": state.meta.levy_step, "active_player": state.meta.active_player}, [])
+    return ({"new_step": state.meta.levy_step,
+             "phase": state.meta.phase,
+             "campaign_step": state.meta.campaign_step if state.meta.phase == "campaign" else None,
+             "active_player": state.meta.active_player}, [])
 
 
 # ---------------------------------------------------------------------------
@@ -1679,7 +1698,7 @@ def _h_system_setup_complete(
 # ---------------------------------------------------------------------------
 
 
-_HANDLERS = {
+_HANDLERS: dict[str, Any] = {
     "advance_step": _h_advance_step,
     # 3.1
     "aow_shuffle": _h_aow_shuffle,
@@ -1705,3 +1724,13 @@ _HANDLERS = {
     # system
     "system_setup_complete": _h_system_setup_complete,
 }
+
+
+# Phase 3 campaign handlers are registered at import time.
+def _register_campaign_handlers() -> None:
+    from nevsky.campaign import HANDLERS as CAMPAIGN_HANDLERS
+
+    _HANDLERS.update(CAMPAIGN_HANDLERS)
+
+
+_register_campaign_handlers()
