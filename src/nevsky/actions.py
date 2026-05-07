@@ -458,9 +458,14 @@ def _is_friendly_locale(state: GameState, locale_id: str, side: Side) -> bool:
 
 
 def _is_besieged(state: GameState, lord_id: str) -> bool:
-    """A Lord is Besieged if at a Locale with siege_markers > 0 (4.3.5)."""
+    """A Lord is Besieged when he is INSIDE a Stronghold (in_stronghold=True)
+    at a Locale with siege_markers > 0 (4.3.5). A besieging Lord at the
+    same Locale is NOT Besieged: he is the besieger.
+    """
     lord = state.lords[lord_id]
     if lord.state != "mustered" or lord.location is None:
+        return False
+    if not lord.in_stronghold:
         return False
     return state.locales[lord.location].siege_markers > 0
 

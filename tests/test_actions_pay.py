@@ -72,8 +72,9 @@ def test_pay_with_veche_coin_blocked_for_besieged_lord() -> None:
     s.meta.levy_step_completed_t = True
     s.veche.coin = 4
     target = next(lid for lid, l in s.lords.items() if l.side == "russian" and l.state == "mustered")
-    # Place a siege at target's location.
+    # Besiege the target Lord inside his Stronghold.
     s.locales[s.lords[target].location].siege_markers = 1
+    s.lords[target].in_stronghold = True
     with pytest.raises(IllegalAction) as exc:
         apply_action(s, {
             "type": "pay_with_coin", "side": "russian",
