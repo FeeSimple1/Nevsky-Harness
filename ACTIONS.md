@@ -126,3 +126,68 @@ Besieged Lords cannot Muster.
 - **`system_setup_complete`** — drop scenario-setup `setup_transport_choice`
   PendingDecisions (Q-001) so Phase 2 Levy mechanics can proceed
   without the Phase 1 residue.
+
+## Phase 3a: Campaign-phase actions
+
+### 4.1 Plan
+
+- **`plan_add_card`** — `args.card` is a Mustered own-side Lord id or
+  `"pass"`. Each Lord can appear up to 3 times in a side's Plan
+  (matching the 3 Command cards per Lord). Plan size by season:
+  Summer 6, Rasputitsa 5, Early/Late Winter 4.
+- **`finalize_plan`** — mark this side's Plan complete. When both
+  sides finalize, harness advances `campaign_step` to `"command"`.
+
+### 4.2 Activation loop
+
+- **`command_reveal`** — reveal the top Command card of the active
+  side. Pass cards / Lord-not-on-map cards auto-pass per 4.2.3.
+  Lord cards set `actions_remaining = COMMAND_RATING`.
+- **`end_card`** — voluntarily end the active Command card before
+  exhausting actions; transitions to 4.8.
+- **`fpd_resolve`** — 4.8 Feed/Pay/Disband for the active side. Run
+  T then R after each Command card. Auto-feeds MOVED_FOUGHT Lords
+  (own provender first, then loot, then sharing from co-located
+  own-side Lords); unfed Lords lose 1 box of Service. Then runs the
+  4.8.2 at-limit Disband (count from NEXT box during Campaign 2E).
+  Then removes MOVED_FOUGHT markers.
+
+### 4.7 Simple Commands
+
+- **`cmd_tax`** — 4.7.4. Active Unbesieged Lord at own Seat; +1 Coin;
+  consumes entire card.
+- **`cmd_forage`** — 4.7.1. 1 action; +1 Provender. Locale not
+  Ravaged; at Friendly Stronghold OR Summer.
+- **`cmd_ravage`** — 4.7.2. 1 action default; 2 actions if Unbesieged
+  enemy Lord adjacent (2E). Locale must be enemy territory, not
+  Conquered, not Friendly to active side, not already Ravaged. Adds
+  own-color Ravaged marker (+0.5 VP), +1 Provender, and +1 Loot if
+  non-Region.
+- **`cmd_pass`** — 4.7.5. Forfeit unused actions; ends card.
+- **`cmd_sail`** — 4.7.3. Entire card. Active Unbesieged Lord at a
+  Seaport; non-Winter; destination Seaport free of Unbesieged enemy
+  Lords. `args.group` co-Sails together; sailing to an Unbesieged
+  enemy Stronghold places a Siege marker.
+
+### 4.6 Supply
+
+- **`cmd_supply`** — `args.sources` is a list of
+  `{locale_id, route, transport}`. Each entry adds 1 Provender (cap
+  8). Validates: source eligibility (own Seat, or Russian Novgorod /
+  Teutonic any-Seaport via Ships), Way-type compatibility (Boats =
+  Waterways, Carts = Trackways, Sleds = any), seasonality (Carts
+  Summer only; Sleds Winter/Rasputitsa; Boats/Ships not Winter),
+  route adjacency, no enemy block on intermediate locales (unless
+  the enemy is Besieged there). 2E rule: 1 Transport per Provender
+  per Way of each Route.
+
+### 4.9 End Campaign
+
+- **`end_campaign_resolve`** — runs T-then-R. Per side: 4.9.1 Grow
+  (only end-of-Rasputitsa, halve enemy Ravaged markers rounded UP),
+  4.9.4 Wastage (per Lord, discard 1 if any Asset count >1 OR >1
+  this-lord-capability), 4.9.5 discard This-Campaign events. After
+  R, runs 4.9.2 game-end check (if box >= span_end_box -> game over),
+  4.9.3 Plow & Reap (end-of-Summer Carts -> Sleds; end-of-Late-Winter
+  Sleds -> Carts; halve rounded UP), advances Calendar marker, flips
+  to Levy.
