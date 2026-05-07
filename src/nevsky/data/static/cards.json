@@ -1,0 +1,425 @@
+{
+  "_doc": "Arts of War card metadata per reference/Nevsky_Arts_of_War_Reference.txt and Sequence of Play file. 18 numbered cards per side (T1-T18, R1-R18) plus 3 No Event/No Capability cards per side (rule 3.1.2-3.1.3). Phase 1 only needs identity and persistence metadata; per-card effect logic is Phase 4.",
+  "cards": [
+    {
+      "card_id": "T1",
+      "side": "teutonic",
+      "event_name": "Grand Prince favors a son",
+      "event_persistence": "immediate",
+      "capability_name": "Treaty of Stensby",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T2",
+      "side": "teutonic",
+      "event_name": "Torzhok",
+      "event_persistence": "immediate",
+      "capability_name": "Raiders",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T3",
+      "side": "teutonic",
+      "event_name": "Vodian Treachery",
+      "event_persistence": "hold",
+      "capability_name": "Converts",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T4",
+      "side": "teutonic",
+      "event_name": "Bridge",
+      "event_persistence": "hold",
+      "capability_name": "Balistarii",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T5",
+      "side": "teutonic",
+      "event_name": "Marsh",
+      "event_persistence": "hold",
+      "capability_name": "Balistarii",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T6",
+      "side": "teutonic",
+      "event_name": "Ambush",
+      "event_persistence": "hold",
+      "capability_name": "Balistarii",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T7",
+      "side": "teutonic",
+      "event_name": "Tverdilo",
+      "event_persistence": "hold",
+      "capability_name": "Warrior Monks",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T8",
+      "side": "teutonic",
+      "event_name": "Teutonic Fervor",
+      "event_persistence": "hold",
+      "capability_name": "Hillforts of the Sword Brethren",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T9",
+      "side": "teutonic",
+      "event_name": "Hill",
+      "event_persistence": "hold",
+      "capability_name": "Halbbrueder",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T10",
+      "side": "teutonic",
+      "event_name": "Field Organ",
+      "event_persistence": "hold",
+      "capability_name": "Halbbrueder",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T11",
+      "side": "teutonic",
+      "event_name": "Pope Gregory issues indulgences",
+      "event_persistence": "immediate",
+      "capability_name": "Crusade",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T12",
+      "side": "teutonic",
+      "event_name": "Khan Baty",
+      "event_persistence": "immediate",
+      "capability_name": "Ordensburgen",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T13",
+      "side": "teutonic",
+      "event_name": "Heinrich Sees the Curia",
+      "event_persistence": "hold",
+      "capability_name": "William of Modena",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T14",
+      "side": "teutonic",
+      "event_name": "Bountiful Harvest",
+      "event_persistence": "immediate",
+      "capability_name": "Trebuchets",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T15",
+      "side": "teutonic",
+      "event_name": "Mindaugas (Livonian raid)",
+      "event_persistence": "immediate",
+      "capability_name": "Warrior Monks",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T16",
+      "side": "teutonic",
+      "event_name": "Famine",
+      "event_persistence": "this_campaign",
+      "capability_name": "Ransom",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T17",
+      "side": "teutonic",
+      "event_name": "Dietrich von Grueningen",
+      "event_persistence": "hold",
+      "capability_name": "Stonemasons",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T18",
+      "side": "teutonic",
+      "event_name": "Swedish Crusade into Tavastia",
+      "event_persistence": "immediate",
+      "capability_name": "Cogs",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R1",
+      "side": "russian",
+      "event_name": "Bridge",
+      "event_persistence": "hold",
+      "capability_name": "Luchniki",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R2",
+      "side": "russian",
+      "event_name": "Marsh",
+      "event_persistence": "hold",
+      "capability_name": "Luchniki",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R3",
+      "side": "russian",
+      "event_name": "Pogost",
+      "event_persistence": "hold",
+      "capability_name": "Streltsy",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R4",
+      "side": "russian",
+      "event_name": "Raven's Rock",
+      "event_persistence": "hold",
+      "capability_name": "Smerdi",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R5",
+      "side": "russian",
+      "event_name": "Hill",
+      "event_persistence": "hold",
+      "capability_name": "Druzhina",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R6",
+      "side": "russian",
+      "event_name": "Ambush",
+      "event_persistence": "hold",
+      "capability_name": "Druzhina",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R7",
+      "side": "russian",
+      "event_name": "Famine",
+      "event_persistence": "this_campaign",
+      "capability_name": "Ransom",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R8",
+      "side": "russian",
+      "event_name": "Prince of Polotsk",
+      "event_persistence": "hold",
+      "capability_name": "Black Sea Trade",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R9",
+      "side": "russian",
+      "event_name": "Osilian Revolt",
+      "event_persistence": "immediate",
+      "capability_name": "Baltic Sea Trade",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R10",
+      "side": "russian",
+      "event_name": "Batu Khan",
+      "event_persistence": "immediate",
+      "capability_name": "Steppe Warriors",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R11",
+      "side": "russian",
+      "event_name": "Valdemar",
+      "event_persistence": "this_levy",
+      "capability_name": "House of Suzdal",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R12",
+      "side": "russian",
+      "event_name": "Mindaugas (Livonian raid)",
+      "event_persistence": "immediate",
+      "capability_name": "Raiders",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R13",
+      "side": "russian",
+      "event_name": "Pelgui",
+      "event_persistence": "hold",
+      "capability_name": "Streltsy",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R14",
+      "side": "russian",
+      "event_name": "Prussian Revolt",
+      "event_persistence": "immediate",
+      "capability_name": "Raiders",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R15",
+      "side": "russian",
+      "event_name": "Death of the Pope",
+      "event_persistence": "this_levy",
+      "capability_name": "Archbishopric of Novgorod",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R16",
+      "side": "russian",
+      "event_name": "Tempest",
+      "event_persistence": "immediate",
+      "capability_name": "Lodya",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R17",
+      "side": "russian",
+      "event_name": "Dietrich von Grueningen",
+      "event_persistence": "this_levy",
+      "capability_name": "Veliky Knyaz",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "R18",
+      "side": "russian",
+      "event_name": "Bountiful Harvest",
+      "event_persistence": "immediate",
+      "capability_name": "Stone Kremlin",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false
+    },
+    {
+      "card_id": "T_no_event_1",
+      "side": "teutonic",
+      "event_name": null,
+      "event_persistence": null,
+      "capability_name": null,
+      "capability_scope": null,
+      "no_event": true,
+      "no_capability": true
+    },
+    {
+      "card_id": "R_no_event_1",
+      "side": "russian",
+      "event_name": null,
+      "event_persistence": null,
+      "capability_name": null,
+      "capability_scope": null,
+      "no_event": true,
+      "no_capability": true
+    },
+    {
+      "card_id": "T_no_event_2",
+      "side": "teutonic",
+      "event_name": null,
+      "event_persistence": null,
+      "capability_name": null,
+      "capability_scope": null,
+      "no_event": true,
+      "no_capability": true
+    },
+    {
+      "card_id": "R_no_event_2",
+      "side": "russian",
+      "event_name": null,
+      "event_persistence": null,
+      "capability_name": null,
+      "capability_scope": null,
+      "no_event": true,
+      "no_capability": true
+    },
+    {
+      "card_id": "T_no_event_3",
+      "side": "teutonic",
+      "event_name": null,
+      "event_persistence": null,
+      "capability_name": null,
+      "capability_scope": null,
+      "no_event": true,
+      "no_capability": true
+    },
+    {
+      "card_id": "R_no_event_3",
+      "side": "russian",
+      "event_name": null,
+      "event_persistence": null,
+      "capability_name": null,
+      "capability_scope": null,
+      "no_event": true,
+      "no_capability": true
+    }
+  ]
+}
