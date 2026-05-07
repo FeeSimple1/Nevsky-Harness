@@ -1,0 +1,911 @@
+{
+  "_doc": "Static Lord data per reference/Nevsky_Lords.txt and 2nd Edition Changes Summary. 12 Lords (6 Teutonic, 6 Russian). Dynamic state (location, current forces, mustered/ready/disbanded) lives in GameState.",
+  "lords": {
+    "andreas": {
+      "lord_id": "andreas",
+      "side": "teutonic",
+      "name": "Andreas von Felben, Landmeister in Livonia",
+      "ratings": {
+        "fealty": 2,
+        "service": 4,
+        "lordship": 3,
+        "command": 3
+      },
+      "marshal_role": "permanent",
+      "ships_authorized": true,
+      "primary_seats": [
+        "riga",
+        "wenden"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "T12_ordensburgen",
+          "scope": "all_commanderies",
+          "note": "All Commanderies become Extra Seats while T12 in play."
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "sergeants": 2,
+        "men_at_arms": 1
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 2,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 2,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "andreas_teutonic_vassals",
+          "name": "Teutonic Vassals",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 2
+          },
+          "service": 3,
+          "special": null
+        },
+        {
+          "vassal_id": "andreas_lettgallian_aux",
+          "name": "Lettgallian Auxiliaries",
+          "forces": {
+            "light_horse": 1,
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        },
+        {
+          "vassal_id": "andreas_summer_crusaders_1",
+          "name": "Summer Crusaders",
+          "forces": {
+            "knights": 3
+          },
+          "service": 2,
+          "special": "summer_crusaders"
+        }
+      ]
+    },
+    "hermann": {
+      "lord_id": "hermann",
+      "side": "teutonic",
+      "name": "Hermann, Bishop of Dorpat",
+      "ratings": {
+        "fealty": 4,
+        "service": 4,
+        "lordship": 3,
+        "command": 3
+      },
+      "marshal_role": "secondary",
+      "ships_authorized": false,
+      "primary_seats": [
+        "dorpat",
+        "odenpah"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "T12_ordensburgen",
+          "scope": "all_commanderies"
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "sergeants": 1,
+        "men_at_arms": 1,
+        "militia": 1
+      },
+      "starting_assets": {
+        "coin": 1,
+        "provender": 1,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "hermann_helmold_von_luneburg",
+          "name": "Helmold von Lüneburg",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "hermann_ugaunian_aux",
+          "name": "Ugaunian Auxiliaries",
+          "forces": {
+            "light_horse": 1,
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        },
+        {
+          "vassal_id": "hermann_johannes_von_dolen",
+          "name": "Johannes von Dolen",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        }
+      ]
+    },
+    "rudolf": {
+      "lord_id": "rudolf",
+      "side": "teutonic",
+      "name": "Rudolf von Kassel, Castellan of Wenden",
+      "ratings": {
+        "fealty": 5,
+        "service": 2,
+        "lordship": 1,
+        "command": 3
+      },
+      "marshal_role": null,
+      "ships_authorized": false,
+      "primary_seats": [
+        "wenden"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "T12_ordensburgen",
+          "scope": "all_commanderies"
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "sergeants": 1,
+        "men_at_arms": 1
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 1,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "rudolf_ex_sword_brethren",
+          "name": "Ex-Sword Brethren",
+          "forces": {
+            "knights": 1,
+            "sergeants": 1
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "rudolf_jerwen_teutonic_vassals",
+          "name": "Jerwen Teutonic Vassals",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "rudolf_summer_crusaders",
+          "name": "Summer Crusaders",
+          "forces": {
+            "knights": 2
+          },
+          "service": 2,
+          "special": "summer_crusaders"
+        }
+      ]
+    },
+    "heinrich": {
+      "lord_id": "heinrich",
+      "side": "teutonic",
+      "name": "Heinrich, Bishop of Ösel-Wiek",
+      "ratings": {
+        "fealty": 3,
+        "service": 4,
+        "lordship": 2,
+        "command": 1
+      },
+      "marshal_role": null,
+      "ships_authorized": true,
+      "primary_seats": [
+        "leal"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "T12_ordensburgen",
+          "scope": "all_commanderies"
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "sergeants": 1,
+        "men_at_arms": 1
+      },
+      "starting_assets": {
+        "coin": 1,
+        "provender": 1,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 2
+      },
+      "starting_transport_choice": [],
+      "vassals": [
+        {
+          "vassal_id": "heinrich_odward_von_lode",
+          "name": "Odward von Lode",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "heinrich_heinrich_von_lode",
+          "name": "Heinrich von Lode",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        }
+      ]
+    },
+    "yaroslav": {
+      "lord_id": "yaroslav",
+      "side": "teutonic",
+      "name": "Yaroslav, Exile of Pskov",
+      "ratings": {
+        "fealty": 4,
+        "service": 2,
+        "lordship": 1,
+        "command": 2
+      },
+      "marshal_role": null,
+      "ships_authorized": false,
+      "primary_seats": [
+        "odenpah"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "T12_ordensburgen",
+          "scope": "all_commanderies"
+        },
+        {
+          "capability": null,
+          "locale_id": "pskov",
+          "requirement": "pskov_conquered_by_teutons",
+          "note": "Pskov is a Yaroslav Seat only while black Teutonic Conquered markers are present at Pskov (rule 3.4.1)."
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "men_at_arms": 1,
+        "light_horse": 1
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 1,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "yaroslav_mstislavich_partisans",
+          "name": "Mstislavich Partisans",
+          "forces": {
+            "militia": 2
+          },
+          "service": 2,
+          "special": null
+        }
+      ]
+    },
+    "knud_and_abel": {
+      "lord_id": "knud_and_abel",
+      "side": "teutonic",
+      "name": "Knud & Abel, Princes of Denmark",
+      "ratings": {
+        "fealty": 2,
+        "service": 3,
+        "lordship": 3,
+        "command": 2
+      },
+      "marshal_role": null,
+      "ships_authorized": true,
+      "primary_seats": [
+        "reval",
+        "wesenberg"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "T12_ordensburgen",
+          "scope": "all_commanderies"
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "sergeants": 1,
+        "men_at_arms": 2,
+        "militia": 1
+      },
+      "starting_assets": {
+        "coin": 1,
+        "provender": 2,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 2
+      },
+      "starting_transport_choice": [],
+      "vassals": [
+        {
+          "vassal_id": "knud_and_abel_estonian_aux",
+          "name": "Estonian Auxiliaries",
+          "forces": {
+            "light_horse": 1,
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        },
+        {
+          "vassal_id": "knud_and_abel_dietrich_von_kivel",
+          "name": "Dietrich von Kivel",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "knud_and_abel_otto_von_luneburg",
+          "name": "Otto von Lüneburg",
+          "forces": {
+            "knights": 1,
+            "men_at_arms": 1
+          },
+          "service": 2,
+          "special": null
+        }
+      ]
+    },
+    "aleksandr": {
+      "lord_id": "aleksandr",
+      "side": "russian",
+      "name": "Aleksandr, Prince of Novgorod",
+      "ratings": {
+        "fealty": null,
+        "service": 6,
+        "lordship": 4,
+        "command": 3
+      },
+      "marshal_role": "permanent",
+      "ships_authorized": true,
+      "primary_seats": [
+        "novgorod"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "R15_archbishopric",
+          "scope": "all_russian_lords_novgorod_extra_seat"
+        },
+        {
+          "capability": "R15_archbishopric",
+          "locale_id": "rusa",
+          "note": "Aleksandr-only Extra Seat at Rusa under R15 (mat-specific rule)."
+        }
+      ],
+      "muster_restriction": "veche_only",
+      "muster_restriction_note": "No Lord may Muster Aleksandr; only the Veche Auto-Muster (3.5.2) brings him into play.",
+      "starting_forces": {
+        "knights": 3,
+        "men_at_arms": 2
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 0,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 2,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "aleksandr_pereyaslavl",
+          "name": "Pereyaslavl",
+          "forces": {
+            "men_at_arms": 1
+          },
+          "service": 4,
+          "special": null
+        },
+        {
+          "vassal_id": "aleksandr_rostov",
+          "name": "Rostov",
+          "forces": {
+            "men_at_arms": 1
+          },
+          "service": 3,
+          "special": null
+        },
+        {
+          "vassal_id": "aleksandr_yaroslavl",
+          "name": "Yaroslavl",
+          "forces": {
+            "men_at_arms": 1
+          },
+          "service": 3,
+          "special": null
+        },
+        {
+          "vassal_id": "aleksandr_mongols_1",
+          "name": "Mongols (1)",
+          "forces": {
+            "asiatic_horse": 2
+          },
+          "service": 3,
+          "special": "steppe_warriors"
+        },
+        {
+          "vassal_id": "aleksandr_mongols_2",
+          "name": "Mongols (2)",
+          "forces": {
+            "asiatic_horse": 2
+          },
+          "service": 3,
+          "special": "steppe_warriors"
+        }
+      ]
+    },
+    "andrey": {
+      "lord_id": "andrey",
+      "side": "russian",
+      "name": "Andrey, Prince of Suzdal",
+      "ratings": {
+        "fealty": 4,
+        "service": 5,
+        "lordship": 3,
+        "command": 2
+      },
+      "marshal_role": "secondary",
+      "ships_authorized": true,
+      "primary_seats": [
+        "novgorod"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "R15_archbishopric",
+          "scope": "all_russian_lords_novgorod_extra_seat"
+        },
+        {
+          "capability": "R15_archbishopric",
+          "locale_id": "rusa",
+          "note": "Andrey-only Extra Seat at Rusa under R15 (mat-specific rule)."
+        }
+      ],
+      "starting_forces": {
+        "knights": 3,
+        "men_at_arms": 2
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 0,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 2,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "andrey_vladimir",
+          "name": "Vladimir",
+          "forces": {
+            "men_at_arms": 1
+          },
+          "service": 4,
+          "special": null
+        },
+        {
+          "vassal_id": "andrey_suzdal",
+          "name": "Suzdal",
+          "forces": {
+            "men_at_arms": 1
+          },
+          "service": 4,
+          "special": null
+        },
+        {
+          "vassal_id": "andrey_kipchaqs_1",
+          "name": "Kipchaqs (1)",
+          "forces": {
+            "asiatic_horse": 3
+          },
+          "service": 3,
+          "special": "steppe_warriors"
+        },
+        {
+          "vassal_id": "andrey_kipchaqs_2",
+          "name": "Kipchaqs (2)",
+          "forces": {
+            "asiatic_horse": 3
+          },
+          "service": 3,
+          "special": "steppe_warriors"
+        }
+      ]
+    },
+    "domash": {
+      "lord_id": "domash",
+      "side": "russian",
+      "name": "Domash, Tysyatskiy of Novgorod",
+      "ratings": {
+        "fealty": 4,
+        "service": 4,
+        "lordship": 2,
+        "command": 2
+      },
+      "marshal_role": null,
+      "ships_authorized": true,
+      "primary_seats": [
+        "novgorod"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "R15_archbishopric",
+          "scope": "all_russian_lords_novgorod_extra_seat"
+        }
+      ],
+      "starting_forces": {
+        "sergeants": 1,
+        "men_at_arms": 2,
+        "light_horse": 1,
+        "militia": 1
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 1,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "domash_novgorod_1",
+          "name": "Novgorod (1)",
+          "forces": {
+            "militia": 2
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "domash_novgorod_2",
+          "name": "Novgorod (2)",
+          "forces": {
+            "militia": 2
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "domash_novgorod_3",
+          "name": "Novgorod (3)",
+          "forces": {
+            "militia": 2
+          },
+          "service": 2,
+          "special": null
+        }
+      ]
+    },
+    "gavrilo": {
+      "lord_id": "gavrilo",
+      "side": "russian",
+      "name": "Gavrilo, Voyevoda of Pskov",
+      "ratings": {
+        "fealty": 3,
+        "service": 4,
+        "lordship": 3,
+        "command": 2
+      },
+      "marshal_role": null,
+      "ships_authorized": true,
+      "primary_seats": [
+        "pskov"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "R15_archbishopric",
+          "scope": "all_russian_lords_novgorod_extra_seat"
+        }
+      ],
+      "starting_forces": {
+        "knights": 1,
+        "men_at_arms": 1,
+        "light_horse": 1,
+        "militia": 1
+      },
+      "starting_assets": {
+        "coin": 1,
+        "provender": 2,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "gavrilo_pskov_1",
+          "name": "Pskov (1)",
+          "forces": {
+            "men_at_arms": 1
+          },
+          "service": 4,
+          "special": null
+        },
+        {
+          "vassal_id": "gavrilo_pskov_2",
+          "name": "Pskov (2)",
+          "forces": {
+            "militia": 2
+          },
+          "service": 2,
+          "special": null
+        },
+        {
+          "vassal_id": "gavrilo_borderland_russians",
+          "name": "Borderland Russians",
+          "forces": {
+            "light_horse": 1,
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        }
+      ]
+    },
+    "vladislav": {
+      "lord_id": "vladislav",
+      "side": "russian",
+      "name": "Vladislav, Bailiff of Ladoga",
+      "ratings": {
+        "fealty": 5,
+        "service": 3,
+        "lordship": 2,
+        "command": 3
+      },
+      "marshal_role": null,
+      "ships_authorized": true,
+      "primary_seats": [
+        "ladoga"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "R15_archbishopric",
+          "scope": "all_russian_lords_novgorod_extra_seat"
+        }
+      ],
+      "starting_forces": {
+        "sergeants": 1,
+        "light_horse": 1,
+        "men_at_arms": 2
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 1,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": [
+        {
+          "vassal_id": "vladislav_izhoran_aux",
+          "name": "Izhoran Auxiliaries",
+          "forces": {
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        },
+        {
+          "vassal_id": "vladislav_ingrian_aux",
+          "name": "Ingrian Auxiliaries",
+          "forces": {
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        },
+        {
+          "vassal_id": "vladislav_vodian_aux",
+          "name": "Vodian Auxiliaries",
+          "forces": {
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        },
+        {
+          "vassal_id": "vladislav_vepsian_aux",
+          "name": "Vepsian Auxiliaries",
+          "forces": {
+            "militia": 1
+          },
+          "service": 1,
+          "special": null
+        }
+      ]
+    },
+    "karelians": {
+      "lord_id": "karelians",
+      "side": "russian",
+      "name": "Karelians, Tributaries of Novgorod",
+      "ratings": {
+        "fealty": 4,
+        "service": 2,
+        "lordship": 1,
+        "command": 2
+      },
+      "marshal_role": null,
+      "ships_authorized": true,
+      "primary_seats": [
+        "ladoga"
+      ],
+      "conditional_seats": [
+        {
+          "capability": "R15_archbishopric",
+          "scope": "all_russian_lords_novgorod_extra_seat"
+        }
+      ],
+      "starting_forces": {
+        "light_horse": 1,
+        "militia": 4
+      },
+      "starting_assets": {
+        "coin": 0,
+        "provender": 0,
+        "loot": 0,
+        "boat": 0,
+        "cart": 0,
+        "sled": 0,
+        "ship": 0
+      },
+      "starting_transport_choice": [
+        {
+          "count": 1,
+          "options": [
+            "boat",
+            "cart",
+            "sled",
+            "ship"
+          ]
+        }
+      ],
+      "vassals": []
+    }
+  }
+}

@@ -1,170 +1,697 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "GameState",
-  "description": "Top-level Nevsky game state. Phase 0 sketch; regenerated from src/nevsky/state.py via scripts/generate_schema.py.",
-  "type": "object",
+  "$defs": {
+    "Calendar": {
+      "additionalProperties": false,
+      "description": "The 16-box Calendar plus off-end overflow positions (rules 2.2.3).",
+      "properties": {
+        "boxes": {
+          "items": {
+            "$ref": "#/$defs/CalendarBox"
+          },
+          "title": "Boxes",
+          "type": "array"
+        },
+        "off_left": {
+          "description": "Cylinders past the left edge.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Off Left",
+          "type": "array"
+        },
+        "off_right": {
+          "description": "Cylinders past the right edge.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Off Right",
+          "type": "array"
+        },
+        "pleskau_lords_removed_russian": {
+          "default": 0,
+          "title": "Pleskau Lords Removed Russian",
+          "type": "integer"
+        },
+        "pleskau_lords_removed_teutonic": {
+          "default": 0,
+          "title": "Pleskau Lords Removed Teutonic",
+          "type": "integer"
+        },
+        "russian_vp": {
+          "default": 0.0,
+          "title": "Russian Vp",
+          "type": "number"
+        },
+        "teutonic_vp": {
+          "default": 0.0,
+          "title": "Teutonic Vp",
+          "type": "number"
+        }
+      },
+      "title": "Calendar",
+      "type": "object"
+    },
+    "CalendarBox": {
+      "additionalProperties": false,
+      "description": "One of the 16 40-Days boxes.",
+      "properties": {
+        "box": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Box",
+          "type": "integer"
+        },
+        "cylinders": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cylinders",
+          "type": "array"
+        },
+        "has_levy_campaign_marker": {
+          "default": false,
+          "title": "Has Levy Campaign Marker",
+          "type": "boolean"
+        },
+        "levy_campaign_face": {
+          "anyOf": [
+            {
+              "enum": [
+                "levy",
+                "campaign"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Levy Campaign Face"
+        },
+        "russian_victory_marker": {
+          "default": false,
+          "title": "Russian Victory Marker",
+          "type": "boolean"
+        },
+        "service_markers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Service Markers",
+          "type": "array"
+        },
+        "teutonic_victory_marker": {
+          "default": false,
+          "title": "Teutonic Victory Marker",
+          "type": "boolean"
+        },
+        "vassal_service_markers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Vassal Service Markers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "box"
+      ],
+      "title": "CalendarBox",
+      "type": "object"
+    },
+    "Decks": {
+      "additionalProperties": false,
+      "description": "Per-side card state.",
+      "properties": {
+        "russian": {
+          "$ref": "#/$defs/SideDeck"
+        },
+        "teutonic": {
+          "$ref": "#/$defs/SideDeck"
+        }
+      },
+      "title": "Decks",
+      "type": "object"
+    },
+    "HistoryEntry": {
+      "additionalProperties": false,
+      "description": "An action executed against the state.",
+      "properties": {
+        "action": {
+          "additionalProperties": true,
+          "title": "Action",
+          "type": "object"
+        },
+        "actor": {
+          "enum": [
+            "teutonic",
+            "russian",
+            "system"
+          ],
+          "title": "Actor",
+          "type": "string"
+        },
+        "dice": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Dice",
+          "type": "array"
+        },
+        "result": {
+          "additionalProperties": true,
+          "title": "Result",
+          "type": "object"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sequence",
+        "actor",
+        "action"
+      ],
+      "title": "HistoryEntry",
+      "type": "object"
+    },
+    "Legate": {
+      "additionalProperties": false,
+      "description": "Papal Legate state (rules 1.4.1, 3.5.1, 4.2).",
+      "properties": {
+        "locale_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locale Id"
+        },
+        "location": {
+          "default": "card",
+          "enum": [
+            "card",
+            "locale"
+          ],
+          "title": "Location",
+          "type": "string"
+        },
+        "william_of_modena_in_play": {
+          "default": false,
+          "title": "William Of Modena In Play",
+          "type": "boolean"
+        }
+      },
+      "title": "Legate",
+      "type": "object"
+    },
+    "Locale": {
+      "additionalProperties": false,
+      "description": "Locale state. Static data (type, territory, seats, seaport, VP)\nis in data/static/locales.json and looked up by locale_id.\n\nConquered counts can stack: a fully Conquered City carries 2\nmarkers (matching its 2-VP value); fully Conquered Novgorod carries\n3. Markers are added per Conquest event and stay until removed.\n\n`walls_plus_one` (R18 Stone Kremlin) is restricted at validation\ntime to Russian Forts, Cities, and Novgorod (Phase 2 enforces; the\npydantic field is just a bool).",
+      "properties": {
+        "locale_id": {
+          "title": "Locale Id",
+          "type": "string"
+        },
+        "russian_castle": {
+          "default": false,
+          "title": "Russian Castle",
+          "type": "boolean"
+        },
+        "russian_conquered": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Russian Conquered",
+          "type": "integer"
+        },
+        "russian_ravaged": {
+          "default": false,
+          "title": "Russian Ravaged",
+          "type": "boolean"
+        },
+        "siege_markers": {
+          "default": 0,
+          "maximum": 4,
+          "minimum": 0,
+          "title": "Siege Markers",
+          "type": "integer"
+        },
+        "teutonic_castle": {
+          "default": false,
+          "title": "Teutonic Castle",
+          "type": "boolean"
+        },
+        "teutonic_conquered": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Teutonic Conquered",
+          "type": "integer"
+        },
+        "teutonic_ravaged": {
+          "default": false,
+          "title": "Teutonic Ravaged",
+          "type": "boolean"
+        },
+        "walls_plus_one": {
+          "default": false,
+          "title": "Walls Plus One",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "locale_id"
+      ],
+      "title": "Locale",
+      "type": "object"
+    },
+    "Lord": {
+      "additionalProperties": false,
+      "description": "Lord state. Static data (ratings, seats, starting forces) is in\ndata/static/lords.json and looked up by lord_id; only mutable state\nlives here.\n\n`forces` is the Lord's CURRENT force composition: starting forces\nplus any Mustered Vassal forces, minus combat losses. Force counts\nare integers per type; rules treat \u00bd-counts as a marker side, but\nthe harness tracks integers and emits \u00bd Hits during combat\nresolution rather than storing fractional units (Phase 3).\n\n`assets` carries Coin / Provender / Loot plus Transport sub-types\n(Boat, Cart, Sled, Ship). Whether Ships are allowed for the Lord is\ndetermined by static data (`ships_authorized`); the loader rejects\nShip counts > 0 for Lords who lack the authorization.",
+      "properties": {
+        "assets": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "coin",
+              "provender",
+              "loot",
+              "boat",
+              "cart",
+              "sled",
+              "ship"
+            ]
+          },
+          "title": "Assets",
+          "type": "object"
+        },
+        "forces": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "knights",
+              "sergeants",
+              "men_at_arms",
+              "militia",
+              "light_horse",
+              "asiatic_horse",
+              "serfs"
+            ]
+          },
+          "title": "Forces",
+          "type": "object"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Locale id where this Lord is on the map; None if not mustered.",
+          "title": "Location"
+        },
+        "lord_id": {
+          "title": "Lord Id",
+          "type": "string"
+        },
+        "moved_fought": {
+          "default": false,
+          "title": "Moved Fought",
+          "type": "boolean"
+        },
+        "side": {
+          "enum": [
+            "teutonic",
+            "russian"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "state": {
+          "default": "ready",
+          "enum": [
+            "ready",
+            "mustered",
+            "disbanded",
+            "removed"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "this_lord_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "This Lord Capabilities",
+          "type": "array"
+        },
+        "vassals": {
+          "additionalProperties": {
+            "$ref": "#/$defs/VassalState"
+          },
+          "title": "Vassals",
+          "type": "object"
+        }
+      },
+      "required": [
+        "lord_id",
+        "side"
+      ],
+      "title": "Lord",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "description": "Game metadata: scenario, edition, schema version, RNG state, turn pointer.",
+      "properties": {
+        "active_player": {
+          "anyOf": [
+            {
+              "enum": [
+                "teutonic",
+                "russian"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Player"
+        },
+        "aggressor": {
+          "enum": [
+            "teutonic",
+            "russian",
+            "both"
+          ],
+          "title": "Aggressor",
+          "type": "string"
+        },
+        "box": {
+          "description": "Current 40-Days box; advances at end of Campaign.",
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Box",
+          "type": "integer"
+        },
+        "edition": {
+          "const": "2",
+          "default": "2",
+          "title": "Edition",
+          "type": "string"
+        },
+        "phase": {
+          "default": "levy",
+          "enum": [
+            "levy",
+            "campaign"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "scenario_display_name": {
+          "title": "Scenario Display Name",
+          "type": "string"
+        },
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "sequence": {
+          "default": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "span_end_box": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Span End Box",
+          "type": "integer"
+        },
+        "span_start_box": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Span Start Box",
+          "type": "integer"
+        },
+        "special_rules": {
+          "additionalProperties": true,
+          "title": "Special Rules",
+          "type": "object"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "scenario_display_name",
+        "schema_version",
+        "seed",
+        "box",
+        "span_start_box",
+        "span_end_box",
+        "aggressor"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "PendingDecision": {
+      "additionalProperties": false,
+      "description": "A sub-decision the harness is waiting on.",
+      "properties": {
+        "context": {
+          "additionalProperties": true,
+          "title": "Context",
+          "type": "object"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "owed_by": {
+          "enum": [
+            "teutonic",
+            "russian"
+          ],
+          "title": "Owed By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "owed_by"
+      ],
+      "title": "PendingDecision",
+      "type": "object"
+    },
+    "SideDeck": {
+      "additionalProperties": false,
+      "description": "One side's Arts of War deck state.\n\n`deck` is the face-down draw pile (shuffled at start of each Levy).\n`discard` is the face-up pile that returns to deck on shuffle except\nfor `removed` cards. `capabilities_in_play` are side-wide\ncapabilities under the player's board edge (this-lord capabilities\nlive on the Lord's mat in `Lord.this_lord_capabilities`).\n`holds` are face-down Hold-event cards in the player's hand. `plan`\nis the Command-card stack for the current Campaign (entries are\nCommand card identifiers; Phase 1 leaves this empty).",
+      "properties": {
+        "capabilities_in_play": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities In Play",
+          "type": "array"
+        },
+        "deck": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deck",
+          "type": "array"
+        },
+        "discard": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Discard",
+          "type": "array"
+        },
+        "holds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Holds",
+          "type": "array"
+        },
+        "plan": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Plan",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        }
+      },
+      "title": "SideDeck",
+      "type": "object"
+    },
+    "VassalState": {
+      "additionalProperties": false,
+      "description": "Per-Vassal mutable state.\n\n`ready` reflects the Vassal Service marker face (CoA up = ready, CoA\ndown = unready). `mustered` is true once the Vassal's Forces have\nbeen deployed onto the Lord's mat via Muster Vassal action (3.4.2);\nwhen mustered, the Vassal's Forces are merged into the parent Lord's\n`forces` dict.\n\n`on_calendar` and `calendar_box` cover the Advanced Vassal Service\noptional rule (3.4.2) where a Vassal's Service marker is placed on\nthe Calendar instead of staying on the Lord's mat. For Phase 1 this\nis captured but unused; Phase 2 wires up Levy Vassal mechanics.",
+      "properties": {
+        "calendar_box": {
+          "anyOf": [
+            {
+              "maximum": 16,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calendar Box"
+        },
+        "mustered": {
+          "default": false,
+          "title": "Mustered",
+          "type": "boolean"
+        },
+        "on_calendar": {
+          "default": false,
+          "title": "On Calendar",
+          "type": "boolean"
+        },
+        "ready": {
+          "default": true,
+          "title": "Ready",
+          "type": "boolean"
+        },
+        "vassal_id": {
+          "title": "Vassal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vassal_id"
+      ],
+      "title": "VassalState",
+      "type": "object"
+    },
+    "Veche": {
+      "additionalProperties": false,
+      "description": "Novgorod Veche box. Caps enforced (rules 1.4.2).",
+      "properties": {
+        "coin": {
+          "default": 0,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Coin",
+          "type": "integer"
+        },
+        "novgorod_conquered": {
+          "default": false,
+          "title": "Novgorod Conquered",
+          "type": "boolean"
+        },
+        "vp_markers": {
+          "default": 0,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Vp Markers",
+          "type": "integer"
+        }
+      },
+      "title": "Veche",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
+  "description": "Top-level game state. Single source of truth, persisted as JSON.",
+  "properties": {
+    "calendar": {
+      "$ref": "#/$defs/Calendar"
+    },
+    "decks": {
+      "$ref": "#/$defs/Decks"
+    },
+    "history": {
+      "items": {
+        "$ref": "#/$defs/HistoryEntry"
+      },
+      "title": "History",
+      "type": "array"
+    },
+    "legate": {
+      "$ref": "#/$defs/Legate"
+    },
+    "locales": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Locale"
+      },
+      "title": "Locales",
+      "type": "object"
+    },
+    "lords": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Lord"
+      },
+      "title": "Lords",
+      "type": "object"
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "pending_decisions": {
+      "items": {
+        "$ref": "#/$defs/PendingDecision"
+      },
+      "title": "Pending Decisions",
+      "type": "array"
+    },
+    "veche": {
+      "$ref": "#/$defs/Veche"
+    }
+  },
   "required": [
     "meta",
     "calendar",
     "veche"
   ],
-  "properties": {
-    "meta": { "$ref": "#/$defs/Meta" },
-    "calendar": { "$ref": "#/$defs/Calendar" },
-    "veche": { "$ref": "#/$defs/Veche" },
-    "lords": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/Lord" },
-      "default": {}
-    },
-    "locales": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/Locale" },
-      "default": {}
-    },
-    "decks": { "$ref": "#/$defs/Decks" },
-    "legate": { "$ref": "#/$defs/Legate" },
-    "pending_decisions": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/PendingDecision" },
-      "default": []
-    },
-    "history": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/HistoryEntry" },
-      "default": []
-    }
-  },
-  "$defs": {
-    "Meta": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["scenario_id", "schema_version", "seed", "box"],
-      "properties": {
-        "scenario_id": { "type": "string" },
-        "edition": { "const": "2", "default": "2" },
-        "schema_version": { "type": "string" },
-        "seed": { "type": "integer" },
-        "sequence": { "type": "integer", "default": 0 },
-        "box": { "type": "integer", "minimum": 1, "maximum": 16 },
-        "phase": { "enum": ["levy", "campaign"], "default": "levy" },
-        "active_player": { "anyOf": [ { "enum": ["teutonic", "russian"] }, { "type": "null" } ], "default": null }
-      }
-    },
-    "CalendarBox": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["box"],
-      "properties": {
-        "box": { "type": "integer", "minimum": 1, "maximum": 16 },
-        "cylinders": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "service_markers": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "has_levy_campaign_marker": { "type": "boolean", "default": false },
-        "levy_campaign_face": { "anyOf": [ { "enum": ["levy", "campaign"] }, { "type": "null" } ], "default": null },
-        "russian_victory_marker": { "type": "boolean", "default": false },
-        "teutonic_victory_marker": { "type": "boolean", "default": false }
-      }
-    },
-    "Calendar": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "boxes": { "type": "array", "items": { "$ref": "#/$defs/CalendarBox" }, "default": [] },
-        "off_left": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "off_right": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_vp": { "type": "number", "default": 0.0 },
-        "teutonic_vp": { "type": "number", "default": 0.0 },
-        "pleskau_lords_removed_russian": { "type": "integer", "default": 0 },
-        "pleskau_lords_removed_teutonic": { "type": "integer", "default": 0 }
-      }
-    },
-    "Veche": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "coin": { "type": "integer", "minimum": 0, "maximum": 8, "default": 0 },
-        "vp_markers": { "type": "integer", "minimum": 0, "maximum": 8, "default": 0 },
-        "novgorod_conquered": { "type": "boolean", "default": false }
-      }
-    },
-    "Lord": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["lord_id", "side"],
-      "properties": {
-        "lord_id": { "type": "string" },
-        "side": { "enum": ["teutonic", "russian"] },
-        "location": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "default": null },
-        "state": { "enum": ["ready", "mustered", "disbanded", "removed"], "default": "ready" },
-        "moved_fought": { "type": "boolean", "default": false },
-        "placeholder": { "type": "object", "additionalProperties": true, "default": {} }
-      }
-    },
-    "Locale": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["locale_id"],
-      "properties": {
-        "locale_id": { "type": "string" },
-        "russian_conquered": { "type": "integer", "minimum": 0, "default": 0 },
-        "teutonic_conquered": { "type": "integer", "minimum": 0, "default": 0 },
-        "russian_ravaged": { "type": "boolean", "default": false },
-        "teutonic_ravaged": { "type": "boolean", "default": false },
-        "russian_castle": { "type": "boolean", "default": false },
-        "teutonic_castle": { "type": "boolean", "default": false },
-        "walls_plus_one": { "type": "boolean", "default": false },
-        "siege_markers": { "type": "integer", "minimum": 0, "maximum": 4, "default": 0 }
-      }
-    },
-    "Decks": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "teutonic_deck": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_deck": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "teutonic_discard": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_discard": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "teutonic_removed": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_removed": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "teutonic_capabilities_in_play": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_capabilities_in_play": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "teutonic_holds": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_holds": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "teutonic_plan": { "type": "array", "items": { "type": "string" }, "default": [] },
-        "russian_plan": { "type": "array", "items": { "type": "string" }, "default": [] }
-      }
-    },
-    "Legate": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "william_of_modena_in_play": { "type": "boolean", "default": false },
-        "location": { "enum": ["card", "locale"], "default": "card" },
-        "locale_id": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "default": null }
-      }
-    },
-    "PendingDecision": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "owed_by"],
-      "properties": {
-        "kind": { "type": "string" },
-        "owed_by": { "enum": ["teutonic", "russian"] },
-        "context": { "type": "object", "additionalProperties": true, "default": {} }
-      }
-    },
-    "HistoryEntry": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["sequence", "actor", "action"],
-      "properties": {
-        "sequence": { "type": "integer" },
-        "actor": { "enum": ["teutonic", "russian", "system"] },
-        "action": { "type": "object", "additionalProperties": true },
-        "dice": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "default": [] },
-        "result": { "type": "object", "additionalProperties": true, "default": {} }
-      }
-    }
-  }
+  "title": "GameState",
+  "type": "object"
 }

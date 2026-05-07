@@ -1,0 +1,430 @@
+{
+  "_doc": "Way graph per reference/Nevsky_Map.txt. Trackways (overland) and Waterways (rivers/lake shores). The Baltic Sea is NOT a Waterway; sea-crossings between Seaports use Sail (rule 4.7.3).",
+  "ways": [
+    {
+      "a": "adsel",
+      "b": "kirrumpah",
+      "type": "trackway"
+    },
+    {
+      "a": "adsel",
+      "b": "lettgallia",
+      "type": "trackway"
+    },
+    {
+      "a": "adsel",
+      "b": "tolowa",
+      "type": "trackway"
+    },
+    {
+      "a": "dorpat",
+      "b": "odenpah",
+      "type": "trackway"
+    },
+    {
+      "a": "dorpat",
+      "b": "ugaunia",
+      "type": "trackway"
+    },
+    {
+      "a": "dorpat",
+      "b": "waiga",
+      "type": "trackway"
+    },
+    {
+      "a": "dubrovno",
+      "b": "porkhov",
+      "type": "trackway"
+    },
+    {
+      "a": "dubrovno",
+      "b": "pskov",
+      "type": "trackway"
+    },
+    {
+      "a": "fellin",
+      "b": "sackala",
+      "type": "trackway"
+    },
+    {
+      "a": "gdov",
+      "b": "plyussa_river",
+      "type": "trackway"
+    },
+    {
+      "a": "harrien",
+      "b": "jerwen",
+      "type": "trackway"
+    },
+    {
+      "a": "harrien",
+      "b": "warbola",
+      "type": "trackway"
+    },
+    {
+      "a": "ingria",
+      "b": "izhora",
+      "type": "trackway"
+    },
+    {
+      "a": "ingria",
+      "b": "tesovo",
+      "type": "trackway"
+    },
+    {
+      "a": "ingria",
+      "b": "vod",
+      "type": "trackway"
+    },
+    {
+      "a": "izborsk",
+      "b": "lettgallia",
+      "type": "trackway"
+    },
+    {
+      "a": "izborsk",
+      "b": "pskov",
+      "type": "trackway"
+    },
+    {
+      "a": "izborsk",
+      "b": "ugaunia",
+      "type": "trackway"
+    },
+    {
+      "a": "izhora",
+      "b": "ladoga",
+      "type": "trackway"
+    },
+    {
+      "a": "izhora",
+      "b": "neva",
+      "type": "trackway"
+    },
+    {
+      "a": "jerwen",
+      "b": "wesenberg",
+      "type": "trackway"
+    },
+    {
+      "a": "kaibolovo",
+      "b": "koporye",
+      "type": "trackway"
+    },
+    {
+      "a": "kaibolovo",
+      "b": "narwia",
+      "type": "trackway"
+    },
+    {
+      "a": "karelia",
+      "b": "neva",
+      "type": "trackway"
+    },
+    {
+      "a": "kirrumpah",
+      "b": "odenpah",
+      "type": "trackway"
+    },
+    {
+      "a": "koporye",
+      "b": "vod",
+      "type": "trackway"
+    },
+    {
+      "a": "leal",
+      "b": "pernau",
+      "type": "trackway"
+    },
+    {
+      "a": "leal",
+      "b": "warbola",
+      "type": "trackway"
+    },
+    {
+      "a": "lettgallia",
+      "b": "ostrov",
+      "type": "trackway"
+    },
+    {
+      "a": "lettgallia",
+      "b": "rositten",
+      "type": "trackway"
+    },
+    {
+      "a": "lettgallia",
+      "b": "tolowa",
+      "type": "trackway"
+    },
+    {
+      "a": "metsepole",
+      "b": "sackala",
+      "type": "trackway"
+    },
+    {
+      "a": "metsepole",
+      "b": "wenden",
+      "type": "trackway"
+    },
+    {
+      "a": "narwia",
+      "b": "wierland",
+      "type": "trackway"
+    },
+    {
+      "a": "neva",
+      "b": "vod",
+      "type": "trackway"
+    },
+    {
+      "a": "novgorod",
+      "b": "sablia",
+      "type": "trackway"
+    },
+    {
+      "a": "novgorod",
+      "b": "tesovo",
+      "type": "trackway"
+    },
+    {
+      "a": "plyussa_river",
+      "b": "zhelcha_river",
+      "type": "trackway"
+    },
+    {
+      "a": "plyussa_river",
+      "b": "zheltsy",
+      "type": "trackway"
+    },
+    {
+      "a": "porkhov",
+      "b": "sorot_river",
+      "type": "trackway"
+    },
+    {
+      "a": "pskov",
+      "b": "zhelcha_river",
+      "type": "trackway"
+    },
+    {
+      "a": "reval",
+      "b": "revala",
+      "type": "trackway"
+    },
+    {
+      "a": "reval",
+      "b": "warbola",
+      "type": "trackway"
+    },
+    {
+      "a": "revala",
+      "b": "wesenberg",
+      "type": "trackway"
+    },
+    {
+      "a": "rositten",
+      "b": "tolowa",
+      "type": "trackway"
+    },
+    {
+      "a": "sablia",
+      "b": "shelon_river",
+      "type": "trackway"
+    },
+    {
+      "a": "tolowa",
+      "b": "wenden",
+      "type": "trackway"
+    },
+    {
+      "a": "ugaunia",
+      "b": "uzmen",
+      "type": "trackway"
+    },
+    {
+      "a": "velikaya_river",
+      "b": "velikiye_luki",
+      "type": "trackway"
+    },
+    {
+      "a": "waiga",
+      "b": "wierland",
+      "type": "trackway"
+    },
+    {
+      "a": "wesenberg",
+      "b": "wierland",
+      "type": "trackway"
+    },
+    {
+      "a": "adsel",
+      "b": "wenden",
+      "type": "waterway"
+    },
+    {
+      "a": "dorpat",
+      "b": "fellin",
+      "type": "waterway"
+    },
+    {
+      "a": "dorpat",
+      "b": "gdov",
+      "type": "waterway"
+    },
+    {
+      "a": "dorpat",
+      "b": "narwia",
+      "type": "waterway"
+    },
+    {
+      "a": "dorpat",
+      "b": "odenpah",
+      "type": "waterway"
+    },
+    {
+      "a": "dorpat",
+      "b": "uzmen",
+      "type": "waterway"
+    },
+    {
+      "a": "dubrovno",
+      "b": "shelon_river",
+      "type": "waterway"
+    },
+    {
+      "a": "fellin",
+      "b": "jerwen",
+      "type": "waterway"
+    },
+    {
+      "a": "fellin",
+      "b": "odenpah",
+      "type": "waterway"
+    },
+    {
+      "a": "fellin",
+      "b": "pernau",
+      "type": "waterway"
+    },
+    {
+      "a": "gdov",
+      "b": "narwia",
+      "type": "waterway"
+    },
+    {
+      "a": "gdov",
+      "b": "uzmen",
+      "type": "waterway"
+    },
+    {
+      "a": "jerwen",
+      "b": "pernau",
+      "type": "waterway"
+    },
+    {
+      "a": "kaibolovo",
+      "b": "luga",
+      "type": "waterway"
+    },
+    {
+      "a": "kaibolovo",
+      "b": "zheltsy",
+      "type": "waterway"
+    },
+    {
+      "a": "ladoga",
+      "b": "neva",
+      "type": "waterway"
+    },
+    {
+      "a": "ladoga",
+      "b": "volkhov",
+      "type": "waterway"
+    },
+    {
+      "a": "lovat",
+      "b": "rusa",
+      "type": "waterway"
+    },
+    {
+      "a": "lovat",
+      "b": "velikiye_luki",
+      "type": "waterway"
+    },
+    {
+      "a": "narwia",
+      "b": "plyussa_river",
+      "type": "waterway"
+    },
+    {
+      "a": "narwia",
+      "b": "uzmen",
+      "type": "waterway"
+    },
+    {
+      "a": "novgorod",
+      "b": "rusa",
+      "type": "waterway"
+    },
+    {
+      "a": "novgorod",
+      "b": "shelon_river",
+      "type": "waterway"
+    },
+    {
+      "a": "novgorod",
+      "b": "volkhov",
+      "type": "waterway"
+    },
+    {
+      "a": "ostrov",
+      "b": "pskov",
+      "type": "waterway"
+    },
+    {
+      "a": "ostrov",
+      "b": "velikaya_river",
+      "type": "waterway"
+    },
+    {
+      "a": "porkhov",
+      "b": "shelon_river",
+      "type": "waterway"
+    },
+    {
+      "a": "pskov",
+      "b": "uzmen",
+      "type": "waterway"
+    },
+    {
+      "a": "riga",
+      "b": "wenden",
+      "type": "waterway"
+    },
+    {
+      "a": "rusa",
+      "b": "shelon_river",
+      "type": "waterway"
+    },
+    {
+      "a": "sablia",
+      "b": "zheltsy",
+      "type": "waterway"
+    },
+    {
+      "a": "sorot_river",
+      "b": "velikaya_river",
+      "type": "waterway"
+    },
+    {
+      "a": "tesovo",
+      "b": "zheltsy",
+      "type": "waterway"
+    },
+    {
+      "a": "uzmen",
+      "b": "zhelcha_river",
+      "type": "waterway"
+    }
+  ]
+}
