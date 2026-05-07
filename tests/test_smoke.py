@@ -25,6 +25,7 @@ EXPECTED_TOP_KEYS = {
     "locales",
     "decks",
     "legate",
+    "campaign_turn",
     "pending_decisions",
     "history",
 }

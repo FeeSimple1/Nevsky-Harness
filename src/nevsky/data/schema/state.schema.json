@@ -120,6 +120,67 @@
       "title": "CalendarBox",
       "type": "object"
     },
+    "CampaignTurn": {
+      "additionalProperties": false,
+      "description": "Per-Command-card resolution state (4.2).\n\nTracks the alternating T/R reveal pointer, the currently active\nCommand card, the active Lord (None on Pass), the action budget for\nthe active Lord, and the per-card 4.8 Feed/Pay/Disband sub-step\ncompletion flags.",
+      "properties": {
+        "next_to_reveal": {
+          "default": "teutonic",
+          "enum": [
+            "teutonic",
+            "russian"
+          ],
+          "title": "Next To Reveal",
+          "type": "string"
+        },
+        "active_card": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Card"
+        },
+        "active_lord": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Lord"
+        },
+        "actions_remaining": {
+          "default": 0,
+          "title": "Actions Remaining",
+          "type": "integer"
+        },
+        "in_feed_pay_disband": {
+          "default": false,
+          "title": "In Feed Pay Disband",
+          "type": "boolean"
+        },
+        "fpd_completed_t": {
+          "default": false,
+          "title": "Fpd Completed T",
+          "type": "boolean"
+        },
+        "fpd_completed_r": {
+          "default": false,
+          "title": "Fpd Completed R",
+          "type": "boolean"
+        }
+      },
+      "title": "CampaignTurn",
+      "type": "object"
+    },
     "Decks": {
       "additionalProperties": false,
       "description": "Per-side card state.",
@@ -469,6 +530,37 @@
           "title": "First Levy Done",
           "type": "boolean"
         },
+        "campaign_step": {
+          "default": "plan",
+          "enum": [
+            "plan",
+            "command",
+            "end_campaign",
+            "done"
+          ],
+          "title": "Campaign Step",
+          "type": "string"
+        },
+        "plan_complete_t": {
+          "default": false,
+          "title": "Plan Complete T",
+          "type": "boolean"
+        },
+        "plan_complete_r": {
+          "default": false,
+          "title": "Plan Complete R",
+          "type": "boolean"
+        },
+        "end_campaign_completed_t": {
+          "default": false,
+          "title": "End Campaign Completed T",
+          "type": "boolean"
+        },
+        "end_campaign_completed_r": {
+          "default": false,
+          "title": "End Campaign Completed R",
+          "type": "boolean"
+        },
         "active_player": {
           "anyOf": [
             {
@@ -746,6 +838,9 @@
     "legate": {
       "$ref": "#/$defs/Legate"
     },
+    "campaign_turn": {
+      "$ref": "#/$defs/CampaignTurn"
+    },
     "pending_decisions": {
       "items": {
         "$ref": "#/$defs/PendingDecision"
@@ -769,5 +864,5 @@
   "title": "Nevsky Harness GameState",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-schema-version": "0.2.0"
+  "x-schema-version": "0.3.0"
 }

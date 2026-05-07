@@ -60,6 +60,12 @@ LevyStep = Literal[
     "call_to_arms",
     "done",
 ]
+CampaignStep = Literal[
+    "plan",
+    "command",
+    "end_campaign",
+    "done",
+]
 
 
 class Meta(BaseModel):
@@ -80,6 +86,11 @@ class Meta(BaseModel):
     levy_step_completed_t: bool = False
     levy_step_completed_r: bool = False
     first_levy_done: bool = False
+    campaign_step: CampaignStep = "plan"
+    plan_complete_t: bool = False
+    plan_complete_r: bool = False
+    end_campaign_completed_t: bool = False
+    end_campaign_completed_r: bool = False
     active_player: Side | None = None
     span_start_box: int = Field(ge=1, le=16)
     span_end_box: int = Field(ge=1, le=16)
@@ -125,6 +136,26 @@ class Veche(BaseModel):
     vp_markers: int = Field(ge=0, le=8, default=0)
     novgorod_conquered: bool = False
     acted_this_call_to_arms: bool = False
+
+
+class CampaignTurn(BaseModel):
+    """Per-Command-card resolution state (4.2).
+
+    Tracks the alternating T/R reveal pointer, the currently active
+    Command card, the active Lord (None on Pass), the action budget for
+    the active Lord, and the per-card 4.8 Feed/Pay/Disband sub-step
+    completion flags.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    next_to_reveal: Side = "teutonic"
+    active_card: str | None = None
+    active_lord: str | None = None
+    actions_remaining: int = 0
+    in_feed_pay_disband: bool = False
+    fpd_completed_t: bool = False
+    fpd_completed_r: bool = False
 
 
 class VassalState(BaseModel):
@@ -308,5 +339,6 @@ class GameState(BaseModel):
     locales: dict[str, Locale] = Field(default_factory=dict)
     decks: Decks = Field(default_factory=Decks)
     legate: Legate = Field(default_factory=Legate)
+    campaign_turn: CampaignTurn = Field(default_factory=CampaignTurn)
     pending_decisions: list[PendingDecision] = Field(default_factory=list)
     history: list[HistoryEntry] = Field(default_factory=list)
