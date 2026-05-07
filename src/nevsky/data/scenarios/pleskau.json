@@ -1,0 +1,38 @@
+{
+  "id": "pleskau",
+  "display_name": "Pleskau",
+  "year_label": "Summer 1240",
+  "aggressor": "teutonic",
+  "span": {
+    "start_box": 1,
+    "end_box": 2
+  },
+  "setup": {
+    "markers_on_map": [],
+    "mustered_lords": [
+      { "lord_id": "hermann", "locale_id": "dorpat" },
+      { "lord_id": "knud_and_abel", "locale_id": "reval" },
+      { "lord_id": "yaroslav", "locale_id": "odenpah" },
+      { "lord_id": "gavrilo", "locale_id": "pskov" },
+      { "lord_id": "vladislav", "locale_id": "neva" }
+    ],
+    "calendar": [
+      {
+        "box": 1,
+        "russian_victory_marker": true,
+        "levy_campaign_marker": "levy",
+        "cylinders": ["rudolf", "domash"]
+      },
+      { "box": 2, "service_markers": ["yaroslav"] },
+      { "box": 3, "service_markers": ["knud_and_abel", "vladislav"] },
+      { "box": 4, "service_markers": ["hermann", "gavrilo"] }
+    ],
+    "veche": { "vp_markers": 1, "coin": 0 },
+    "removed_from_play": ["andreas", "heinrich", "aleksandr", "andrey", "karelians"]
+  },
+  "special_rules": {
+    "remove_no_event_cards_before_play": true,
+    "victory_lord_removed_bonus": true
+  },
+  "source": "reference/Nevsky Scenario Reference.txt"
+}
