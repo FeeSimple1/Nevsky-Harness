@@ -191,3 +191,63 @@ Besieged Lords cannot Muster.
   4.9.3 Plow & Reap (end-of-Summer Carts -> Sleds; end-of-Late-Winter
   Sleds -> Carts; halve rounded UP), advances Calendar marker, flips
   to Levy.
+
+## Phase 3b: March, Approach, Battle
+
+### 4.3 March
+
+- **`cmd_march`** — `args.lord_id`, `args.to` (adjacent locale via a
+  Way), `args.group` (optional list of co-Marching own-side Lords).
+  Costs 1 Unladen action / 2 Laden actions per Locale. Begin Siege
+  if entering Locale of an Unbesieged enemy Stronghold without an
+  enemy Lord (4.3.5). If destination has enemy Lord(s), enter Approach
+  state via `combat_pending`; defender must respond.
+  - Laden definition (4.3.2): any Loot, OR Provender count >
+    2 * usable Transport count for the season.
+
+### 4.3.4 Approach response
+
+The defender must choose exactly one of:
+
+- **`avoid_battle`** — `args.to` (adjacent friendly locale free of
+  enemy Lord/Stronghold/Conquered marker). Requires every defender
+  to be Unladen.
+- **`withdraw`** — into a Friendly Stronghold at the Battle Locale.
+  Capacity by Stronghold type (Commandery/Fort/Castle 1; City/
+  Bishopric 2; Novgorod 3). Places a siege marker.
+- **`stand_battle`** — engage in 4.4 Battle. Resolves the battle
+  immediately and applies Aftermath.
+
+### 4.4 Battle resolution
+
+Run via `stand_battle`. The harness simulates rounds in initiative
+order:
+
+1. Archery — defender, then attacker.
+2. Melee Horse — defender, then attacker.
+3. Melee Foot — defender, then attacker.
+
+Hits per Strike step are computed from the Forces table
+(`src/nevsky/data/static/forces.json`) summed across the side's
+participating Lords' active units, rounded up at step end. Hits are
+distributed to the opposing Lord's units; each Hit triggers a
+Protection roll (Armor / Evade / Unarmored / Serfs=none). Failed
+Protection rolls Rout (and remove) the unit.
+
+Battle ends when one side has no active units (or after a stalemate
+threshold). Aftermath:
+
+- Loser Lords with zero remaining units are permanently removed
+  (1.5.1); their Assets (except Ships) transfer to a winner Lord.
+- Other loser Lords Retreat (attackers back to from-locale; defenders
+  to a clear neighbor); each rolls 1d6 and shifts Service marker
+  LEFT by `ceil(roll/2)` boxes (4.4.3 table). Their Assets (except
+  Ships) transfer to a winner Lord.
+- All participating Lords are marked MOVED_FOUGHT; the active
+  Command card ends and 4.8 Feed/Pay/Disband begins.
+
+Phase 3b deliberately defers Phase 4 capability effects (Walls in
+Battle by Event, LUCHNIKI/STRELTSY/BALISTARII archery extensions,
+HALBBRUEDER Armor +1, WARRIOR MONKS rerolls, RAIDERS, CONVERTS,
+DRUZHINA Command +1, Russian archery special rounding, Pursuit on
+Concede, Lieutenants 4.1.3, full Reposition with Flanking).
