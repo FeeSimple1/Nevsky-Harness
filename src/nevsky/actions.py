@@ -1,0 +1,1707 @@
+"""Action grammar and dispatcher.
+
+An Action is a JSON dict with shape:
+
+  { "type": "<action_type>", "side": "teutonic"|"russian"|"system", "args": {...} }
+
+The dispatcher (`apply_action`) validates the action against the current
+state, mutates state in place if legal, appends a HistoryEntry, and
+returns a result dict describing the outcome. Illegal actions raise
+`IllegalAction`; the state is not mutated when this happens (except for
+the rng_state field if any roll was consumed in validation, which we
+avoid by validating-before-rolling).
+
+Phase 2 covers all Levy-phase actions (3.1 Arts of War through 3.5
+Call to Arms). Phase 3 will add Campaign actions (March, Battle, etc.).
+
+Action types implemented in Phase 2:
+
+  Arts of War (3.1):
+    aow_shuffle           shuffle own AoW deck
+    aow_draw              draw 2 cards into pending_draw
+    aow_implement_card    implement next pending_draw card
+                          (event vs capability per first_levy_done)
+
+  Pay (3.2):
+    pay_with_coin         spend Coin to shift Service marker(s) right
+    pay_with_loot         spend Loot at Friendly Locale to shift Service
+
+  Disband (3.3):
+    disband_resolve       process all Lords whose Service marker is
+                          at-or-left-of Levy this segment
+
+  Muster (3.4):
+    muster_lord           Lordship-1: Fealty roll to bring Ready Lord on
+    muster_vassal         Lordship-1: deploy a ready Vassal
+    levy_transport        Lordship-1: add a Boat/Cart/Sled/Ship
+    levy_capability       Lordship-1: tuck this-lord or side-wide cap
+
+  Call to Arms (3.5):
+    legate_arrives        place pawn at a Bishopric
+    legate_move           Option 1: move pawn to a Friendly Locale
+    legate_use            Option 2: USE the Legate (sub-options 2a/2b/2c)
+    veche_action          Russian Veche option A/B/C/D
+    aow_discard_this_levy 3.5.3 -- both sides discard "This Levy" events
+
+  Step transitions:
+    advance_step          finish current side's segment of current step;
+                          when both sides done, advance to next levy_step
+
+System actions:
+    system_setup_complete clear scenario-setup PendingDecisions (Phase 1
+                          residue) so Phase 2 can proceed
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from nevsky.state import (
+    AssetType,
+    ForceType,
+    GameState,
+    HistoryEntry,
+    Side,
+)
+
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
+
+class IllegalAction(ValueError):
+    """Raised when an action cannot be executed against the current state.
+
+    The state is NOT mutated when this is raised. Carries a `code`
+    attribute identifying the specific rule violation; the message text
+    is suitable for an LLM agent that needs to choose a different move.
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+
+# ---------------------------------------------------------------------------
+# Public dispatcher
+# ---------------------------------------------------------------------------
+
+
+def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
+    """Validate, execute, and record an action.
+
+    Mutates `state` in place. Returns a dict of the action's result.
+    Raises IllegalAction on any rule violation; in that case the state
+    is left untouched (per BRIEF: validators must return precise errors
+    before any mutation).
+    """
+    if not isinstance(action, dict):
+        raise IllegalAction("bad_envelope", "action must be a JSON object")
+    atype = action.get("type")
+    side = action.get("side")
+    args = action.get("args", {}) or {}
+    if not isinstance(atype, str):
+        raise IllegalAction("bad_envelope", "action 'type' missing or not a string")
+    if side not in ("teutonic", "russian", "system"):
+        raise IllegalAction(
+            "bad_envelope", f"action 'side' must be teutonic|russian|system; got {side!r}"
+        )
+    if not isinstance(args, dict):
+        raise IllegalAction("bad_envelope", "action 'args' must be a JSON object")
+
+    handler = _HANDLERS.get(atype)
+    if handler is None:
+        raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
+
+    # Each handler returns (result_dict, dice_list).
+    result, dice = handler(state, side, args)  # may raise IllegalAction
+
+    state.meta.sequence += 1
+    state.history.append(
+        HistoryEntry(
+            sequence=state.meta.sequence,
+            actor=side,  # Literal-typed in HistoryEntry
+            action={"type": atype, "side": side, "args": args},
+            dice=dice,
+            result=result,
+        )
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _require_side_player(state: GameState, side: str) -> Side:
+    """Verify side is a real player (not 'system'). Returns the side."""
+    if side == "system":
+        raise IllegalAction("wrong_actor", "this action requires a player side, not 'system'")
+    return side  # type: ignore[return-value]
+
+
+def _require_levy_phase(state: GameState) -> None:
+    if state.meta.phase != "levy":
+        raise IllegalAction(
+            "wrong_phase", f"action only allowed during Levy; phase={state.meta.phase}"
+        )
+
+
+def _require_levy_step(state: GameState, step: str) -> None:
+    if state.meta.levy_step != step:
+        raise IllegalAction(
+            "wrong_step",
+            f"action requires levy_step={step}; current={state.meta.levy_step}",
+        )
+
+
+def _require_active(state: GameState, side: Side) -> None:
+    if state.meta.active_player != side:
+        raise IllegalAction(
+            "wrong_actor",
+            f"action requires active_player={side}; current={state.meta.active_player}",
+        )
+
+
+def _side_deck(state: GameState, side: Side):
+    return state.decks.teutonic if side == "teutonic" else state.decks.russian
+
+
+def _other(side: Side) -> Side:
+    return "russian" if side == "teutonic" else "teutonic"
+
+
+# ---------------------------------------------------------------------------
+# Step-transition action: advance_step
+# ---------------------------------------------------------------------------
+
+
+def _h_advance_step(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Mark current side's segment of current Levy step finished.
+
+    SoP 2.2.4: T-then-R within each Levy step. Both T and R must call
+    advance_step (in T then R order) before the step is considered
+    complete and the next step begins. Call to Arms differs: T does only
+    Legate (3.5.1), R does only Veche (3.5.2), then 3.5.3 discard runs.
+    """
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_active(state, sd)
+
+    if sd == "teutonic":
+        if state.meta.levy_step_completed_t:
+            raise IllegalAction("already_done", "Teutonic side already finished this step")
+        state.meta.levy_step_completed_t = True
+        state.meta.active_player = "russian"
+    else:
+        if state.meta.levy_step_completed_r:
+            raise IllegalAction("already_done", "Russian side already finished this step")
+        state.meta.levy_step_completed_r = True
+
+    next_step = None
+    if state.meta.levy_step_completed_t and state.meta.levy_step_completed_r:
+        # Advance to next step.
+        order: list[str] = ["arts_of_war", "pay", "disband", "muster", "call_to_arms", "done"]
+        i = order.index(state.meta.levy_step)
+        next_step = order[i + 1]
+        state.meta.levy_step = next_step  # type: ignore[assignment]
+        state.meta.levy_step_completed_t = False
+        state.meta.levy_step_completed_r = False
+        state.meta.active_player = "teutonic"
+        if next_step == "muster":
+            # Reset per-Lord Lordship counters at start of Muster (3.4).
+            for lord in state.lords.values():
+                lord.lordship_used = 0
+        if next_step == "call_to_arms":
+            # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
+            state.legate.acted_this_call_to_arms = False
+            state.veche.acted_this_call_to_arms = False
+
+    return ({"new_step": state.meta.levy_step, "active_player": state.meta.active_player}, [])
+
+
+# ---------------------------------------------------------------------------
+# 3.1 Arts of War handlers
+# ---------------------------------------------------------------------------
+
+
+def _h_aow_shuffle(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Shuffle own AoW deck (3.1.1).
+
+    Per 3.1.1 the side shuffles all own unused AoW cards plus all 3
+    No-Event/No-Capability cards into a fresh deck. Held events
+    (3.1.3) and capabilities-in-play (3.4.4) are NOT included in the
+    shuffle. We model "unused" as `deck` + `discard`; cards in
+    `removed`, `capabilities_in_play`, `holds`, `this_levy_events`,
+    `this_campaign_events`, and `pending_draw` stay where they are.
+    """
+    from nevsky.rng import shuffle
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "arts_of_war")
+    _require_active(state, sd)
+
+    deck = _side_deck(state, sd)
+    pool = deck.deck + deck.discard
+    shuffled = shuffle(state, pool)
+    deck.deck = shuffled
+    deck.discard = []
+    return ({"deck_size": len(deck.deck)}, [])
+
+
+def _h_aow_draw(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Draw 2 cards into pending_draw (3.1)."""
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "arts_of_war")
+    _require_active(state, sd)
+
+    deck = _side_deck(state, sd)
+    if deck.pending_draw:
+        raise IllegalAction(
+            "pending_draw_nonempty",
+            "cannot draw: implement existing pending_draw cards first",
+        )
+    n_draw = min(2, len(deck.deck))
+    drawn = deck.deck[:n_draw]
+    deck.deck = deck.deck[n_draw:]
+    deck.pending_draw.extend(drawn)
+    return ({"drawn": drawn, "deck_remaining": len(deck.deck)}, [])
+
+
+def _h_aow_implement_card(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Implement the next pending_draw card.
+
+    Per 3.1.2 (first Levy of scenario): implement bottom-half = Capability.
+    Per 3.1.3 (any subsequent Levy): implement top-half = Event.
+
+    No-Event / No-Capability cards: in the matching half, they vaporize
+    per 3.1.3 (2E) -- removed from play permanently. Pleskau scenario
+    pre-removes them (handled at scenario-load time, so they should not
+    be in the deck). Crusade-on-Novgorod retains them; in that case we
+    return the No-Event card to the discard so it shuffles back.
+
+    Other cards:
+      - first_levy_done=False -> tuck capability bottom-half
+        (this-lord vs side-wide is decided here based on capability_scope)
+        For Phase 2, capability scope `this_lord` requires args.lord_id.
+      - first_levy_done=True -> reveal event:
+        - persistence=immediate -> resolve effect (Phase 3 wires effects;
+          Phase 2 records the reveal and discards)
+        - persistence=hold -> add to side's holds
+        - persistence=this_levy -> add to side's this_levy_events
+        - persistence=this_campaign -> add to side's this_campaign_events
+    """
+    from nevsky.static_data import load_cards
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "arts_of_war")
+    _require_active(state, sd)
+
+    deck = _side_deck(state, sd)
+    if not deck.pending_draw:
+        raise IllegalAction("nothing_to_implement", "pending_draw is empty")
+
+    cards = load_cards()
+    cid = deck.pending_draw[0]
+    deck.pending_draw = deck.pending_draw[1:]
+    card = cards[cid]
+
+    if card["no_event"]:
+        # 3.1.3 (2E): No-Event / No-Capability cards drawn during play
+        # are permanently removed from play. Crusade-on-Novgorod scenario
+        # special-cases this (the deck retains them).
+        sr = state.meta.special_rules
+        if sr.get("keep_no_event_cards"):
+            deck.discard.append(cid)
+            return (
+                {
+                    "card": cid,
+                    "outcome": "retained_to_discard",
+                    "scenario_rule": "crusade_on_novgorod",
+                },
+                [],
+            )
+        deck.removed.append(cid)
+        return ({"card": cid, "outcome": "removed_from_play"}, [])
+
+    if not state.meta.first_levy_done:
+        # First Levy: implement as capability (bottom half).
+        scope = card["capability_scope"]
+        if scope == "this_lord":
+            lord_id = args.get("lord_id")
+            if not isinstance(lord_id, str) or lord_id not in state.lords:
+                raise IllegalAction(
+                    "missing_arg",
+                    "this-lord capability requires args.lord_id targeting a Mustered Lord",
+                )
+            lord = state.lords[lord_id]
+            if lord.side != sd or lord.state != "mustered":
+                raise IllegalAction(
+                    "bad_target",
+                    f"capability lord_id must be a Mustered own-side Lord (got {lord.side}/{lord.state})",
+                )
+            if len(lord.this_lord_capabilities) >= 2:
+                raise IllegalAction(
+                    "cap_limit",
+                    f"{lord_id} already has 2 this-lord capabilities (3.4.4)",
+                )
+            for existing in lord.this_lord_capabilities:
+                if cards[existing]["capability_name"] == card["capability_name"]:
+                    raise IllegalAction(
+                        "duplicate_capability",
+                        f"{lord_id} already has capability '{card['capability_name']}' (3.4.4)",
+                    )
+            lord.this_lord_capabilities.append(cid)
+            return ({"card": cid, "outcome": "tucked_under_lord", "lord_id": lord_id}, [])
+        else:  # side_wide
+            deck.capabilities_in_play.append(cid)
+            return ({"card": cid, "outcome": "side_capability_in_play"}, [])
+
+    # Subsequent Levy: implement as event (top half).
+    persistence = card["event_persistence"]
+    if persistence == "hold":
+        deck.holds.append(cid)
+        return ({"card": cid, "outcome": "held"}, [])
+    if persistence == "this_levy":
+        deck.this_levy_events.append(cid)
+        return ({"card": cid, "outcome": "this_levy_event"}, [])
+    if persistence == "this_campaign":
+        deck.this_campaign_events.append(cid)
+        return ({"card": cid, "outcome": "this_campaign_event"}, [])
+    # immediate
+    deck.discard.append(cid)
+    return ({"card": cid, "outcome": "immediate_event_discarded"}, [])
+
+
+def _h_aow_discard_this_levy(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.3 -- discard all This-Levy events for the actor's side."""
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+
+    deck = _side_deck(state, sd)
+    discarded = list(deck.this_levy_events)
+    deck.discard.extend(discarded)
+    deck.this_levy_events = []
+    return ({"discarded": discarded}, [])
+
+
+# ---------------------------------------------------------------------------
+# 3.2 Pay handlers
+# ---------------------------------------------------------------------------
+
+
+def _is_friendly_locale(state: GameState, locale_id: str, side: Side) -> bool:
+    """Friendly Locale per 1.3.1.
+
+    All four required:
+      - Locale in own territory OR Conquered Stronghold by own side.
+      - No enemy Lord at the Locale.
+      - No enemy Stronghold at the Locale (covered by Conquered logic).
+      - No enemy Conquered marker at the Locale.
+    A Siege Locale is never Friendly.
+    """
+    from nevsky.static_data import load_locales
+
+    static = load_locales()[locale_id]
+    loc = state.locales[locale_id]
+    if loc.siege_markers > 0:
+        return False
+    own_terr = static["territory"] == ("teutonic" if side == "teutonic" else "russian")
+    own_conquered = (
+        loc.teutonic_conquered > 0 if side == "teutonic" else loc.russian_conquered > 0
+    )
+    if not (own_terr or own_conquered):
+        return False
+    enemy_conquered = (
+        loc.russian_conquered > 0 if side == "teutonic" else loc.teutonic_conquered > 0
+    )
+    if enemy_conquered:
+        return False
+    for lord in state.lords.values():
+        if lord.state == "mustered" and lord.location == locale_id and lord.side != side:
+            return False
+    return True
+
+
+def _is_besieged(state: GameState, lord_id: str) -> bool:
+    """A Lord is Besieged if at a Locale with siege_markers > 0 (4.3.5)."""
+    lord = state.lords[lord_id]
+    if lord.state != "mustered" or lord.location is None:
+        return False
+    return state.locales[lord.location].siege_markers > 0
+
+
+def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
+    """Shift a Lord's Service marker `boxes` boxes to the right.
+
+    Returns the resulting box index (1..16). Past 16 lands in
+    calendar.off_right (rule 2.2.3). The Service marker is identified
+    on the Calendar by the lord_id string in `service_markers` lists.
+    """
+    cal = state.calendar
+    # Find current Service-marker box; if past-right, treat as box=17.
+    cur_box: int | None = None
+    if lord_id in cal.off_right:
+        cur_box = 17
+    else:
+        for cb in cal.boxes:
+            if lord_id in cb.service_markers:
+                cur_box = cb.box
+                cal.boxes[cb.box - 1].service_markers.remove(lord_id)
+                break
+    if cur_box is None:
+        raise IllegalAction(
+            "no_service_marker",
+            f"{lord_id} has no Service marker on Calendar",
+        )
+    if cur_box == 17:
+        cal.off_right.remove(lord_id)
+    new_box = cur_box + boxes
+    if new_box > 16:
+        cal.off_right.append(lord_id)
+        return 17
+    cal.boxes[new_box - 1].service_markers.append(lord_id)
+    return new_box
+
+
+def _h_pay_with_coin(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.2.1 Pay with Coin.
+
+    args:
+      from: "lord:<id>" or "veche" (Russian only)
+      target_lord: Lord whose Service marker is shifted
+      units: number of Coin to spend (>=1)
+
+    Eligible targets:
+      - paying Lord's own Service
+      - Service of another Lord at SAME locale
+      - if from veche: any Russian Lord who is not Besieged
+    Besieged constraint: a Besieged Lord's Service can be shifted only
+    by his own Coin or Coin from another Lord besieged TOGETHER.
+    """
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "pay")
+    _require_active(state, sd)
+
+    src = args.get("from")
+    target_id = args.get("target_lord")
+    units = args.get("units", 1)
+    if not isinstance(src, str) or not isinstance(target_id, str) or not isinstance(units, int):
+        raise IllegalAction("missing_arg", "args: from (str), target_lord (str), units (int)")
+    if units < 1:
+        raise IllegalAction("bad_units", "units must be >= 1")
+    if target_id not in state.lords:
+        raise IllegalAction("bad_target", f"unknown target_lord {target_id!r}")
+    target = state.lords[target_id]
+    if target.state != "mustered":
+        raise IllegalAction("bad_target", f"{target_id} is not Mustered")
+    if target.side != sd:
+        raise IllegalAction("bad_target", f"{target_id} is not on your side")
+
+    if src == "veche":
+        if sd != "russian":
+            raise IllegalAction("bad_source", "only Russians may spend Veche Coin (3.2.1)")
+        if state.veche.coin < units:
+            raise IllegalAction(
+                "insufficient_funds",
+                f"Veche has {state.veche.coin} Coin; need {units}",
+            )
+        if _is_besieged(state, target_id):
+            raise IllegalAction(
+                "veche_cannot_reach_besieged",
+                f"{target_id} is Besieged; Veche Coin cannot reach (3.2.1)",
+            )
+        state.veche.coin -= units
+        new_box = _shift_service_right(state, target_id, units)
+        return (
+            {"source": "veche", "target_lord": target_id, "units": units, "new_box": new_box},
+            [],
+        )
+
+    # from = "lord:<id>"
+    if not src.startswith("lord:"):
+        raise IllegalAction("bad_source", "from must be 'veche' or 'lord:<id>'")
+    payer_id = src.split(":", 1)[1]
+    if payer_id not in state.lords:
+        raise IllegalAction("bad_source", f"unknown payer {payer_id!r}")
+    payer = state.lords[payer_id]
+    if payer.state != "mustered" or payer.side != sd:
+        raise IllegalAction("bad_source", f"{payer_id} must be your Mustered Lord")
+    if payer.assets.get("coin", 0) < units:
+        raise IllegalAction(
+            "insufficient_funds",
+            f"{payer_id} has {payer.assets.get('coin', 0)} Coin; need {units}",
+        )
+
+    target_besieged = _is_besieged(state, target_id)
+    payer_besieged = _is_besieged(state, payer_id)
+    if target_besieged:
+        # only own Coin, or Coin from another Lord besieged WITH target
+        if payer_id != target_id:
+            if not payer_besieged or payer.location != target.location:
+                raise IllegalAction(
+                    "besieged_pay_constraint",
+                    "Besieged Lord's Service can be shifted only by his own Coin "
+                    "or Coin from another Lord besieged with him (3.2.1)",
+                )
+    else:
+        # eligible: own Service or another Lord at same locale
+        if payer_id != target_id:
+            if payer.location is None or payer.location != target.location:
+                raise IllegalAction(
+                    "pay_target_not_collocated",
+                    "Lord-Coin can only Pay own Service or co-located Lord's Service (3.2.1)",
+                )
+
+    payer.assets["coin"] = payer.assets.get("coin", 0) - units
+    if payer.assets["coin"] == 0:
+        del payer.assets["coin"]
+    new_box = _shift_service_right(state, target_id, units)
+    return (
+        {
+            "source": f"lord:{payer_id}",
+            "target_lord": target_id,
+            "units": units,
+            "new_box": new_box,
+        },
+        [],
+    )
+
+
+def _h_pay_with_loot(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.2.2 Pay with Loot.
+
+    args: from_lord, target_lord, units. Loot may only be spent at a
+    Friendly Locale (1.3.1). Eligible targets: paying Lord's own Service
+    or Service of another Lord at SAME Friendly Locale. Sieges excluded.
+    """
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "pay")
+    _require_active(state, sd)
+
+    payer_id = args.get("from_lord")
+    target_id = args.get("target_lord")
+    units = args.get("units", 1)
+    if not (isinstance(payer_id, str) and isinstance(target_id, str) and isinstance(units, int)):
+        raise IllegalAction("missing_arg", "args: from_lord, target_lord, units")
+    if units < 1:
+        raise IllegalAction("bad_units", "units must be >= 1")
+    for lid in (payer_id, target_id):
+        if lid not in state.lords:
+            raise IllegalAction("bad_target", f"unknown lord {lid!r}")
+        if state.lords[lid].state != "mustered" or state.lords[lid].side != sd:
+            raise IllegalAction("bad_target", f"{lid} must be your Mustered Lord")
+
+    payer = state.lords[payer_id]
+    target = state.lords[target_id]
+    if payer.assets.get("loot", 0) < units:
+        raise IllegalAction(
+            "insufficient_funds",
+            f"{payer_id} has {payer.assets.get('loot', 0)} Loot; need {units}",
+        )
+    if payer.location is None or not _is_friendly_locale(state, payer.location, sd):
+        raise IllegalAction(
+            "loot_locale_constraint",
+            f"{payer_id} must be at a Friendly Locale to Pay with Loot (3.2.2)",
+        )
+    if payer_id != target_id and (target.location != payer.location):
+        raise IllegalAction(
+            "pay_target_not_collocated",
+            "Loot can Pay own Service or co-located Lord's Service only (3.2.2)",
+        )
+
+    payer.assets["loot"] = payer.assets.get("loot", 0) - units
+    if payer.assets["loot"] == 0:
+        del payer.assets["loot"]
+    new_box = _shift_service_right(state, target_id, units)
+    return ({"from_lord": payer_id, "target_lord": target_id, "units": units, "new_box": new_box}, [])
+
+
+# ---------------------------------------------------------------------------
+# 3.3 Disband handler
+# ---------------------------------------------------------------------------
+
+
+def _h_disband_resolve(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Process Disband for the active side (3.3).
+
+    For each Mustered Lord on the active side, locate his Service marker:
+      - Service marker LEFT of Levy marker box -> 3.3.1 beyond limit:
+        permanently remove Lord (mat, cylinder, vassal markers, this-lord
+        capabilities return to deck).
+      - Service marker IN SAME box as Levy/Campaign marker -> 3.3.2
+        at limit: place cylinder on Calendar SERVICE_RATING boxes RIGHT
+        of CURRENT box (during Levy); pool forces/assets, discard cards.
+      - Otherwise no Disband.
+    """
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "disband")
+    _require_active(state, sd)
+
+    static = load_lords()
+    levy_box = _find_levy_marker_box(state)
+
+    permanently_removed: list[str] = []
+    disbanded: list[dict[str, Any]] = []
+
+    for lord_id, lord in list(state.lords.items()):
+        if lord.side != sd or lord.state != "mustered":
+            continue
+        sm_box = _find_service_marker_box(state, lord_id)
+        if sm_box is None:
+            continue
+        if sm_box < levy_box:
+            # 3.3.1 permanent removal
+            _remove_lord_permanently(state, lord_id, static[lord_id])
+            permanently_removed.append(lord_id)
+        elif sm_box == levy_box:
+            # 3.3.2 at-limit Disband, cylinder counts from CURRENT box during Levy
+            srating = int(static[lord_id]["ratings"]["service"])
+            new_box = sm_box + srating  # current_box + service rating (during Levy)
+            _disband_at_limit(state, lord_id, new_box)
+            disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
+
+    return ({"permanently_removed": permanently_removed, "disbanded": disbanded}, [])
+
+
+def _find_levy_marker_box(state: GameState) -> int:
+    for cb in state.calendar.boxes:
+        if cb.has_levy_campaign_marker:
+            return cb.box
+    raise IllegalAction("no_levy_marker", "Levy/Campaign marker not on Calendar")
+
+
+def _find_service_marker_box(state: GameState, lord_id: str) -> int | None:
+    if lord_id in state.calendar.off_right:
+        return 17
+    if lord_id in state.calendar.off_left:
+        return 0
+    for cb in state.calendar.boxes:
+        if lord_id in cb.service_markers:
+            return cb.box
+    return None
+
+
+def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any]) -> None:
+    """3.3.1: permanent removal of a Lord.
+
+    - Lord state -> 'removed', forces/assets cleared, vassals cleared.
+    - Cylinder removed from Calendar.
+    - Service marker removed from Calendar.
+    - This-lord capabilities returned to side's deck (3.4.4).
+    """
+    lord = state.lords[lord_id]
+    side: Side = lord.side
+    deck = _side_deck(state, side)
+    for cid in lord.this_lord_capabilities:
+        deck.deck.append(cid)
+    lord.this_lord_capabilities = []
+    lord.forces = {}
+    lord.assets = {}
+    lord.vassals = {}
+    lord.state = "removed"
+    lord.location = None
+    cal = state.calendar
+    for cb in cal.boxes:
+        if lord_id in cb.cylinders:
+            cb.cylinders.remove(lord_id)
+        if lord_id in cb.service_markers:
+            cb.service_markers.remove(lord_id)
+    if lord_id in cal.off_left:
+        cal.off_left.remove(lord_id)
+    if lord_id in cal.off_right:
+        cal.off_right.remove(lord_id)
+
+
+def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int) -> None:
+    """3.3.2 at-limit Disband.
+
+    - Place cylinder at `new_box_with_overflow` (cap at off_right if >16).
+    - Service marker removed (it returns to Lord's mat / Unused area; we
+      drop it from the Calendar; mat is implicitly the Lord object).
+    - Forces / Assets returned to pool (cleared).
+    - This-lord capabilities returned to side's deck.
+    - Vassals returned to ready=True, mustered=False, on_calendar=False.
+    - Lord state -> 'disbanded'.
+    """
+    lord = state.lords[lord_id]
+    side: Side = lord.side
+    deck = _side_deck(state, side)
+    for cid in lord.this_lord_capabilities:
+        deck.deck.append(cid)
+    lord.this_lord_capabilities = []
+    lord.forces = {}
+    lord.assets = {}
+    for v in lord.vassals.values():
+        v.ready = True
+        v.mustered = False
+        v.on_calendar = False
+        v.calendar_box = None
+    lord.state = "disbanded"
+    lord.location = None
+    lord.lordship_used = 0
+    cal = state.calendar
+    # Remove service marker from Calendar.
+    for cb in cal.boxes:
+        if lord_id in cb.service_markers:
+            cb.service_markers.remove(lord_id)
+    if lord_id in cal.off_right:
+        cal.off_right.remove(lord_id)
+    # Remove cylinder from current location, then place at new_box.
+    for cb in cal.boxes:
+        if lord_id in cb.cylinders:
+            cb.cylinders.remove(lord_id)
+    if lord_id in cal.off_left:
+        cal.off_left.remove(lord_id)
+    if lord_id in cal.off_right:
+        cal.off_right.remove(lord_id)
+    if new_box_with_overflow > 16:
+        cal.off_right.append(lord_id)
+    else:
+        cal.boxes[new_box_with_overflow - 1].cylinders.append(lord_id)
+
+
+# ---------------------------------------------------------------------------
+# 3.4 Muster handlers
+# ---------------------------------------------------------------------------
+
+
+def _seats_of(state: GameState, lord_id: str) -> list[str]:
+    """All Seats for `lord_id` (primary + active conditional). 3.4.1.
+
+    Conditional seat schema (lords.json):
+      {capability, scope}             -> active when capability in play
+      {capability, locale_id}         -> single locale gated by capability
+      {capability, locale_id, requirement} -> single locale gated by capability
+                                              and a locale-state requirement
+    Capability ids in conditional_seats use the "<CARD>_<slug>" form
+    (e.g. "T12_ordensburgen", "R15_archbishopric"); we strip the suffix
+    to compare against the side\'s capabilities_in_play list of card ids.
+    """
+    from nevsky.static_data import load_locales, load_lords
+
+    sl = load_lords()[lord_id]
+    side: Side = sl["side"]
+    sd = _side_deck(state, side)
+    seats: list[str] = list(sl.get("primary_seats", []))
+    static_locales = load_locales()
+    for c in sl.get("conditional_seats", []):
+        cap = c.get("capability")
+        cap_card = cap.split("_", 1)[0] if isinstance(cap, str) else None
+        cap_active = (
+            cap_card is None
+            or cap_card in sd.capabilities_in_play
+            or cap_card in state.lords[lord_id].this_lord_capabilities
+        )
+        if not cap_active:
+            continue
+        scope = c.get("scope")
+        if scope == "all_commanderies":
+            for loc_id, loc in static_locales.items():
+                if loc.get("type") == "commandery" and loc.get("territory") in ("teutonic", "crusader"):
+                    seats.append(loc_id)
+        elif scope == "all_russian_lords_novgorod_extra_seat":
+            seats.append("novgorod")
+        if "locale_id" in c:
+            req = c.get("requirement")
+            if req == "pskov_conquered_by_teutons":
+                if state.locales.get("pskov") and state.locales["pskov"].teutonic_conquered > 0:
+                    seats.append(c["locale_id"])
+            elif req is None:
+                seats.append(c["locale_id"])
+    # de-dupe preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for s_ in seats:
+        if s_ in seen:
+            continue
+        seen.add(s_)
+        out.append(s_)
+    return out
+
+
+def _free_seats_for(state: GameState, lord_id: str) -> list[str]:
+    """Return list of Free Seats for `lord_id` -- Seats free of enemy
+    Lords AND not Conquered by enemy (3.4.1)."""
+    from nevsky.static_data import load_lords
+
+    sl = load_lords()[lord_id]
+    side: Side = sl["side"]
+    seats = _seats_of(state, lord_id)
+    free: list[str] = []
+    for sid in seats:
+        if sid not in state.locales:
+            continue
+        loc = state.locales[sid]
+        if side == "teutonic" and loc.russian_conquered > 0:
+            continue
+        if side == "russian" and loc.teutonic_conquered > 0:
+            continue
+        enemy_present = any(
+            l.state == "mustered" and l.location == sid and l.side != side
+            for l in state.lords.values()
+        )
+        if enemy_present:
+            continue
+        free.append(sid)
+    return free
+
+
+def _conditional_seat_satisfied(state: GameState, lord_id: str, c: dict[str, Any]) -> bool:
+    """Compatibility wrapper for legacy callers; uses _seats_of internally
+    by checking whether c\'s implied locale_id is in the active seats list.
+    """
+    seats = _seats_of(state, lord_id)
+    if "locale_id" in c:
+        return c["locale_id"] in seats
+    return True
+
+
+def _spend_lordship(state: GameState, lord_id: str) -> None:
+    """Decrement an action against a Lord's Lordship budget (3.4)."""
+    from nevsky.static_data import load_lords
+
+    sl = load_lords()[lord_id]
+    lord = state.lords[lord_id]
+    if lord.state != "mustered":
+        raise IllegalAction("not_mustered", f"{lord_id} is not Mustered")
+    if lord.just_arrived_this_levy:
+        raise IllegalAction(
+            "just_arrived",
+            f"{lord_id} arrived this Levy and cannot use Lordship in same Muster (3.4)",
+        )
+    if _is_besieged(state, lord_id):
+        raise IllegalAction(
+            "besieged_no_muster",
+            f"{lord_id} is Besieged; cannot Muster (3.4 actor_eligibility)",
+        )
+    if lord.location is None or not _is_friendly_locale(state, lord.location, lord.side):
+        raise IllegalAction(
+            "muster_location",
+            f"{lord_id} must be at a Friendly Locale to use Lordship (3.4)",
+        )
+    budget = int(sl["ratings"]["lordship"])
+    if lord.lordship_used >= budget:
+        raise IllegalAction(
+            "lordship_exhausted",
+            f"{lord_id} has spent {lord.lordship_used}/{budget} Lordship this Muster",
+        )
+    lord.lordship_used += 1
+
+
+def _h_muster_lord(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.1 Muster a Ready Lord at a Free Seat. Costs 1 Lordship.
+
+    args:
+      by_lord    Lord spending his Lordship (must be Mustered, not Besieged)
+      target_lord Ready Lord with at least one Free Seat
+      seat       chosen Free Seat (locale_id)
+    Roll d6: success on roll <= target.fealty.
+    On success: place cylinder at Seat, deploy starting forces/assets/
+    vassals, place Service marker SERVICE_RATING boxes RIGHT of Levy box.
+    Aleksandr exception: NEVER Muster by Lord (3.4.1).
+    """
+    from nevsky.rng import roll_d6
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "muster")
+    _require_active(state, sd)
+
+    by_id = args.get("by_lord")
+    target_id = args.get("target_lord")
+    seat = args.get("seat")
+    for k, v in (("by_lord", by_id), ("target_lord", target_id), ("seat", seat)):
+        if not isinstance(v, str):
+            raise IllegalAction("missing_arg", f"args.{k} must be a string")
+
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+    if target_id not in state.lords or state.lords[target_id].side != sd:
+        raise IllegalAction("bad_target", f"{target_id} must be on your side")
+    if target_id == "aleksandr":
+        raise IllegalAction(
+            "aleksandr_veche_only",
+            "Aleksandr can only enter play via Veche auto-Muster (3.4.1, 3.5.2)",
+        )
+
+    target = state.lords[target_id]
+    if target.state != "ready":
+        raise IllegalAction("bad_target", f"{target_id} state is {target.state} (not 'ready')")
+
+    levy_box = _find_levy_marker_box(state)
+    cyl_box = _find_cylinder_box(state, target_id)
+    if cyl_box is None or cyl_box > levy_box:
+        raise IllegalAction(
+            "not_ready",
+            f"{target_id} cylinder is at {cyl_box}; Levy is at {levy_box}; not Ready (3.4.1)",
+        )
+
+    free = _free_seats_for(state, target_id)
+    if seat not in free:
+        raise IllegalAction(
+            "no_free_seat",
+            f"{seat} is not a Free Seat for {target_id}. Free: {free}",
+        )
+
+    # Spend Lordship before rolling. (Failed roll still consumes the action.)
+    _spend_lordship(state, by_id)
+    roll = roll_d6(state)
+    fealty = int(load_lords()[target_id]["ratings"]["fealty"])
+    success = roll <= fealty
+    dice = [{"d6": roll, "vs_fealty": fealty, "success": success}]
+    if not success:
+        return (
+            {
+                "outcome": "fealty_failed",
+                "by_lord": by_id,
+                "target_lord": target_id,
+                "seat": seat,
+                "roll": roll,
+                "fealty": fealty,
+            },
+            dice,
+        )
+
+    _place_lord_on_map(state, target_id, seat, levy_box)
+    return (
+        {
+            "outcome": "mustered",
+            "by_lord": by_id,
+            "target_lord": target_id,
+            "seat": seat,
+            "roll": roll,
+            "fealty": fealty,
+        },
+        dice,
+    )
+
+
+def _find_cylinder_box(state: GameState, lord_id: str) -> int | None:
+    if lord_id in state.calendar.off_right:
+        return 17
+    if lord_id in state.calendar.off_left:
+        return 0
+    for cb in state.calendar.boxes:
+        if lord_id in cb.cylinders:
+            return cb.box
+    return None
+
+
+def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int) -> None:
+    """Apply the on-success Muster procedure (3.4.1)."""
+    from nevsky.static_data import load_lords
+
+    sl = load_lords()[lord_id]
+    lord = state.lords[lord_id]
+    cal = state.calendar
+    # Remove cylinder from Calendar.
+    for cb in cal.boxes:
+        if lord_id in cb.cylinders:
+            cb.cylinders.remove(lord_id)
+    if lord_id in cal.off_left:
+        cal.off_left.remove(lord_id)
+    if lord_id in cal.off_right:
+        cal.off_right.remove(lord_id)
+    # Place mat in front: deploy starting forces/assets.
+    forces: dict[ForceType, int] = {
+        k: int(v) for k, v in sl["starting_forces"].items() if int(v) != 0
+    }
+    assets: dict[AssetType, int] = {
+        k: int(v) for k, v in sl["starting_assets"].items() if int(v) != 0
+    }
+    lord.forces = forces  # type: ignore[assignment]
+    lord.assets = assets  # type: ignore[assignment]
+    lord.location = seat
+    lord.state = "mustered"
+    lord.just_arrived_this_levy = True
+    lord.lordship_used = 0
+    # Vassal Service markers face up where their Capability is in effect;
+    # special vassals stay aside if their gating Capability is not in
+    # effect (Steppe Warriors / Crusade).
+    for v in sl.get("vassals", []):
+        special = v.get("special")
+        ready = special is None
+        if special == "summer_crusaders":
+            ready = "T11" in state.decks.teutonic.capabilities_in_play
+        elif special == "mongols" or special == "kipchaqs":
+            ready = "R10" in state.decks.russian.capabilities_in_play
+        lord.vassals[v["vassal_id"]].ready = ready
+        lord.vassals[v["vassal_id"]].mustered = False
+    # Place Service marker at SERVICE_RATING boxes right of Levy box.
+    srating = int(sl["ratings"]["service"])
+    sm_box = levy_box + srating
+    # Drop any existing service marker.
+    for cb in cal.boxes:
+        if lord_id in cb.service_markers:
+            cb.service_markers.remove(lord_id)
+    if lord_id in cal.off_right:
+        cal.off_right.remove(lord_id)
+    if sm_box > 16:
+        cal.off_right.append(lord_id)
+    else:
+        cal.boxes[sm_box - 1].service_markers.append(lord_id)
+
+
+def _h_muster_vassal(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.2 Muster a Vassal. Costs 1 Lordship.
+
+    args: by_lord (the parent Lord), vassal_id.
+    Vassal must be ready (face up) on by_lord's mat. Vassal's Forces are
+    added to the parent's forces dict. Special Vassals require their
+    gating Capability in play (R10 Steppe Warriors for Mongols/Kipchaqs;
+    T11 Crusade + Summer season for Summer Crusaders).
+    """
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "muster")
+    _require_active(state, sd)
+
+    by_id = args.get("by_lord")
+    vid = args.get("vassal_id")
+    if not (isinstance(by_id, str) and isinstance(vid, str)):
+        raise IllegalAction("missing_arg", "args: by_lord, vassal_id")
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+    lord = state.lords[by_id]
+    if vid not in lord.vassals:
+        raise IllegalAction("unknown_vassal", f"{by_id} has no Vassal {vid!r}")
+    vstate = lord.vassals[vid]
+    if vstate.mustered:
+        raise IllegalAction("already_mustered", f"Vassal {vid} already Mustered")
+
+    sl = load_lords()[by_id]
+    vdata = next((v for v in sl["vassals"] if v["vassal_id"] == vid), None)
+    if vdata is None:
+        raise IllegalAction("unknown_vassal", f"static data missing Vassal {vid!r}")
+
+    special = vdata.get("special")
+    if special == "summer_crusaders":
+        if "T11" not in state.decks.teutonic.capabilities_in_play:
+            raise IllegalAction(
+                "vassal_gated",
+                "Summer Crusaders require T11 Crusade in play (3.4.2)",
+            )
+    elif special in ("mongols", "kipchaqs"):
+        if "R10" not in state.decks.russian.capabilities_in_play:
+            raise IllegalAction(
+                "vassal_gated",
+                f"{special} require R10 Steppe Warriors in play (3.4.2)",
+            )
+
+    if not vstate.ready:
+        raise IllegalAction("vassal_unready", f"Vassal {vid} is not face-up Ready")
+
+    _spend_lordship(state, by_id)
+    # Add Vassal forces to parent.
+    for k, v in vdata.get("forces", {}).items():
+        lord.forces[k] = lord.forces.get(k, 0) + int(v)  # type: ignore[index]
+    vstate.mustered = True
+    return ({"by_lord": by_id, "vassal_id": vid, "added_forces": vdata.get("forces", {})}, [])
+
+
+def _h_levy_transport(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.3 Levy Transport. 1 Lordship per asset added.
+
+    args: by_lord, transport_type (boat|cart|sled|ship).
+    Ship requires by_lord.ships_authorized=True (mat states "Ships").
+    Max 8 of any one type per Lord.
+    """
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "muster")
+    _require_active(state, sd)
+
+    by_id = args.get("by_lord")
+    ttype = args.get("transport_type")
+    if not (isinstance(by_id, str) and isinstance(ttype, str)):
+        raise IllegalAction("missing_arg", "args: by_lord, transport_type")
+    if ttype not in ("boat", "cart", "sled", "ship"):
+        raise IllegalAction("bad_transport", f"transport_type {ttype!r} invalid")
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+
+    sl = load_lords()[by_id]
+    if ttype == "ship" and not sl.get("ships_authorized", False):
+        raise IllegalAction("ship_unauthorized", f"{by_id} mat does not state 'Ships' (3.4.3)")
+
+    lord = state.lords[by_id]
+    if lord.assets.get(ttype, 0) >= 8:  # type: ignore[arg-type]
+        raise IllegalAction("transport_max", f"{by_id} already at max 8 {ttype} (3.4.3)")
+
+    _spend_lordship(state, by_id)
+    lord.assets[ttype] = lord.assets.get(ttype, 0) + 1  # type: ignore[index]
+    return ({"by_lord": by_id, "transport_type": ttype, "new_count": lord.assets[ttype]}, [])  # type: ignore[index]
+
+
+def _h_levy_capability(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.4 Levy Capability.
+
+    args:
+      by_lord    Lord spending Lordship
+      card_id    capability card from own side's deck/discard
+      lord_id    (optional) target Lord for this-lord capability
+                 (defaults to by_lord)
+    For this_lord: tucked under target Lord's mat. Max 2 per Lord; no
+    duplicate-named (e.g., T7 + T15 Warrior Monks).
+    For side_wide: tucked at side's board edge.
+    """
+    from nevsky.static_data import load_cards
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_levy_step(state, "muster")
+    _require_active(state, sd)
+
+    by_id = args.get("by_lord")
+    cid = args.get("card_id")
+    if not (isinstance(by_id, str) and isinstance(cid, str)):
+        raise IllegalAction("missing_arg", "args: by_lord, card_id")
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+
+    cards = load_cards()
+    if cid not in cards or cards[cid]["side"] != sd:
+        raise IllegalAction("bad_card", f"{cid} not in your deck (3.4.4)")
+    deck = _side_deck(state, sd)
+    # Card must be available (in deck or discard, not held / in play / removed / pending_draw).
+    if cid in deck.deck:
+        from_loc = "deck"
+    elif cid in deck.discard:
+        from_loc = "discard"
+    else:
+        raise IllegalAction(
+            "card_unavailable",
+            f"{cid} not in your unused pile (deck/discard) (3.4.4)",
+        )
+
+    card = cards[cid]
+    if card["no_event"]:
+        raise IllegalAction("bad_card", "No-Event/No-Capability cards have no Capability (3.4.4)")
+
+    target_lord_id = args.get("lord_id", by_id) if card["capability_scope"] == "this_lord" else None
+
+    _spend_lordship(state, by_id)
+
+    if card["capability_scope"] == "this_lord":
+        if not isinstance(target_lord_id, str) or target_lord_id not in state.lords:
+            raise IllegalAction("missing_arg", "this-lord capability requires args.lord_id")
+        target = state.lords[target_lord_id]
+        if target.side != sd or target.state != "mustered":
+            raise IllegalAction("bad_target", f"{target_lord_id} must be your Mustered Lord")
+        if len(target.this_lord_capabilities) >= 2:
+            raise IllegalAction("cap_limit", f"{target_lord_id} already has 2 capabilities (3.4.4)")
+        for existing in target.this_lord_capabilities:
+            if cards[existing]["capability_name"] == card["capability_name"]:
+                raise IllegalAction(
+                    "duplicate_capability",
+                    f"{target_lord_id} already has '{card['capability_name']}' (3.4.4)",
+                )
+        target.this_lord_capabilities.append(cid)
+        if from_loc == "deck":
+            deck.deck.remove(cid)
+        else:
+            deck.discard.remove(cid)
+        return (
+            {
+                "by_lord": by_id,
+                "card_id": cid,
+                "scope": "this_lord",
+                "target_lord": target_lord_id,
+                "from": from_loc,
+            },
+            [],
+        )
+    # side_wide
+    deck.capabilities_in_play.append(cid)
+    if from_loc == "deck":
+        deck.deck.remove(cid)
+    else:
+        deck.discard.remove(cid)
+    return ({"by_lord": by_id, "card_id": cid, "scope": "side_wide", "from": from_loc}, [])
+
+
+# ---------------------------------------------------------------------------
+# 3.5 Call to Arms handlers
+# ---------------------------------------------------------------------------
+
+
+_BISHOPRICS = {"riga", "dorpat", "leal", "reval"}
+
+
+def _h_legate_arrives(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.1 ARRIVES: place Legate pawn at any of the four Bishoprics.
+
+    Requires William of Modena (T13) Capability in play. Pawn must be
+    on the William of Modena card (location='card') at start of Call
+    to Arms; the action moves it to the chosen Bishopric.
+    """
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "only Teutons act in 3.5.1 (Papal Legate)")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+
+    if not state.legate.william_of_modena_in_play:
+        raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
+    if state.legate.location != "card":
+        raise IllegalAction("legate_already_on_map", "Legate is already on the map (3.5.1)")
+    bishopric = args.get("bishopric")
+    if bishopric not in _BISHOPRICS:
+        raise IllegalAction("bad_bishopric", f"bishopric must be one of {sorted(_BISHOPRICS)}")
+    state.legate.location = "locale"
+    state.legate.locale_id = bishopric
+    return ({"placed_at": bishopric}, [])
+
+
+def _h_legate_move(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.1 Option 1: move pawn to any Friendly Locale."""
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "only Teutons act in 3.5.1")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+
+    if not state.legate.william_of_modena_in_play:
+        raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
+    if state.legate.location != "locale":
+        raise IllegalAction("legate_off_map", "Legate must be on map to Move (3.5.1)")
+    if state.legate.acted_this_call_to_arms:
+        raise IllegalAction("already_acted", "Legate has already acted this Call to Arms (3.5.1)")
+
+    locale_id = args.get("locale_id")
+    if not isinstance(locale_id, str) or locale_id not in state.locales:
+        raise IllegalAction("bad_locale", "args.locale_id required")
+    if not _is_friendly_locale(state, locale_id, "teutonic"):
+        raise IllegalAction("not_friendly", f"{locale_id} is not Friendly to Teutons (1.3.1)")
+    state.legate.locale_id = locale_id
+    state.legate.acted_this_call_to_arms = True
+    return ({"moved_to": locale_id}, [])
+
+
+def _h_legate_use(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.1 Option 2: USE the Legate. sub-options 2a/2b/2c.
+
+    args:
+      sub_option: "2a" | "2b" | "2c"
+      target_lord:  required for 2a, 2b, 2c
+    Pawn returns to William of Modena card after use.
+    """
+
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "only Teutons act in 3.5.1")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+
+    if not state.legate.william_of_modena_in_play:
+        raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
+    if state.legate.location != "locale":
+        raise IllegalAction("legate_off_map", "Legate must be on map to USE (3.5.1)")
+    if state.legate.acted_this_call_to_arms:
+        raise IllegalAction("already_acted", "Legate has already acted this Call to Arms (3.5.1)")
+
+    sub = args.get("sub_option")
+    target_id = args.get("target_lord")
+    if sub not in ("2a", "2b", "2c"):
+        raise IllegalAction("bad_sub_option", "sub_option must be 2a, 2b, or 2c")
+    if not isinstance(target_id, str) or target_id not in state.lords:
+        raise IllegalAction("missing_arg", "args.target_lord required")
+
+    target = state.lords[target_id]
+    if target.side != "teutonic":
+        raise IllegalAction("bad_target", "Legate USE targets Teutonic Lord")
+
+    pawn_locale = state.legate.locale_id
+    levy_box = _find_levy_marker_box(state)
+
+    if sub == "2a":
+        # auto-Muster a Ready Lord at his Seat (no Fealty roll)
+        if target.state != "ready":
+            raise IllegalAction("bad_target", f"{target_id} must be Ready (state={target.state})")
+        cyl_box = _find_cylinder_box(state, target_id)
+        if cyl_box is None or cyl_box > levy_box:
+            raise IllegalAction("not_ready", f"{target_id} not Ready (3.4.1)")
+        if pawn_locale not in _seats_of(state, target_id):
+            raise IllegalAction("not_at_seat", f"Legate must be at a Seat of {target_id}")
+        free = _free_seats_for(state, target_id)
+        if pawn_locale not in free:
+            raise IllegalAction("seat_not_free", f"{pawn_locale} is not a Free Seat for {target_id}")
+        _place_lord_on_map(state, target_id, pawn_locale, levy_box)  # type: ignore[arg-type]
+        result_extra: dict[str, Any] = {"target_lord": target_id, "seat": pawn_locale}
+    elif sub == "2b":
+        # slide cylinder of a Lord on the Calendar 1 box LEFT, requires
+        # pawn at that Lord's Seat
+        if pawn_locale not in _seats_of(state, target_id):
+            raise IllegalAction("not_at_seat", f"Legate must be at a Seat of {target_id}")
+        cyl_box = _find_cylinder_box(state, target_id)
+        if cyl_box is None or cyl_box >= 17 or cyl_box == 0:
+            raise IllegalAction("no_cylinder", f"{target_id} cylinder not on Calendar")
+        if cyl_box <= 1:
+            raise IllegalAction("cylinder_at_left_edge", f"{target_id} already at box 1")
+        cb = state.calendar.boxes[cyl_box - 1]
+        cb.cylinders.remove(target_id)
+        state.calendar.boxes[cyl_box - 2].cylinders.append(target_id)
+        result_extra = {"target_lord": target_id, "from_box": cyl_box, "to_box": cyl_box - 1}
+    else:  # 2c
+        if target.state != "mustered" or target.location is None:
+            raise IllegalAction("bad_target", f"{target_id} must be Mustered with a location")
+        if pawn_locale != target.location:
+            raise IllegalAction("not_co_located", f"Legate must be at {target_id}'s location")
+        if not _is_friendly_locale(state, target.location, "teutonic"):
+            raise IllegalAction("not_friendly", "Legate USE 2c requires Friendly Locale")
+        # Grant an extra Muster: reset lordship_used so target gets full
+        # Lordship to spend during the immediate continuation. The Lord
+        # then performs his extra Muster via subsequent muster_* actions
+        # (we do not trigger them here -- the agent emits them next).
+        target.lordship_used = 0
+        target.just_arrived_this_levy = False  # already-Mustered Lord
+        result_extra = {"target_lord": target_id, "extra_muster": True}
+
+    state.legate.acted_this_call_to_arms = True
+    state.legate.location = "card"
+    state.legate.locale_id = None
+    return ({"sub_option": sub, **result_extra}, [])
+
+
+def _h_legate_skip(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Teutons explicitly do nothing in 3.5.1 (always available)."""
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "only Teutons act in 3.5.1")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+    state.legate.acted_this_call_to_arms = True
+    return ({"outcome": "skipped"}, [])
+
+
+def _h_veche_action(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.2 Veche action. options: A | B | C | D | sea_trade | skip.
+
+    A: SLIDE LEFT (cost 1 VP) -- slide one Russian Lord cylinder 2 boxes LEFT
+    B: AUTO-MUSTER (cost 1 VP) -- auto-Muster a Ready Russian Lord
+    C: EXTRA MUSTER (cost 1 VP) -- enable a non-Besieged Russian Lord at
+       a Friendly Locale to perform an immediate extra Muster
+    D: DECLINE (gain 1 VP) -- slide Aleksandr/Andrey if Ready 1 box RIGHT
+    sea_trade: add R8 / R9 Coin to Veche box (3.5.2 + R8/R9)
+    skip: pass
+    """
+
+    sd = _require_side_player(state, side)
+    if sd != "russian":
+        raise IllegalAction("wrong_side", "only Russians act in 3.5.2 (Veche)")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+
+    option = args.get("option")
+    if option not in ("A", "B", "C", "D", "sea_trade", "skip"):
+        raise IllegalAction("bad_option", "option must be A|B|C|D|sea_trade|skip")
+
+    if option == "sea_trade":
+        return _veche_sea_trade(state, args)
+
+    # All other options consume the once-per-segment slot.
+    if option == "skip":
+        state.veche.acted_this_call_to_arms = True
+        return ({"outcome": "skipped"}, [])
+
+    if state.veche.acted_this_call_to_arms:
+        raise IllegalAction("already_acted", "Veche has already acted this Call to Arms (3.5.2)")
+
+    if option == "A":
+        target_id = args.get("target_lord")
+        if not isinstance(target_id, str) or target_id not in state.lords:
+            raise IllegalAction("missing_arg", "Option A requires args.target_lord")
+        target = state.lords[target_id]
+        if target.side != "russian":
+            raise IllegalAction("bad_target", f"{target_id} not Russian")
+        if state.veche.vp_markers < 1:
+            raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
+        cyl_box = _find_cylinder_box(state, target_id)
+        if cyl_box is None or cyl_box >= 17 or cyl_box == 0:
+            raise IllegalAction("no_cylinder", f"{target_id} cylinder not on Calendar")
+        new_box = max(1, cyl_box - 2)
+        cb = state.calendar.boxes[cyl_box - 1]
+        cb.cylinders.remove(target_id)
+        state.calendar.boxes[new_box - 1].cylinders.append(target_id)
+        state.veche.vp_markers -= 1
+        state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        state.veche.acted_this_call_to_arms = True
+        return (
+            {"option": "A", "target_lord": target_id, "from_box": cyl_box, "to_box": new_box},
+            [],
+        )
+
+    if option == "B":
+        target_id = args.get("target_lord")
+        if not isinstance(target_id, str) or target_id not in state.lords:
+            raise IllegalAction("missing_arg", "Option B requires args.target_lord")
+        target = state.lords[target_id]
+        if target.side != "russian":
+            raise IllegalAction("bad_target", f"{target_id} not Russian")
+        if state.veche.vp_markers < 1:
+            raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
+        if target.state != "ready":
+            raise IllegalAction("bad_target", f"{target_id} not Ready (state={target.state})")
+        levy_box = _find_levy_marker_box(state)
+        cyl_box = _find_cylinder_box(state, target_id)
+        if cyl_box is None or cyl_box > levy_box:
+            raise IllegalAction("not_ready", f"{target_id} cylinder not Ready")
+        free = _free_seats_for(state, target_id)
+        seat = args.get("seat")
+        if not isinstance(seat, str) or seat not in free:
+            raise IllegalAction("no_free_seat", f"args.seat must be a Free Seat: {free}")
+        _place_lord_on_map(state, target_id, seat, levy_box)
+        state.veche.vp_markers -= 1
+        state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        state.veche.acted_this_call_to_arms = True
+        return ({"option": "B", "target_lord": target_id, "seat": seat}, [])
+
+    if option == "C":
+        target_id = args.get("target_lord")
+        if not isinstance(target_id, str) or target_id not in state.lords:
+            raise IllegalAction("missing_arg", "Option C requires args.target_lord")
+        target = state.lords[target_id]
+        if target.side != "russian":
+            raise IllegalAction("bad_target", f"{target_id} not Russian")
+        if state.veche.vp_markers < 1:
+            raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
+        if target.state != "mustered" or target.location is None:
+            raise IllegalAction("bad_target", f"{target_id} not Mustered")
+        if _is_besieged(state, target_id):
+            raise IllegalAction("besieged", f"{target_id} is Besieged; Option C unavailable (3.5.2)")
+        if not _is_friendly_locale(state, target.location, "russian"):
+            raise IllegalAction("not_friendly", f"{target_id} not at Friendly Locale (3.5.2 Option C)")
+        if target.just_arrived_this_levy:
+            # Note: a Lord brought on via Option B in same Call to Arms cannot be subject of C.
+            raise IllegalAction(
+                "just_arrived",
+                f"{target_id} just arrived this Levy; cannot use Lordship same Call to Arms (3.5.2)",
+            )
+        target.lordship_used = 0
+        state.veche.vp_markers -= 1
+        state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        state.veche.acted_this_call_to_arms = True
+        return ({"option": "C", "target_lord": target_id, "extra_muster": True}, [])
+
+    # option == "D" Decline
+    levy_box = _find_levy_marker_box(state)
+    aleks_ready = _is_ready(state, "aleksandr", levy_box)
+    andrey_ready = _is_ready(state, "andrey", levy_box)
+    if not (aleks_ready or andrey_ready):
+        raise IllegalAction(
+            "decline_unavailable",
+            "Option D requires Aleksandr or Andrey to be Ready (3.5.2 Option D)",
+        )
+    slid: list[str] = []
+    target_box = levy_box + 1
+    if target_box > 16:
+        target_box = 17
+    for lord_id, ready in (("aleksandr", aleks_ready), ("andrey", andrey_ready)):
+        if ready:
+            cyl_box = _find_cylinder_box(state, lord_id)
+            if cyl_box is None:
+                continue
+            if cyl_box <= 16:
+                state.calendar.boxes[cyl_box - 1].cylinders.remove(lord_id)
+            else:
+                state.calendar.off_right.remove(lord_id)
+            if target_box > 16:
+                state.calendar.off_right.append(lord_id)
+            else:
+                state.calendar.boxes[target_box - 1].cylinders.append(lord_id)
+            slid.append(lord_id)
+    if state.veche.vp_markers < 8:
+        state.veche.vp_markers += 1
+        state.calendar.russian_vp += 1.0
+    # else: cap forfeit per 1.4.2.
+    state.veche.acted_this_call_to_arms = True
+    return ({"option": "D", "slid": slid, "vp_added": min(1, 8 - (state.veche.vp_markers - 1))}, [])
+
+
+def _is_ready(state: GameState, lord_id: str, levy_box: int) -> bool:
+    if lord_id not in state.lords:
+        return False
+    lord = state.lords[lord_id]
+    if lord.state != "ready":
+        return False
+    cyl_box = _find_cylinder_box(state, lord_id)
+    if cyl_box is None:
+        return False
+    return cyl_box <= levy_box
+
+
+def _veche_sea_trade(
+    state: GameState, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """R8 Black Sea Trade / R9 Baltic Sea Trade Coin addition (3.5.2).
+
+    This action can occur any time during Russian Call to Arms; it does
+    NOT consume the once-per-segment slot.
+    args: card_id ("R8" or "R9").
+    R8: requires R8 in capabilities_in_play; blocked if Novgorod or
+    Lovat Conquered by Teutons.
+    R9: requires R9 in capabilities_in_play; blocked if Novgorod or
+    Neva Conquered by Teutons; season-restricted to non-Winter; ship
+    comparison (Phase 3 will refine -- for Phase 2 we assume Russians
+    have ship parity unless noted).
+    """
+    cid = args.get("card_id")
+    if cid not in ("R8", "R9"):
+        raise IllegalAction("bad_card", "sea_trade card_id must be R8 or R9")
+    deck = state.decks.russian
+    if cid not in deck.capabilities_in_play:
+        raise IllegalAction("not_in_play", f"{cid} not in Russian capabilities_in_play")
+
+    nov = state.locales["novgorod"]
+    if cid == "R8":
+        lov = state.locales["lovat"]
+        if nov.teutonic_conquered > 0 or lov.teutonic_conquered > 0:
+            raise IllegalAction(
+                "sea_trade_blocked",
+                "R8 Black Sea Trade blocked while Novgorod or Lovat Conquered",
+            )
+        amount = 1
+    else:  # R9
+        neva = state.locales["neva"]
+        if nov.teutonic_conquered > 0 or neva.teutonic_conquered > 0:
+            raise IllegalAction(
+                "sea_trade_blocked",
+                "R9 Baltic Sea Trade blocked while Novgorod or Neva Conquered",
+            )
+        season = _season_of_box(state.meta.box)
+        if season in ("early_winter", "late_winter"):
+            raise IllegalAction(
+                "sea_trade_winter",
+                "R9 Baltic Sea Trade blocked in Winter seasons",
+            )
+        amount = 2
+
+    added = min(amount, 8 - state.veche.coin)
+    state.veche.coin += added
+    return ({"card": cid, "added": added, "lost_to_cap": amount - added}, [])
+
+
+def _season_of_box(box: int) -> str:
+    """Calendar season per box (Calendar reference)."""
+    table = {
+        1: "summer", 2: "summer",
+        3: "early_winter", 4: "early_winter",
+        5: "late_winter", 6: "late_winter",
+        7: "rasputitsa", 8: "rasputitsa",
+        9: "summer", 10: "summer",
+        11: "early_winter", 12: "early_winter",
+        13: "late_winter", 14: "late_winter",
+        15: "rasputitsa", 16: "rasputitsa",
+    }
+    return table.get(box, "summer")
+
+
+# ---------------------------------------------------------------------------
+# System actions
+# ---------------------------------------------------------------------------
+
+
+def _h_system_setup_complete(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Drop scenario-setup PendingDecisions (Q-001 Transport-(any) slots).
+
+    Phase 1 emits one `setup_transport_choice` PendingDecision per
+    "any" Transport slot in scenario starting forces. This system
+    action clears them as a no-op so Phase 2 Levy mechanics can
+    proceed; the unresolved Transport-type choice is recorded as a
+    history entry for the rules-questions log.
+    """
+    if side != "system":
+        raise IllegalAction("wrong_actor", "system_setup_complete requires side='system'")
+    cleared = [pd.kind for pd in state.pending_decisions if pd.kind == "setup_transport_choice"]
+    state.pending_decisions = [pd for pd in state.pending_decisions if pd.kind != "setup_transport_choice"]
+    return ({"cleared": cleared}, [])
+
+
+# ---------------------------------------------------------------------------
+# Handler registry
+# ---------------------------------------------------------------------------
+
+
+_HANDLERS = {
+    "advance_step": _h_advance_step,
+    # 3.1
+    "aow_shuffle": _h_aow_shuffle,
+    "aow_draw": _h_aow_draw,
+    "aow_implement_card": _h_aow_implement_card,
+    "aow_discard_this_levy": _h_aow_discard_this_levy,
+    # 3.2
+    "pay_with_coin": _h_pay_with_coin,
+    "pay_with_loot": _h_pay_with_loot,
+    # 3.3
+    "disband_resolve": _h_disband_resolve,
+    # 3.4
+    "muster_lord": _h_muster_lord,
+    "muster_vassal": _h_muster_vassal,
+    "levy_transport": _h_levy_transport,
+    "levy_capability": _h_levy_capability,
+    # 3.5
+    "legate_arrives": _h_legate_arrives,
+    "legate_move": _h_legate_move,
+    "legate_use": _h_legate_use,
+    "legate_skip": _h_legate_skip,
+    "veche_action": _h_veche_action,
+    # system
+    "system_setup_complete": _h_system_setup_complete,
+}
