@@ -26,6 +26,7 @@ EXPECTED_TOP_KEYS = {
     "decks",
     "legate",
     "campaign_turn",
+    "combat_pending",
     "pending_decisions",
     "history",
 }

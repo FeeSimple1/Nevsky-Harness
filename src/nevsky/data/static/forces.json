@@ -1,0 +1,12 @@
+{
+  "_doc": "Forces table per Nevsky 2nd Edition. Source: Nevsky_Forces_Reference.txt. Strikes are per unit per Strike step. Protection ranges encode dice rolls that absorb a Hit (1-N inclusive) without Rout. melee_kind: horse|foot determines initiative bucket. archery_default_active: whether the unit has Archery without any AoW capability. Phase 4 will add per-capability modifiers (e.g., LUCHNIKI grants archery to light_horse / militia, HALBBRUEDER Armor +1, etc.).",
+  "units": {
+    "knights":        {"melee_kind": "horse", "melee_battle": 2.0,  "melee_storm": 1.0, "archery_battle": 0.0, "archery_default_active": false, "protection_battle_melee": "armor:1-4", "protection_battle_archery": "armor:1-4", "protection_storm": "armor:1-4"},
+    "sergeants":      {"melee_kind": "horse", "melee_battle": 1.0,  "melee_storm": 1.0, "archery_battle": 0.0, "archery_default_active": false, "protection_battle_melee": "armor:1-3", "protection_battle_archery": "armor:1-3", "protection_storm": "armor:1-3"},
+    "light_horse":    {"melee_kind": "horse", "melee_battle": 0.5,  "melee_storm": 0.5, "archery_battle": 0.0, "archery_default_active": false, "protection_battle_melee": "unarmored", "protection_battle_archery": "unarmored", "protection_storm": "unarmored"},
+    "asiatic_horse":  {"melee_kind": "horse", "melee_battle": 0.0,  "melee_storm": 0.0, "archery_battle": 0.5, "archery_default_active": true,  "protection_battle_melee": "evade:1-3", "protection_battle_archery": "unarmored", "protection_storm": "unarmored"},
+    "men_at_arms":    {"melee_kind": "foot",  "melee_battle": 1.0,  "melee_storm": 1.0, "archery_battle": 0.0, "archery_default_active": false, "protection_battle_melee": "armor:1-3", "protection_battle_archery": "armor:1-3", "protection_storm": "armor:1-3"},
+    "militia":        {"melee_kind": "foot",  "melee_battle": 0.5,  "melee_storm": 0.5, "archery_battle": 0.0, "archery_default_active": false, "protection_battle_melee": "unarmored", "protection_battle_archery": "unarmored", "protection_storm": "unarmored"},
+    "serfs":          {"melee_kind": "foot",  "melee_battle": 0.5,  "melee_storm": 0.5, "archery_battle": 0.0, "archery_default_active": false, "protection_battle_melee": "none",     "protection_battle_archery": "none",     "protection_storm": "none"}
+  }
+}

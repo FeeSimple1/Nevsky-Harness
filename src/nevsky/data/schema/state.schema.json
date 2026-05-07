@@ -181,6 +181,77 @@
       "title": "CampaignTurn",
       "type": "object"
     },
+    "CombatPending": {
+      "additionalProperties": false,
+      "description": "Pending Approach / Battle decision (4.3.4 - 4.4).\n\nSet by cmd_march when Marching into a Locale containing enemy\nLord(s). Defender (whose Lords are at the target) chooses one of:\navoid_battle (Unladen, 4.3.4), withdraw (4.3.4 into a Friendly\nStronghold), or stand_battle (4.4 begins).\nCleared after the chosen response resolves.",
+      "properties": {
+        "attacker_side": {
+          "enum": [
+            "teutonic",
+            "russian"
+          ],
+          "title": "Attacker Side",
+          "type": "string"
+        },
+        "attacker_group": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Attacker Group",
+          "type": "array"
+        },
+        "from_locale": {
+          "title": "From Locale",
+          "type": "string"
+        },
+        "to_locale": {
+          "title": "To Locale",
+          "type": "string"
+        },
+        "way_type": {
+          "title": "Way Type",
+          "type": "string"
+        },
+        "defender_side": {
+          "enum": [
+            "teutonic",
+            "russian"
+          ],
+          "title": "Defender Side",
+          "type": "string"
+        },
+        "defender_lords": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Defender Lords",
+          "type": "array"
+        },
+        "pending_response_by": {
+          "enum": [
+            "teutonic",
+            "russian"
+          ],
+          "title": "Pending Response By",
+          "type": "string"
+        },
+        "laden": {
+          "default": false,
+          "title": "Laden",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "attacker_side",
+        "from_locale",
+        "to_locale",
+        "way_type",
+        "defender_side",
+        "pending_response_by"
+      ],
+      "title": "CombatPending",
+      "type": "object"
+    },
     "Decks": {
       "additionalProperties": false,
       "description": "Per-side card state.",
@@ -841,6 +912,17 @@
     "campaign_turn": {
       "$ref": "#/$defs/CampaignTurn"
     },
+    "combat_pending": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CombatPending"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "pending_decisions": {
       "items": {
         "$ref": "#/$defs/PendingDecision"
@@ -864,5 +946,5 @@
   "title": "Nevsky Harness GameState",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-schema-version": "0.3.0"
+  "x-schema-version": "0.4.0"
 }

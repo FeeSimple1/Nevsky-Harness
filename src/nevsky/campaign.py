@@ -1049,3 +1049,394 @@ HANDLERS = {
     # 4.9 end campaign
     "end_campaign_resolve": _h_end_campaign_resolve,
 }
+
+# ---------------------------------------------------------------------------
+# 4.3 March + 4.3.4 Approach + 4.4 Battle handlers
+# ---------------------------------------------------------------------------
+
+
+def _is_laden(state: GameState, lord_id: str) -> bool:
+    """4.3.2: Lord is Laden if carrying any Loot, OR if Provender count
+    exceeds usable Transport count. Phase 3b uses a simplified test
+    (any Loot OR Provender > 2*usable_transport_count).
+    """
+    lord = state.lords[lord_id]
+    if lord.assets.get("loot", 0) > 0:
+        return True
+    season = _season_of_box(state.meta.box)
+    usable = 0
+    for t in ("boat", "cart", "sled", "ship"):
+        n = lord.assets.get(t, 0)
+        if t == "boat" and season in ("summer", "rasputitsa"):
+            usable += n
+        elif t == "cart" and season == "summer":
+            usable += n
+        elif t == "sled" and season in ("early_winter", "late_winter", "rasputitsa"):
+            usable += n
+        elif t == "ship" and season in ("summer", "rasputitsa"):
+            usable += n
+    prov = lord.assets.get("provender", 0)
+    return prov > 2 * usable
+
+
+def _enemies_at(state: GameState, locale_id: str, side: Side) -> list[str]:
+    return [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered" and l.location == locale_id and l.side != side
+    ]
+
+
+def _has_enemy_stronghold_at(state: GameState, locale_id: str, side: Side) -> bool:
+    """Enemy Stronghold present if locale is enemy-territory stronghold
+    not Conquered by us, OR own-territory stronghold Conquered by enemy.
+    """
+    static = load_locales()[locale_id]
+    if static["type"] not in ("commandery", "fort", "city", "novgorod", "bishopric", "trade_route", "castle"):
+        return False
+    loc = state.locales[locale_id]
+    if side == "teutonic":
+        # Russian-territory stronghold not Conquered by us OR our stronghold Conquered by Russians.
+        if static["territory"] == "russian" and loc.teutonic_conquered == 0:
+            return True
+        if static["territory"] in ("teutonic", "crusader") and loc.russian_conquered > 0:
+            return True
+    else:  # russian
+        if static["territory"] in ("teutonic", "crusader") and loc.russian_conquered == 0:
+            return True
+        if static["territory"] == "russian" and loc.teutonic_conquered > 0:
+            return True
+    return False
+
+
+def _h_cmd_march(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.3 March one Locale via a Way. 1 action Unladen, 2 Laden.
+
+    args:
+      lord_id    Active Lord
+      to         Destination locale_id (must be adjacent via a Way)
+      group      Optional list[lord_id] of co-Marching Lords
+                 (basic group March via Marshal -- 4.3.1)
+
+    On Approach: if destination contains enemy Lord(s), set
+    combat_pending and pause; defender must respond with avoid_battle /
+    withdraw / stand_battle. If no enemy Lord but enemy Stronghold,
+    place a Siege marker (4.3.5). If neither, just move.
+    """
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    dest = args.get("to")
+    group = args.get("group", [lord_id]) or [lord_id]
+    if not (isinstance(lord_id, str) and isinstance(dest, str) and isinstance(group, list)):
+        raise IllegalAction("missing_arg", "args: lord_id, to, group(optional)")
+    _require_active_lord_command(state, sd, lord_id)
+
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Active Lord is Besieged; cannot March (4.3)")
+    src = lord.location
+    if src is None:
+        raise IllegalAction("no_location", "Lord has no location")
+
+    # Way check.
+    ways = load_ways()
+    way_type = None
+    for w in ways:
+        if (w["a"] == src and w["b"] == dest) or (w["b"] == src and w["a"] == dest):
+            way_type = w["type"]
+            break
+    if way_type is None:
+        raise IllegalAction("no_way", f"no Way between {src} and {dest}")
+
+    # Validate group: all Lords must be at src and on the active side.
+    for gid in group:
+        if gid not in state.lords or state.lords[gid].side != sd:
+            raise IllegalAction("bad_group", f"{gid} not on your side")
+        if state.lords[gid].location != src:
+            raise IllegalAction("bad_group", f"{gid} not at {src}")
+        if _is_besieged(state, gid):
+            raise IllegalAction("besieged", f"{gid} is Besieged; cannot March")
+
+    # Action cost: 2 if any group member is Laden.
+    laden = any(_is_laden(state, gid) for gid in group)
+    cost = 2 if laden else 1
+    if state.campaign_turn.actions_remaining < cost:
+        raise IllegalAction(
+            "insufficient_actions",
+            f"March costs {cost} action(s); {state.campaign_turn.actions_remaining} remain",
+        )
+
+    enemies = _enemies_at(state, dest, sd)
+    if enemies:
+        # Approach: pause and request defender response.
+        from nevsky.state import CombatPending
+        state.combat_pending = CombatPending(
+            attacker_side=sd,
+            attacker_group=list(group),
+            from_locale=src,
+            to_locale=dest,
+            way_type=way_type,
+            defender_side=state.lords[enemies[0]].side,
+            defender_lords=enemies,
+            pending_response_by=state.lords[enemies[0]].side,
+            laden=laden,
+        )
+        # Move attacking Lord(s) tentatively (we model: attackers enter the
+        # locale at Approach; if defender Avoids / Withdraws into Stronghold,
+        # outcome resolves below). For simplicity Phase 3b records attackers
+        # at destination during Approach and rolls back if Battle resolves
+        # the loser as attackers.
+        for gid in group:
+            state.lords[gid].location = dest
+            state.lords[gid].moved_fought = True
+        _consume_actions(state, cost)
+        return (
+            {
+                "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
+                "group": group, "laden": laden,
+                "approach": True,
+                "defender_side": state.lords[enemies[0]].side,
+                "defender_lords": enemies,
+            },
+            [],
+        )
+
+    # No enemy Lord: just move.
+    for gid in group:
+        state.lords[gid].location = dest
+        state.lords[gid].moved_fought = True
+
+    placed_siege = False
+    if _has_enemy_stronghold_at(state, dest, sd):
+        loc = state.locales[dest]
+        if loc.siege_markers == 0:
+            loc.siege_markers = 1
+            placed_siege = True
+            # Begin Siege ends the card per 4.3 (ends_card_when began_siege).
+            state.campaign_turn.actions_remaining = 0
+            _enter_feed_pay_disband(state)
+
+    if not placed_siege:
+        _consume_actions(state, cost)
+    else:
+        # consume here too; card already ended.
+        pass
+
+    return (
+        {
+            "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
+            "group": group, "laden": laden,
+            "placed_siege": placed_siege,
+        },
+        [],
+    )
+
+
+def _h_avoid_battle(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.3.4 Avoid Battle: defender (Unladen) moves to an adjacent
+    Locale free of enemy Lord, Stronghold, and Conquered marker.
+    args.to: destination locale_id.
+    """
+    sd = _require_side_player(state, side)
+    cp = state.combat_pending
+    if cp is None:
+        raise IllegalAction("no_combat", "no pending combat")
+    if cp.pending_response_by != sd:
+        raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
+    dest = args.get("to")
+    if not isinstance(dest, str):
+        raise IllegalAction("missing_arg", "args.to required")
+    # Check Avoid eligibility: every defender must be Unladen.
+    for did in cp.defender_lords:
+        if _is_laden(state, did):
+            raise IllegalAction(
+                "laden_cannot_avoid",
+                f"{did} is Laden; Avoid Battle requires Unladen (4.3.4)",
+            )
+    # Adjacent to current locale via any Way.
+    src = cp.to_locale  # defender currently at to_locale
+    ways = load_ways()
+    adjacent = False
+    for w in ways:
+        if (w["a"] == src and w["b"] == dest) or (w["b"] == src and w["a"] == dest):
+            adjacent = True
+            break
+    if not adjacent:
+        raise IllegalAction("not_adjacent", f"{dest} not adjacent to {src}")
+    # Destination must be free of enemy Lord, enemy Stronghold, enemy Conquered.
+    if _enemies_at(state, dest, sd):
+        raise IllegalAction("dest_blocked", f"{dest} has enemy Lord")
+    if _has_enemy_stronghold_at(state, dest, sd):
+        raise IllegalAction("dest_blocked", f"{dest} has enemy Stronghold")
+    loc = state.locales[dest]
+    if (sd == "teutonic" and loc.russian_conquered > 0) or (sd == "russian" and loc.teutonic_conquered > 0):
+        raise IllegalAction("dest_blocked", f"{dest} has enemy Conquered marker")
+
+    # Move defender(s).
+    for did in cp.defender_lords:
+        state.lords[did].location = dest
+        state.lords[did].moved_fought = True
+
+    # Combat resolves: attackers remain at to_locale; check for Stronghold->Siege.
+    placed_siege = False
+    if _has_enemy_stronghold_at(state, cp.to_locale, cp.attacker_side):
+        loc2 = state.locales[cp.to_locale]
+        if loc2.siege_markers == 0:
+            loc2.siege_markers = 1
+            placed_siege = True
+    state.combat_pending = None
+    # Card ends per 4.3 (Marched and Approached counts toward "ended card").
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"avoided_to": dest, "placed_siege": placed_siege}, [])
+
+
+def _h_withdraw(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.3.4 Withdraw: defender retreats into a Friendly Stronghold at
+    the Battle Locale (capacity 1/2/3).
+
+    For Phase 3b we treat Withdraw as: defender remains at to_locale
+    but is moved 'inside' the Stronghold (Besieged status). We model
+    this by placing a siege marker at the locale and marking each
+    withdrawn Lord with siege_markers > 0 at their location.
+    """
+    sd = _require_side_player(state, side)
+    cp = state.combat_pending
+    if cp is None:
+        raise IllegalAction("no_combat", "no pending combat")
+    if cp.pending_response_by != sd:
+        raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
+    static = load_locales()
+    sloc = static[cp.to_locale]
+    stype = sloc["type"]
+    if stype not in ("commandery", "fort", "city", "novgorod", "bishopric", "castle"):
+        raise IllegalAction("no_stronghold", f"{cp.to_locale} has no Stronghold to Withdraw into")
+    # Friendly to defender side?
+    if not _is_friendly_locale(state, cp.to_locale, sd):
+        # Strict Friendly check excludes Besieged locales; for Withdraw we
+        # require defender's territory or defender's Conquered Stronghold,
+        # without enemy Conquered marker.
+        loc_state = state.locales[cp.to_locale]
+        own_terr = (sd == "teutonic" and sloc["territory"] in ("teutonic", "crusader")) or (sd == "russian" and sloc["territory"] == "russian")
+        enemy_conq = (sd == "teutonic" and loc_state.russian_conquered > 0) or (sd == "russian" and loc_state.teutonic_conquered > 0)
+        if not own_terr or enemy_conq:
+            raise IllegalAction("not_friendly", f"{cp.to_locale} not Friendly to defender")
+
+    capacity = {"commandery": 1, "fort": 1, "bishopric": 2, "city": 2,
+                "novgorod": 3, "castle": 1}.get(stype, 1)
+    if len(cp.defender_lords) > capacity:
+        raise IllegalAction("over_capacity",
+            f"Stronghold {cp.to_locale} capacity {capacity}; {len(cp.defender_lords)} defenders")
+
+    # Place a siege marker (Besieged the defenders).
+    loc2 = state.locales[cp.to_locale]
+    if loc2.siege_markers == 0:
+        loc2.siege_markers = 1
+    for did in cp.defender_lords:
+        state.lords[did].moved_fought = True
+    state.combat_pending = None
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"withdrew_into": cp.to_locale, "capacity": capacity}, [])
+
+
+def _h_stand_battle(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Defender chooses to Stand. Triggers full 4.4 Battle resolution."""
+    from nevsky.battle import (
+        apply_retreat_service_shift,
+        resolve_battle,
+        transfer_spoils,
+    )
+
+    sd = _require_side_player(state, side)
+    cp = state.combat_pending
+    if cp is None:
+        raise IllegalAction("no_combat", "no pending combat")
+    if cp.pending_response_by != sd:
+        raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
+
+    result = resolve_battle(
+        state, attacker_side=cp.attacker_side,
+        attacker_lords=list(cp.attacker_group),
+        defender_lords=list(cp.defender_lords),
+    )
+    winner = result["winner"]
+    loser_lords = result["attacker_lords"] if result["loser"] == cp.attacker_side else result["defender_lords"]
+    winner_lords = result["defender_lords"] if winner == cp.defender_side else result["attacker_lords"]
+
+    aftermath: dict[str, Any] = {"battle": result, "retreats": [], "spoils": [], "removed": []}
+    for lid in list(loser_lords):
+        if lid not in state.lords:
+            continue
+        lord = state.lords[lid]
+        if not lord.forces:
+            # Lord with zero units -> permanently removed (1.5.1).
+            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+            aftermath["spoils"].append(spoil)
+            from nevsky.actions import _remove_lord_permanently as _rem
+            _rem(state, lid, load_lords()[lid])
+            aftermath["removed"].append(lid)
+            continue
+        # Default Phase 3b behavior: loser Retreats to from_locale (attackers)
+        # or stays at to_locale (defenders auto-retreat to a random friendly
+        # neighbor). For attackers, retreat back to from_locale. For
+        # defenders, retreat to an adjacent neighbor with no enemy Lord.
+        if result["loser"] == cp.attacker_side:
+            target = cp.from_locale
+        else:
+            target = None
+            for w in load_ways():
+                if w["a"] == cp.to_locale:
+                    cand = w["b"]
+                elif w["b"] == cp.to_locale:
+                    cand = w["a"]
+                else:
+                    continue
+                if not _enemies_at(state, cand, lord.side) and not _has_enemy_stronghold_at(state, cand, lord.side):
+                    target = cand
+                    break
+            if target is None:
+                # No retreat possible -> permanently removed.
+                spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+                aftermath["spoils"].append(spoil)
+                from nevsky.actions import _remove_lord_permanently as _rem
+                _rem(state, lid, load_lords()[lid])
+                aftermath["removed"].append(lid)
+                continue
+        lord.location = target
+        shift = apply_retreat_service_shift(state, lid)
+        spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+        aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
+        aftermath["spoils"].append(spoil)
+
+    # Mark all participants MOVED_FOUGHT.
+    for lid in cp.attacker_group + cp.defender_lords:
+        if lid in state.lords:
+            state.lords[lid].moved_fought = True
+
+    state.combat_pending = None
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"winner": winner, "loser": result["loser"], **aftermath}, [])
+
+
+# ---------------------------------------------------------------------------
+# Register Phase 3b handlers
+# ---------------------------------------------------------------------------
+
+
+HANDLERS_PHASE_3B = {
+    "cmd_march": _h_cmd_march,
+    "avoid_battle": _h_avoid_battle,
+    "withdraw": _h_withdraw,
+    "stand_battle": _h_stand_battle,
+}
+
+HANDLERS.update(HANDLERS_PHASE_3B)

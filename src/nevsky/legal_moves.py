@@ -335,6 +335,19 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     from nevsky.campaign import _plan_target_size
 
     out: list[dict[str, Any]] = []
+    # Combat-pending response takes priority.
+    if state.combat_pending is not None:
+        cp = state.combat_pending
+        if cp.pending_response_by == side:
+            out.append({"type": "stand_battle", "side": side, "args": {}, "note": "engage in Battle"})
+            if not cp.laden:
+                out.append({"type": "avoid_battle", "side": side,
+                            "args_template": {"to": "<adjacent locale_id>"},
+                            "note": "Avoid Battle (Unladen, 4.3.4)"})
+            out.append({"type": "withdraw", "side": side, "args": {},
+                        "note": "Withdraw into Stronghold at Battle Locale"})
+            return out
+        return out
     cstep = state.meta.campaign_step
     if cstep == "plan":
         deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
@@ -367,6 +380,9 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         active_lord = state.campaign_turn.active_lord
         if active_lord is None or state.lords[active_lord].side != side:
             return out
+        out.append({"type": "cmd_march", "side": side,
+                    "args_template": {"lord_id": "<id>", "to": "<locale_id>", "group": "[<id>]"},
+                    "note": "March 1 Locale (1 Unladen / 2 Laden)"})
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})

@@ -55,3 +55,10 @@ def neighbors(locale_id: str) -> list[tuple[str, str]]:
         elif w["b"] == locale_id:
             out.append((w["a"], w["type"]))
     return out
+
+
+@lru_cache(maxsize=1)
+def load_forces() -> dict[str, dict[str, Any]]:
+    """Forces table (strikes, protection ranges, archery defaults)."""
+    raw = _read("forces.json")
+    return raw["units"]
