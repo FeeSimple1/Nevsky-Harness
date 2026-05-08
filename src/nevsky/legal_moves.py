@@ -387,7 +387,17 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     if state.combat_pending is not None:
         cp = state.combat_pending
         if cp.pending_response_by == side:
-            out.append({"type": "stand_battle", "side": side, "args": {}, "note": "engage in Battle"})
+            stand_note = "engage in Battle"
+            try:
+                from nevsky.previews import vp_forecast
+                fc = vp_forecast(state, {
+                    "type": "stand_battle", "side": side, "args": {},
+                }, preview_trials=50)
+                if fc.get("note"):
+                    stand_note += f" | {fc['note']}"
+            except Exception:
+                pass
+            out.append({"type": "stand_battle", "side": side, "args": {}, "note": stand_note})
             if not cp.laden:
                 out.append({"type": "avoid_battle", "side": side,
                             "args_template": {"to": "<adjacent locale_id>"},
@@ -472,13 +482,35 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                             "args": {"lord_id": active_lord},
                             "note": "Siege (4.5.1) -- entire card; surrender or siegeworks"})
                 if not sh.get("no_storm"):
+                    storm_note = "Storm (4.5.2) -- entire card"
+                    try:
+                        from nevsky.previews import vp_forecast
+                        fc = vp_forecast(state, {
+                            "type": "cmd_storm", "side": side,
+                            "args": {"lord_id": active_lord},
+                        }, preview_trials=50)
+                        if fc.get("note"):
+                            storm_note += f" | {fc['note']}"
+                    except Exception:
+                        pass
                     out.append({"type": "cmd_storm", "side": side,
                                 "args": {"lord_id": active_lord},
-                                "note": "Storm (4.5.2) -- entire card"})
+                                "note": storm_note})
             if _ib(state, active_lord):
+                sally_note = "Sally (4.5.3) -- entire card; Besieged Lord attacks Besiegers"
+                try:
+                    from nevsky.previews import vp_forecast
+                    fc = vp_forecast(state, {
+                        "type": "cmd_sally", "side": side,
+                        "args": {"lord_id": active_lord},
+                    }, preview_trials=50)
+                    if fc.get("note"):
+                        sally_note += f" | {fc['note']}"
+                except Exception:
+                    pass
                 out.append({"type": "cmd_sally", "side": side,
                             "args": {"lord_id": active_lord},
-                            "note": "Sally (4.5.3) -- entire card; Besieged Lord attacks Besiegers"})
+                            "note": sally_note})
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})
@@ -488,9 +520,10 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         out.append({"type": "cmd_forage", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "+1 Provender (1 action)"})
+        ravage_note = "Ravage current Locale (1-2 actions); +0.5 VP for own Ravaged marker"
         out.append({"type": "cmd_ravage", "side": side,
-                    "args": {"lord_id": active_lord},
-                    "note": "Ravage current Locale (1-2 actions)"})
+                    "args": {"lord_id": active_lord, "locale_id": active.location},
+                    "note": ravage_note})
         out.append({"type": "cmd_supply", "side": side,
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
                     "note": "Supply (1 action)"})
