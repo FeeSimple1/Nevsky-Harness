@@ -172,12 +172,14 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         if free:
             ready_targets[lid] = free
     if by_with_budget and ready_targets:
-        out.append({
-            "type": "muster_lord",
-            "side": side,
-            "args_template": {"by_lord": "<id>", "target_lord": "<id>", "seat": "<locale_id>"},
-            "candidates": {"by_lords": by_with_budget, "targets": ready_targets},
-        })
+        for by_lid in by_with_budget:
+            for tgt_lid, seats in ready_targets.items():
+                for seat in seats:
+                    out.append({
+                        "type": "muster_lord", "side": side,
+                        "args": {"by_lord": by_lid, "target_lord": tgt_lid, "seat": seat},
+                        "note": f"{by_lid} (Lordship) Musters {tgt_lid} at {seat} (1d6<=Fealty success)",
+                    })
 
     # Muster Vassal.
     vassal_options: dict[str, list[str]] = {}
@@ -186,13 +188,13 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         opts = [vid for vid, vst in lord.vassals.items() if vst.ready and not vst.mustered]
         if opts:
             vassal_options[lid] = opts
-    if vassal_options:
-        out.append({
-            "type": "muster_vassal",
-            "side": side,
-            "args_template": {"by_lord": "<id>", "vassal_id": "<id>"},
-            "candidates": {"by_to_vassals": vassal_options},
-        })
+    for by_lid, vlist in vassal_options.items():
+        for vid in vlist:
+            out.append({
+                "type": "muster_vassal", "side": side,
+                "args": {"by_lord": by_lid, "vassal_id": vid},
+                "note": f"{by_lid} Musters Vassal {vid}",
+            })
 
     # Levy Transport.
     transport_options: dict[str, list[str]] = {}
@@ -207,13 +209,13 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 opts.append(t)
         if opts:
             transport_options[lid] = opts
-    if transport_options:
-        out.append({
-            "type": "levy_transport",
-            "side": side,
-            "args_template": {"by_lord": "<id>", "transport_type": "boat|cart|sled|ship"},
-            "candidates": {"by_to_transports": transport_options},
-        })
+    for by_lid, tlist in transport_options.items():
+        for tt in tlist:
+            out.append({
+                "type": "levy_transport", "side": side,
+                "args": {"by_lord": by_lid, "transport_type": tt},
+                "note": f"{by_lid} Levies +1 {tt}",
+            })
 
     # Levy Capability.
     sd = state.decks.teutonic if side == "teutonic" else state.decks.russian
@@ -221,13 +223,15 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         cid for cid in (sd.deck + sd.discard)
         if not cards[cid]["no_event"]
     ]
-    if by_with_budget and available_caps:
-        out.append({
-            "type": "levy_capability",
-            "side": side,
-            "args_template": {"by_lord": "<id>", "card_id": "<card_id>", "lord_id": "<id?>"},
-            "candidates": {"by_lords": by_with_budget, "cards": available_caps},
-        })
+    for by_lid in by_with_budget:
+        for cid in available_caps:
+            cap_name = cards[cid].get("capability_name") or "?"
+            scope = cards[cid].get("capability_scope") or "?"
+            out.append({
+                "type": "levy_capability", "side": side,
+                "args": {"by_lord": by_lid, "card_id": cid},
+                "note": f"{by_lid} Levies {cid} ({cap_name}) [{scope}]",
+            })
 
     return out
 
@@ -237,29 +241,66 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     if side == "teutonic":
         if state.legate.william_of_modena_in_play and not state.legate.acted_this_call_to_arms:
             if state.legate.location == "card":
-                out.append({
-                    "type": "legate_arrives",
-                    "side": "teutonic",
-                    "args_template": {"bishopric": "riga|dorpat|leal|reval"},
-                    "candidates": {"bishoprics": sorted(_BISHOPRICS)},
-                })
+                for bp in sorted(_BISHOPRICS):
+                    out.append({
+                        "type": "legate_arrives", "side": "teutonic",
+                        "args": {"bishopric": bp},
+                        "note": f"Place Legate at Bishopric {bp} (3.5.1 Option 1)",
+                    })
             else:
                 # On map: Move (Option 1) or USE 2a/2b/2c
                 friendly = [
                     lid for lid in state.locales
                     if _is_friendly_locale(state, lid, "teutonic")
                 ]
-                out.append({
-                    "type": "legate_move",
-                    "side": "teutonic",
-                    "args_template": {"locale_id": "<id>"},
-                    "candidates": {"locales": friendly},
-                })
-                out.append({
-                    "type": "legate_use",
-                    "side": "teutonic",
-                    "args_template": {"sub_option": "2a|2b|2c", "target_lord": "<id>"},
-                })
+                for fl in friendly:
+                    out.append({
+                        "type": "legate_move", "side": "teutonic",
+                        "args": {"locale_id": fl},
+                        "note": f"Move Legate to {fl} (3.5.1 Option 1)",
+                    })
+                # 2a: auto-Muster a Ready Lord at his Seat (no Fealty), pawn at that Seat.
+                # 2b: shift a Lord's Calendar marker 1 box LEFT, pawn at that Lord's Seat.
+                # 2c: extra Muster at full Lordship for a Mustered Lord co-located with the Legate.
+                pawn_loc = state.legate.locale_id
+                # 2a candidates: Ready Teu Lords whose Seats include the pawn's Locale.
+                from nevsky.actions import _seats_of as _seats
+                cand_2a = [
+                    lid for lid, l in state.lords.items()
+                    if l.side == "teutonic" and l.state == "ready"
+                    and pawn_loc in _seats(state, lid)
+                ]
+                for tgt in cand_2a:
+                    out.append({
+                        "type": "legate_use", "side": "teutonic",
+                        "args": {"sub_option": "2a", "target_lord": tgt},
+                        "note": f"Legate 2a: auto-Muster Ready {tgt} at his Seat {pawn_loc} (3.5.1)",
+                    })
+                # 2b candidates: Teu Lords whose Seat the pawn is at, on Calendar.
+                cand_2b = [
+                    lid for lid, l in state.lords.items()
+                    if l.side == "teutonic" and pawn_loc in _seats(state, lid)
+                    and _find_cylinder_box(state, lid) is not None
+                ]
+                for tgt in cand_2b:
+                    out.append({
+                        "type": "legate_use", "side": "teutonic",
+                        "args": {"sub_option": "2b", "target_lord": tgt},
+                        "note": f"Legate 2b: shift {tgt} 1 box LEFT on Calendar (3.5.1)",
+                    })
+                # 2c candidates: Mustered Teu Lords co-located with the pawn at a Friendly Locale.
+                cand_2c = [
+                    lid for lid, l in state.lords.items()
+                    if l.side == "teutonic" and l.state == "mustered"
+                    and l.location == pawn_loc
+                    and _is_friendly_locale(state, l.location, "teutonic")
+                ]
+                for tgt in cand_2c:
+                    out.append({
+                        "type": "legate_use", "side": "teutonic",
+                        "args": {"sub_option": "2c", "target_lord": tgt},
+                        "note": f"Legate 2c: give {tgt} extra Muster at full Lordship (3.5.1)",
+                    })
         out.append({"type": "legate_skip", "side": "teutonic", "args": {}})
         out.append({"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     else:  # russian
@@ -278,29 +319,32 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 })
         if not state.veche.acted_this_call_to_arms:
             if state.veche.vp_markers > 0:
+                # Option A: shift Aleksandr/Andrey cylinder LEFT 2 boxes (1 VP marker each).
                 ru_lords_on_calendar = [
                     lid for lid, lord in state.lords.items()
                     if lord.side == "russian" and _find_cylinder_box(state, lid) is not None
                 ]
-                out.append({
-                    "type": "veche_action",
-                    "side": "russian",
-                    "args_template": {"option": "A", "target_lord": "<id>"},
-                    "candidates": {"targets": ru_lords_on_calendar},
-                })
+                for tgt in ru_lords_on_calendar:
+                    out.append({
+                        "type": "veche_action", "side": "russian",
+                        "args": {"option": "A", "target_lord": tgt},
+                        "note": f"Veche A: spend 1 VP marker, shift {tgt} cylinder 2 boxes LEFT (3.5.2)",
+                    })
+                # Option B: auto-Muster a Ready Russian Lord at a Free Seat (no Fealty).
                 ready_ru = [
                     lid for lid, lord in state.lords.items()
                     if lord.side == "russian" and lord.state == "ready"
                     and _is_ready(state, lid, levy_box)
                     and _free_seats_for(state, lid)
                 ]
-                if ready_ru:
-                    out.append({
-                        "type": "veche_action",
-                        "side": "russian",
-                        "args_template": {"option": "B", "target_lord": "<id>", "seat": "<locale_id>"},
-                        "candidates": {"targets": ready_ru},
-                    })
+                for tgt in ready_ru:
+                    for seat in _free_seats_for(state, tgt):
+                        out.append({
+                            "type": "veche_action", "side": "russian",
+                            "args": {"option": "B", "target_lord": tgt, "seat": seat},
+                            "note": f"Veche B: spend 1 VP marker, auto-Muster {tgt} at {seat} (3.5.2)",
+                        })
+                # Option C: extra Muster at full Lordship for a Mustered Lord.
                 extra_targets = [
                     lid for lid, lord in state.lords.items()
                     if lord.side == "russian" and lord.state == "mustered"
@@ -309,24 +353,28 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     and not _is_besieged(state, lid)
                     and not lord.just_arrived_this_levy
                 ]
-                if extra_targets:
+                for tgt in extra_targets:
                     out.append({
-                        "type": "veche_action",
-                        "side": "russian",
-                        "args_template": {"option": "C", "target_lord": "<id>"},
-                        "candidates": {"targets": extra_targets},
+                        "type": "veche_action", "side": "russian",
+                        "args": {"option": "C", "target_lord": tgt},
+                        "note": f"Veche C: spend 1 VP marker, give {tgt} extra Muster at full Lordship (3.5.2)",
                     })
+            # Option D: decline Aleksandr/Andrey for +1 VP marker.
             decline_avail = (
                 _is_ready(state, "aleksandr", levy_box)
                 or _is_ready(state, "andrey", levy_box)
             )
             if decline_avail:
                 out.append({
-                    "type": "veche_action",
-                    "side": "russian",
+                    "type": "veche_action", "side": "russian",
                     "args": {"option": "D"},
+                    "note": "Veche D: decline Ready Aleksandr/Andrey for +1 VP marker (3.5.2)",
                 })
-            out.append({"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
+            out.append({
+                "type": "veche_action", "side": "russian",
+                "args": {"option": "skip"},
+                "note": "Veche skip: take no Veche action this Call to Arms",
+            })
         out.append({"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     return out
 
@@ -357,15 +405,24 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             if len(deck.plan) < target:
                 mustered = [lid for lid, l in state.lords.items()
                             if l.side == side and l.state == "mustered"]
+                # Concrete entries: one per Mustered Lord + one for pass.
+                for lid in mustered:
+                    if lid not in deck.plan:  # cannot plan same Lord twice in one stack
+                        out.append({
+                            "type": "plan_add_card", "side": side,
+                            "args": {"card": lid},
+                            "note": f"Plan slot {len(deck.plan)+1}/{target}: include {lid} in this Campaign's activation order",
+                        })
                 out.append({
-                    "type": "plan_add_card",
-                    "side": side,
-                    "args_template": {"card": "<lord_id>|pass"},
-                    "candidates": {"lords": mustered, "filler": "pass"},
-                    "note": f"Plan {len(deck.plan)}/{target}",
+                    "type": "plan_add_card", "side": side,
+                    "args": {"card": "pass"},
+                    "note": f"Plan slot {len(deck.plan)+1}/{target}: Pass card (no Lord activates this slot)",
                 })
             else:
-                out.append({"type": "finalize_plan", "side": side, "args": {}})
+                out.append({
+                    "type": "finalize_plan", "side": side, "args": {},
+                    "note": f"Finalize plan ({len(deck.plan)}/{target} cards stacked, ready)",
+                })
         return out
     if cstep == "command":
         if state.campaign_turn.in_feed_pay_disband:
@@ -380,13 +437,33 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         active_lord = state.campaign_turn.active_lord
         if active_lord is None or state.lords[active_lord].side != side:
             return out
-        out.append({"type": "cmd_march", "side": side,
-                    "args_template": {"lord_id": "<id>", "to": "<locale_id>", "group": "[<id>]"},
-                    "note": "March 1 Locale (1 Unladen / 2 Laden)"})
+        # Enumerate reachable destinations via Ways from active Lord's Locale.
+        # Per 4.3.x: 1 Locale per March action.
+        active = state.lords[active_lord]
+        try:
+            from nevsky.static_data import load_ways
+            ways = load_ways()
+            here = active.location
+            adj = []
+            for w in ways:
+                if w["a"] == here:
+                    adj.append((w["b"], w.get("type", "?")))
+                elif w["b"] == here:
+                    adj.append((w["a"], w.get("type", "?")))
+            for dest, way_type in adj:
+                out.append({
+                    "type": "cmd_march", "side": side,
+                    "args": {"lord_id": active_lord, "to": dest},
+                    "note": f"March {active_lord} {here}->{dest} via {way_type} (1 action Unladen, 2 Laden)",
+                })
+        except Exception:
+            # Fallback to template form.
+            out.append({"type": "cmd_march", "side": side,
+                        "args_template": {"lord_id": "<id>", "to": "<locale_id>", "group": "[<id>]"},
+                        "note": "March 1 Locale (1 Unladen / 2 Laden)"})
         # Siege/Storm if Lord is at a Stronghold with siege markers,
         # is not Besieged inside, and is besieging.
         from nevsky.campaign import _stronghold_at, _is_besieged as _ib
-        active = state.lords[active_lord]
         if active.location is not None:
             sh = _stronghold_at(active.location)
             sm = state.locales[active.location].siege_markers

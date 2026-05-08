@@ -51,6 +51,79 @@ def season(box: int) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _next_expected_action(state: GameState) -> str:
+    """One-line hint for the LLM consumer: what action is the active side expected
+    to issue next? Encodes the lockstep flow so callers don't need to grep the
+    source. Returns a short imperative string.
+    """
+    m = state.meta
+    side = m.active_player or "?"
+    if m.phase == "setup":
+        return f"{side}: confirm_all_setup_transports"
+    if m.phase == "levy":
+        deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
+        step = m.levy_step
+        if step == "arts_of_war":
+            if not deck.discard and not deck.holds and not deck.capabilities_in_play and not deck.pending_draw:
+                # Likely first call: nothing drawn yet.
+                return f"{side}: aow_shuffle then aow_draw"
+            if deck.pending_draw:
+                return f"{side}: aow_implement_card (pending: {deck.pending_draw})"
+            return f"{side}: advance_step (Arts of War complete)"
+        if step in ("pay", "disband"):
+            return f"{side}: advance_step (no {step} action required, or apply per-Lord {step} actions)"
+        if step == "muster":
+            return f"{side}: muster_lord (or advance_step if no Muster needed)"
+        if step == "call_to_arms":
+            if side == "teutonic":
+                return f"{side}: legate_arrives | legate_move | legate_use | legate_skip, then aow_discard_this_levy, then advance_step"
+            else:
+                return f"{side}: veche_action, then aow_discard_this_levy, then advance_step"
+        return f"{side}: advance_step"
+    if m.phase == "campaign":
+        step = m.campaign_step
+        if step == "plan":
+            from nevsky.campaign import _plan_target_size
+            size = _plan_target_size(m.box)
+            t_done = m.plan_complete_t
+            r_done = m.plan_complete_r
+            if side == "teutonic" and not t_done:
+                return f"{side}: plan_add_card (need {size} cards) then finalize_plan"
+            if side == "russian" and not r_done:
+                return f"{side}: plan_add_card (need {size} cards) then finalize_plan"
+            return f"{side}: waiting on the other side\'s plan"
+        if step == "command":
+            if state.campaign_turn.in_feed_pay_disband:
+                return f"{side}: fpd_resolve"
+            return f"{side}: command_reveal then issue cmd_* actions for the active Lord"
+        if step == "end_campaign":
+            return f"{side}: end_campaign_resolve"
+    return ""
+
+
+def _pending_draws_block(state: GameState) -> list[str]:
+    """If either side has pending Arts of War draws, render id, names, and effect
+    text inline so the consumer doesn't need to fetch from the reference."""
+    out: list[str] = []
+    from nevsky.static_data import load_cards
+    cards = load_cards()
+    for side, deck in (("Teu", state.decks.teutonic), ("Rus", state.decks.russian)):
+        if not deck.pending_draw:
+            continue
+        out.append(f"Pending AoW {side}:")
+        for cid in deck.pending_draw:
+            c = cards.get(cid, {})
+            ev_name = c.get("event_name") or "—"
+            ev_text = c.get("event_text") or ""
+            cap_name = c.get("capability_name") or "—"
+            cap_text = c.get("capability_text") or ""
+            scope = c.get("capability_scope") or ""
+            persist = c.get("event_persistence") or ""
+            out.append(f"  {cid}: EVENT [{persist}] {ev_name} — {ev_text}")
+            out.append(f"       CAP [{scope}] {cap_name} — {cap_text}")
+    return out
+
+
 def render_summary(state: GameState) -> str:
     """Compact, LLM-budget-friendly view of game state."""
     lines: list[str] = []
@@ -59,6 +132,10 @@ def render_summary(state: GameState) -> str:
         f"{m.scenario_display_name} (box {m.box}/{m.span_end_box}, "
         f"{season(m.box)}, {m.phase}, {m.active_player or '-'} to act)"
     )
+    # Lockstep / next-action hint.
+    hint = _next_expected_action(state)
+    if hint:
+        lines.append(f"Next expected: {hint}")
     lines.append(
         f"VP: R={state.calendar.russian_vp:g}  T={state.calendar.teutonic_vp:g}  "
         f"Veche: {state.veche.coin} coin, {state.veche.vp_markers} VP markers"
@@ -121,6 +198,22 @@ def render_summary(state: GameState) -> str:
     if map_lines:
         lines.append("Map markers:")
         lines.extend("  " + ml for ml in map_lines)
+
+    # Pending Arts of War draws with full effect text
+    pending_block = _pending_draws_block(state)
+    if pending_block:
+        lines.extend(pending_block)
+
+    # Plan-step extras: required size, current sizes per side
+    if m.phase == "campaign" and m.campaign_step == "plan":
+        from nevsky.campaign import _plan_target_size
+        plan_size = _plan_target_size(m.box)
+        t_size = len(state.decks.teutonic.plan)
+        r_size = len(state.decks.russian.plan)
+        lines.append(
+            f"Plan: required={plan_size} | T={t_size}{'(done)' if m.plan_complete_t else ''} "
+            f"| R={r_size}{'(done)' if m.plan_complete_r else ''}"
+        )
 
     # Decks
     lines.append(
@@ -410,3 +503,76 @@ def _render_deck(decks: Decks, side: str) -> str:
     for cid in sd.plan:
         lines.append(f"    {cid}")
     return "\n".join(lines)
+
+
+
+def lord_combat_summary(state: GameState, lord_id: str) -> dict[str, Any]:
+    """Compact per-Lord summary an LLM consumer can read instead of grepping
+    static data + capability lookups. Includes effective Command, hit output
+    by Strike step (Battle and Storm), Provender clock, and Service-disband box.
+
+    Returns a dict; consumer can format as needed.
+    """
+    if lord_id not in state.lords:
+        return {"error": f"unknown lord {lord_id}"}
+    lord = state.lords[lord_id]
+    if lord.state != "mustered":
+        return {
+            "lord_id": lord_id, "side": lord.side, "state": lord.state,
+            "note": "Not Mustered; no combat summary available",
+        }
+    from nevsky.static_data import load_lords
+    sl = load_lords()[lord_id]
+    from nevsky.battle import _hits_for_lord_strike, _storm_hits_for_units
+    from nevsky.campaign import _effective_command_rating
+
+    # Battle strike hits per step (Lord's own Forces, default capabilities).
+    battle_arch = _hits_for_lord_strike(state, lord_id, "archery")
+    battle_melee_horse = _hits_for_lord_strike(state, lord_id, "melee_horse")
+    battle_melee_foot = _hits_for_lord_strike(state, lord_id, "melee_foot")
+    storm_arch = _storm_hits_for_units(lord.forces, "archery", in_storm=True)
+    storm_melee = _storm_hits_for_units(lord.forces, "melee", in_storm=True)
+
+    # Service-disband box.
+    svc_box = None
+    for cb in state.calendar.boxes:
+        if lord_id in cb.service_markers:
+            svc_box = cb.box
+            break
+
+    # Provender clock: 1 prov/Campaign for 1-6 units; 2 for 7+.
+    units = sum(lord.forces.values())
+    feed_cost = 2 if units >= 7 else 1
+
+    return {
+        "lord_id": lord_id,
+        "side": lord.side,
+        "location": lord.location,
+        "in_stronghold": lord.in_stronghold,
+        "ratings": {
+            "command_base": int(sl["ratings"]["command"]),
+            "command_effective": _effective_command_rating(state, lord_id),
+            "lordship": int(sl["ratings"]["lordship"]),
+            "lordship_used": lord.lordship_used,
+            "service": int(sl["ratings"]["service"]),
+            "fealty": sl["ratings"].get("fealty"),
+        },
+        "service_disband_box": svc_box,
+        "forces": dict(lord.forces),
+        "units_total": units,
+        "feed_cost_prov": feed_cost,
+        "assets": dict(lord.assets),
+        "this_lord_capabilities": list(lord.this_lord_capabilities),
+        "battle_strike_hits": {
+            "archery": round(battle_arch, 2),
+            "melee_horse": round(battle_melee_horse, 2),
+            "melee_foot": round(battle_melee_foot, 2),
+            "total_battle_melee": round(battle_melee_horse + battle_melee_foot, 2),
+        },
+        "storm_strike_hits": {
+            "archery": round(storm_arch, 2),
+            "melee_capped_at_6": round(min(6.0, storm_melee), 2),
+            "melee_uncapped": round(storm_melee, 2),
+        },
+    }
+

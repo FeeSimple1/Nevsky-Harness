@@ -1461,3 +1461,103 @@ choices and number of Lords matter as much as side bias.
   exercised by this smoke pass — the compositions don't combine
   -2-Armor archery with regular Russian archery. Will surface if
   later smoke uses Streltsy/Garrison-MaA archery in the same step.
+
+# Round 15 — LLM-consumer interface gaps
+
+User direction (2026-05-08): the harness should let an LLM agent (Claude
+or ChatGPT) play any scenario without consulting external rules
+references during play. A walkthrough of Pleskau turn 1 surfaced a
+concrete punch list of gaps where the consumer had to leave the
+harness state to make a decision. This round closes those gaps.
+
+## Card effect text now in static data
+
+`reference/Nevsky_Arts_of_War_Reference.txt` parsed and merged into
+`src/nevsky/data/static/cards.json` as `event_text` and
+`capability_text` fields on every numbered card (T1-T18, R1-R18) — 36
+cards covered. No-Event/No-Capability blank cards intentionally have
+empty strings.
+
+## render_summary lockstep + content additions
+
+`render_summary` now prints two new lines:
+
+- **Next expected:** a one-line hint encoding the lockstep flow ("teutonic:
+  aow_implement_card (pending: ['T4', 'T12'])"). Removes the need to grep
+  the source to figure out which side acts next and what action it should
+  issue.
+- **Pending AoW {side}:** when a side has cards in `pending_draw`, this
+  block lists each card with its EVENT name + persistence + text and
+  CAPABILITY name + scope + text inline. The consumer can decide
+  implement-vs-hold-vs-discard from the summary alone.
+
+During `phase=campaign step=plan`, summary also includes a `Plan:
+required=N | T=t_size(done?) | R=r_size(done?)` line so the consumer
+knows the season's plan-size target without importing the internal
+`_plan_target_size`.
+
+## Legal-moves now concrete and self-explanatory
+
+`legal_moves` previously emitted action templates with `args_template`
+and `candidates` dicts; the consumer had to combine them. Now each
+applicable substep emits **fully-populated concrete entries** with a
+`note:` field describing what the action does:
+
+- `muster_lord`: one entry per (by_lord, target_lord, seat) triple.
+- `muster_vassal`: one entry per (by_lord, vassal_id) pair.
+- `levy_transport`: one entry per (by_lord, transport_type) pair.
+- `levy_capability`: one entry per (by_lord, card_id) with capability
+  name + scope in the note.
+- `plan_add_card`: one entry per Mustered Lord on the active side + a
+  pass entry, each tagged with the slot index it would fill.
+- `cmd_march`: one entry per reachable adjacent Locale via Ways, with
+  the Way type in the note.
+- `veche_action`: options A / B / C / D each enumerated as concrete
+  actions with notes naming the rule (3.5.2) and the effect.
+- `legate_arrives` / `legate_move` / `legate_use` (2a/2b/2c) each
+  enumerated as concrete actions with notes naming the sub-option and
+  effect (3.5.1).
+
+Old `args_template` form is retained only as a fallback when the
+concrete enumeration cannot be computed.
+
+## lord_combat_summary helper
+
+`render.py::lord_combat_summary(state, lord_id)` returns a structured
+per-Lord readout: ratings (base + effective Command), service-disband
+box, forces composition + total + Feed cost, this-Lord capabilities,
+and Battle / Storm hit output by Strike step (archery, melee_horse,
+melee_foot, storm_archery, storm_melee with the per-Lord 6-Hit cap
+already applied). Removes the need to compute strike output from the
+Forces table by hand.
+
+## Tests
+
+- 8 new regression tests in `tests/test_round_15_llm_interface.py`
+  cover the contract surface: card data has effect text; render_summary
+  shows the lockstep hint and pending-AoW block; legal_moves emits
+  concrete `args` with notes for muster, plan, and cmd_march;
+  lord_combat_summary returns the expected structured data.
+- 370 → 378 passing total.
+
+## Walkthrough check (Pleskau turn 1)
+
+After the changes I re-walked the Pleskau turn 1 scenario to validate
+that an LLM consumer reading only render_summary + legal_moves can
+make every decision the rules require without consulting external
+text. The previous blocker (muster_lord required the unfamiliar
+`by_lord` arg) is gone — legal_moves at the Russian Muster step now
+lists `{type: muster_lord, args: {by_lord: gavrilo, target_lord:
+domash, seat: novgorod}, note: "gavrilo (Lordship) Musters domash at
+novgorod (1d6<=Fealty success)"}` directly.
+
+## Items intentionally NOT in this round
+
+- Storm / Battle outcome previews (estimated win prob + force-loss
+  distribution from a candidate engagement) — bigger scope; will be
+  the next round if smoke shows the LLM consumer wants them. The
+  Round 13 smoke driver has the underlying logic.
+- VP forecast per candidate action — same scope notes as previews.
+- Multi-hop `paths_from(locale_id, season, transport, max_hops)` — only
+  1-hop adjacency is exposed by cmd_march enumeration. Multi-hop is
+  derivable from repeated 1-hop queries; cleaner helper deferred.
