@@ -517,6 +517,16 @@
           "default": false,
           "title": "In Stronghold",
           "type": "boolean"
+        },
+        "first_march_used_this_card": {
+          "default": false,
+          "title": "First March Used This Card",
+          "type": "boolean"
+        },
+        "raiders_used_this_card": {
+          "default": false,
+          "title": "Raiders Used This Card",
+          "type": "boolean"
         }
       },
       "required": [
@@ -951,5 +961,5 @@
   "title": "Nevsky Harness GameState",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-schema-version": "0.6.0"
+  "x-schema-version": "0.7.0"
 }
