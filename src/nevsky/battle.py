@@ -263,6 +263,7 @@ def resolve_battle(
     attacker_lords: list[str],
     defender_lords: list[str],
     max_rounds: int = 10,
+    concede: str | None = None,
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
@@ -304,6 +305,9 @@ def resolve_battle(
             ("melee_foot_attacker", "melee_foot", attacker_lords, defender_lords),
         ]
         from nevsky.capabilities import any_capability
+        defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
+        # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
+        # (round up). conceder is "attacker" or "defender" or None.
         for label, kind, striker_lords, target_lords in steps:
             raw_hits = 0.0
             armor_minus_2 = False
@@ -316,6 +320,12 @@ def resolve_battle(
                     or any_capability(state, lid, "Balistarii")
                 ):
                     armor_minus_2 = True
+            # Pursuit: halve conceder Hits this Round (round up).
+            if concede is not None and rounds == 1:
+                striker_role = ("attacker" if striker_lords is attacker_lords
+                                 else "defender")
+                if striker_role == concede:
+                    raw_hits = raw_hits / 2.0
             hits = _round_up(raw_hits)
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
@@ -344,6 +354,21 @@ def resolve_battle(
                 break
 
         log.append(round_log)
+        if concede is not None and rounds == 1:
+            # 4.4.2: a side that Concedes the Field loses; this is the
+            # last Round.
+            if concede == "attacker":
+                return {
+                    "rounds": rounds, "winner": defender_side, "loser": attacker_side,
+                    "attacker_lords": attacker_lords, "defender_lords": defender_lords,
+                    "log": log, "conceded": "attacker",
+                }
+            else:
+                return {
+                    "rounds": rounds, "winner": attacker_side, "loser": defender_side,
+                    "attacker_lords": attacker_lords, "defender_lords": defender_lords,
+                    "log": log, "conceded": "defender",
+                }
         if _all_routed(state, attacker_lords):
             return {
                 "rounds": rounds, "winner": defender_side, "loser": attacker_side,
