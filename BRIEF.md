@@ -212,7 +212,7 @@ Pure observer mode (state inspection only).
 The harness does not need to know which player is the LLM; it just
 exposes legal moves and validates submissions per the active player.
 Phasing
-Each phase is a separate draft PR. Do not start the next phase until the
+Each phase is a separate PR. Do not start the next phase until the
 previous PR is merged by the user.
 
 Phase 0: Project skeleton, JSON schema for state, scenario data
@@ -247,7 +247,7 @@ Commit and PR Workflow
 Small, focused commits with descriptive messages.
 Each commit message references the rule section it implements OR the
 question/decision it resolves.
-One draft PR per phase.
+One PR per phase (regular, not draft -- Eric's call, 2026-05-08).
 The user reviews and merges PRs. Cowork does not merge to main.
 Branch naming: phase-N-short-description.
 
