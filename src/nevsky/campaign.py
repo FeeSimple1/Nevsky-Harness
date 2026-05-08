@@ -163,8 +163,12 @@ def _h_place_lieutenant(
       - Both must be on the side's side.
       - Lieutenant has at most 1 Lower Lord at a time.
       - Lower Lord cannot also be a Lieutenant (no chains).
-      - Neither may currently be a Marshal (Phase 4 simplification:
-        we don't enforce this since the Marshal concept isn't modeled).
+      - Neither may currently be a Marshal (Round 8 NOTE: Marshal
+        roles are tracked in lords.json static data
+        (marshal_role: permanent | secondary | null) but NOT enforced
+        as a Lieutenant constraint here. See Q-003 for the open
+        question of whether to enforce based on static role assignment.
+        Phase 4d default: permissive.).
       - Neither may be Besieged (4.5.1 / 4.1.3).
 
     Effect: lower_lord.lieutenant_of = lieutenant; lieutenant.has_lower_lord
@@ -1721,8 +1725,9 @@ def _h_cmd_siege(
       1. Surrender check: if no Besieged Lords inside, the besieging
          side may roll 1d6; if roll <= siege_markers, the Stronghold is
          Conquered (place Conquered marker, adjust VP; flip Castle
-         marker via Stonemasons -- deferred to Phase 4; remove all
-         Veche Coin if Novgorod -- 1.3.3; no Spoils awarded).
+         marker via Stonemasons -- ENFORCED in Phase 4a (cmd_stonemasons
+         action). Remove all Veche Coin if Novgorod -- 1.3.3 ENFORCED.
+         No Spoils awarded on Surrender vs Sack -- ENFORCED).
       2. Siegeworks check: if besieging Lords at the locale >=
          Stronghold Capacity, add 1 Siege marker (max 4).
     """

@@ -121,6 +121,7 @@ def _absorb_hit(
     state: GameState, utype: str, strike_kind: str,
     lord_id: str | None = None,
     striker_has_armor_minus_2: bool = False,
+    step_state: dict | None = None,
 ) -> bool:
     """Roll Protection for one Hit on a unit of `utype`. Return True
     if absorbed (no Rout), False if unit Routs.
@@ -129,7 +130,9 @@ def _absorb_hit(
       - Halbbrueder (T9/T10): owner Lord's Sergeants and MaA gain
         Armor +1 for Rout rolls (4.4.2).
       - Warrior Monks (T7/T15): owner Lord may reroll 1 failed
-        Knights Armor roll per Strike step (approximated: per call).
+        Knights Armor roll per Strike step (AUDIT-002 fix:
+        per-step budget enforced via step_state["wm_reroll_used",
+        lord_id, strike_kind]).
       - Striker Crossbowmen / Garrison MaA: target Armor -2.
     """
     from nevsky.capabilities import any_capability
@@ -165,11 +168,18 @@ def _absorb_hit(
     absorbed = _roll(spec)
     if absorbed:
         return True
+    # Warrior Monks (T7/T15): once per Knights Armor failure per
+    # Strike step (per Lord). Budget tracked via step_state.
     if (
         utype == "knights"
         and lord_id is not None
         and any_capability(state, lord_id, "Warrior Monks")
     ):
+        if step_state is not None:
+            key = ("wm_reroll_used", lord_id, strike_kind)
+            if step_state.get(key):
+                return False
+            step_state[key] = True
         return _roll(spec)
     return False
 
@@ -211,6 +221,7 @@ def _assign_hit_owner_pick(units: ForceCounts, routed: ForceCounts) -> str | Non
 def _resolve_hits(
     state: GameState, lord_id: str, hits: int, strike_kind: str,
     striker_has_armor_minus_2: bool = False,
+    step_state: dict | None = None,
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
@@ -224,6 +235,8 @@ def _resolve_hits(
     units = lord.forces
     routed_log: list[dict[str, Any]] = []
     absorbed = 0
+    if step_state is None:
+        step_state = {}
     for _ in range(hits):
         utype = _assign_hit_owner_pick(units, {})
         if utype is None:
@@ -232,6 +245,7 @@ def _resolve_hits(
             state, utype, strike_kind,
             lord_id=lord_id,
             striker_has_armor_minus_2=striker_has_armor_minus_2,
+            step_state=step_state,
         )
         if absorbed_this:
             absorbed += 1
@@ -343,6 +357,7 @@ def resolve_battle(
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
         # (round up). conceder is "attacker" or "defender" or None.
         for label, kind, striker_lords, target_lords in steps:
+            step_state: dict = {}  # AUDIT-002: Warrior Monks per-step reroll budget
             striker_role = ("attacker" if striker_lords is attacker_lords
                              else "defender")
             # Marsh: Rounds 1-2, opposite-side Horse units of the side
@@ -426,6 +441,7 @@ def resolve_battle(
                 tres = _resolve_hits(
                     state, tlid, remaining, strike_kind,
                     striker_has_armor_minus_2=armor_minus_2,
+                    step_state=step_state,
                 )
                 distribution.append({"lord": tlid, **tres})
                 remaining = 0
@@ -634,13 +650,25 @@ def resolve_storm(
         atk_arch = sum(
             _hits_for_lord_strike(state, lid, "archery") for lid in attacker_lords if lid in state.lords
         )
-        # Defender melee: Garrison units (Knights melee, MaA melee) + Lord units.
-        def_melee = _storm_hits_for_units(g_units, "melee") + sum(
-            _storm_hits_for_units(state.lords[lid].forces, "melee") for lid in defender_lords if lid in state.lords
-        )
-        atk_melee = sum(
-            _storm_hits_for_units(state.lords[lid].forces, "melee") for lid in attacker_lords if lid in state.lords
-        )
+        # AUDIT-001 fix (4.5.2 2E rule): "Maximum 6 Melee Hits per Lord
+        # per Round". Apply cap PER LORD before summing, not on the
+        # per-side total. Garrison units share the defending Front
+        # Lord's cap (rules: "strikes_combine_with: Defending Front
+        # Lord (round up combined totals)").
+        def_melee = 0.0
+        for lid in defender_lords:
+            if lid not in state.lords:
+                continue
+            lord_melee = _storm_hits_for_units(state.lords[lid].forces, "melee")
+            # First defender Lord absorbs Garrison melee under the same cap.
+            if lid == defender_lords[0]:
+                lord_melee += _storm_hits_for_units(g_units, "melee")
+            def_melee += min(6.0, lord_melee)
+        atk_melee = 0.0
+        for lid in attacker_lords:
+            if lid not in state.lords:
+                continue
+            atk_melee += min(6.0, _storm_hits_for_units(state.lords[lid].forces, "melee"))
         # Phase 4a: Crossbowmen / Garrison MaA Archery imposes target Armor -2.
         def_arch_armor_minus_2 = (
             g_units.get("men_at_arms", 0) > 0
@@ -659,11 +687,7 @@ def resolve_storm(
             any_capability(state, lid, "Trebuchets") and state.lords[lid].forces
             for lid in attacker_lords if lid in state.lords
         )
-        # Cap melee at 6/Lord (we approximate by capping per-side total at 6 * lords_count).
-        atk_melee_cap = 6 * len(attacker_lords)
-        def_melee_cap = 6 * len(defender_lords)
-        atk_melee = min(atk_melee, atk_melee_cap)
-        def_melee = min(def_melee, def_melee_cap)
+        # AUDIT-001 fix: melee cap applied per-Lord in the sum loop above.
 
         # Resolve defender archery -> attacker units (Walls do NOT protect
         # attacker; Siegeworks do not protect attacker against own
@@ -683,6 +707,7 @@ def resolve_storm(
             ("melee_attacker",   "melee",   _round_up(atk_melee), defender_lords, True,  False),
         ]
         for label, kind, hits, target_lords, target_is_defender, armor_minus_2 in steps_data:
+            step_state: dict = {}  # AUDIT-002: per-step Warrior Monks reroll budget
             if target_is_defender:
                 hits = _walls_absorb(state, hits, eff_walls_max)
             else:
@@ -719,6 +744,7 @@ def resolve_storm(
                 tres = _resolve_hits(
                     state, tlid, remaining, strike_kind,
                     striker_has_armor_minus_2=armor_minus_2,
+                    step_state=step_state,
                 )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 remaining = 0

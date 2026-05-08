@@ -571,3 +571,91 @@ All architectural notes from the Round 6 PR are addressed.
 The harness is production-ready for an LLM agent.
 
 SCHEMA_VERSION 0.10.0 -> 0.11.0.
+
+---
+
+## Round 8 (this PR): rules-accuracy audit
+
+Per the new BRIEF "Rules Accuracy Trumps Simplification" hard
+constraint, audited every code comment that flagged a simplification,
+approximation, or deferral. Found and fixed 2 real rule-divergence
+bugs; updated stale comments; logged 1 new question.
+
+### AUDIT-001 (FIXED): Storm Melee cap was per-side, not per-Lord
+
+**Rule.** 4.5.2 (2E): "Maximum 6 Melee Hits per Lord per side per
+Round (Archery unlimited)."
+
+**Pre-fix code.** `resolve_storm` summed melee hits across all Lords
+on a side, then capped the per-side total at `6 * len(lords)`. This
+allowed one Lord to contribute 12 melee hits if his side had two
+attackers and the other contributed 0.
+
+**Fix.** Apply the per-Lord cap BEFORE summing. The first defender
+Lord absorbs Garrison melee under the same cap (rules note: "strikes
+combine with Defending Front Lord -- round up combined totals").
+
+**Regression.** `test_audit_001_storm_melee_cap_is_per_lord_not_per_side`.
+
+### AUDIT-002 (FIXED): Warrior Monks reroll budget per call, not per step
+
+**Rule.** T7 / T15: "may reroll 1 Knights Armor Roll each Archery
+step AND each Melee step." Budget is 1 reroll per Strike step
+(2 per Round, since Battle has both archery and melee steps for
+each side).
+
+**Pre-fix code.** `_absorb_hit` rerolled every failed Knights Armor
+roll. Effectively unbounded; a Lord with Warrior Monks could reroll
+on EVERY hit, not just one per step.
+
+**Fix.** `_absorb_hit` accepts a `step_state` dict shared across all
+Hit-resolution calls within one Strike step. The first failed Knights
+Armor roll consumes the per-step budget; subsequent failures get no
+reroll. Caller (resolve_battle / resolve_storm) creates a fresh
+step_state dict per Strike step.
+
+**Regression.** `test_audit_002_warrior_monks_per_step_reroll_budget`,
+`test_audit_002_warrior_monks_separate_budgets_for_archery_and_melee`.
+
+### Q-003 (LOGGED): Lieutenants "neither may be a Marshal" enforcement
+
+The 4.1.3 Lieutenants rule says neither member of the pairing may
+"currently be a Marshal." `lords.json` tracks `marshal_role: permanent
+| secondary | null` per Lord, but `place_lieutenant` does not enforce
+this constraint. The interpretation is ambiguous (strict static-data
+read vs dynamic "currently") so logged for adjudication. Default is
+permissive (option c).
+
+### Stale comments cleaned up
+
+- `resolve_battle` docstring: replaced "Phase 3b simplifications" list
+  with current-status block. Most listed items have been addressed
+  (Concede+Pursuit in 4d; Routed-vs-Lost in Round 7; Walls-by-Event
+  via Raven's Rock in 4d). Reposition with full Flanking still
+  deferred (Bridge / Ambush remain consumed-but-no-op).
+- `resolve_storm` docstring: same treatment.
+- `_absorb_hit` docstring: removed "approximated: per call" claim.
+- `_h_cmd_siege` docstring: updated "Stonemasons -- deferred to Phase 4"
+  to reflect Phase 4a enforcement.
+
+### Items NOT a rule divergence (verified)
+
+- "No Walls in Battle (4.4.2: Walls only by Event in Battle)." — this
+  is rules-correct. Walls roll only in Storm/Sally/by-Event. Raven's
+  Rock (R4) covers the by-Event case in Battle.
+- Hit assignment "owner picks unit per Hit": deterministic policy
+  (Serfs first, then Unarmored, then Armor) is rules-OPTIMAL because
+  the rule is "owner picks" — owner picks to minimize harm.
+- Laden test "any Loot OR Provender > 2*usable_transport_count":
+  matches rules text 4.3.2 exactly (the "shared via 1.5.2" clause is
+  a Phase-future enhancement; without it, the test is conservative
+  toward Laden status, which favors enforcement).
+
+### Rules-accuracy clause added to BRIEF
+
+BRIEF.md now contains an explicit "Rules Accuracy Trumps Simplification"
+hard constraint preceding the Ambiguity Policy. Future PRs that
+introduce simplifications must trace them to a Q-NNN or [HOUSE RULE]
+decision.
+
+Tests: 319 (+3 audit regressions). SCHEMA_VERSION 0.11.0 -> 0.12.0.
