@@ -307,3 +307,49 @@ def test_audit_006_ordensburgen_extra_seats_emitted_for_teutonic_lords() -> None
     seats = _seats_of(s, teu_lord)
     for c in ("wenden", "fellin", "adsel", "leal"):
         assert c in seats, f"{c} missing from Teutonic Ordensburgen Seats"
+
+
+def test_q004_commandery_set_is_exactly_the_four_confirmed_locales() -> None:
+    """Q-004 (RULES_DECISIONS.md): the confirmed Commandery set is
+    exactly Wenden, Fellin, Adsel, Leal — no more, no fewer.
+
+    This test locks in the user's adjudication so any accidental
+    addition / removal in locales.json is caught immediately.
+    """
+    from nevsky.static_data import load_locales
+
+    locales = load_locales()
+    flagged = {lid for lid, loc in locales.items() if loc.get("commandery")}
+    expected = {"wenden", "fellin", "adsel", "leal"}
+    assert flagged == expected, (
+        f"Commandery set drift: expected exactly {expected}, got {flagged}. "
+        f"Per Q-004 (RULES_DECISIONS.md), no further Strongholds qualify."
+    )
+    # Every Locale must explicitly declare the flag (true OR false) so a
+    # silent omission is also caught.
+    missing = [lid for lid, loc in locales.items() if "commandery" not in loc]
+    assert not missing, f"Locales missing the `commandery` flag: {missing}"
+
+
+def test_q004_command_rating_plus_one_at_any_commandery_with_t12() -> None:
+    """Q-004 second-order check: when T12 Ordensburgen is in play,
+    a Teutonic Lord starting his Command card at ANY of the four
+    Commanderies receives +1 effective Command rating.
+    """
+    from nevsky.scenarios import load_scenario
+    s = load_scenario("watland", seed=1)
+    from nevsky.campaign import _effective_command_rating as effective_command_rating
+    teu_lord = next(
+        lid for lid, l in s.lords.items()
+        if l.side == "teutonic" and l.state == "mustered"
+    )
+    base = effective_command_rating(s, teu_lord)
+    # Force T12 active.
+    if "T12" not in s.decks.teutonic.capabilities_in_play:
+        s.decks.teutonic.capabilities_in_play.append("T12")
+    for c in ("wenden", "fellin", "adsel", "leal"):
+        s.lords[teu_lord].location = c
+        bonus_at_c = effective_command_rating(s, teu_lord)
+        assert bonus_at_c >= base + 1, (
+            f"Ordensburgen +1 not applied at {c}: base={base} got={bonus_at_c}"
+        )
