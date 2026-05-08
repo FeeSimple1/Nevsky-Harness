@@ -1,16 +1,21 @@
 """Campaign-phase action handlers (4.1-4.9).
 
-Phase 3a covers: Plan (4.1), Activation loop (4.2), simple Commands
-(Tax 4.7.4, Forage 4.7.1, Ravage 4.7.2, Supply 4.6, Sail 4.7.3, Pass
-4.7.5), Feed/Pay/Disband cycle (4.8), and End Campaign housekeeping
-(4.9).
+Coverage:
+  - 4.1 Plan, including 4.1.3 Lieutenants (Q-003).
+  - 4.2 Activation loop.
+  - 4.3 March / Avoid Battle / Withdraw.
+  - 4.4 Battle invocation (resolve_battle in battle.py).
+  - 4.5 Siege / Storm / Sally / Relief Sally (Q-005, Q-006).
+  - 4.6 Supply.
+  - 4.7 simple Commands (Tax, Forage, Ravage, Sail, Pass).
+  - 4.8 Feed / Pay / Disband cycle.
+  - 4.9 End Campaign housekeeping.
 
-Phase 3b will add March (4.3), Avoid Battle, Withdraw, Battle (4.4).
-Phase 3c will add Siege/Storm (4.5) and Sally (4.5.3).
-
-Per BRIEF Phase 4: per-card AoW effects are deferred. The harness
-flags cards in play that would affect a current action; the user/LLM
-applies the actual capability text.
+Per-card AoW capability effects are wired into the appropriate
+strike / muster / movement code paths. Where a capability requires
+operator choice (e.g., Trebuchets, Stonemasons), the relevant action
+handler exposes it; otherwise it is automatically applied. Tier 1
+immediate events and Tier 2 Battle Holds resolve via events.py.
 """
 
 from __future__ import annotations
@@ -376,9 +381,11 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
         at one of his own primary_seats AND side has Ordensburgen.)
       - Archbishopric (R15, side-wide): Russian Lord starts at
         Novgorod -> +1.
-      - Legate at Lord's location: +1 (post-Phase 4a hook deferred;
-        the rules say the Legate may be removed for +1 Command, which
-        is handled at command time, not here).
+
+    Note: there is no separate "Legate +1 Command" rule. The Legate's
+    effects (3.5.1) are limited to USE options 2a/2b/2c (auto-Muster,
+    cylinder-shift-left, extra Muster); none of them grants a Command
+    bonus.
     """
     from nevsky.capabilities import any_capability, has_side_capability
     from nevsky.static_data import load_lords as _load
@@ -898,8 +905,11 @@ def _h_cmd_sail(
     args:
       lord_id          Active Lord
       destination      Seaport locale_id
-      group            list[lord_id] of co-Sailing Lords (default: just lord_id)
-                       (Marshal group, Lieutenant Lower Lord support deferred to 3b)
+      group            list[lord_id] of co-Sailing Lords (default: just lord_id).
+                       Each member must be co-located with `lord_id` and on
+                       the same side (Marshal group). Lieutenant pairing is
+                       a Plan-phase mechanic (Q-003) and does not constrain
+                       Sail group membership beyond co-location.
       ships_used       int: total Ships across the Sailing group (validation)
 
     Constraints:

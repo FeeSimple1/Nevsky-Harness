@@ -1,22 +1,27 @@
 """Battle resolution (4.4) and shared combat primitives.
 
-Phase 3b implements the full Battle round loop:
-  - 4.4.1 Array (Front center for active attacker; others fill front; reserve)
-  - 4.4.2 Round phase: Concede / Reposition; Strike steps in initiative
-    order; Hits; Protection rolls; Rout; New-round check.
+Battle round loop:
+  - 4.4.1 Array (Q-005 three-front-positions; Q-006 Relief Sally
+    Sally / Rearguard rows).
+  - 4.4.2 Round phase: Concede; Reposition (Q-005) and Adjust Rows
+    (Q-006); Strike steps in initiative order; Hits; Protection rolls;
+    Rout; New-round check.
   - 4.4.3 - 4.4.5 Aftermath: Retreat / Withdraw / Remove options;
     Service shift on Retreat; Spoils transfer; Losses; markers.
 
-Per BRIEF Phase 4: per-card AoW capability effects (LUCHNIKI archery,
-HALBBRUEDER Armor +1, STRELTSY/BALISTARII archery, RAIDERS, CONVERTS,
-WARRIOR MONKS rerolls, Russian archery special rounding, etc.) are
-deferred. Without those capabilities, Phase 3b Battle resolves with
-default unit stats from the Forces table:
-  - Knights / Sergeants / Men-at-Arms: Melee, Armor.
-  - Light Horse / Militia: Melee, Unarmored, no Archery.
-  - Asiatic Horse: Archery only (the only default-archery unit), Evade
-    vs Battle Melee else Unarmored.
-  - Serfs: Melee, no Protection.
+Per-card Arts of War effects integrated into the strike /
+protection / spoils paths:
+  - Luchniki (R1/R2): Light Horse + Militia Archery 0.5/unit.
+  - Streltsy (R3/R13) / Balistarii (T4/T5/T6): MaA Archery 0.5/unit
+    with target Armor -2.
+  - Halbbrueder (T9/T10): Sergeants and MaA Armor +1.
+  - Warrior Monks (T7/T15): once-per-step reroll of failed Knights
+    Armor.
+  - Trebuchets (T14) / Stonemasons (T17): handled at Storm/Sally
+    invocation and Castle-construction handlers.
+
+Default unit stats from the Forces table apply where no Capability
+modifies them.
 """
 
 from __future__ import annotations
@@ -747,15 +752,44 @@ def _reposition(
     positions: dict[str, str],
     side_label: str,
     decision_ctx: BattleDecisionContext,
+    opposing_positions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """4.4.2 Reposition (Round 2+):
       - Advance Lords: Reserves slide into any empty Front position.
       - Center fill: if center remains empty after advance, slide one
         Lord from left or right to fill center.
 
-    Mutates `positions` in place. Returns a log of advances.
+    SMOKE-014 (Round 12): when `opposing_positions` is provided AND the
+    opposing side's Front is empty AND the opposing side has a Sally
+    row alive, this side's Front is empty *by design* under Adjust
+    Rows Rule 4 (4.4.2 page 15: "If no Front Attackers, Rearguard
+    becomes Front against Sally and original Front Defenders face
+    about as Reserve"). In that case Reposition Advance is suppressed
+    -- otherwise the just-demoted Lord(s) would Advance right back to
+    Front and Rule 4 would re-fire next round, looping forever in the
+    log.
+
+    Mutates `positions` in place. Returns a log of advances; on
+    suppression the log contains a single `frozen_under_rule_4`
+    entry and no moves.
     """
     moves: list[dict[str, Any]] = []
+    # SMOKE-014 suppression: if the opposing side's Front is empty AND
+    # opposing Sally row is alive, this side's Front is empty by design
+    # per Adjust Rows Rule 4. Don't undo that demotion.
+    if opposing_positions is not None:
+        opp_front_alive = any(
+            p in ("left", "center", "right")
+            and lid in state.lords and state.lords[lid].forces
+            for lid, p in opposing_positions.items()
+        )
+        opp_sally_alive = any(
+            p.startswith("sally_")
+            and lid in state.lords and state.lords[lid].forces
+            for lid, p in opposing_positions.items()
+        )
+        if (not opp_front_alive) and opp_sally_alive:
+            return {"moves": [], "suppressed": "frozen_under_rule_4"}
     # Step 1: Advance Reserves into empty Front slots.
     occupied_front: set[str] = {
         p for lid, p in positions.items()
@@ -1045,8 +1079,14 @@ def resolve_battle(
             # Reposition when Relief Sally is active and an entire row
             # Routed.
             adjust_log = _adjust_rows_for_relief_sally(state, atk_pos, def_pos)
-            atk_repo = _reposition(state, atk_pos, "attacker", decision_ctx)
-            def_repo = _reposition(state, def_pos, "defender", decision_ctx)
+            atk_repo = _reposition(
+                state, atk_pos, "attacker", decision_ctx,
+                opposing_positions=def_pos,
+            )
+            def_repo = _reposition(
+                state, def_pos, "defender", decision_ctx,
+                opposing_positions=atk_pos,
+            )
             round_log["reposition"] = {"attacker": atk_repo, "defender": def_repo}
             if adjust_log:
                 round_log["adjust_rows"] = adjust_log

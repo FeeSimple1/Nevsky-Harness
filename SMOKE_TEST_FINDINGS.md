@@ -1185,3 +1185,107 @@ bugs. All 362 unit tests pass (+8 from Round 11 audit fixes).
 - Post-Round-11: 362 passing (+7 _is_laden + 1 cmd_march gate test +
   2 SMOKE-013 regression tests = +10, minus 2 tests that converged
   with each other via shared setup updates).
+
+# Round 12 — Build-out cleanup (Q-004 close, SMOKE-014, stale comments)
+
+After the user merged Round 11, this round closes documented build-out
+items before moving to a deep statistical smoke-testing round on
+combat outcomes. Per user direction: stabilise the rules engine first,
+then explore outcomes, then add the LLM/CLI interface.
+
+## Q-004 closed (Ordensburgen Commanderies)
+
+User adjudicated: "the commandaries are just those four spaces."
+Wenden, Fellin, Adsel, Leal are the canonical four; no expansion. The
+existing implementation already matches. Q-004 entry moved from
+RULES_QUESTIONS.md to RULES_DECISIONS.md.
+
+## SMOKE-014 fixed (Adjust Rows Rule 4 freeze)
+
+In a Relief Sally where the Marching Attacker Front was wiped but the
+Sally row remained alive, Adjust Rows Rule 4 fired every round
+(`no_front_attackers` -> Defender Front -> Reserve), then Reposition
+Advance promoted the same Lord straight back to Front. Rule 4 then
+re-fired the next round, ad infinitum. Functionally a no-op (no Hits
+land), but the log was unreadable.
+
+**Fix.** `_reposition` now accepts an optional `opposing_positions`
+argument. When the opposing side's Front is empty AND opposing Sally
+row is alive, this side's Front-emptiness is by-design under Rule 4
+and Reposition Advance is suppressed. The reposition log records
+`{"suppressed": "frozen_under_rule_4", "moves": []}`.
+
+Call site in `resolve_battle` updated to pass the opposing positions
+to both attacker and defender Reposition calls. Backwards-compatible:
+callers that don't pass `opposing_positions` get the original
+behavior.
+
+4 new regression tests in `tests/test_smoke_014_reposition_suppression.py`:
+- `test_reposition_suppressed_when_opposing_front_empty_and_sally_alive`
+- `test_reposition_not_suppressed_when_opposing_front_alive`
+- `test_reposition_not_suppressed_when_opposing_sally_dead`
+- `test_reposition_no_opposing_positions_arg_runs_normally`
+
+## Stale comments cleaned up
+
+Per BRIEF "Rules Accuracy Trumps Simplification" audit clause: each
+"deferred / simplified / Phase N+1" comment must trace to a Q-NNN, a
+[HOUSE RULE], or a still-open future-phase commitment. Items that
+have shipped should not still be flagged as deferred.
+
+- `campaign.py` module docstring: refactored. Phase 3a/3b/3c are all
+  shipped; AoW per-card effects are mostly wired (Druzhina, House of
+  Suzdal, Ordensburgen, Luchniki, Halbbrueder, Streltsy / Balistarii,
+  Warrior Monks, Asiatic Horse, Raiders, Converts, Trebuchets,
+  Stonemasons all flow through the appropriate strike / muster /
+  movement code paths). The new docstring lists actual coverage.
+- `campaign.py::_h_cmd_sail` docstring: `(Marshal group, Lieutenant
+  Lower Lord support deferred to 3b)` was stale. Marshal grouping
+  via the `group` arg is implemented; Lieutenant pairing is a Plan-
+  phase mechanic (Q-003) and does not interact with Sail group
+  membership beyond co-location.
+- `campaign.py::_effective_command_rating` docstring: the "Legate at
+  Lord's location: +1" line was a phantom rule. T13 William of
+  Modena's card text and 3.5.1 USE options 2a/2b/2c do not include
+  any "+1 Command from Legate" mechanic; the comment incorrectly
+  cited "the rules say the Legate may be removed for +1 Command".
+  Removed and replaced with a positive note that no such rule exists.
+- `battle.py` module docstring: the "Phase 4 ... per-card AoW
+  capability effects ... deferred" list named LUCHNIKI, HALBBRUEDER,
+  STRELTSY/BALISTARII, RAIDERS, CONVERTS, WARRIOR MONKS, all of
+  which are implemented. New docstring describes what is actually
+  active. ("Russian archery special rounding" is flagged separately
+  as a possible Q-007 candidate -- see below.)
+- `events.py` module docstring + `resolve_immediate_event` /
+  `resolve_hold_event` docstrings: no longer claim Tier 2 is
+  deferred. Tier 2 Battle Holds consume via `_consume_battle_holds`;
+  Tier 3 holds (T3 Vodian Treachery, T13 Heinrich Curia, R3 Pogost)
+  are wired into `_HOLD_RESOLVERS`. Events without a resolver still
+  return `deferred: True` -- that is correct fallback behavior, not a
+  deferred-feature flag.
+
+## New finding to surface (potential Q-007)
+
+**Russian archery special rounding** (Forces Reference, 4.4.2 Russian
+Archery): "When Russian -2-Armor Crossbowmen archery (Garrison Men-at-
+Arms during Storm, or a Lord's Men-at-Arms with Streltsy R3) combines
+with other Russian archery, round up any 1/2 Hit that causes the
+Armor reduction." The current implementation rounds the per-target
+total raw at end-of-step and applies `striker_has_armor_minus_2=True`
+if any contributing striker had it. Whether this matches the rule's
+"round up the 1/2 Hit that causes the reduction" intent is unclear --
+the rule may require a separate sub-step for the -2-armor portion.
+Logged as a candidate for the next Q-NNN cycle if rules clarification
+is needed; not blocking.
+
+## Test count
+
+- Pre-Round-12: 362 passing.
+- Post-Round-12: 366 passing (+4 SMOKE-014 regression tests).
+
+## Smoke deferred to next round
+
+Per user direction, the next round is a deep statistical smoke pass
+focused on combat outcome distributions: are Battles oddly lopsided?
+Are Storm outcomes unexpected? Does any side have a scenario where
+no strategy wins? That work begins after Round 12 lands.

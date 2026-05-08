@@ -417,3 +417,28 @@ markers).
   known gap in the resolve_battle docstring.
 
 **Commit.** _to be filled after push._
+
+---
+
+## Q-004 — T12 Ordensburgen: which Strongholds are Commanderies? (1.3.1)
+*Adjudicated 2026-05-08. Encoded in commit (Round 12 PR).*
+
+**User adjudication (verbatim):**
+
+> Question four should already be resolved - the commandaries are
+> just those four spaces.
+
+**The four Commanderies are:** Wenden (Bishopric), Fellin (Castle),
+Adsel (Castle), Leal (Bishopric). These are the only Strongholds with
+the Order seat symbol on the canonical 2E map. No others bear the
+symbol; option (a) from the question is the canonical answer, not a
+conservative subset.
+
+**Consequences for the harness.**
+- `locales.json` `commandery: true` flag remains exactly the four
+  Locales above; no expansion needed.
+- `actions.py::_seats_of` already grants T12 extra Seats correctly.
+- `campaign.py::_effective_command_rating` already triggers the +1
+  Command bonus at exactly these four Locales.
+
+The Q-004 entry has been removed from RULES_QUESTIONS.md.
