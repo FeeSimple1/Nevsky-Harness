@@ -202,8 +202,72 @@ def _h_command_reveal(
         return ({"revealed": card, "outcome": "pass_not_on_map"}, [])
 
     state.campaign_turn.active_lord = card
-    state.campaign_turn.actions_remaining = int(static[card]["ratings"]["command"])
+    state.campaign_turn.actions_remaining = _effective_command_rating(state, card)
     return ({"revealed": card, "outcome": "active", "actions": state.campaign_turn.actions_remaining}, [])
+
+
+def _effective_command_rating(state: GameState, lord_id: str) -> int:
+    """Compute Command rating for `lord_id` with Phase 4a capability mods.
+
+    Modifiers (cumulative; each adds at most +1 by name):
+      - Druzhina (R5/R6): this Lord with Knights -> +1
+      - House of Suzdal (R11): this Lord -> +1 while Aleksandr AND Andrey on map
+      - Treaty of Stensby (T1, side-wide): Heinrich and Knud&Abel -> +1
+      - Ordensburgen (T12, side-wide): Teutonic Lord starts at a
+        Commandery -> +1 for that card. (Phase 3a already encoded
+        Commanderies as Lord Seats; Phase 4a adds the Command +1.
+        We treat 'Commandery' as any Lord Seat that is in the lord's
+        primary_seats list of type bishopric / castle (Teuton-built
+        strongholds) OR fort -- the rules use Commandery as a label;
+        for the harness we trigger Ordensburgen +1 when the Lord is
+        at one of his own primary_seats AND side has Ordensburgen.)
+      - Archbishopric (R15, side-wide): Russian Lord starts at
+        Novgorod -> +1.
+      - Legate at Lord's location: +1 (post-Phase 4a hook deferred;
+        the rules say the Legate may be removed for +1 Command, which
+        is handled at command time, not here).
+    """
+    from nevsky.capabilities import any_capability, has_side_capability
+    from nevsky.static_data import load_lords as _load
+
+    lord = state.lords[lord_id]
+    sl = _load()[lord_id]
+    base = int(sl["ratings"]["command"])
+    bonus = 0
+
+    # Druzhina: Knights present.
+    if any_capability(state, lord_id, "Druzhina") and lord.forces.get("knights", 0) > 0:
+        bonus += 1
+    # House of Suzdal: Aleksandr AND Andrey both on map.
+    if any_capability(state, lord_id, "House of Suzdal"):
+        ak = state.lords.get("aleksandr")
+        an = state.lords.get("andrey")
+        if (ak and ak.state == "mustered" and ak.location is not None
+                and an and an.state == "mustered" and an.location is not None):
+            bonus += 1
+    # Treaty of Stensby: Heinrich and Knud&Abel.
+    if (
+        lord.side == "teutonic"
+        and lord_id in ("heinrich", "knud_and_abel")
+        and has_side_capability(state, "teutonic", "Treaty of Stensby")
+    ):
+        bonus += 1
+    # Ordensburgen: Teutonic Lord starts at a Commandery (own-primary-seat).
+    if (
+        lord.side == "teutonic"
+        and has_side_capability(state, "teutonic", "Ordensburgen")
+        and lord.location is not None
+        and lord.location in sl.get("primary_seats", [])
+    ):
+        bonus += 1
+    # Archbishopric: Russian Lord starts at Novgorod.
+    if (
+        lord.side == "russian"
+        and has_side_capability(state, "russian", "Archbishopric of Novgorod")
+        and lord.location == "novgorod"
+    ):
+        bonus += 1
+    return base + bonus
 
 
 def _enter_feed_pay_disband(state: GameState) -> None:
@@ -1617,12 +1681,15 @@ def _h_cmd_storm(
         if l.location == locale_id:
             l.moved_fought = True
 
+    walls_max = sh["walls_max"]
+    if state.locales[locale_id].walls_plus_one:
+        walls_max += 1  # Stone Kremlin (R18): Walls +1 (4.5.2)
     result = resolve_storm(
         state, attacker_side=sd,
         attacker_lords=attackers,
         defender_lords=besieged,
         locale_id=locale_id,
-        walls_max=sh["walls_max"],
+        walls_max=walls_max,
         siege_markers=state.locales[locale_id].siege_markers,
         garrison=dict(sh["garrison"]),
     )
@@ -1651,6 +1718,8 @@ def _h_cmd_storm(
             state.calendar.russian_vp += float(sh["vp"])
         # Remove siege markers.
         state.locales[locale_id].siege_markers = 0
+        # R18: Walls +1 marker removed if Sacked.
+        state.locales[locale_id].walls_plus_one = False
         # Spoils: loot/provender/coin = VP each, awarded to attacker[0].
         spoils = sh.get("spoils") or {}
         if attackers and spoils:
@@ -1783,3 +1852,208 @@ HANDLERS_PHASE_3C = {
     "cmd_sally": _h_cmd_sally,
 }
 HANDLERS.update(HANDLERS_PHASE_3C)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4a: capability-driven Commands
+# ---------------------------------------------------------------------------
+
+
+def _h_cmd_stone_kremlin(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """R18 Stone Kremlin (capability action). Entire card.
+
+    Active Lord with Stone Kremlin tucked under his mat may, for his
+    full Command and no other actions, mark his current Locale\'s Walls
+    +1 if it is a Russian Fort, City, or Novgorod. Lord may be Besieged.
+    Walls 1-3 -> Walls 1-4. Stronghold may have only one Walls +1
+    marker; up to four Walls +1 markers may be on the map.
+    """
+    from nevsky.capabilities import has_lord_capability
+    from nevsky.static_data import load_locales
+
+    sd = _require_side_player(state, side)
+    if sd != "russian":
+        raise IllegalAction("wrong_side", "Stone Kremlin is a Russian capability (R18)")
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    if not has_lord_capability(state, lord_id, "Stone Kremlin"):
+        raise IllegalAction("no_capability", f"{lord_id} does not have Stone Kremlin tucked")
+    lord = state.lords[lord_id]
+    loc = lord.location
+    if loc is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    static_loc = load_locales()[loc]
+    if static_loc["territory"] != "russian":
+        raise IllegalAction("not_russian_locale", f"{loc} is not a Russian Stronghold")
+    if static_loc["type"] not in ("fort", "city", "novgorod"):
+        raise IllegalAction("not_eligible_type", f"{loc} type {static_loc['type']} is not Fort/City/Novgorod")
+    if state.locales[loc].walls_plus_one:
+        raise IllegalAction("already_marked", f"{loc} already has Walls +1")
+    # Cap: up to four markers on map.
+    in_play = sum(1 for l in state.locales.values() if l.walls_plus_one)
+    if in_play >= 4:
+        raise IllegalAction("walls_max", "four Walls +1 markers already in play")
+    # Active Lord must not have taken any actions on his current card.
+    static = load_lords()
+    full_command = _effective_command_rating(state, lord_id)
+    if state.campaign_turn.actions_remaining < full_command:
+        raise IllegalAction(
+            "must_be_full_card",
+            f"Stone Kremlin requires full Command card; {state.campaign_turn.actions_remaining}/{full_command} actions remain",
+        )
+
+    state.locales[loc].walls_plus_one = True
+    lord.moved_fought = True
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"locale": loc, "walls_plus_one": True}, [])
+
+
+def _h_cmd_stonemasons(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """T17 Stonemasons. Entire card + 6 Provender to convert an Unbesieged
+    Fort (Russian, by rule) or Town in Rus into a Castle (own color).
+
+    Per rule: Lord must not be Besieged; must have full Command card
+    untouched; must have 6 Provender (sharing allowed). The Castle marker
+    REPLACES the Fort or Town at the Locale and removes any Walls +1.
+    Teutons may build at most 2 Castles in a game.
+    """
+    from nevsky.capabilities import has_lord_capability
+    from nevsky.static_data import load_locales
+
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "Stonemasons is a Teutonic capability (T17)")
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    if not has_lord_capability(state, lord_id, "Stonemasons"):
+        raise IllegalAction("no_capability", f"{lord_id} does not have Stonemasons tucked")
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Lord must not be Besieged (T17)")
+    loc = lord.location
+    if loc is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    static_loc = load_locales()[loc]
+    if static_loc["territory"] != "russian":
+        raise IllegalAction("not_in_rus", "Stonemasons builds Castle in Rus only")
+    if static_loc["type"] not in ("fort", "town"):
+        raise IllegalAction("not_eligible_type", f"{loc} type {static_loc['type']} is not Fort/Town")
+    if state.locales[loc].siege_markers > 0:
+        raise IllegalAction("under_siege", f"{loc} is Besieged")
+    # Full card untouched.
+    full_command = _effective_command_rating(state, lord_id)
+    if state.campaign_turn.actions_remaining < full_command:
+        raise IllegalAction(
+            "must_be_full_card",
+            f"Stonemasons requires full Command card; {state.campaign_turn.actions_remaining}/{full_command} actions remain",
+        )
+    # 6 Provender (own + shared from co-located own-side Lords).
+    own_p = lord.assets.get("provender", 0)
+    shared = sum(
+        ol.assets.get("provender", 0) for olid, ol in state.lords.items()
+        if olid != lord_id and ol.side == sd and ol.state == "mustered" and ol.location == loc
+    )
+    if own_p + shared < 6:
+        raise IllegalAction(
+            "insufficient_provender",
+            f"need 6 Provender; have own {own_p} + shared {shared} = {own_p + shared}",
+        )
+    # Cap: at most 2 Teutonic Castles (built by Stonemasons) in a game.
+    # We track via Calendar.pleskau_lords_removed_teutonic? No, that\'s
+    # different. Use a meta.special_rules counter.
+    sr = state.meta.special_rules
+    built = int(sr.get("stonemasons_castles_built", 0))
+    if built >= 2:
+        raise IllegalAction("castle_max", "two Stonemasons Castles already built")
+
+    # Spend 6 Provender (own first).
+    spend = 6
+    if lord.assets.get("provender", 0) > 0:
+        take = min(spend, lord.assets["provender"])
+        lord.assets["provender"] -= take
+        if lord.assets["provender"] == 0:
+            del lord.assets["provender"]
+        spend -= take
+    if spend > 0:
+        for olid, ol in state.lords.items():
+            if spend <= 0:
+                break
+            if olid == lord_id or ol.side != sd or ol.location != loc:
+                continue
+            if ol.assets.get("provender", 0) <= 0:
+                continue
+            take = min(spend, ol.assets["provender"])
+            ol.assets["provender"] -= take
+            if ol.assets["provender"] == 0:
+                del ol.assets["provender"]
+            spend -= take
+
+    # Place Teutonic castle marker; remove Walls +1.
+    state.locales[loc].teutonic_castle = True
+    state.locales[loc].walls_plus_one = False
+    sr["stonemasons_castles_built"] = built + 1
+
+    lord.moved_fought = True
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"locale": loc, "castle_built": True, "castles_built_total": built + 1}, [])
+
+
+def _h_cmd_muster_serf(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """R4 Smerdi (capability event). 1 Command action; active Russian
+    Lord Unbesieged in Rus may Muster 1 Serf (max 6 total Serfs in
+    play; serfs return to Smerdi card when removed).
+    """
+    from nevsky.capabilities import has_side_capability
+    from nevsky.static_data import load_locales
+
+    sd = _require_side_player(state, side)
+    if sd != "russian":
+        raise IllegalAction("wrong_side", "Smerdi is a Russian capability (R4)")
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    if not has_side_capability(state, "russian", "Smerdi"):
+        raise IllegalAction("no_capability", "Smerdi (R4) not in play")
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Smerdi requires Unbesieged Russian Lord")
+    if lord.location is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    if load_locales()[lord.location]["territory"] != "russian":
+        raise IllegalAction("not_in_rus", "Smerdi requires Russian Lord in Rus")
+    # Pool of 6 Serfs total in the side; count current Serfs across all
+    # Russian Mustered Lords.
+    in_play = sum(
+        l.forces.get("serfs", 0) for l in state.lords.values()
+        if l.side == "russian" and l.state == "mustered"
+    )
+    if in_play >= 6:
+        raise IllegalAction("serf_pool_empty", "Smerdi pool exhausted (6 Serfs already in play)")
+    if state.campaign_turn.actions_remaining < 1:
+        raise IllegalAction("insufficient_actions", "Smerdi muster costs 1 action")
+
+    lord.forces["serfs"] = lord.forces.get("serfs", 0) + 1
+    lord.moved_fought = True
+    _consume_actions(state, 1)
+    return ({"lord_id": lord_id, "serfs_added": 1, "in_play_after": in_play + 1}, [])
+
+
+HANDLERS_PHASE_4A = {
+    "cmd_stone_kremlin": _h_cmd_stone_kremlin,
+    "cmd_stonemasons": _h_cmd_stonemasons,
+    "cmd_muster_serf": _h_cmd_muster_serf,
+}
+HANDLERS.update(HANDLERS_PHASE_4A)

@@ -71,6 +71,32 @@ def _hits_for_strike(
     return total
 
 
+def _hits_for_lord_strike(
+    state: "GameState", lord_id: str, kind: str
+) -> float:
+    """Capability-aware per-Lord Strike contribution.
+
+    Adds Phase 4a archery extensions:
+      - Luchniki (R1/R2): Light Horse and Militia gain Archery (0.5/unit).
+      - Streltsy (R3/R13) / Balistarii (T4/T5/T6): Men-at-Arms gain
+        Archery (0.5/unit). Archery target Armor -2 is applied at hit
+        resolution time, not here.
+    """
+    from nevsky.capabilities import any_capability
+
+    units = state.lords[lord_id].forces
+    base = _hits_for_strike(units, kind)
+    if kind != "archery":
+        return base
+    extra = 0.0
+    if any_capability(state, lord_id, "Luchniki"):
+        extra += 0.5 * units.get("light_horse", 0)
+        extra += 0.5 * units.get("militia", 0)
+    if any_capability(state, lord_id, "Streltsy") or any_capability(state, lord_id, "Balistarii"):
+        extra += 0.5 * units.get("men_at_arms", 0)
+    return base + extra
+
+
 def _round_up(x: float) -> int:
     return math.ceil(x)
 
@@ -91,32 +117,60 @@ def _protection_spec(utype: str, strike_kind: str) -> str:
     return spec["protection_battle_melee"]
 
 
-def _absorb_hit(state: GameState, utype: str, strike_kind: str) -> bool:
+def _absorb_hit(
+    state: GameState, utype: str, strike_kind: str,
+    lord_id: str | None = None,
+    striker_has_armor_minus_2: bool = False,
+) -> bool:
     """Roll Protection for one Hit on a unit of `utype`. Return True
     if absorbed (no Rout), False if unit Routs.
 
-    Spec strings:
-      "armor:1-N"       -> roll d6; <=N absorbs
-      "evade:1-N"       -> roll d6; <=N absorbs (Battle Melee only;
-                            falls back to Unarmored elsewhere)
-      "unarmored"       -> roll d6; ==1 absorbs
-      "none"            -> no roll; always Routs (Serfs)
+    Phase 4a capability mods (when lord_id is provided):
+      - Halbbrueder (T9/T10): owner Lord's Sergeants and MaA gain
+        Armor +1 for Rout rolls (4.4.2).
+      - Warrior Monks (T7/T15): owner Lord may reroll 1 failed
+        Knights Armor roll per Strike step (approximated: per call).
+      - Striker Crossbowmen / Garrison MaA: target Armor -2.
     """
+    from nevsky.capabilities import any_capability
+
     spec = _protection_spec(utype, strike_kind)
     if spec == "none":
         return False
-    roll = roll_d6(state)
-    if spec.startswith("armor:1-"):
-        max_abs = int(spec.split("-", 1)[1])
-        return roll <= max_abs
-    if spec.startswith("evade:1-"):
-        if strike_kind == "archery":
-            # Evade does not apply against Archery in Battle (4.4.2).
+    if (
+        lord_id is not None
+        and utype in ("sergeants", "men_at_arms")
+        and any_capability(state, lord_id, "Halbbrueder")
+        and spec.startswith("armor:1-")
+    ):
+        n = int(spec.split("-", 1)[1])
+        spec = f"armor:1-{n + 1}"
+
+    def _roll(spec_: str) -> bool:
+        roll = roll_d6(state)
+        if spec_.startswith("armor:1-"):
+            max_abs = int(spec_.split("-", 1)[1])
+            if striker_has_armor_minus_2:
+                max_abs -= 2
+            return roll <= max(0, max_abs)
+        if spec_.startswith("evade:1-"):
+            if strike_kind == "archery":
+                return roll == 1
+            max_abs = int(spec_.split("-", 1)[1])
+            return roll <= max_abs
+        if spec_ == "unarmored":
             return roll == 1
-        max_abs = int(spec.split("-", 1)[1])
-        return roll <= max_abs
-    if spec == "unarmored":
-        return roll == 1
+        return False
+
+    absorbed = _roll(spec)
+    if absorbed:
+        return True
+    if (
+        utype == "knights"
+        and lord_id is not None
+        and any_capability(state, lord_id, "Warrior Monks")
+    ):
+        return _roll(spec)
     return False
 
 
@@ -155,11 +209,16 @@ def _assign_hit_owner_pick(units: ForceCounts, routed: ForceCounts) -> str | Non
 
 
 def _resolve_hits(
-    state: GameState, lord_id: str, hits: int, strike_kind: str
+    state: GameState, lord_id: str, hits: int, strike_kind: str,
+    striker_has_armor_minus_2: bool = False,
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
     place. Returns a record of what happened.
+
+    Phase 4a: passes lord_id and `striker_has_armor_minus_2` to
+    _absorb_hit so Halbbrueder / Warrior Monks / Crossbowmen-Streltsy/
+    Balistarii / Garrison-MaA Archery effects apply.
     """
     lord = state.lords[lord_id]
     units = lord.forces
@@ -169,17 +228,18 @@ def _resolve_hits(
         utype = _assign_hit_owner_pick(units, {})
         if utype is None:
             break
-        absorbed_this = _absorb_hit(state, utype, strike_kind)
+        absorbed_this = _absorb_hit(
+            state, utype, strike_kind,
+            lord_id=lord_id,
+            striker_has_armor_minus_2=striker_has_armor_minus_2,
+        )
         if absorbed_this:
             absorbed += 1
             routed_log.append({"unit": utype, "absorbed": True})
         else:
-            # Rout: remove unit from active forces. (Phase 3b uses
-            # immediate removal: Routed units are eliminated from the
-            # Lord's forces dict. The Battle reference distinguishes
-            # Routed vs Lost via 4.4.4 Losses rolls; Phase 3b treats
-            # Routed = Lost as a simplification, since we do not yet
-            # track a Routed sidecar pile on the Lord's mat.)
+            units[utype] = max(0, units.get(utype, 0) - 1)
+            if units.get(utype, 0) == 0:
+                del units[utype]
             routed_log.append({"unit": utype, "absorbed": False})
     return {"hits": hits, "absorbed": absorbed, "routed": routed_log}
 
@@ -243,13 +303,19 @@ def resolve_battle(
             ("melee_foot_defender", "melee_foot", defender_lords, attacker_lords),
             ("melee_foot_attacker", "melee_foot", attacker_lords, defender_lords),
         ]
+        from nevsky.capabilities import any_capability
         for label, kind, striker_lords, target_lords in steps:
-            # Sum hits across all striker Lords' active units.
             raw_hits = 0.0
+            armor_minus_2 = False
             for lid in striker_lords:
                 if lid not in state.lords:
                     continue
-                raw_hits += _hits_for_strike(state.lords[lid].forces, kind)
+                raw_hits += _hits_for_lord_strike(state, lid, kind)
+                if kind == "archery" and (
+                    any_capability(state, lid, "Streltsy")
+                    or any_capability(state, lid, "Balistarii")
+                ):
+                    armor_minus_2 = True
             hits = _round_up(raw_hits)
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
@@ -261,9 +327,10 @@ def resolve_battle(
                     break
                 if not state.lords[tlid].forces:
                     continue
-                # Distribute proportionally: assign each Hit one at a
-                # time to the front-most Lord still standing.
-                tres = _resolve_hits(state, tlid, remaining, strike_kind)
+                tres = _resolve_hits(
+                    state, tlid, remaining, strike_kind,
+                    striker_has_armor_minus_2=armor_minus_2,
+                )
                 distribution.append({"lord": tlid, **tres})
                 remaining = 0
             round_log["steps"].append({
@@ -447,11 +514,12 @@ def resolve_storm(
         #   4) melee attackers
         # Hits cap on melee: 6 per Lord per side per Round.
         # Defender archery: garrison MaA + Lords' default-archery units.
+        from nevsky.capabilities import any_capability
         def_arch = _storm_hits_for_units(g_units, "archery_garrison_maa") + sum(
-            _storm_hits_for_units(state.lords[lid].forces, "archery") for lid in defender_lords if lid in state.lords
+            _hits_for_lord_strike(state, lid, "archery") for lid in defender_lords if lid in state.lords
         )
         atk_arch = sum(
-            _storm_hits_for_units(state.lords[lid].forces, "archery") for lid in attacker_lords if lid in state.lords
+            _hits_for_lord_strike(state, lid, "archery") for lid in attacker_lords if lid in state.lords
         )
         # Defender melee: Garrison units (Knights melee, MaA melee) + Lord units.
         def_melee = _storm_hits_for_units(g_units, "melee") + sum(
@@ -459,6 +527,24 @@ def resolve_storm(
         )
         atk_melee = sum(
             _storm_hits_for_units(state.lords[lid].forces, "melee") for lid in attacker_lords if lid in state.lords
+        )
+        # Phase 4a: Crossbowmen / Garrison MaA Archery imposes target Armor -2.
+        def_arch_armor_minus_2 = (
+            g_units.get("men_at_arms", 0) > 0
+            or any(
+                any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii")
+                for lid in defender_lords if lid in state.lords
+            )
+        )
+        atk_arch_armor_minus_2 = any(
+            any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii")
+            for lid in attacker_lords if lid in state.lords
+        )
+        # Phase 4a: Trebuchets reduce Walls and Siegeworks by 1 if any
+        # Unrouted Lord on the storming side has it (4.5.2).
+        atk_has_trebuchets = any(
+            any_capability(state, lid, "Trebuchets") and state.lords[lid].forces
+            for lid in attacker_lords if lid in state.lords
         )
         # Cap melee at 6/Lord (we approximate by capping per-side total at 6 * lords_count).
         atk_melee_cap = 6 * len(attacker_lords)
@@ -469,20 +555,25 @@ def resolve_storm(
         # Resolve defender archery -> attacker units (Walls do NOT protect
         # attacker; Siegeworks do not protect attacker against own
         # archery either -- only walls protect defender).
+        # Trebuchets (T14): reduce Walls/Siegeworks by 1 (min 0) when
+        # the storming side has at least one Unrouted Lord with Trebuchets.
+        eff_walls_max = max(0, walls_max - 1) if atk_has_trebuchets else walls_max
+        eff_siegeworks = siege_markers  # Trebuchets reduce defender Walls;
+                                         # the defender side does not get its
+                                         # own Trebuchets bonus against the
+                                         # attacker\'s Siegeworks (rule scope).
+
         steps_data = [
-            ("archery_defender", "archery", _round_up(def_arch), attacker_lords, False),
-            ("archery_attacker", "archery", _round_up(atk_arch), defender_lords, True),
-            ("melee_defender",   "melee",   _round_up(def_melee), attacker_lords, False),
-            ("melee_attacker",   "melee",   _round_up(atk_melee), defender_lords, True),
+            ("archery_defender", "archery", _round_up(def_arch), attacker_lords, False, def_arch_armor_minus_2),
+            ("archery_attacker", "archery", _round_up(atk_arch), defender_lords, True,  atk_arch_armor_minus_2),
+            ("melee_defender",   "melee",   _round_up(def_melee), attacker_lords, False, False),
+            ("melee_attacker",   "melee",   _round_up(atk_melee), defender_lords, True,  False),
         ]
-        for label, kind, hits, target_lords, target_is_defender in steps_data:
-            # Apply Walls / Siegeworks.
+        for label, kind, hits, target_lords, target_is_defender, armor_minus_2 in steps_data:
             if target_is_defender:
-                # defender protected by Walls.
-                hits = _walls_absorb(state, hits, walls_max)
+                hits = _walls_absorb(state, hits, eff_walls_max)
             else:
-                # attacker protected by Siegeworks (siege_markers as Walls).
-                hits = _walls_absorb(state, hits, siege_markers)
+                hits = _walls_absorb(state, hits, eff_siegeworks)
             distribution: list[dict[str, Any]] = []
             remaining = hits
             if target_is_defender and g_units:
@@ -512,7 +603,10 @@ def resolve_storm(
                 if not state.lords[tlid].forces:
                     continue
                 strike_kind = "archery" if kind == "archery" else "melee"
-                tres = _resolve_hits(state, tlid, remaining, strike_kind)
+                tres = _resolve_hits(
+                    state, tlid, remaining, strike_kind,
+                    striker_has_armor_minus_2=armor_minus_2,
+                )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 remaining = 0
             round_log["steps"].append({
