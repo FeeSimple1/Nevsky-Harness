@@ -251,3 +251,53 @@ Battle by Event, LUCHNIKI/STRELTSY/BALISTARII archery extensions,
 HALBBRUEDER Armor +1, WARRIOR MONKS rerolls, RAIDERS, CONVERTS,
 DRUZHINA Command +1, Russian archery special rounding, Pursuit on
 Concede, Lieutenants 4.1.3, full Reposition with Flanking).
+
+## Phase 3c: Siege, Storm, Sally
+
+State adds `Lord.in_stronghold` (default False). A Lord is BESIEGED
+when `in_stronghold=True` AND the Locale has `siege_markers > 0`.
+Lords at the same Locale who are NOT inside the Stronghold are the
+besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
+
+### 4.5.1 Siege
+
+- **`cmd_siege`** — entire card. `args.lord_id` (active Lord).
+  - Surrender check: if no Besieged Lords inside, roll 1d6; if
+    roll <= siege_markers, the Stronghold is Conquered (place
+    Conquered marker; +VP per Strongholds table; if Novgorod, all
+    Veche Coin removed per 1.3.3 -- not awarded as Spoils since
+    this is Surrender, not Sack).
+  - Siegeworks check: if besieging Lords at locale >= Stronghold
+    Capacity, +1 Siege marker (max 4).
+
+### 4.5.2 Storm
+
+- **`cmd_storm`** — entire card. `args.lord_id` (active Lord).
+  - Storm rounds run via `battle.resolve_storm`. Single front
+    lane (no flanking). Garrison units (per Strongholds table) sit
+    alongside defender; Garrison MaA have Archery (-2 target Armor)
+    and Melee; Garrison Knights have Melee only.
+  - Defender protected by Walls (rolled per Hit, d6 <= walls_max
+    absorbs). Attacker protected by Siegeworks (siege_markers as
+    Walls range 1..siege_markers).
+  - Max 6 Melee Hits per Lord per Round (2E). Archery unlimited.
+  - Storm ends when all attackers Rout, all defenders+Garrison
+    Rout, OR rounds_completed >= siege_markers (attacker loses).
+  - On Sack (defender loses): all Besieged Lords permanently
+    removed (1.5.1); Stronghold Conquered (+VP); siege markers
+    cleared; Spoils (loot/provender/coin = VP each) awarded to
+    attacker[0]. Novgorod special: all Veche Coin to attacker[0].
+  - On attacker loss: Storm ends; siege continues; no Spoils.
+  - Trade Routes cannot be Stormed (`no_storm` flag).
+
+### 4.5.3 Sally
+
+- **`cmd_sally`** — entire card. `args.lord_id` (Besieged Lord).
+  - Sallying side does NOT benefit from Walls or Garrison.
+  - Defenders (Besiegers at the same locale) receive Siegeworks
+    as Walls. Phase 3c uses the Battle resolver for the engagement
+    (Walls/Siegeworks integration is a Phase 3c simplification).
+  - Sallying loss: Sallying Lords stay Besieged inside; siege
+    markers reduced to 1 (RAID).
+  - Sallying win: Besieging Lords retreat (or are removed if no
+    forces); siege markers cleared (siege lifted).

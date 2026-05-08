@@ -242,6 +242,7 @@ class Lord(BaseModel):
     this_lord_capabilities: list[str] = Field(default_factory=list)
     lordship_used: int = 0
     just_arrived_this_levy: bool = False
+    in_stronghold: bool = False
 
     @field_validator("forces", "assets")
     @classmethod

@@ -383,6 +383,25 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         out.append({"type": "cmd_march", "side": side,
                     "args_template": {"lord_id": "<id>", "to": "<locale_id>", "group": "[<id>]"},
                     "note": "March 1 Locale (1 Unladen / 2 Laden)"})
+        # Siege/Storm if Lord is at a Stronghold with siege markers,
+        # is not Besieged inside, and is besieging.
+        from nevsky.campaign import _stronghold_at, _is_besieged as _ib
+        active = state.lords[active_lord]
+        if active.location is not None:
+            sh = _stronghold_at(active.location)
+            sm = state.locales[active.location].siege_markers
+            if sh is not None and sm > 0 and not _ib(state, active_lord) and sh.get("side") != side:
+                out.append({"type": "cmd_siege", "side": side,
+                            "args": {"lord_id": active_lord},
+                            "note": "Siege (4.5.1) -- entire card; surrender or siegeworks"})
+                if not sh.get("no_storm"):
+                    out.append({"type": "cmd_storm", "side": side,
+                                "args": {"lord_id": active_lord},
+                                "note": "Storm (4.5.2) -- entire card"})
+            if _ib(state, active_lord):
+                out.append({"type": "cmd_sally", "side": side,
+                            "args": {"lord_id": active_lord},
+                            "note": "Sally (4.5.3) -- entire card; Besieged Lord attacks Besiegers"})
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})

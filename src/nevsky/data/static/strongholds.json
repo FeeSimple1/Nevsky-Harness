@@ -1,0 +1,48 @@
+{
+  "_doc": "Strongholds table per Nevsky 2nd Edition. Sources: Nevsky_Strongholds.txt, Rules of Play 1.3.1 / 4.5.1 / 4.5.2, Second Edition Changes (Bishopric and Castle garrisons each reduced by 1 Men-at-Arms). Capacity is the maximum number of Lords that may Withdraw inside (1.3.1, 4.3.4). Walls are rolled only in Storm/Sally/by-Event (4.4.2, 4.5.2). Garrison units (counts/types) are deployed at start of Storm; Garrison Men-at-Arms have Archery with target Armor -2; Garrison Knights have Melee only (no Archery). Trade Routes are boxed Locales with no Walls/Capacity/Garrison; they Conquer simply by enemy Lord presence and cannot be Sacked. Commanderies are not in this table; Phase 3c treats them as non-Strongholds for Siege/Storm purposes (the rules treat Commanderies as Lord Seats granted by T12 Ordensburgen, not as boxed strongholds).",
+  "strongholds": {
+    "novgorod": {
+      "side": "russian",
+      "capacity": 3, "walls_max": 3,
+      "garrison": {"men_at_arms": 3, "knights": 0},
+      "vp": 3,
+      "spoils": {"loot": 3, "provender": 3, "coin": 3}
+    },
+    "city": {
+      "side": "russian",
+      "capacity": 3, "walls_max": 3,
+      "garrison": {"men_at_arms": 3, "knights": 0},
+      "vp": 2,
+      "spoils": {"loot": 2, "provender": 2, "coin": 2}
+    },
+    "fort": {
+      "side": "russian",
+      "capacity": 1, "walls_max": 3,
+      "garrison": {"men_at_arms": 1, "knights": 0},
+      "vp": 1,
+      "spoils": {"loot": 1, "provender": 1, "coin": 1}
+    },
+    "trade_route": {
+      "side": "russian",
+      "capacity": 0, "walls_max": 0,
+      "garrison": {"men_at_arms": 0, "knights": 0},
+      "vp": 1,
+      "spoils": null,
+      "no_storm": true
+    },
+    "bishopric": {
+      "side": "teutonic",
+      "capacity": 3, "walls_max": 4,
+      "garrison": {"men_at_arms": 2, "knights": 1},
+      "vp": 2,
+      "spoils": {"loot": 2, "provender": 2, "coin": 2}
+    },
+    "castle": {
+      "side": "teutonic",
+      "capacity": 2, "walls_max": 4,
+      "garrison": {"men_at_arms": 1, "knights": 1},
+      "vp": 1,
+      "spoils": {"loot": 1, "provender": 1, "coin": 1}
+    }
+  }
+}

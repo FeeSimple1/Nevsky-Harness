@@ -512,6 +512,11 @@
           "default": false,
           "title": "Just Arrived This Levy",
           "type": "boolean"
+        },
+        "in_stronghold": {
+          "default": false,
+          "title": "In Stronghold",
+          "type": "boolean"
         }
       },
       "required": [
@@ -946,5 +951,5 @@
   "title": "Nevsky Harness GameState",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-schema-version": "0.4.0"
+  "x-schema-version": "0.5.0"
 }

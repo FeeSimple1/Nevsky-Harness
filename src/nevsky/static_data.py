@@ -62,3 +62,12 @@ def load_forces() -> dict[str, dict[str, Any]]:
     """Forces table (strikes, protection ranges, archery defaults)."""
     raw = _read("forces.json")
     return raw["units"]
+
+
+@lru_cache(maxsize=1)
+def load_strongholds() -> dict[str, dict[str, Any]]:
+    """Strongholds table (capacity, walls_max, garrison, vp, spoils)
+    keyed by Locale type (novgorod / city / fort / trade_route /
+    bishopric / castle). Commanderies are not Strongholds for Siege /
+    Storm purposes (Phase 3c)."""
+    return _read("strongholds.json")["strongholds"]
