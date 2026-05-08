@@ -353,10 +353,22 @@ def _h_fpd_resolve(
             feed_results.append({"lord_id": lord_id, "hillforts_skipped": True})
             continue
         n_units = sum(lord.forces.values())
-        cost = 2 if n_units >= 7 else 1
+        # 4.8.1: 1 Provender/Loot for 1-6 units; 2 for 7+. A Lord with 0
+        # units consumes 0 (he should already have been removed per 1.5.1
+        # at Battle Aftermath, but a defensive 0-cost catches stragglers).
+        if n_units == 0:
+            cost = 0
+        elif n_units >= 7:
+            cost = 2
+        else:
+            cost = 1
+        consumed = {"provender": 0, "loot": 0}
+        if cost == 0:
+            feed_results.append({"lord_id": lord_id, "units": 0, "cost": 0,
+                                  "consumed": consumed, "unfed": False})
+            continue
         own_avail = lord.assets.get("provender", 0) + lord.assets.get("loot", 0)
         # try own provender first, then loot
-        consumed = {"provender": 0, "loot": 0}
         remaining = cost
         if remaining > 0 and lord.assets.get("provender", 0) > 0:
             take = min(remaining, lord.assets["provender"])
@@ -1419,11 +1431,17 @@ def _h_withdraw(
         if not own_terr or enemy_conq:
             raise IllegalAction("not_friendly", f"{cp.to_locale} not Friendly to defender")
 
-    capacity = {"commandery": 1, "fort": 1, "bishopric": 2, "city": 2,
-                "novgorod": 3, "castle": 1}.get(stype, 1)
+    # Capacity per Strongholds table (strongholds.json). Trade Routes
+    # have no Stronghold to Withdraw into; commanderies are not in the
+    # Strongholds table. Both reject Withdraw.
+    from nevsky.static_data import load_strongholds
+    sh_data = load_strongholds().get(stype)
+    if sh_data is None or sh_data.get("no_storm"):
+        raise IllegalAction("no_stronghold", f"{cp.to_locale} type {stype} has no Stronghold to Withdraw into")
+    capacity = int(sh_data.get("capacity", 1))
     if len(cp.defender_lords) > capacity:
         raise IllegalAction("over_capacity",
-            f"Stronghold {cp.to_locale} capacity {capacity}; {len(cp.defender_lords)} defenders")
+            f"Stronghold {cp.to_locale} ({stype}) capacity {capacity}; {len(cp.defender_lords)} defenders")
 
     # Place a siege marker (Besieged the defenders).
     loc2 = state.locales[cp.to_locale]
@@ -1463,6 +1481,14 @@ def _h_stand_battle(
     winner = result["winner"]
     loser_lords = result["attacker_lords"] if result["loser"] == cp.attacker_side else result["defender_lords"]
     winner_lords = result["defender_lords"] if winner == cp.defender_side else result["attacker_lords"]
+
+    # SMOKE-003: agent may direct spoils via args.spoils_recipient.
+    spoils_target = args.get("spoils_recipient")
+    if isinstance(spoils_target, str) and spoils_target in state.lords:
+        st = state.lords[spoils_target]
+        if (st.side == winner and st.location == cp.to_locale
+                and st.state == "mustered"):
+            winner_lords = [spoils_target] + [w for w in winner_lords if w != spoils_target]
 
     aftermath: dict[str, Any] = {"battle": result, "retreats": [], "spoils": [], "removed": []}
     for lid in list(loser_lords):
@@ -1749,16 +1775,23 @@ def _h_cmd_storm(
         # R18: Walls +1 marker removed if Sacked.
         state.locales[locale_id].walls_plus_one = False
         # Spoils: loot/provender/coin = VP each, awarded to attacker[0].
+        # SMOKE-003: route Spoils to optional args.spoils_recipient
+        # (must be among attackers); else default to attackers[0].
+        spoils_target = args.get("spoils_recipient")
+        recipient = attackers[0] if attackers else None
+        if isinstance(spoils_target, str) and spoils_target in attackers:
+            recipient = spoils_target
         spoils = sh.get("spoils") or {}
-        if attackers and spoils:
-            w = state.lords[attackers[0]]
+        if recipient and spoils:
+            w = state.lords[recipient]
             for k, v in spoils.items():
                 w.assets[k] = min(8, w.assets.get(k, 0) + v)  # type: ignore[index]
         aftermath["stronghold_spoils"] = spoils
+        aftermath["spoils_recipient"] = recipient
         # Novgorod special: all Veche Coin to attackers.
         if locale_id == "novgorod" and state.veche.coin > 0:
-            if attackers:
-                w = state.lords[attackers[0]]
+            if recipient:
+                w = state.lords[recipient]
                 w.assets["coin"] = min(8, w.assets.get("coin", 0) + state.veche.coin)
             aftermath["veche_coin_taken"] = state.veche.coin
             state.veche.coin = 0
@@ -1826,6 +1859,14 @@ def _h_cmd_sally(
         state.locales[locale_id].siege_markers = 1
         aftermath["raid_siege_to_1"] = True
         aftermath["sally_outcome"] = "withdrew"
+        # SMOKE-007 fix: any sallying Lord with 0 forces is permanently
+        # removed per 1.5.1 (Lord with no units leaves the game).
+        from nevsky.actions import _remove_lord_permanently as _rem
+        from nevsky.static_data import load_lords
+        for lid in list(attackers):
+            if lid in state.lords and not state.lords[lid].forces:
+                _rem(state, lid, load_lords()[lid])
+                aftermath.setdefault("removed_after_sally", []).append(lid)
     else:
         # Sallying side won. Besieging side Lords lose per 4.4 Battle
         # aftermath. Siege is lifted (remove all siege markers).
