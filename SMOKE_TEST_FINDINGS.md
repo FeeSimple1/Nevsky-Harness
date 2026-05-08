@@ -266,3 +266,57 @@ What's still UNTESTED by smoke:
 - A Storm that Sacks the Stronghold and applies Spoils.
 
 Total tests after Round 3: 274 (3 new regressions).
+
+---
+
+## Round 4 (this PR)
+
+Targeted: Sack-by-Storm, Lieutenants pairing, Lower-Lord auto-pass,
+Veche Decline, Legate Arrives. Found one cosmetic concern; no bugs.
+
+### Sack-by-Storm verified
+
+Pre-positioned Hermann + Yaroslav + Knud&Abel as besiegers at Pskov
+(City, capacity 3) with Gavrilo Besieged inside. cmd_storm:
+- Battle resolved with attacker (Teutonic) winning.
+- Gavrilo permanently removed (1.5.1).
+- pskov.teutonic_conquered = 2 (City VP).
+- T VP +2.
+- Stronghold Spoils awarded to Hermann (loot/provender/coin = 2 each).
+- Gavrilo's Assets transferred to Hermann.
+- Siege markers cleared.
+- Walls +1 marker (if any) cleared.
+
+### Lieutenants verified
+
+place_lieutenant pairs successfully. Lower-Lord card revealed during
+Activation produces `outcome: "pass_lower_lord"` and routes to FPD
+without consuming actions on the Lower Lord. End Campaign reset
+unstacks both fields.
+
+### Veche Decline verified
+
+return_of_the_prince at start: Veche has 3 VP markers, 2 Coin. Andrey
+on Calendar at box 9 (Levy box). Russian chose Decline -> Andrey slid
+to box 10 (Levy + 1). Veche VP +1 (3 -> 4). Output:
+`{"option": "D", "slid": ["andrey"], "vp_added": 1}`. Correct.
+
+### Cosmetic note: Wastage choice on tied asset counts
+
+When a Lord has tied largest-asset counts (e.g., coin=4 = provender=4),
+Wastage discards whichever appears FIRST in the assets dict (insertion
+order). The PAC says "discard any one Asset", so the player should
+choose. Phase 4+ refinement: accept an optional Wastage override arg.
+
+### Coverage now done
+
+- ✓ Sack-by-Storm flow
+- ✓ Lieutenants pairing + Lower-Lord pass
+- ✓ Veche Decline (Auto-Muster / Extra Muster verified earlier in
+  unit tests)
+- ✓ Legate Arrives (USE 2a/2b/2c verified earlier in unit tests)
+- ✗ Mongol/Kipchaq Vassal Muster (still untested by smoke)
+- ✗ 16-turn Crusade-on-Novgorod run (still untested)
+- ✗ Re-Muster after Disband (still untested by smoke)
+
+Total tests after Round 4: 282.

@@ -504,3 +504,31 @@ while state.meta.campaign_step == "command":
 recipient must be at the Battle Locale and on the winning side; if
 not, the harness silently falls back to `winner_lords[0]` (or
 `attackers[0]` for Storm).
+
+## Phase 4d: Deferred Features
+
+### Lieutenants (4.1.3)
+
+- **`place_lieutenant`** — Plan-time only. `args.lieutenant`,
+  `args.lower_lord`. Both Lords must be Mustered, at the same Locale,
+  same side, neither Besieged, and neither already paired. No chains
+  (a Lower Lord cannot itself become a Lieutenant). At End Campaign
+  (4.9.5 reset), the harness unstacks all Lieutenants / Lower Lords.
+
+- During `command_reveal`: if the revealed Lord card belongs to a Lord
+  with `lieutenant_of != None`, the card resolves as Pass per 4.2.3
+  (`outcome: "pass_lower_lord"`).
+
+State adds `Lord.lieutenant_of` (str | None) and
+`Lord.has_lower_lord` (str | None).
+
+### Concede the Field + Pursuit (4.4.2)
+
+- **`stand_battle`** now accepts optional `args.concede` ∈
+  {`"attacker"`, `"defender"`}. The named side concedes; the Battle
+  runs Round 1 only. The non-conceder gains Pursuit: the conceder's
+  Hits THIS ROUND are halved (round up). After Round 1, the conceder
+  loses regardless of remaining units. Result includes `conceded`
+  field for transparency.
+
+`resolve_battle(state, ..., concede=None|"attacker"|"defender")`.
