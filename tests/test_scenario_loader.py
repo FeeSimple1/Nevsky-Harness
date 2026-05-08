@@ -85,18 +85,27 @@ def test_starting_forces_match_static() -> None:
         assert dict(lord.forces) == expected, f"{lid} forces mismatch"
 
 
-def test_starting_assets_match_static_minus_transport_choice() -> None:
-    """1.7 / 3.4.1: Mustered Lord starting Assets are the static
-    starting_assets dict (with explicit Transport types). 'Transport
-    (any)' slots are unresolved at scenario start and captured as
-    pending decisions (Q-001), not pre-defaulted."""
+def test_starting_assets_include_transport_defaults_per_q001() -> None:
+    """Q-001 resolution: scenario loader applies the per-scenario
+    Transport-(any) defaults so Lord.assets are fully populated at
+    load. (Previously this test asserted no-default behavior; that
+    behavior is obsolete per RULES_DECISIONS.md Q-001.)"""
     from nevsky.static_data import load_lords as static
     g = load_scenario("peipus")
-    for lid, lord in g.lords.items():
-        if lord.state != "mustered":
-            continue
-        expected = {k: v for k, v in static()[lid]["starting_assets"].items() if v}
-        assert dict(lord.assets) == expected, f"{lid} asset mismatch"
+    # All Peipus mustered Russian Lords default to all Sleds.
+    expected_per_lord = {
+        "aleksandr": {"sled": 2},
+        "andrey":    {"sled": 2},
+        "domash":    {"sled": 1},
+        "karelians": {"sled": 1},
+    }
+    for lid, expected_extra in expected_per_lord.items():
+        assert g.lords[lid].state == "mustered"
+        sl = static()[lid]
+        base = {k: int(v) for k, v in sl["starting_assets"].items() if int(v) != 0}
+        for k, v in expected_extra.items():
+            base[k] = base.get(k, 0) + v
+        assert dict(g.lords[lid].assets) == base, f"{lid} asset mismatch"
 
 
 def test_watland_starting_vp() -> None:

@@ -72,6 +72,55 @@ def load_scenario_raw(scenario_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# Per-scenario / lord / slot Transport defaults per Q-001 decision
+# (RULES_DECISIONS.md). Values are lists of strings (one per slot) drawn
+# from {"boat","cart","sled","ship"}. Order matches the slot index in
+# lords.json starting_transport_choice. Slots not listed here use the
+# loader's general heuristic (fallback to first allowed option).
+_Q001_DEFAULTS: dict[str, dict[str, list[str]]] = {
+    "pleskau": {
+        "gavrilo":   ["cart"],
+        "vladislav": ["boat"],
+    },
+    "watland": {
+        "andreas":   ["sled", "sled"],
+        "domash":    ["sled"],
+        "vladislav": ["sled"],
+    },
+    "return_of_the_prince": {
+        "andreas":   ["ship", "cart"],
+        "aleksandr": ["boat", "cart"],
+    },
+    "return_of_the_prince_nicolle": {
+        "andreas":   ["ship", "cart"],
+        "aleksandr": ["boat", "cart"],
+        "gavrilo":   ["cart"],
+    },
+    "peipus": {
+        "aleksandr": ["sled", "sled"],
+        "andrey":    ["sled", "sled"],
+        "domash":    ["sled"],
+        "karelians": ["sled"],
+    },
+    "crusade_on_novgorod": {
+        "gavrilo":   ["cart"],
+        "vladislav": ["boat"],
+    },
+}
+
+# Player-prompt hotspots: scenario_id -> set of lord_ids whose
+# default the harness should NOT silently auto-confirm. The loader
+# emits the PendingDecision exactly the same way; this set is used
+# by the auto-confirm hook to decide which decisions persist past
+# the first Levy action.
+_Q001_NO_AUTO_CONFIRM: dict[str, set[str]] = {
+    "pleskau": {"vladislav"},
+    "crusade_on_novgorod": {"vladislav"},
+    "return_of_the_prince": {"aleksandr"},
+    "return_of_the_prince_nicolle": {"aleksandr"},
+}
+
+
 class ScenarioPlaceholderError(ValueError):
     """Raised when load_scenario is called on a placeholder scenario."""
 
@@ -92,7 +141,7 @@ def load_scenario(scenario_id: str, seed: int = 0) -> GameState:
     meta = _build_meta(raw, scenario_id, seed)
     veche = _build_veche(setup)
     locales = _build_locales(setup, static_locales)
-    lords, pending = _build_lords(setup, static_lords)
+    lords, pending = _build_lords(scenario_id, setup, static_lords)
     calendar = _build_calendar(setup)
     decks = _build_decks(raw, setup)
     legate = Legate(william_of_modena_in_play=False, location="card", locale_id=None)
@@ -185,6 +234,7 @@ def _build_locales(setup: dict[str, Any], static_locales: dict[str, dict]) -> di
 
 
 def _build_lords(
+    scenario_id: str,
     setup: dict[str, Any],
     static_lords: dict[str, dict],
 ) -> tuple[dict[str, Lord], list[PendingDecision]]:
@@ -239,23 +289,52 @@ def _build_lords(
                 vassals=vassals,
                 this_lord_capabilities=[],
             )
+            # Q-001: apply per-scenario/lord defaults; populate Lord.assets
+            # with the chosen Transport pieces and emit a PendingDecision
+            # per slot with default_value/current_value pre-populated.
+            scenario_defaults = _Q001_DEFAULTS.get(scenario_id, {}).get(lord_id, [])
+            no_auto = lord_id in _Q001_NO_AUTO_CONFIRM.get(scenario_id, set())
+            slot_idx_global = 0
             for slot in sl.get("starting_transport_choice", []):
-                pending.append(
-                    PendingDecision(
-                        kind="setup_transport_choice",
-                        owed_by=side,
-                        context={
-                            "lord_id": lord_id,
-                            "count": int(slot["count"]),
-                            "options": list(slot["options"]),
-                        },
-                        note=(
-                            f"{lord_id} starts with {slot['count']}x Transport (any of "
-                            f"{', '.join(slot['options'])}); player chooses Transport types "
-                            f"per rule 3.4.1 procedure (see Q-001)."
-                        ),
+                allowed = list(slot["options"])
+                # If the Lord is Ships-authorized but "ship" is not in
+                # the JSON options, fall back to allowed as-is. The
+                # defaults table is authoritative.
+                count = int(slot["count"])
+                for sub_idx in range(count):
+                    if slot_idx_global < len(scenario_defaults):
+                        chosen = scenario_defaults[slot_idx_global]
+                    else:
+                        # Fallback heuristic: pick first option.
+                        chosen = allowed[0]
+                    if chosen not in allowed:
+                        # Hard-coded default not in JSON options; trust
+                        # the table (Q-001 spec is authoritative).
+                        pass
+                    # Apply: increment Lord.assets[chosen].
+                    lords[lord_id].assets[chosen] = lords[lord_id].assets.get(chosen, 0) + 1  # type: ignore[index]
+                    pending.append(
+                        PendingDecision(
+                            kind="setup_transport_choice",
+                            owed_by=side,
+                            context={
+                                "lord_id": lord_id,
+                                "slot_index": slot_idx_global,
+                                "default_value": chosen,
+                                "current_value": chosen,
+                                "allowed_values": allowed,
+                                "auto_confirm_on_levy": not no_auto,
+                                "resolved": False,
+                            },
+                            note=(
+                                f"{lord_id} starts with Transport (any) slot {slot_idx_global}; "
+                                f"default = {chosen} (Q-001). "
+                                + ("Player MUST confirm or override before Levy." if no_auto
+                                   else "Auto-confirms at first Levy action.")
+                            ),
+                        )
                     )
-                )
+                    slot_idx_global += 1
         else:
             lords[lord_id] = Lord(
                 lord_id=lord_id,
