@@ -333,11 +333,13 @@ def resolve_battle(
                 )
                 distribution.append({"lord": tlid, **tres})
                 remaining = 0
-            round_log["steps"].append({
-                "step": label, "raw_hits": raw_hits, "hits": hits,
-                "distribution": distribution,
-            })
-            # Mid-round rout check: if either side fully Routed, end now.
+            # SMOKE-004: only record steps that produced or distributed
+            # any Hits. A 0-hit step adds noise without information.
+            if hits > 0 or distribution:
+                round_log["steps"].append({
+                    "step": label, "raw_hits": raw_hits, "hits": hits,
+                    "distribution": distribution,
+                })
             if _all_routed(state, attacker_lords) or _all_routed(state, defender_lords):
                 break
 
@@ -609,10 +611,11 @@ def resolve_storm(
                 )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 remaining = 0
-            round_log["steps"].append({
-                "step": label, "hits_after_walls": hits,
-                "distribution": distribution,
-            })
+            if hits > 0 or distribution:
+                round_log["steps"].append({
+                    "step": label, "hits_after_walls": hits,
+                    "distribution": distribution,
+                })
             # End-of-round rout check.
             if _all_routed(state, attacker_lords) or _all_routed(state, defender_lords):
                 break
