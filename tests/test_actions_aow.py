@@ -101,14 +101,17 @@ def test_aow_implement_first_levy_this_lord_capability_tucks_under_lord() -> Non
 
 
 def test_aow_subsequent_levy_event_immediate_goes_to_discard() -> None:
-    """3.1.3: immediate Event reveals and discards."""
+    """3.1.3: immediate Event reveals, RESOLVES, and discards (Phase 4c)."""
     s = load_scenario("pleskau", seed=42)
     s.meta.first_levy_done = True
     s.decks.teutonic.deck = []
-    # T2 Torzhok -- immediate event per cards.json (event_persistence=immediate)
+    # T2 Torzhok: pick veche target so the resolver doesn't need Domash data.
+    s.veche.coin = 3
     s.decks.teutonic.pending_draw = ["T2"]
-    apply_action(s, {"type": "aow_implement_card", "side": "teutonic", "args": {}})
+    apply_action(s, {"type": "aow_implement_card", "side": "teutonic",
+                     "args": {"target": "veche"}})
     assert "T2" in s.decks.teutonic.discard
+    assert s.veche.coin == 0  # 3 Coin removed by T2
 
 
 def test_aow_subsequent_levy_hold_event_goes_to_holds() -> None:
