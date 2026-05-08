@@ -1309,7 +1309,12 @@ def resolve_battle(
             # Update positions for newly-Routed Lords.
             _remove_routed_from_array(state, atk_pos)
             _remove_routed_from_array(state, def_pos)
-            if _all_routed(state, attacker_lords) or _all_routed(state, defender_lords):
+            # SMOKE-015 guard: bool() prevents vacuous _all_routed([])
+            # from short-circuiting if a future caller passes an empty
+            # side. Battle is not currently invoked with empty sides.
+            atk_wiped = bool(attacker_lords) and _all_routed(state, attacker_lords)
+            def_wiped = bool(defender_lords) and _all_routed(state, defender_lords)
+            if atk_wiped or def_wiped:
                 break
 
         log.append(round_log)
@@ -1695,11 +1700,16 @@ def resolve_storm(
         # Lord's cap (rules: "strikes_combine_with: Defending Front
         # Lord (round up combined totals)").
         def_melee = 0.0
-        for lid in def_front_lords:
-            lord_melee = _storm_hits_for_units(state.lords[lid].forces, "melee")
-            # Defender Front Lord absorbs Garrison melee under the same cap.
-            lord_melee += _storm_hits_for_units(g_units, "melee")
-            def_melee += min(6.0, lord_melee)
+        if def_front_lords:
+            for lid in def_front_lords:
+                lord_melee = _storm_hits_for_units(state.lords[lid].forces, "melee")
+                # Defender Front Lord absorbs Garrison melee under the same cap.
+                lord_melee += _storm_hits_for_units(g_units, "melee")
+                def_melee += min(6.0, lord_melee)
+        else:
+            # SMOKE-015b: garrison-only defense still strikes in melee.
+            # No Lord to combine with; cap applies to garrison alone.
+            def_melee = min(6.0, _storm_hits_for_units(g_units, "melee"))
         atk_melee = 0.0
         for lid in atk_front_lords:
             atk_melee += min(6.0, _storm_hits_for_units(state.lords[lid].forces, "melee"))
@@ -1794,13 +1804,25 @@ def resolve_storm(
                     "step": label, "hits_after_walls": hits,
                     "distribution": distribution,
                 })
-            # End-of-round rout check.
-            if _all_routed(state, attacker_lords) or _all_routed(state, defender_lords):
+            # SMOKE-015 (Round 13): mid-round break if either side is
+            # wiped. _all_routed([]) returns True for an empty list
+            # (vacuous truth); for Storm a garrison-only defense
+            # (defender_lords=[]) is NOT "wiped" until the garrison
+            # is also gone. Guard accordingly.
+            atk_wiped = bool(attacker_lords) and _all_routed(state, attacker_lords)
+            def_wiped = (
+                (not defender_lords or _all_routed(state, defender_lords))
+                and sum(g_units.values()) == 0
+            )
+            if atk_wiped or def_wiped:
                 break
 
         log.append(round_log)
         atk_routed = _all_routed(state, attacker_lords)
-        def_routed = _all_routed(state, defender_lords) and sum(g_units.values()) == 0
+        def_routed = (
+            (not defender_lords or _all_routed(state, defender_lords))
+            and sum(g_units.values()) == 0
+        )
         common = {
             "log": log, "garrison_remaining": g_units,
             "attacker_storm_positions": dict(atk_storm_pos),
