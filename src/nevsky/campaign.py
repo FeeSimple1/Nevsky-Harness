@@ -1054,8 +1054,10 @@ def _h_end_campaign_resolve(
             state.meta.campaign_step = "done"
             game_over = True
         else:
-            # 4.9.3 Plow & Reap (end of Summer / end of Late Winter only)
-            _plow_and_reap(state, season)
+            # 4.9.3 Plow & Reap (end of Summer / end of Late Winter only).
+            # Per RoP, "end of" means the LAST 40-Days of that season,
+            # i.e., box 2 / 10 for Summer, box 6 / 14 for Late Winter.
+            _plow_and_reap(state, state.meta.box)
             # Advance Calendar marker by 1, flip to Levy.
             cal = state.calendar
             for cb in cal.boxes:
@@ -1095,20 +1097,30 @@ def _h_end_campaign_resolve(
              "advanced_to_next_levy": advanced, "game_over": game_over}, [])
 
 
-def _plow_and_reap(state: GameState, season: str) -> None:
-    """4.9.3: end-of-Summer Carts -> Sleds; end-of-Late-Winter Sleds -> Carts.
-    After flipping, each Lord discards Sleds/Carts down to half rounded UP.
+_END_OF_SUMMER_BOXES = (2, 10)       # Last Summer box per year.
+_END_OF_LATE_WINTER_BOXES = (6, 14)  # Last Late-Winter box per year.
+
+
+def _plow_and_reap(state: GameState, box: int) -> None:
+    """4.9.3: end-of-Summer Carts -> Sleds; end-of-Late-Winter Sleds ->
+    Carts. After flipping, each Lord discards Sleds/Carts down to half
+    rounded UP. (PAC text "last 40 Days of Summer or Late Winter"
+    corrected per 2E to NOT include Early Winter.)
     """
-    if season not in ("summer", "late_winter"):
+    end_of_summer = box in _END_OF_SUMMER_BOXES
+    end_of_late_winter = box in _END_OF_LATE_WINTER_BOXES
+    if not (end_of_summer or end_of_late_winter):
         return
     for lord in state.lords.values():
         if lord.state != "mustered":
             continue
-        if season == "summer":
+        if end_of_summer:
+            # Carts -> Sleds (rule).
             sleds = lord.assets.get("sled", 0) + lord.assets.get("cart", 0)
             lord.assets["sled"] = sleds
             lord.assets.pop("cart", None)
         else:
+            # Sleds -> Carts.
             carts = lord.assets.get("sled", 0) + lord.assets.get("cart", 0)
             lord.assets["cart"] = carts
             lord.assets.pop("sled", None)

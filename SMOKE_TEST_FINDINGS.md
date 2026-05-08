@@ -185,3 +185,84 @@ Regression: `test_smoke_009_fpd_zero_units_costs_zero`.
 
 Pre-fixes: 253 tests. Post-fixes: 271 tests (+18: 5 new regressions, 13
 from Q-002 which landed before this PR).
+
+---
+
+## Round 3 (multi-turn Watland; this PR)
+
+Smoke target: 5-turn Watland (boxes 4-8) playthrough, all-pass plans on
+both sides. The driver attempts to implement every immediate event with
+a default arg picker.
+
+### SMOKE-010 — aow_implement_card partial mutation on resolver failure (FIXED)
+
+**Reproduction.** When implementing R17 Dietrich during Turn 2 of
+Watland, my smoke driver passed `args.target = "andreas"` (cylinder
+shift). But Andreas is mustered, so his cylinder isn't on the
+Calendar; the resolver raises `no_cylinder`. Pre-fix:
+`aow_implement_card` had already popped R17 from `pending_draw` before
+calling the resolver, so the card vaporized. The agent could not retry
+with a corrected arg.
+
+**Fix.** Move every `pending_draw = pending_draw[1:]` pop to AFTER the
+relevant mutation succeeds. For event resolvers, the resolver runs
+first; only on success does the card move out of `pending_draw`.
+
+**Regression.** `test_smoke_010_aow_implement_card_no_partial_mutation_on_failure`.
+
+### SMOKE-011 — Plow & Reap fires on every LW/Summer box, not just last (FIXED)
+
+**Reproduction.** In Watland, Turn 2 ends at box 5 (Late Winter, year 1
+— NOT the last Late Winter; box 6 is). Pre-fix: my `_plow_and_reap`
+checked only `season in ("summer", "late_winter")`, so it fired on
+every LW box. Sleds got flipped to Carts and halved at box 5, then
+again at box 6 (no-op since no Sleds remained). Functionally observable
+in the smoke driver: after Turn 2's EOC, all Mustered Lords had Carts
+where they should still have Sleds.
+
+**Fix.** `_plow_and_reap(state, box)` now checks specific boxes:
+end-of-Summer = {2, 10}; end-of-Late-Winter = {6, 14}. Per RoP 4.9.3
+2E correction: NOT Early Winter, NOT mid-season.
+
+**Regression.** Two tests: `test_smoke_011_plow_and_reap_only_at_end_of_season`
+and `test_smoke_011_plow_and_reap_summer`.
+
+### Non-bugs found by Round 3
+
+- The disband cascade observed in the 5-turn Watland run is
+  **rules-correct**. Lords whose Service markers start near the Levy
+  marker disband as the Levy advances and they receive no Pay. The
+  simulation just plays out a deterministic decay curve because no
+  side does anything productive with their Plans.
+- R17 / R11 args ergonomics: the Lord could be on Calendar, in Service,
+  or off-the-end. An LLM agent should query state before picking
+  `target`. The smoke driver was updated (round 3 only) with a
+  `_pick_target` helper that prefers cylinder, then service, then
+  None — illustrative of how an agent might handle this.
+
+### Coverage delta
+
+After three rounds of smoke testing the harness has been exercised end-
+to-end across:
+
+- A scenario load + pre-Levy decision (Q-001/Q-002 setup transports).
+- A full Levy phase with Arts of War shuffle/draw/implement, including
+  multiple immediate event types and one this-Levy block.
+- A Campaign with all-pass plans, Pass-card alternation, and FPD T-then-R.
+- A Campaign with a real Battle (March -> Approach -> Stand -> resolve
+  with permanent removal + Spoils transfer).
+- A Campaign with a Withdraw (Russian Lord into a Russian City), Sally
+  resolved with loser permanently removed, and a Siege siegeworks check.
+- A 5-turn multi-Levy/Campaign sequence including Levy -> Campaign ->
+  Levy transition, Calendar marker advance, Plow & Reap (now correctly
+  scoped to end-of-season).
+
+What's still UNTESTED by smoke:
+- Veche Decline / Auto-Muster / Extra Muster with state pressure.
+- A Lord re-Mustering after Disband.
+- Crusade-on-Novgorod multi-Campaign run (16 turns, the longest).
+- T13 William of Modena Legate use (Sub-options 2a/2b/2c).
+- R10 Steppe Warriors → Mongol/Kipchaq Vassal Muster.
+- A Storm that Sacks the Stronghold and applies Spoils.
+
+Total tests after Round 3: 274 (3 new regressions).
