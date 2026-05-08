@@ -1130,9 +1130,15 @@ def resolve_battle(
                     continue
                 if not state.lords[lid].forces:
                     continue
-                # Reserve / Routed Lords don't strike.
-                if striker_positions.get(lid) not in ("left", "center", "right"):
+                # Reserve / Routed Lords don't strike. Sally and
+                # Rearguard rows DO strike (Q-006). Skip only "reserve",
+                # "sally_reserve", and "routed" positions.
+                pos = striker_positions.get(lid)
+                if pos in ("reserve", "sally_reserve", "routed", None):
                     continue
+                # Otherwise pos is in left/center/right or sally_left/
+                # center/right or rearguard_left/center/right -- all
+                # active strike slots.
                 this_raw = 0.0
                 this_armor_minus_2 = False
                 if block_horse_strike and kind == "melee_horse":

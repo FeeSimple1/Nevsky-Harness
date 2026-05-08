@@ -76,7 +76,7 @@ def test_march_laden_costs_two_actions() -> None:
     if pre < 2:
         pytest.skip("not enough actions for Laden March")
     apply_action(s, {"type": "cmd_march", "side": "teutonic",
-                     "args": {"lord_id": teu, "to": dest}})
+                     "args": {"lord_id": teu, "to": dest, "discard_excess_provender": True}})
     assert s.campaign_turn.actions_remaining == pre - 2
 
 
@@ -113,7 +113,7 @@ def test_march_into_enemy_lord_triggers_combat_pending() -> None:
     s.lords[teu].assets.pop("loot", None)
     _start_command_with(s, teu)
     apply_action(s, {"type": "cmd_march", "side": "teutonic",
-                     "args": {"lord_id": teu, "to": "pskov"}})
+                     "args": {"lord_id": teu, "to": "pskov", "discard_excess_provender": True}})
     assert s.combat_pending is not None
     assert s.combat_pending.attacker_side == "teutonic"
     assert s.combat_pending.defender_side == "russian"
@@ -175,7 +175,7 @@ def test_avoid_battle_blocked_when_laden() -> None:
     s.lords[teu].assets.pop("loot", None)
     _start_command_with(s, teu)
     apply_action(s, {"type": "cmd_march", "side": "teutonic",
-                     "args": {"lord_id": teu, "to": "pskov"}})
+                     "args": {"lord_id": teu, "to": "pskov", "discard_excess_provender": True}})
     with pytest.raises(IllegalAction) as exc:
         apply_action(s, {"type": "avoid_battle", "side": "russian",
                          "args": {"to": "novgorod"}})
@@ -234,7 +234,7 @@ def test_stand_battle_resolves_and_clears_pending() -> None:
     s.lords[rus].assets.pop("loot", None)
     _start_command_with(s, teu)
     apply_action(s, {"type": "cmd_march", "side": "teutonic",
-                     "args": {"lord_id": teu, "to": "pskov"}})
+                     "args": {"lord_id": teu, "to": "pskov", "discard_excess_provender": True}})
     res = apply_action(s, {"type": "stand_battle", "side": "russian", "args": {}})
     assert s.combat_pending is None
     assert s.campaign_turn.in_feed_pay_disband is True
@@ -254,7 +254,7 @@ def test_battle_loser_retreats_or_is_removed() -> None:
     s.lords[rus].assets.pop("loot", None)
     _start_command_with(s, teu)
     apply_action(s, {"type": "cmd_march", "side": "teutonic",
-                     "args": {"lord_id": teu, "to": "pskov"}})
+                     "args": {"lord_id": teu, "to": "pskov", "discard_excess_provender": True}})
     res = apply_action(s, {"type": "stand_battle", "side": "russian", "args": {}})
     # Loser Lord(s) either retreated or removed.
     loser_side = res["loser"]

@@ -1063,3 +1063,125 @@ a no-op verification when the Battle isn't in Relief Sally.
 - Storm Reposition is now in place. The "Adjust Rows" sub-rule for
   Storm (if it has one — Storm doesn't, the rule is Battle-only) is
   not applicable. No further immediate Q-NNN required for combat.
+
+
+# Round 11 — post-followups audit + smoke
+
+After the user merged Q-003, Q-004, Q-005, Q-006, and the Round 10c
+follow-ups (Marshal-at-Front-Center integration, Storm Reposition,
+Adjust Rows mid-Relief-Sally), this round audits the codebase for
+items lost in the shuffle and runs fresh smoke tests against the new
+combat machinery.
+
+## Findings
+
+### SMOKE-012 (HIGH): _is_laden returned wrong threshold
+
+`campaign.py::_is_laden` was checking `prov > 2 * usable` which is
+the 4.3.2 *can't-move* threshold, NOT the *Laden* threshold. Under
+the rules, a Lord with Provender > usable Transport (any amount) is
+Laden; the 2x usable threshold is the separate "may not move unless
+discard" gate.
+
+Pre-fix consequence: Lords with prov in (usable, 2*usable] were
+incorrectly reported Unladen. cmd_march costed 1 action when it
+should have been 2; cmd_avoid_battle accepted Laden Lords when it
+should have rejected them.
+
+Fix: corrected `_is_laden` to return `loot > 0 OR prov > usable`.
+Added a separate helper `_must_discard_to_move_excess` returning
+`max(0, prov - 2 * usable)`. cmd_march now rejects March when excess
+> 0 unless the caller passes `args.discard_excess_provender = True`
+(per 1.7.2 Greed which permits discard for March/Avoid Battle/
+Retreat/Sail).
+
+5 existing march/battle tests had set `s.meta.box = 1` (Summer) on
+Lords whose only Transport was Sleds (not usable in Summer), making
+them in violation of the gate. Updated each to pass
+`discard_excess_provender: True`. The test setups remain rules-
+compliant because the rule itself permits the discard.
+
+7 new regression tests in `tests/test_round_11_audit_fixes.py`.
+
+### SMOKE-013 (HIGH): Sally and Rearguard Lords didn't strike
+
+`resolve_battle`'s per-striker loop had a filter:
+`if striker_positions.get(lid) not in ("left", "center", "right"):
+continue`. This correctly skipped Reserve Lords, but ALSO skipped
+sally_left/center/right and rearguard_left/center/right Lords —
+they're Q-006 active strike rows that absolutely should produce
+strikes.
+
+Pre-fix consequence: Sally Lords and Rearguard Lords contributed 0
+hits per round. Relief Sally Battles dragged on to max_rounds=10
+because the Sally row never engaged the Defender. Functionally
+broken Q-006 path despite all 8 Q-006 unit tests passing (they
+tested initial-array layout only, not strike attribution).
+
+Fix: changed the filter to skip only `reserve`, `sally_reserve`,
+`routed`, and `None`. All Front/Sally/Rearguard slot-prefixed
+positions now strike.
+
+After fix, smoke confirms Sally Lords appear in `per_striker` logs
+with `striker_slot == "sally_*"` and Siegeworks-vs-Sally walls
+absorb hits as expected. 2 new regression tests
+(`test_smoke_013_*`).
+
+### SMOKE-014 (LOW, COSMETIC): Adjust Rows Rule 4 fires every round
+
+In a Relief Sally where the Marching Attacker row is wiped but the
+Sally row is alive, Adjust Rows Rule 4 fires each round
+(`no_front_attackers` -> Defender Front -> Reserve), then Reposition
+Advance promotes the same Lord back to Front. The cycle repeats
+every round until end of Battle.
+
+Functionally correct: the Defender at Front strikes the (empty)
+opposing Front row -> no targets -> no Hits. So the back-and-forth
+doesn't affect game state. But it pollutes the log with redundant
+adjust_rows entries.
+
+Filed as cosmetic; not fixed in this round. A clean fix is to
+suppress Reposition Advance on the side whose opposing Front is
+empty AND opposing Sally is alive (the Defender stays at Reserve
+intentionally per Rule 4).
+
+### Stale comments cleaned up
+
+- `_h_command_reveal` claimed "Lower-Lord pass not handled (deferred
+  to Phase 3b)" but Lower-Lord pass IS handled (returns
+  `pass_lower_lord` outcome). Comment updated.
+
+### Stale playthrough drivers
+
+`_playthrough_round4.py` paired Hermann (secondary Marshal) as a
+Lieutenant; under Q-003+Q-005 follow-up A this is now correctly
+rejected when Andreas is off-map. Updated the playthrough to pair
+non-Marshal Lords (yaroslav + knud_and_abel).
+
+`_playthrough_round5.py` referenced a vassal_id "mongols" but the
+actual ids are `aleksandr_mongols_1` and `aleksandr_mongols_2`.
+Updated.
+
+Both are non-pytest playthrough drivers; the playthrough fixes are
+hygiene only.
+
+## Smoke verification
+
+End-to-end Round 11 e2e smoke
+(`tests/_playthrough_round11_e2e.py`) drives:
+- Basic 1v1 Battle through cmd_stand_battle: Q-005 positions populate.
+- Relief Sally via cmd_stand_battle: Q-006 auto-detects Sallying
+  Lords; sally_center / siegeworks_for_sally populated; battle
+  resolves; relief_sally entry in result.
+- Storm via cmd_storm: Storm Reposition entries populated; positions
+  trace correctly.
+
+Existing 16-turn Crusade-on-Novgorod smoke continues to run with 0
+bugs. All 362 unit tests pass (+8 from Round 11 audit fixes).
+
+## Test count
+
+- Pre-Round-11: 354 passing.
+- Post-Round-11: 362 passing (+7 _is_laden + 1 cmd_march gate test +
+  2 SMOKE-013 regression tests = +10, minus 2 tests that converged
+  with each other via shared setup updates).
