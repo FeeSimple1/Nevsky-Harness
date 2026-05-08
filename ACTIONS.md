@@ -301,3 +301,52 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
     markers reduced to 1 (RAID).
   - Sallying win: Besieging Lords retreat (or are removed if no
     forces); siege markers cleared (siege lifted).
+
+## Phase 4a: Combat & Command Capabilities
+
+`src/nevsky/capabilities.py` provides `has_lord_capability(state, lord, name)`,
+`has_side_capability(state, side, name)`, and `any_capability(state, lord, name)`
+keyed off `cards.json` capability_name.
+
+### Combat-mod capabilities (applied at battle resolution)
+
+- **Halbbrueder** (T9/T10, this-lord): owner's Sergeants and Men-at-Arms
+  gain Armor +1 for Rout rolls (4.4.2). Affects Rout, NOT Loss.
+- **Warrior Monks** (T7/T15, this-lord): owner may reroll 1 failed
+  Knights Armor roll per Strike step (Phase 4a applies per Hit-call as
+  approximation; per-step single-reroll budget is a Phase 4 refinement).
+- **Luchniki** (R1/R2, this-lord): owner's Light Horse and Militia gain
+  Archery (x1/2 each).
+- **Streltsy** (R3/R13, this-lord) and **Balistarii** (T4/T5/T6, this-lord):
+  owner's Men-at-Arms gain Archery x1/2 with target Armor -2.
+- **Trebuchets** (T14, this-lord): if any Unrouted Lord on the storming
+  side has it, defender Walls in Storm/Sally are reduced by 1 (min 0).
+
+### Command-rating modifiers (applied at `command_reveal`)
+
+`_effective_command_rating(state, lord)` aggregates these +1 bonuses:
+
+- **Druzhina** (R5/R6, this-lord): +1 if Lord has at least 1 Knights unit.
+- **House of Suzdal** (R11, this-lord): +1 while Aleksandr AND Andrey
+  are both on the map.
+- **Treaty of Stensby** (T1, side-wide): +1 for Heinrich and Knud&Abel
+  only.
+- **Ordensburgen** (T12, side-wide): +1 if Teutonic Lord starts at
+  one of his own primary Seats (Commandery).
+- **Archbishopric of Novgorod** (R15, side-wide): +1 if Russian Lord
+  starts at Novgorod.
+
+### Capability-driven Commands
+
+- **`cmd_stone_kremlin`** (R18): entire-card action. Active Russian Lord
+  with Stone Kremlin tucked may mark his Locale's `walls_plus_one` if
+  it is a Russian Fort/City/Novgorod. Walls 1-3 -> Walls 1-4 in Storm.
+  Marker is removed if the Stronghold is Sacked. Cap: 4 markers in play.
+- **`cmd_stonemasons`** (T17): entire-card action + 6 Provender. Active
+  Teutonic Lord with Stonemasons tucked, Unbesieged at a Russian
+  Fort/Town in Rus, may build a Teutonic Castle marker (replaces the
+  Fort/Town). Removes any Walls +1. Cap: 2 Stonemasons Castles per game
+  (tracked via `meta.special_rules.stonemasons_castles_built`).
+- **`cmd_muster_serf`** (R4 Smerdi): 1 Command action. Active Russian
+  Lord Unbesieged in Rus may Muster 1 Serf. Total Serfs in play across
+  all Russian Mustered Lords cannot exceed 6 (Smerdi pool cap).
