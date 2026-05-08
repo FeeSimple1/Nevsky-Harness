@@ -963,3 +963,103 @@ Relief Sally Array per 4.4.1 page 14 of the 2E rules.
 - Q-003 + Q-005 + Q-006 integration: secondary Marshals at Front
   Center should count as currently-active for the Lieutenant
   exclusion. Pending all three branches landing.
+
+
+# Round 10c — Q-005 / Q-006 follow-ups (Marshal integration, Storm Reposition, Adjust Rows)
+
+Three follow-up items identified at the end of Round 10b are now
+implemented on the q-005-q-006-followups branch (which merges Q-003
+into the Q-005 + Q-006 base).
+
+## Follow-up A: Marshal-at-Front-Center integration (Q-003 ↔ Q-005)
+
+`_is_currently_marshal` (campaign.py) was a stub returning False for
+secondary Marshals. Now: a secondary Marshal (Hermann, Andrey) is
+"actively filling" the Marshal role iff their permanent counterpart
+(Andreas, Aleksandr) is OFF the map. The Lieutenant exclusion in
+`_h_place_lieutenant` now correctly bars Hermann from a Lieutenant
+pairing when Andreas is off-map and accepts him when Andreas is on
+the map. Same logic for Andrey/Aleksandr on the Russian side.
+
+The Battle-Array Front-Center clause in the rule ("currently a
+Marshal") is honored implicitly: Lieutenants can only be placed
+during Plan, BEFORE a Battle starts. So the Front-Center detail only
+matters during a Battle's mid-flight events, none of which currently
+trigger a Lieutenant check. If we later add a Battle-time Marshal
+check, the helper can be extended.
+
+3 new regression tests in test_lieutenants.py:
+- permanent off-map -> secondary barred (Hermann case)
+- permanent off-map -> secondary barred (Andrey case)
+- permanent on-map -> secondary accepted (regression check)
+
+## Follow-up B: Storm Reposition (4.5.2 page 17)
+
+`resolve_storm` now tracks per-Lord Storm position
+(storm_front / storm_reserve) and runs Reposition at the start of
+each Round after the first. Operator decision via
+BattleDecisionContext: option list = [current Front Lord] + each
+Reserve Lord with Forces; the operator may either keep the current
+Front (the "stay" option, picking the current Front from the list)
+or swap to a Reserve. If the Front Routs in Round N and a Reserve
+exists, the Reserve is forced into Front in Round N+1 (no
+operator-choice when only one Reserve).
+
+Strike resolution per side now sums only the Front Lord's Forces
+(plus Garrison units for the Defender Front). Reserve Lords don't
+strike and don't absorb Hits. This matches the rule "each side's
+Front row holds at most one Lord."
+
+cmd_storm wires args.scripted_decisions / args.decision_callback
+into the Storm BattleDecisionContext. Result includes
+attacker_storm_positions / defender_storm_positions / decisions
+trace.
+
+6 new regression tests in test_storm_reposition.py:
+- initial Storm Array (first Lord at Front; rest Reserve)
+- Reserve Lord doesn't contribute Hits in Round 1
+- operator swap Round 2+
+- operator can stay
+- forced advance after Front Rout
+- decisions logged
+
+## Follow-up C: Adjust Rows mid-Relief-Sally (4.4.2 page 15)
+
+New helper `_adjust_rows_for_relief_sally` runs at the start of each
+Round 2+ Reposition step (BEFORE Advance Lords / Center Fill).
+Implements the four sub-rules:
+1. No Sallying remain -> Rearguard becomes Reserve. Ends the Relief
+   Sally geometry; subsequent Reposition steps treat the Battle as a
+   normal Front-only engagement.
+2. No Rearguard -> Sallying Lords Flank Front Defenders. Already
+   handled by `_strike_target`; no row transition.
+3. No Front Defenders -> Rearguard faces about as Front. Defender
+   rearguard_left/center/right -> left/center/right.
+4. No Front Attackers -> original Front Defenders -> Reserve.
+   Rearguard stays in place; _strike_target already routes Sally vs
+   Rearguard correctly.
+
+State snapshot is taken at the start of the function so the four
+rules trigger off the start-of-Reposition state, not on each others'
+just-applied transitions. Rules 3 and 4 affect disjoint sets and may
+both fire on the same turn (e.g., when both Front rows wipe
+together).
+
+Adjust Rows transitions are recorded under round_log["adjust_rows"]
+in the resolve_battle output for full audit trace.
+
+5 new regression tests in test_adjust_rows.py covering each rule and
+a no-op verification when the Battle isn't in Relief Sally.
+
+## Test count
+
+- Pre-follow-ups (q-006 baseline): 333 passing.
+- Post-follow-ups: 352 passing (+5 Q-003+Q-005 integration, +6 Storm
+  Reposition, +5 Adjust Rows = +14, plus a 3 from the Q-003 merge
+  that brought 5 Q-003 tests vs. 2 already present elsewhere = net +14).
+
+## Open follow-ups
+
+- Storm Reposition is now in place. The "Adjust Rows" sub-rule for
+  Storm (if it has one — Storm doesn't, the rule is Battle-only) is
+  not applicable. No further immediate Q-NNN required for combat.

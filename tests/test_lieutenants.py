@@ -190,3 +190,62 @@ def test_q003_is_currently_marshal_helper() -> None:
     s.lords["andreas"].state = "ready"
     s.lords["andreas"].location = None
     assert _is_currently_marshal(s, "andreas") is False
+
+
+# ---------------------------------------------------------------------------
+# Follow-up A (Q-003 + Q-005 integration): secondary Marshal active when
+# permanent counterpart is off map.
+# ---------------------------------------------------------------------------
+
+
+def test_q003_q005_secondary_marshal_barred_when_permanent_off_map() -> None:
+    """When Andreas (permanent Marshal) is OFF the map, Hermann
+    (secondary Marshal) is currently filling the role and is barred
+    from Lieutenant pairings (Q-003 + Q-005 integration)."""
+    s = load_scenario("watland", seed=1)
+    _enter_plan(s)
+    # Andreas off the map (on Calendar).
+    s.lords["andreas"].state = "ready"
+    s.lords["andreas"].location = None
+    # Hermann mustered.
+    s.lords["hermann"].state = "mustered"
+    s.lords["hermann"].location = "fellin"
+    s.lords["yaroslav"].location = "fellin"
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "place_lieutenant", "side": "teutonic",
+                          "args": {"lieutenant": "hermann", "lower_lord": "yaroslav"}})
+    assert exc.value.code == "marshal_lieutenant"
+
+
+def test_q003_q005_secondary_russian_active_when_aleksandr_off_map() -> None:
+    """Andrey is barred when Aleksandr is off the map."""
+    s = load_scenario("crusade_on_novgorod", seed=1)
+    _enter_plan(s)
+    s.meta.active_player = "russian"
+    # Aleksandr stays off-map (default in crusade_on_novgorod). Force
+    # Andrey + Vladislav at novgorod.
+    s.lords["andrey"].state = "mustered"
+    s.lords["andrey"].location = "novgorod"
+    s.lords["vladislav"].location = "novgorod"
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "place_lieutenant", "side": "russian",
+                          "args": {"lieutenant": "andrey", "lower_lord": "vladislav"}})
+    assert exc.value.code == "marshal_lieutenant"
+
+
+def test_q003_q005_secondary_inactive_when_permanent_on_map() -> None:
+    """Hermann is NOT currently a Marshal when Andreas is on the map
+    — accepted as Lieutenant. Verifies the new logic doesn't regress
+    the existing-permissive behavior."""
+    s = load_scenario("watland", seed=1)
+    _enter_plan(s)
+    # Both Mustered (default for Andreas in watland; force Hermann).
+    s.lords["hermann"].state = "mustered"
+    s.lords["hermann"].location = "fellin"
+    s.lords["yaroslav"].location = "fellin"
+    # Andreas mustered at fellin too (same locale isn't required, just
+    # on map).
+    assert s.lords["andreas"].state == "mustered"
+    apply_action(s, {"type": "place_lieutenant", "side": "teutonic",
+                     "args": {"lieutenant": "hermann", "lower_lord": "yaroslav"}})
+    assert s.lords["hermann"].has_lower_lord == "yaroslav"
