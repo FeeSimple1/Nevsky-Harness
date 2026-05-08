@@ -1,10 +1,21 @@
-"""Event resolvers for Phase 4c.
+"""Event resolvers (per-card Arts of War effects).
 
-Per BRIEF: per-card AoW effects. Phase 4c implements Tier 1 events:
-calendar shifts, Asset/Ravaged manipulation, this-levy blocks, and
-the Lordship +2 hold mechanic. Tier 2 (battle-only events: Bridge,
-Marsh, Ambush, Hill, Field Organ, Raven's Rock) is deferred to a
-later phase or applied via state flags consumed by battle.py.
+Tier 1 immediate events: calendar shifts, Asset/Ravaged manipulation,
+this-levy blocks, the Lordship +2 hold mechanic. Resolved via
+resolve_immediate_event / resolve_hold_event.
+
+Tier 2 battle Hold events (Bridge T4 / R1, Marsh T5 / R2, Ambush
+T6 / R6, Hill T9 / R5, Field Organ T10, Raven's Rock R4) are
+consumed via _consume_battle_holds at Battle invocation time and
+applied as modifiers inside battle.py.
+
+Tier 3 hold events with non-Battle effects (T3 Vodian Treachery,
+T13 Heinrich Sees the Curia, R3 Pogost) resolve via dedicated
+handlers below.
+
+Events whose resolver is not yet wired up return a `deferred: True`
+placeholder; callers can detect this and fall back to manual play
+of the card text.
 
 Each resolver mutates state in place and returns a result dict or
 raises IllegalAction on missing/invalid args. Resolvers do NOT
@@ -566,22 +577,28 @@ _HOLD_RESOLVERS = {
 
 
 def resolve_immediate_event(state: GameState, card_id: str, args: dict[str, Any]) -> dict[str, Any]:
-    """Dispatch an immediate event resolver. Phase 4c covers the Tier 1
-    immediate events; Tier 2 (Battle-context events) is deferred."""
+    """Dispatch an immediate event resolver. Tier 1 immediate events
+    are wired here. Tier 2 Battle-context events are NOT routed
+    through this dispatcher; they sit in a side's Holds and are
+    consumed by _consume_battle_holds at Battle invocation. Events
+    without a resolver return `deferred: True` and the caller falls
+    back to manual play of the card text."""
     fn = _IMMEDIATE_RESOLVERS.get(card_id)
     if fn is None:
         return {"event": card_id, "deferred": True,
-                "note": "event resolver deferred to a later phase"}
+                "note": "no resolver wired; play the card text manually"}
     return fn(state, args)
 
 
 def resolve_hold_event(state: GameState, card_id: str, args: dict[str, Any]) -> dict[str, Any]:
-    """Dispatch a hold event resolver. Phase 4c covers R3 Pogost; other
-    Hold events deferred."""
+    """Dispatch a hold event resolver. Covers R3 Pogost (and the Tier
+    3 hold events T3 Vodian Treachery / T13 Heinrich Curia, which
+    have their own handler entries). Events without a resolver return
+    `deferred: True` and the caller falls back to manual play."""
     fn = _HOLD_RESOLVERS.get(card_id)
     if fn is None:
         return {"event": card_id, "deferred": True,
-                "note": "hold event resolver deferred to a later phase"}
+                "note": "no resolver wired; play the card text manually"}
     return fn(state, args)
 
 
