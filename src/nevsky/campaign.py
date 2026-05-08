@@ -149,6 +149,47 @@ def _h_finalize_plan(
 
 
 
+def _is_currently_marshal(state: GameState, lord_id: str) -> bool:
+    """Return True if `lord_id` is currently filling a Marshal role
+    (4.1.3 / 1.5.1).
+
+    Per Q-003 adjudication (RULES_DECISIONS.md):
+      - `marshal_role: "permanent"` (Andreas, Aleksandr): ALWAYS a
+        Marshal whenever the Lord is on the map.
+      - `marshal_role: "secondary"` (Hermann, Andrey): Marshal ONLY
+        when actively filling the role (i.e., the side's active
+        Marshal at the time of the check). Until Q-005 lands a
+        Battle-Array-aware Marshal selector, this returns False for
+        secondary Marshals (treated as inactive).
+      - `marshal_role: null` (everyone else): never a Marshal.
+
+    The dynamic-active-Marshal hook is `state.campaign_turn`-level —
+    when Q-005 ships per-Lord Front position, "currently a Marshal"
+    will additionally be True for a secondary-Marshal Lord at Front
+    Center while their side's permanent Marshal is off the map.
+    """
+    if lord_id not in state.lords:
+        return False
+    lord = state.lords[lord_id]
+    if lord.state != "mustered" or lord.location is None:
+        return False
+    from nevsky.static_data import load_lords as _ll
+    static = _ll().get(lord_id, {})
+    role = static.get("marshal_role")
+    if role == "permanent":
+        return True
+    if role == "secondary":
+        # TODO Q-005 integration: a secondary Marshal becomes active
+        # when their permanent Marshal counterpart is OFF the map AND
+        # they are at Front Center / acting as the side's Marshal in
+        # the current Battle Array. Without per-Lord Front position
+        # state, we treat secondary Marshals as inactive here. This is
+        # the permissive interpretation the user adjudicated for
+        # Q-003.
+        return False
+    return False
+
+
 def _h_place_lieutenant(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -163,12 +204,12 @@ def _h_place_lieutenant(
       - Both must be on the side's side.
       - Lieutenant has at most 1 Lower Lord at a time.
       - Lower Lord cannot also be a Lieutenant (no chains).
-      - Neither may currently be a Marshal (Round 8 NOTE: Marshal
-        roles are tracked in lords.json static data
-        (marshal_role: permanent | secondary | null) but NOT enforced
-        as a Lieutenant constraint here. See Q-003 for the open
-        question of whether to enforce based on static role assignment.
-        Phase 4d default: permissive.).
+      - Neither may currently be a Marshal (4.1.3, 1.5.1). Per Q-003
+        (RULES_DECISIONS.md), "currently a Marshal" is interpreted
+        permissively: permanent-role Lords (Andreas, Aleksandr) are
+        always barred; secondary-role Lords (Hermann, Andrey) are
+        barred only when actively filling the Marshal role (which
+        needs Q-005's Battle Array; see _is_currently_marshal).
       - Neither may be Besieged (4.5.1 / 4.1.3).
 
     Effect: lower_lord.lieutenant_of = lieutenant; lieutenant.has_lower_lord
@@ -198,6 +239,17 @@ def _h_place_lieutenant(
         raise IllegalAction("not_co_located", "both Lords must be at the same Locale")
     if _is_besieged(state, lt) or _is_besieged(state, ll):
         raise IllegalAction("besieged", "Lieutenant pairing requires Unbesieged Lords")
+    # 4.1.3: "Neither may currently be a Marshal." Q-003 adjudication.
+    if _is_currently_marshal(state, lt):
+        raise IllegalAction(
+            "marshal_lieutenant",
+            f"{lt} is currently a Marshal and cannot be a Lieutenant (4.1.3)",
+        )
+    if _is_currently_marshal(state, ll):
+        raise IllegalAction(
+            "marshal_lower_lord",
+            f"{ll} is currently a Marshal and cannot be a Lower Lord (4.1.3)",
+        )
     if L.has_lower_lord:
         raise IllegalAction("lt_full", f"{lt} already has Lower Lord {L.has_lower_lord}")
     if LL.lieutenant_of:
