@@ -1563,12 +1563,25 @@ def _h_stand_battle(
     concede = args.get("concede")
     if concede not in (None, "attacker", "defender"):
         raise IllegalAction("bad_concede", "concede must be 'attacker' or 'defender'")
+    # Tier 2 holds (Phase 4d): args.holds passes Hold-event modifiers to
+    # the battle resolver. Each hold consumed (moved from holds to
+    # discard) at the start of resolution. Hold cards expected on this
+    # path: T4/R1 Bridge, T5/R2 Marsh, T6/R6 Ambush, T9/R5 Hill,
+    # T10 Field Organ, R4 Raven's Rock.
+    holds_arg = args.get("holds") or {}
+    consumed_holds: list[dict[str, Any]] = []
+    if holds_arg:
+        from nevsky.events import _consume_battle_holds
+        consumed_holds = _consume_battle_holds(state, cp, holds_arg)
     result = resolve_battle(
         state, attacker_side=cp.attacker_side,
         attacker_lords=list(cp.attacker_group),
         defender_lords=list(cp.defender_lords),
         concede=concede,
+        holds=holds_arg,
     )
+    if consumed_holds:
+        result["holds_consumed"] = consumed_holds
     winner = result["winner"]
     loser_lords = result["attacker_lords"] if result["loser"] == cp.attacker_side else result["defender_lords"]
     winner_lords = result["defender_lords"] if winner == cp.defender_side else result["attacker_lords"]

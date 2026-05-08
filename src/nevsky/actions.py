@@ -1147,7 +1147,11 @@ def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int)
         ready = special is None
         if special == "summer_crusaders":
             ready = "T11" in state.decks.teutonic.capabilities_in_play
-        elif special == "mongols" or special == "kipchaqs":
+        elif special == "steppe_warriors":
+            # Mongols/Kipchaqs require R10 Steppe Warriors in play
+            # (3.4.2). The static data tags them as "steppe_warriors";
+            # earlier code mistakenly looked for "mongols"/"kipchaqs"
+            # which never matched (SMOKE-012 fix).
             ready = "R10" in state.decks.russian.capabilities_in_play
         lord.vassals[v["vassal_id"]].ready = ready
         lord.vassals[v["vassal_id"]].mustered = False
@@ -1267,11 +1271,13 @@ def _h_muster_vassal(
                 "vassal_gated",
                 "Summer Crusaders require T11 Crusade in play (3.4.2)",
             )
-    elif special in ("mongols", "kipchaqs"):
+    elif special == "steppe_warriors":
+        # Mongols/Kipchaqs (SMOKE-013 fix: was checking
+        # "mongols"/"kipchaqs" which never matched).
         if "R10" not in state.decks.russian.capabilities_in_play:
             raise IllegalAction(
                 "vassal_gated",
-                f"{special} require R10 Steppe Warriors in play (3.4.2)",
+                "Steppe Warriors (Mongols/Kipchaqs) require R10 in play (3.4.2)",
             )
 
     if not vstate.ready:

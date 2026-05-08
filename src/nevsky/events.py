@@ -583,3 +583,192 @@ def resolve_hold_event(state: GameState, card_id: str, args: dict[str, Any]) -> 
         return {"event": card_id, "deferred": True,
                 "note": "hold event resolver deferred to a later phase"}
     return fn(state, args)
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 battle Hold consumption (Phase 4d)
+# ---------------------------------------------------------------------------
+
+
+def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
+    """Validate and consume Tier 2 Battle Hold events from each side's
+    holds list. Returns a record of what was consumed.
+
+    holds_arg shape (any subset):
+      "marsh":         "T5"|"R2"   -> opposite-side Horse blocked rounds 1-2
+      "hill":          "T9"|"R5"   -> defender Archery x1 rounds 1-2
+      "ambush":        "T6"|"R6"   -> Round 1 ignore enemy left/right (no-op)
+      "field_organ":   "T10"       -> with args.field_organ_lord
+      "raven_rock":    "R4"        -> Russian defender Walls 1-2 vs Melee R1
+      "bridge":        "T4"|"R1"   -> opposing front center Lord melee cap
+                                       (Phase 4d simplification: no-op since
+                                       front-center is not modeled)
+
+    Each consumed card is moved from holds to discard. If the card isn't
+    in the side's holds list, IllegalAction is raised.
+    """
+    consumed = []
+    side_decks = {
+        "T4": ("teutonic", "marsh_holder"),
+        "T5": ("teutonic", "marsh_holder"),
+        "T6": ("teutonic", "ambush"),
+        "T9": ("teutonic", "hill"),
+        "T10": ("teutonic", "field_organ"),
+        "R1": ("russian", "marsh_holder"),
+        "R2": ("russian", "marsh_holder"),
+        "R4": ("russian", "raven_rock"),
+        "R5": ("russian", "hill"),
+        "R6": ("russian", "ambush"),
+    }
+    for key, cid in holds_arg.items():
+        if not isinstance(cid, str):
+            continue
+        if key in ("marsh", "hill", "ambush", "field_organ", "raven_rock", "bridge"):
+            spec = side_decks.get(cid)
+            if spec is None:
+                raise IllegalAction("bad_hold", f"{cid} is not a Tier 2 battle Hold")
+            side, _ = spec
+            deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
+            if cid not in deck.holds:
+                raise IllegalAction("not_in_holds", f"{cid} not in {side} holds")
+            deck.holds.remove(cid)
+            deck.discard.append(cid)
+            consumed.append({"card": cid, "key": key})
+    return consumed
+
+
+# ---------------------------------------------------------------------------
+# Tier 3 hold events (Phase 4d)
+# ---------------------------------------------------------------------------
+
+
+def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
+    """T3 Vodian Treachery (hold). Play if Teuton Lord closer than any
+    Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils).
+
+    "Closer" means shortest chain of adjacent Locales (by Ways, not by
+    sea). Cannot apply if a Stone Kremlin (R18) Walls +1 marker is at
+    the target. If Stonemasons converted both Forts to Castles, the
+    event cannot be played.
+
+    args:
+      target: "kaibolovo" | "koporye"
+    """
+    from nevsky.static_data import load_locales, load_ways
+
+    target = args.get("target")
+    if target not in ("kaibolovo", "koporye"):
+        raise IllegalAction("bad_target", "target must be kaibolovo or koporye")
+    if target not in state.locales:
+        raise IllegalAction("bad_target", f"{target} not in state")
+    static = load_locales()[target]
+    # Must still be a Fort (not converted to Castle).
+    if static["type"] != "fort":
+        raise IllegalAction("not_fort", f"{target} is no longer a Fort (Castle?)")
+    # Walls +1 from R18 blocks Vodian Treachery.
+    if state.locales[target].walls_plus_one:
+        raise IllegalAction("stone_kremlin", f"{target} has Walls +1; Vodian Treachery blocked")
+    # Compute closeness: BFS from target via Ways. Find min distance to
+    # any T-side Mustered Lord vs any R-side.
+    ways = load_ways()
+    adj: dict[str, list[str]] = {}
+    for w in ways:
+        adj.setdefault(w["a"], []).append(w["b"])
+        adj.setdefault(w["b"], []).append(w["a"])
+    visited = {target: 0}
+    frontier = [target]
+    teu_dist = None
+    rus_dist = None
+    while frontier and (teu_dist is None or rus_dist is None):
+        nxt = []
+        for n in frontier:
+            for m in adj.get(n, []):
+                if m in visited:
+                    continue
+                visited[m] = visited[n] + 1
+                nxt.append(m)
+                # Check Lords here.
+                for lid, l in state.lords.items():
+                    if l.state == "mustered" and l.location == m:
+                        if l.side == "teutonic" and teu_dist is None:
+                            teu_dist = visited[m]
+                        elif l.side == "russian" and rus_dist is None:
+                            rus_dist = visited[m]
+        frontier = nxt
+    if teu_dist is None:
+        raise IllegalAction("no_teutonic_lord", "no Teutonic Lord reachable from target")
+    if rus_dist is not None and teu_dist >= rus_dist:
+        raise IllegalAction(
+            "not_closer",
+            f"Teu distance {teu_dist} not strictly less than Rus distance {rus_dist}",
+        )
+    # Conquer (no Spoils).
+    state.locales[target].teutonic_conquered += 1
+    state.calendar.teutonic_vp += 1.0  # Fort = 1 VP
+    return {"event": "T3", "conquered": target, "teu_dist": teu_dist, "rus_dist": rus_dist}
+
+
+def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
+    """T13 Heinrich Sees the Curia (hold). Disband Heinrich on play;
+    add 4 non-Loot Assets each to 2 on-map Teutonic Lords.
+
+    args:
+      recipients: list of 2 Teutonic Lord ids (on map).
+      assets: optional dict {recipient_id: dict[asset_type, int]} where
+              asset_type in {coin, provender, boat, cart, sled, ship}
+              and totals 4 per recipient. If not provided, default:
+              4 Coin to each.
+    """
+    from nevsky.actions import _remove_lord_permanently
+    from nevsky.static_data import load_lords
+
+    if "heinrich" not in state.lords:
+        raise IllegalAction("no_heinrich", "heinrich not in state")
+    h = state.lords["heinrich"]
+    if h.state != "mustered" or h.location is None:
+        raise IllegalAction(
+            "heinrich_off_map",
+            "Heinrich must be on map; otherwise this event is held until he Musters",
+        )
+    recipients = args.get("recipients", [])
+    if not isinstance(recipients, list) or len(recipients) != 2:
+        raise IllegalAction("bad_recipients", "args.recipients must be 2 Teutonic Lord ids")
+    for rid in recipients:
+        if rid not in state.lords:
+            raise IllegalAction("bad_recipients", f"{rid} not in state")
+        r = state.lords[rid]
+        if r.side != "teutonic" or r.state != "mustered" or r.location is None:
+            raise IllegalAction("bad_recipients", f"{rid} must be Teutonic and on map")
+
+    asset_grants = args.get("assets") or {rid: {"coin": 4} for rid in recipients}
+    # Validate totals = 4 per recipient and no Loot.
+    distributed = {}
+    for rid, grant in asset_grants.items():
+        if rid not in recipients:
+            raise IllegalAction("bad_grant", f"{rid} not in recipients list")
+        if not isinstance(grant, dict):
+            raise IllegalAction("bad_grant", f"{rid} grant must be a dict")
+        if "loot" in grant:
+            raise IllegalAction("loot_forbidden", "Heinrich Curia: no Loot")
+        total = sum(int(v) for v in grant.values())
+        if total != 4:
+            raise IllegalAction("bad_grant_total", f"{rid} grant total {total} != 4")
+        for k in grant:
+            if k not in ("coin", "provender", "boat", "cart", "sled", "ship"):
+                raise IllegalAction("bad_grant_type", f"{k} not a valid asset type")
+        distributed[rid] = dict(grant)
+
+    # Apply.
+    for rid, grant in distributed.items():
+        recip = state.lords[rid]
+        for k, v in grant.items():
+            recip.assets[k] = min(8, recip.assets.get(k, 0) + int(v))  # type: ignore[index]
+
+    # Disband Heinrich.
+    _remove_lord_permanently(state, "heinrich", load_lords()["heinrich"])
+    return {"event": "T13", "heinrich_disbanded": True,
+            "recipients": recipients, "distributed": distributed}
+
+
+_HOLD_RESOLVERS["T3"] = _ev_vodian_treachery
+_HOLD_RESOLVERS["T13"] = _ev_heinrich_curia

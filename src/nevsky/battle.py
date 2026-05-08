@@ -264,6 +264,7 @@ def resolve_battle(
     defender_lords: list[str],
     max_rounds: int = 10,
     concede: str | None = None,
+    holds: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
@@ -306,13 +307,64 @@ def resolve_battle(
         ]
         from nevsky.capabilities import any_capability
         defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
+        # Tier 2 hold-event modifiers (Phase 4d). The keys map a card
+        # to its semantic effect; values are normalized strings:
+        #   "marsh":       "attacker"|"defender" (side whose Horse is blocked)
+        #   "hill":        "attacker"|"defender" (side whose default Archery is doubled)
+        #   "field_organ": lord_id (recipient of Round-1 Knights+Sergeants Melee +1)
+        #   "raven_rock":  truthy -> Russian defender Walls 1-2 vs Melee Round 1
+        # Card-id strings (e.g., "T5") are accepted and translated.
+        H = holds or {}
+        def _norm_marsh(v):
+            if v in ("attacker", "defender", None):
+                return v
+            # "T5" was played by Teu defender -> blocks R Horse (attacker).
+            # "R2" was played by Rus defender -> blocks T Horse (attacker).
+            # Both versions: blocks attacker.
+            if v in ("T5", "R2"):
+                return "attacker"
+            return None
+        def _norm_hill(v):
+            if v in ("attacker", "defender", None):
+                return v
+            # T9 = Teu defender doubles Teu archery; R5 = Rus defender doubles Rus archery.
+            if v == "T9":
+                return "defender" if attacker_side == "russian" else "defender"
+            if v == "R5":
+                return "defender" if attacker_side == "teutonic" else "defender"
+            return None
+        marsh_blocks_horse_for = _norm_marsh(H.get("marsh"))
+        hill_archery_full_for = _norm_hill(H.get("hill"))
+        field_organ_lord = H.get("field_organ")
+        raven_rock_walls = bool(H.get("raven_rock", False))
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
         # (round up). conceder is "attacker" or "defender" or None.
         for label, kind, striker_lords, target_lords in steps:
+            striker_role = ("attacker" if striker_lords is attacker_lords
+                             else "defender")
+            # Marsh: Rounds 1-2, opposite-side Horse units of the side
+            # FACING the marsh-player don't Strike. The marsh-player is
+            # the side whose Lord played the event; their opponent's
+            # Horse units are blocked. We block by zeroing the Horse
+            # contribution for the affected striker side.
+            block_horse_strike = False
+            if marsh_blocks_horse_for is not None and rounds <= 2:
+                if striker_role == marsh_blocks_horse_for:
+                    block_horse_strike = True
             raw_hits = 0.0
             armor_minus_2 = False
             for lid in striker_lords:
                 if lid not in state.lords:
+                    continue
+                if block_horse_strike and kind in ("melee_horse",):
+                    continue
+                if block_horse_strike and kind == "archery":
+                    # Asiatic Horse archery also blocked by Marsh
+                    # (rules: 'Horse does not Strike'; Asiatic Horse
+                    # is mounted).
+                    units_no_horse = {k: v for k, v in state.lords[lid].forces.items()
+                                       if k not in ("asiatic_horse",)}
+                    raw_hits += _hits_for_strike(units_no_horse, "archery")
                     continue
                 raw_hits += _hits_for_lord_strike(state, lid, kind)
                 if kind == "archery" and (
@@ -320,16 +372,47 @@ def resolve_battle(
                     or any_capability(state, lid, "Balistarii")
                 ):
                     armor_minus_2 = True
+                # Field Organ: Round 1, +1 Hit per Knights AND Sergeants
+                # Melee unit for this Lord.
+                if field_organ_lord == lid and rounds == 1 and kind in ("melee_horse",):
+                    units = state.lords[lid].forces
+                    raw_hits += units.get("knights", 0)
+                    raw_hits += units.get("sergeants", 0)
+                # Hill: Rounds 1-2, default Archery doubled for the
+                # favored side (x1 instead of x1/2).
+                if (hill_archery_full_for == striker_role and rounds <= 2
+                        and kind == "archery"):
+                    units = state.lords[lid].forces
+                    # Add the same archery contribution again (x1/2 + x1/2 = x1).
+                    extra = 0.0
+                    forces_table = load_forces()
+                    for utype, n in units.items():
+                        spec = forces_table.get(utype)
+                        if spec and spec.get("archery_default_active"):
+                            extra += n * float(spec.get("archery_battle", 0.0))
+                    raw_hits += extra
             # Pursuit: halve conceder Hits this Round (round up).
             if concede is not None and rounds == 1:
-                striker_role = ("attacker" if striker_lords is attacker_lords
-                                 else "defender")
                 if striker_role == concede:
                     raw_hits = raw_hits / 2.0
             hits = _round_up(raw_hits)
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
             remaining = hits
+            # Raven's Rock: Russian defender gets Walls 1-2 vs Melee
+            # Round 1 (R4 Hold event). Roll d6 per Hit; <=2 absorbs.
+            if (raven_rock_walls and rounds == 1 and kind != "archery"
+                    and striker_role == "attacker"
+                    and attacker_side == "teutonic"):
+                absorbed_walls = 0
+                for _ in range(remaining):
+                    r = roll_d6(state)
+                    if r <= 2:
+                        absorbed_walls += 1
+                if absorbed_walls > 0:
+                    distribution.append({"target": "ravens_rock_walls",
+                                          "absorbed": absorbed_walls})
+                    remaining -= absorbed_walls
             for tlid in target_lords:
                 if tlid not in state.lords:
                     continue
