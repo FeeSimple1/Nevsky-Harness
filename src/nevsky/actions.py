@@ -113,8 +113,30 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
 
+    # Q-001: auto-confirm setup_transport_choice decisions for the
+    # active side at first Levy action (skipping the explicit
+    # confirm/set/confirm_all actions and system actions). This lets
+    # Levy proceed normally without forcing the agent to clear
+    # default-confirm decisions one-by-one.
+    auto_confirmed: list[dict[str, Any]] = []
+    if (
+        state.meta.phase == "levy"
+        and side in ("teutonic", "russian")
+        and atype not in (
+            "confirm_setup_transport",
+            "set_setup_transport",
+            "confirm_all_setup_transports",
+            "system_setup_complete",
+        )
+    ):
+        auto_confirmed = _auto_confirm_setup_transport_choices(state, side)  # type: ignore[arg-type]
+
     # Each handler returns (result_dict, dice_list).
     result, dice = handler(state, side, args)  # may raise IllegalAction
+    if auto_confirmed:
+        # Surface the auto-confirms in the result for transparency.
+        if isinstance(result, dict):
+            result.setdefault("_auto_confirmed_setup_transports", auto_confirmed)
 
     state.meta.sequence += 1
     state.history.append(
@@ -1758,6 +1780,122 @@ def _h_system_setup_complete(
 # ---------------------------------------------------------------------------
 
 
+
+
+# ---------------------------------------------------------------------------
+# Q-001 setup_transport_choice handlers (RULES_DECISIONS.md)
+# ---------------------------------------------------------------------------
+
+
+def _find_setup_transport_pd(
+    state: GameState, lord_id: str, slot_index: int
+) -> int | None:
+    """Return the index of the matching PendingDecision, or None."""
+    for i, pd in enumerate(state.pending_decisions):
+        if pd.kind != "setup_transport_choice":
+            continue
+        if pd.context.get("lord_id") == lord_id and pd.context.get("slot_index") == slot_index:
+            return i
+    return None
+
+
+def _h_confirm_setup_transport(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Accept the default Transport pre-populated by the loader. The
+    asset is already in Lord.assets; this just resolves and removes
+    the PendingDecision.
+    """
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id")
+    slot_index = args.get("slot_index")
+    if not isinstance(lord_id, str) or not isinstance(slot_index, int):
+        raise IllegalAction("missing_arg", "args: lord_id (str), slot_index (int)")
+    idx = _find_setup_transport_pd(state, lord_id, slot_index)
+    if idx is None:
+        raise IllegalAction("not_found", f"no setup_transport_choice for {lord_id} slot {slot_index}")
+    pd = state.pending_decisions[idx]
+    if pd.owed_by != sd:
+        raise IllegalAction("wrong_actor", f"decision owed by {pd.owed_by}; got {sd}")
+    state.pending_decisions.pop(idx)
+    return ({"lord_id": lord_id, "slot_index": slot_index,
+             "value": pd.context.get("current_value")}, [])
+
+
+def _h_set_setup_transport(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Override the default Transport. Updates Lord.assets to reflect
+    the new choice (decrement old, increment new) and resolves the PD.
+    """
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id")
+    slot_index = args.get("slot_index")
+    value = args.get("value")
+    if not isinstance(lord_id, str) or not isinstance(slot_index, int) or not isinstance(value, str):
+        raise IllegalAction("missing_arg", "args: lord_id (str), slot_index (int), value (str)")
+    idx = _find_setup_transport_pd(state, lord_id, slot_index)
+    if idx is None:
+        raise IllegalAction("not_found", f"no setup_transport_choice for {lord_id} slot {slot_index}")
+    pd = state.pending_decisions[idx]
+    if pd.owed_by != sd:
+        raise IllegalAction("wrong_actor", f"decision owed by {pd.owed_by}; got {sd}")
+    allowed = pd.context.get("allowed_values", [])
+    if value not in allowed:
+        raise IllegalAction("bad_value", f"value must be in {allowed}; got {value!r}")
+    old = pd.context.get("current_value")
+    if old != value:
+        # Move 1 unit from old asset to new asset on the Lord.
+        lord = state.lords[lord_id]
+        if old in lord.assets:
+            lord.assets[old] = max(0, lord.assets.get(old, 0) - 1)  # type: ignore[index]
+            if lord.assets[old] == 0:  # type: ignore[index]
+                del lord.assets[old]  # type: ignore[arg-type]
+        lord.assets[value] = lord.assets.get(value, 0) + 1  # type: ignore[index]
+    state.pending_decisions.pop(idx)
+    return ({"lord_id": lord_id, "slot_index": slot_index, "old": old, "new": value}, [])
+
+
+def _h_confirm_all_setup_transports(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Bulk-confirm all setup_transport_choice decisions for the side."""
+    sd = _require_side_player(state, side)
+    confirmed: list[dict[str, Any]] = []
+    for pd in list(state.pending_decisions):
+        if pd.kind != "setup_transport_choice" or pd.owed_by != sd:
+            continue
+        confirmed.append({
+            "lord_id": pd.context.get("lord_id"),
+            "slot_index": pd.context.get("slot_index"),
+            "value": pd.context.get("current_value"),
+        })
+        state.pending_decisions.remove(pd)
+    return ({"side": sd, "confirmed": confirmed}, [])
+
+
+def _auto_confirm_setup_transport_choices(state: GameState, side: Side) -> list[dict[str, Any]]:
+    """Auto-confirm setup_transport_choice PendingDecisions for `side`
+    that have auto_confirm_on_levy=True. Called from Levy entry path
+    (first Levy action by that side). PendingDecisions with
+    auto_confirm_on_levy=False persist and the player must explicitly
+    confirm or override.
+    """
+    auto_confirmed: list[dict[str, Any]] = []
+    for pd in list(state.pending_decisions):
+        if pd.kind != "setup_transport_choice" or pd.owed_by != side:
+            continue
+        if not pd.context.get("auto_confirm_on_levy", True):
+            continue
+        auto_confirmed.append({
+            "lord_id": pd.context.get("lord_id"),
+            "slot_index": pd.context.get("slot_index"),
+            "value": pd.context.get("current_value"),
+        })
+        state.pending_decisions.remove(pd)
+    return auto_confirmed
+
+
 def _h_aow_play_hold(
     state: "GameState", side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1817,6 +1955,9 @@ def _h_aow_lordship_plus_2(
 
 _HANDLERS: dict[str, Any] = {
     "advance_step": _h_advance_step,
+    "confirm_setup_transport": _h_confirm_setup_transport,
+    "set_setup_transport": _h_set_setup_transport,
+    "confirm_all_setup_transports": _h_confirm_all_setup_transports,
     "aow_play_hold": _h_aow_play_hold,
     "aow_lordship_plus_2": _h_aow_lordship_plus_2,
     # 3.1
