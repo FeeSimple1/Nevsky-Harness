@@ -361,8 +361,9 @@ def _h_aow_implement_card(
 
     cards = load_cards()
     cid = deck.pending_draw[0]
-    deck.pending_draw = deck.pending_draw[1:]
     card = cards[cid]
+    # SMOKE-010 fix: do NOT pop pending_draw yet. Pop after success so
+    # a failed resolver leaves state consistent.
 
     if card["no_event"]:
         # 3.1.3 (2E): No-Event / No-Capability cards drawn during play
@@ -370,6 +371,7 @@ def _h_aow_implement_card(
         # special-cases this (the deck retains them).
         sr = state.meta.special_rules
         if sr.get("keep_no_event_cards"):
+            deck.pending_draw = deck.pending_draw[1:]
             deck.discard.append(cid)
             return (
                 {
@@ -379,6 +381,7 @@ def _h_aow_implement_card(
                 },
                 [],
             )
+        deck.pending_draw = deck.pending_draw[1:]
         deck.removed.append(cid)
         return ({"card": cid, "outcome": "removed_from_play"}, [])
 
@@ -409,15 +412,18 @@ def _h_aow_implement_card(
                         "duplicate_capability",
                         f"{lord_id} already has capability '{card['capability_name']}' (3.4.4)",
                     )
+            deck.pending_draw = deck.pending_draw[1:]
             lord.this_lord_capabilities.append(cid)
             return ({"card": cid, "outcome": "tucked_under_lord", "lord_id": lord_id}, [])
         else:  # side_wide
+            deck.pending_draw = deck.pending_draw[1:]
             deck.capabilities_in_play.append(cid)
             return ({"card": cid, "outcome": "side_capability_in_play"}, [])
 
     # Subsequent Levy: implement as event (top half).
     persistence = card["event_persistence"]
     if persistence == "hold":
+        deck.pending_draw = deck.pending_draw[1:]
         deck.holds.append(cid)
         return ({"card": cid, "outcome": "held"}, [])
     if persistence == "this_levy":
@@ -426,15 +432,21 @@ def _h_aow_implement_card(
         # leave a tracking entry in this_levy_events so end-of-Levy
         # discard (3.5.3) cleans the block list.
         from nevsky.events import resolve_immediate_event
+        # SMOKE-010: resolver may raise; if it does, leave pending_draw
+        # untouched so the agent can retry with corrected args.
         result = resolve_immediate_event(state, cid, args)
+        deck.pending_draw = deck.pending_draw[1:]
         deck.this_levy_events.append(cid)
         return ({"card": cid, "outcome": "this_levy_event", "effect": result}, [])
     if persistence == "this_campaign":
+        deck.pending_draw = deck.pending_draw[1:]
         deck.this_campaign_events.append(cid)
         return ({"card": cid, "outcome": "this_campaign_event"}, [])
-    # immediate -- resolve effect and discard
+    # immediate -- resolve effect FIRST (may raise; then card stays
+    # in pending_draw for retry) then commit pop and discard.
     from nevsky.events import resolve_immediate_event
     result = resolve_immediate_event(state, cid, args)
+    deck.pending_draw = deck.pending_draw[1:]
     deck.discard.append(cid)
     return ({"card": cid, "outcome": "immediate_event_discarded", "effect": result}, [])
 
