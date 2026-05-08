@@ -122,8 +122,16 @@ class Calendar(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     boxes: list[CalendarBox] = Field(default_factory=list)
+    # Cylinders past either edge (Lords whose cylinder went off the
+    # 16-box track via shifts).
     off_left: list[str] = Field(default_factory=list, description="Cylinders past the left edge.")
     off_right: list[str] = Field(default_factory=list, description="Cylinders past the right edge.")
+    # Service markers past either edge (Service-rating-driven shifts that
+    # exceed box 16 or land at-or-below box 1). Separated from cylinders
+    # so the harness can distinguish a Lord whose CYLINDER went off-edge
+    # from one whose SERVICE marker did. Phase 7 split (Round 7).
+    off_left_service: list[str] = Field(default_factory=list, description="Service markers past the left edge.")
+    off_right_service: list[str] = Field(default_factory=list, description="Service markers past the right edge.")
     russian_vp: float = 0.0
     teutonic_vp: float = 0.0
     pleskau_lords_removed_russian: int = 0
@@ -240,6 +248,11 @@ class Lord(BaseModel):
     state: LordState = "ready"
     moved_fought: bool = False
     forces: dict[ForceType, int] = Field(default_factory=dict)
+    # 4.4.4 Routed pile: units removed from forces during a Battle/Storm
+    # are moved here. After the engagement, Losses rolls determine which
+    # units rejoin forces (success) and which are permanently lost
+    # (failure). routed_units is empty between engagements.
+    routed_units: dict[ForceType, int] = Field(default_factory=dict)
     assets: dict[AssetType, int] = Field(default_factory=dict)
     vassals: dict[str, VassalState] = Field(default_factory=dict)
     this_lord_capabilities: list[str] = Field(default_factory=list)

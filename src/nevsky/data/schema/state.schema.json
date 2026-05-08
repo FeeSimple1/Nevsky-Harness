@@ -27,6 +27,22 @@
           "title": "Off Right",
           "type": "array"
         },
+        "off_left_service": {
+          "description": "Service markers past the left edge.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Off Left Service",
+          "type": "array"
+        },
+        "off_right_service": {
+          "description": "Service markers past the right edge.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Off Right Service",
+          "type": "array"
+        },
         "russian_vp": {
           "default": 0.0,
           "title": "Russian Vp",
@@ -469,6 +485,24 @@
             ]
           },
           "title": "Forces",
+          "type": "object"
+        },
+        "routed_units": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "knights",
+              "sergeants",
+              "men_at_arms",
+              "militia",
+              "light_horse",
+              "asiatic_horse",
+              "serfs"
+            ]
+          },
+          "title": "Routed Units",
           "type": "object"
         },
         "assets": {
@@ -1006,5 +1040,5 @@
   "title": "Nevsky Harness GameState",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-schema-version": "0.10.0"
+  "x-schema-version": "0.11.0"
 }
