@@ -39,3 +39,4 @@ Thumbs.db
 # Local game state files
 *.state.json
 !tests/**/*.state.json
+round13_smoke_results.json

@@ -1289,3 +1289,175 @@ Per user direction, the next round is a deep statistical smoke pass
 focused on combat outcome distributions: are Battles oddly lopsided?
 Are Storm outcomes unexpected? Does any side have a scenario where
 no strategy wins? That work begins after Round 12 lands.
+
+# Round 13 — Combat statistical smoke + SMOKE-015 garrison-only Storm bug
+
+Per user direction: deep statistical pass on Battle and Storm outcomes
+only. Don't run whole scenarios; vary lord counts and force compositions
+for Battle, vary stronghold types and attacker counts for Storm.
+Aggregate defender win rates and force losses. Compare against priors:
+
+> Storm should strongly favor defenders. Battle should favor defenders,
+> but somewhat less.
+
+## Smoke driver
+
+`tests/_playthrough_round13_combat_smoke.py` — minimal-state harness
+that calls `resolve_battle` / `resolve_storm` directly with synthesized
+Lord forces. Six force compositions (balanced, knight-heavy, sergeants-
+heavy, light-horse-heavy, militia-heavy, asiatic-heavy). Battle: 6
+count pairings × 9 composition pairings × 500 trials = 27000 trials.
+Storm: 5 stronghold types × 3 attacker counts × 3 defender counts × 2
+siege-marker tiers × 2 composition pairs × 100 trials = 18000 trials.
+
+## SMOKE-015 (HIGH, FIXED): garrison-only Storm short-circuited each round
+
+The smoke driver immediately surfaced an anomaly: garrison-only Storms
+(`defender_lords=[]`) showed 100% defender wins with 0% garrison
+losses across every configuration, including 3 Knight-heavy attackers
+storming a 1-MaA Fort. The attacker was generating zero hits.
+
+**Root cause.** `_all_routed(state, [])` returns `True` (vacuous
+`sum() == 0`). In `resolve_storm`'s steps_data loop, the per-step
+end-of-round check
+
+```python
+if _all_routed(state, attacker_lords) or _all_routed(state, defender_lords):
+    break
+```
+
+fired after the FIRST strike step (`archery_defender`) every round when
+defender Lords was empty. The remaining three steps (`archery_attacker`,
+`melee_defender`, `melee_attacker`) never ran. Garrison-only defenses
+became invulnerable to attacker damage.
+
+**Secondary issue (SMOKE-015b).** `def_melee` was accumulated inside
+`for lid in def_front_lords:`, with the garrison melee added to each
+defender Lord's contribution under the per-Lord 6-Hit cap. With empty
+`def_front_lords` the loop never executed and `def_melee` stayed at 0
+— garrison melee was silently dropped. Per Forces Reference, garrison
+units have storm_melee values (MaA: 1, Knights: 1) regardless of
+whether a Front Defender Lord is present.
+
+**Fix.**
+- Inner-loop break in `resolve_storm` and `resolve_battle` now
+  short-circuits only when a non-empty side is fully routed. For
+  Storm, "defender wiped" requires both empty defender Lords and
+  zero garrison.
+- `def_melee` calculation falls back to a garrison-alone branch when
+  `def_front_lords` is empty (capped at 6 Hits per the per-Lord cap;
+  no Lord to combine with, so the cap applies to garrison alone).
+
+4 new regression tests in
+`tests/test_smoke_015_garrison_only_storm.py`:
+- `melee_attacker` step actually fires in garrison-only Storm.
+- Overwhelming attacker forces win garrison-only Storm a clear
+  majority of trials (was 0% pre-fix).
+- Garrison melee strikes when no defender Lord is present.
+- Normal Storm with defender Lord is unchanged by the fix.
+
+## Battle outcomes (500 trials/cell)
+
+Balanced-vs-balanced parity (the cleanest read on side bias):
+
+| Lords | Defender win % | Avg rounds | Atk loss % | Def loss % |
+|------:|---------------:|-----------:|-----------:|-----------:|
+|   1v1 |          83.8% |       2.53 |       95%  |       52%  |
+|   2v2 |          89.4% |       2.80 |       97%  |       52%  |
+|   3v3 |          91.4% |       3.00 |       98%  |       52%  |
+|   4v4 |          96.0% |       4.04 |       99%  |       49%  |
+
+Battle's defender bias **grows with side count**. The structural
+mechanic: Defender strikes before Attacker in every Strike step
+(Archery, Melee Horse, Melee Foot) and Reposition runs at the start of
+each round 2+, so the longer the Battle, the more cycles the Defender
+gets to strike-first. By 4v4 the Defender wins 96%; this is heavier
+than the user's prior of "moderate" defender favoring.
+
+Composition effects (1v1 case for clarity):
+- Knight-heavy attacker vs balanced defender: Attacker wins 63.6%.
+  Knight density flips the bias.
+- Balanced attacker vs militia-heavy defender: Attacker wins 99.8%.
+  Militia (Unarmored, no Archery) is terrible defense.
+- Balanced attacker vs asiatic-heavy defender: Attacker wins 92.2%.
+  All-archery defense doesn't break a melee push.
+- Light-horse-heavy attacker vs balanced: Attacker wins 0.4%. All
+  light cavalry is the worst attack composition.
+
+Numerical asymmetry (2v1 / 1v2): one extra Lord swings the win rate
+from 84% defender to ~99% the side with the extra Lord. Lord count
+dominates over composition in unbalanced parity.
+
+## Storm outcomes (100 trials/cell, post SMOKE-015 fix)
+
+Aggregated by defender Lord count and siege marker tier:
+
+| Defenders | Siege markers | Avg D win % | Avg A loss % | Avg G loss % |
+|----------:|--------------:|------------:|-------------:|-------------:|
+|     0 (gar only) |    1 (2 rds) |       50.3% |        25.1% |        71.1% |
+|     0 (gar only) |    3 (4 rds) |       20.1% |        19.0% |        89.7% |
+|     1 Lord       |    1 (2 rds) |       99.9% |        50.7% |        64.0% |
+|     1 Lord       |    3 (4 rds) |       95.9% |        52.4% |        84.3% |
+|     2 Lords      |    1 (2 rds) |      100.0% |        50.4% |        64.2% |
+|     2 Lords      |    3 (4 rds) |      100.0% |        51.9% |        83.9% |
+
+**Storm with at least one defender Lord besieged: defender wins
+96-100%** across every configuration. Matches the user's prior
+("Storm strongly favors defenders").
+
+**Storm vs garrison alone:** A 1-marker Storm is roughly a coin flip
+(50% defender). A 3-marker (full siege, 4 rounds) is largely an
+attacker win (only 20% defender). This is what we should expect: a
+full siege wears down a garrison; a partial assault doesn't.
+
+By stronghold type (averaged across all configs):
+
+| Stronghold | Walls | Avg D win % |
+|:-----------|------:|------------:|
+| fort       |     3 |       64.7% |
+| city       |     3 |       78.1% |
+| novgorod   |     3 |       78.5% |
+| castle     |     4 |       79.1% |
+| bishopric  |     4 |       88.1% |
+
+Bishopric is the strongest (walls 4 + 3-unit garrison including 1
+Knight). Fort is the weakest (walls 3 + 1-MaA garrison). The
+ranking matches the rules-data table.
+
+## Comparison to priors
+
+- **Storm strongly favors defenders.** ✅ Confirmed for any defended
+  Stronghold (def_n ≥ 1): 96-100% defender win rate.
+- **Battle moderately favors defenders.** ⚠️ Partially confirmed.
+  Battle does favor defenders, but the bias is heavier than expected:
+  84% at 1v1 climbing to 96% at 4v4 in balanced-comp parity. Worth
+  flagging as something to revisit if outcomes feel "stuck" in
+  scenario play. Most likely real-rules behavior given defender
+  initiative and Reposition mechanics, but worth a sanity check.
+
+## No "unwinnable side" in pure combat
+
+No configuration showed a side at 0% win across all force
+compositions. Knight-heavy attackers can break Battle defender bias;
+overwhelming attacker forces can take garrison-only Strongholds; even
+a small-garrison Fort falls to a focused 3-marker siege. Composition
+choices and number of Lords matter as much as side bias.
+
+## Test count
+
+- Pre-Round-13: 366 passing.
+- Post-Round-13: 370 passing (+4 SMOKE-015 regression tests).
+
+## Open follow-ups
+
+- Battle defender bias at 4v4 hit 96% in balanced parity. If, during
+  full-scenario smoke later, Battle outcomes look stuck (e.g.,
+  attackers with otherwise good force composition can never win
+  high-Lord-count battles), revisit defender initiative ordering and
+  Reposition Advance mechanics. The implementation matches 4.4.2
+  Strike-step initiative as written; the question is whether the
+  sum effect is right.
+- Russian archery special rounding (flagged in Round 12) was not
+  exercised by this smoke pass — the compositions don't combine
+  -2-Armor archery with regular Russian archery. Will surface if
+  later smoke uses Streltsy/Garrison-MaA archery in the same step.
