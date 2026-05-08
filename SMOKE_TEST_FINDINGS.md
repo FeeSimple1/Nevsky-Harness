@@ -659,3 +659,207 @@ introduce simplifications must trace them to a Q-NNN or [HOUSE RULE]
 decision.
 
 Tests: 319 (+3 audit regressions). SCHEMA_VERSION 0.11.0 -> 0.12.0.
+
+
+# Round 9 — Sources Audit (audit-against-2e-rules branch)
+
+User instruction: "If you can read source documents, do so. Remember,
+the 2nd edition rules trump everything else. I want to see what that
+changes."
+
+This round read the 2E Rules of Play PDF and the Playbook PDF
+directly (`sources/NevskyRules_Second_Edition.pdf`, 24 pages;
+`sources/Nevsky_PLAYBOOK-FINAL.pdf`, 48 pages) for the first time.
+Previous rounds had relied on the curated `reference/.txt` files. The
+authoritative-sources order in BRIEF.md (Nevsky_Second_Edition_Changes
+> NevskyRules_Second_Edition.pdf > reference > Playbook) makes the
+PDF the canonical reading where it disagrees with the references.
+
+The reference files held up well — they match the 2E rules in the
+spots tested. The PDF reading found rule details that were
+**implemented as an explicit simplification** in the Phase 3b/3c
+combat code, plus several smaller divergences that were tractable to
+fix without architectural change. Six findings, AUDIT-003 through
+AUDIT-008.
+
+## AUDIT-003 (HIGH, FIXED) — Storm Attacker armored-first hit absorption
+
+**Rule (4.5.2, page 17, 2E):**
+> "The Attacking side must absorb Hits with any Armored units before
+> doing so with other units."
+
+This is a side-specific reversal of the normal owner-picks rule (in
+Battle, in Sally, and for the Storm Defender, the owner shields
+stronger units behind weaker ones). The Storm Attacker MUST do the
+opposite.
+
+**Pre-fix.** `_assign_hit_owner_pick` always used a single
+weakest-first policy. This applied to Storm Attackers too, so the
+Storm Attacker was effectively shielding Knights behind Serfs — the
+opposite of the explicit 2E rule.
+
+**Fix.** Added a `policy=` parameter to `_assign_hit_owner_pick`
+(default "weakest_first") and a parallel `assignment_policy=`
+parameter to `_resolve_hits`. In `resolve_storm`, the per-step
+`steps_data` tuples now include the policy: "armored_first" for
+steps that target the attacker, "weakest_first" for steps that
+target the defender. Battle and Sally call sites are unaffected.
+
+**Test.** `test_audit_003_storm_attacker_absorbs_with_armored_first`,
+`test_audit_003_storm_attacker_armored_first_default_is_unchanged`,
+`test_audit_003_storm_attacker_threading_into_resolve_hits`.
+
+## AUDIT-004 (HIGH, FIXED) — Conceded+Retreated spoils mode
+
+**Rule (4.4.3, page 16, 2E):**
+> "Lords who Conceded and Retreated transfer all Loot and any
+> Provender beyond that which they could take along the Retreat Way
+> without being Laden but lose no other Assets."
+
+**Pre-fix.** `transfer_spoils("loot_and_excess")` had been a
+documented stub: it transferred only Loot and zero Provender. Worse,
+no campaign call site actually used "loot_and_excess" — every retreat
+called "all_except_ships", which is the rule for Retreated WITHOUT
+having Conceded. So a Lord who Conceded mid-Battle and then Retreated
+lost everything but Ships, instead of the much smaller "Loot +
+excess Provender along the retreat Way" prescribed by the 2E rule.
+
+**Fix.** `transfer_spoils("loot_and_excess", retreat_way_type=...)`
+now computes the Unladen Provender capacity along the retreat Way
+type (using a new `_usable_transport_count_for_way` helper that
+reads the current Season and the Lord's Boats / Carts / Sleds). The
+caller in `cmd_stand_battle`'s aftermath block now detects whether
+the loser side conceded (via `result["conceded"]`) and, for each
+retreating loser, picks the correct mode. Uses the existing
+`cp.way_type` to pass the retreat Way type — the Way the loser
+retreats by is the same Way the attackers approached by, except
+defenders are forbidden from that Way per AUDIT-005 (so defender
+retreat-Way picks are now derived from the chosen target).
+
+**Test.**
+`test_audit_004_conceded_retreated_loses_only_loot_and_excess_provender`,
+`test_audit_004_retreated_no_concede_still_transfers_all_except_ships`.
+
+## AUDIT-005 (HIGH, FIXED) — Defender retreat Way restriction
+
+**Rule (4.4.3, page 16, 2E):**
+> "Defenders may not Retreat along any part of the Way that
+> Attackers used to Approach the Locale."
+
+**Pre-fix.** The defender retreat-target picker iterated all
+neighbors of the combat Locale and picked the first that has no
+enemy presence. This included `cp.from_locale` — the Way the
+attackers came in from. Defender could retreat along the same Way
+the attackers had just used.
+
+**Fix.** When choosing a defender retreat target, skip any candidate
+where (cand_locale, way_type) == (cp.from_locale, cp.way_type). The
+parallel-Way case (Dorpat ↔ Odenpah has both a trackway and a
+waterway in the static data) is handled correctly: defenders may
+retreat to the same Locale via the OTHER Way type.
+
+**Test.** `test_audit_005_defender_does_not_retreat_along_approach_way`.
+
+## AUDIT-006 (MEDIUM, FIXED + LOG Q-004) — T12 Ordensburgen Commanderies
+
+**Rule (1.3.1 + Playbook page 36, 2E):**
+> "Commanderies are Strongholds with the Order seat symbol. T12
+> Ordensburgen makes them extra Seats for Teutonic Lords; +1 Command
+> for any Teutonic Lord starting his Command card at one."
+
+**Pre-fix.** `_seats_of` (actions.py) had a dead-code branch for
+`scope == "all_commanderies"` that looked for Locales of `type ==
+"commandery"`. None of the 53 Locales has that type — they're all
+Castles or Bishoprics. So T12 Ordensburgen granted zero extra Seats.
+Additionally, the Ordensburgen +1 Command bonus was checking
+`primary_seats` rather than "any Commandery Locale", missing the
+case of e.g. Heinrich at Adsel (a Commandery, not his primary seat).
+
+**Fix.** Added a `commandery: bool` flag to all Locales in
+`locales.json`. The confirmed Commandery set per Playbook
+pages 5/6/8/36 is: Wenden (Castle), Fellin (Castle), Adsel (Castle),
+and Leal (Bishopric). The Locale's actual `type` is preserved (Wenden
+remains a Castle for Stronghold mechanics). Updated `_seats_of` to
+match on the `commandery` flag instead of `type`. Updated
+`effective_command_rating` in campaign.py to give Ordensburgen +1 for
+any Lord at any Commandery Locale (own primary_seats union all
+Commanderies). The remaining ambiguity — whether Wesenberg, Odenpah,
+Reval, Riga, or Dorpat ALSO bear the Order seat symbol on the
+physical map — is logged as **Q-004** in RULES_QUESTIONS.md for the
+user to consult the printed map and confirm.
+
+**Test.**
+`test_audit_006_ordensburgen_commanderies_flag_present_on_confirmed_locales`,
+`test_audit_006_ordensburgen_extra_seats_emitted_for_teutonic_lords`.
+
+## AUDIT-007 (HIGH, LOG Q-005) — Battle Array three-front-positions
+
+**Rule (4.4.1 + 4.4.2, pages 14-15, 2E):**
+> "A side must as able have a Lord each in three Front positions:
+> left, center, and right. Other Lords start in Reserve. The Active
+> Lord must start at Front center. ... [Reposition] Advance Lords:
+> Attacker then Defender slide any Unrouted Lords in Reserve into
+> any empty Front positions. Center: If a center position remains
+> empty, first the Attacker then the Defender must select and slide
+> one of that side's Lords from either left or right to fill its
+> empty center position. Strike: The Forces of each Lord Strikes
+> those of the Lord directly opposite or — if Flanking — of the
+> closest enemy Lord in that row."
+
+**Status.** **Not fixed in Round 9.** Per the BRIEF
+"Rules-Accuracy-Trumps-Simplification" clause, this is a known
+violation. The Phase 3b harness explicitly chose to pool all
+participating Lords on each side (single-front-lane) — a
+documented simplification that contradicts the 2E rule. Fixing this
+requires a multi-day refactor of `resolve_battle`, per-Lord
+front-position state in CombatPending, Reposition logic at the start
+of each Round after the first, and Flanking detection. **Logged as
+Q-005** in RULES_QUESTIONS.md with a full plan.
+
+The `resolve_battle` docstring is updated to reference Q-005 so
+future readers see the trace.
+
+## AUDIT-008 (HIGH, LOG Q-006) — Relief Sally Array
+
+**Rule (4.4.1, page 14, 2E):** Sallying Lords array behind the
+Defenders; Reserve Defenders form a Rearguard opposite the Sallying
+Lords; Siegeworks roll separately for Sallying-vs-Front Strikes; on
+Attacker loss, Sallying Lords Withdraw back into the Stronghold.
+
+**Status.** **Not fixed in Round 9.** Depends on Q-005 (Battle Array
+three-front-positions). The current `cmd_relief_sally` is a much
+simpler "combine Sally with Marching Attack" path. **Logged as Q-006**
+in RULES_QUESTIONS.md.
+
+The `resolve_storm` docstring is updated to reference Q-006.
+
+## What did NOT change
+
+- **Marshal mechanics** (1.5.1, page 4): permanent vs secondary
+  Marshal selection. Already tracked under Q-003 (Lieutenants
+  constraint). The harness has `marshal_role` static data; the
+  dynamic side-Marshal selection is not yet exercised but the
+  static-data-strict interpretation is conservative.
+- **2.2.3 off-edge Calendar handling** ("first shift back toward the
+  Calendar places the marker into box 1 or box 16"): code already
+  matches the rule.
+- **Storm one-Lord-Front, Storm Reposition** (page 17): Storm Array
+  in the harness already places one Lord per side at the Front, with
+  others in Reserve, matching the 2E rule. Storm Reposition (Round
+  2+: switch Front and any Reserve Lord) is not currently modeled,
+  but this affects the order in which Lords absorb Hits across
+  Rounds in a multi-Lord Storm and should be addressed alongside
+  Q-005 since both relate to Reserve/Reposition.
+
+## Test count
+
+- Pre-Round-9: 311 tests passing.
+- Post-Round-9: 314 tests passing (+8 audit regressions:
+  3 for AUDIT-003, 2 for AUDIT-004, 1 for AUDIT-005, 2 for AUDIT-006).
+
+## Open questions
+
+- Q-003: Lieutenants Marshal constraint (carried forward).
+- Q-004: Ordensburgen Commanderies — full set verification from map.
+- Q-005: Battle Array three-front-positions and Flanking.
+- Q-006: Relief Sally Array (depends on Q-005).

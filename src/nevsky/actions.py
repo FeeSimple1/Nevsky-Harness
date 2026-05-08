@@ -900,8 +900,16 @@ def _seats_of(state: GameState, lord_id: str) -> list[str]:
             continue
         scope = c.get("scope")
         if scope == "all_commanderies":
+            # AUDIT-006 (Round 9): the rules (1.3.1, T12 Ordensburgen)
+            # define Commanderies as Strongholds with the Order seat
+            # symbol. Per Playbook (pages 5/6/8/36), the confirmed set
+            # is Wenden, Fellin, Adsel, and Leal. Locales now carry a
+            # `commandery: true` flag rather than relying on a
+            # non-existent `type == "commandery"` (the Locale's actual
+            # type — Castle, Bishopric — is preserved for Stronghold
+            # mechanics). See Q-004 for full-list verification.
             for loc_id, loc in static_locales.items():
-                if loc.get("type") == "commandery" and loc.get("territory") in ("teutonic", "crusader"):
+                if loc.get("commandery") and loc.get("territory") in ("teutonic", "crusader"):
                     seats.append(loc_id)
         elif scope == "all_russian_lords_novgorod_extra_seat":
             seats.append("novgorod")

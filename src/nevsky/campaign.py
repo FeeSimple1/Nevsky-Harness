@@ -327,14 +327,22 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
         and has_side_capability(state, "teutonic", "Treaty of Stensby")
     ):
         bonus += 1
-    # Ordensburgen: Teutonic Lord starts at a Commandery (own-primary-seat).
+    # Ordensburgen (T12): Teutonic Lord starts a Command card at any
+    # Commandery -> +1 (Playbook page 36). Pre-Round-9 the harness
+    # checked primary_seats (too restrictive — would miss a Lord at a
+    # non-primary Commandery). AUDIT-006 broadens to any Locale flagged
+    # `commandery` plus the Lord's own primary_seats (which still
+    # includes Wenden for Andreas/Rudolf etc., where the +1 applies
+    # naturally).
+    from nevsky.static_data import load_locales as _load_locales
     if (
         lord.side == "teutonic"
         and has_side_capability(state, "teutonic", "Ordensburgen")
         and lord.location is not None
-        and lord.location in sl.get("primary_seats", [])
     ):
-        bonus += 1
+        loc_static = _load_locales().get(lord.location, {})
+        if loc_static.get("commandery") or lord.location in sl.get("primary_seats", []):
+            bonus += 1
     # Archbishopric: Russian Lord starts at Novgorod.
     if (
         lord.side == "russian"
@@ -1554,6 +1562,7 @@ def _h_stand_battle(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Defender chooses to Stand. Triggers full 4.4 Battle resolution."""
     from nevsky.battle import (
+        _way_type_between,
         apply_retreat_service_shift,
         resolve_battle,
         transfer_spoils,
@@ -1623,6 +1632,11 @@ def _h_stand_battle(
         if result["loser"] == cp.attacker_side:
             target = cp.from_locale
         else:
+            # AUDIT-005 (4.4.3 2E): "Defenders may not Retreat along any
+            # part of the Way that Attackers used to Approach the
+            # Locale." Exclude the specific Way (from_locale + way_type)
+            # the attackers took. Parallel Ways of a different
+            # way_type between the same Locales remain available.
             target = None
             for w in load_ways():
                 if w["a"] == cp.to_locale:
@@ -1630,6 +1644,10 @@ def _h_stand_battle(
                 elif w["b"] == cp.to_locale:
                     cand = w["a"]
                 else:
+                    continue
+                # Skip the approach Way (same neighbor + same way_type
+                # the attackers used).
+                if cand == cp.from_locale and w["type"] == cp.way_type:
                     continue
                 if not _enemies_at(state, cand, lord.side) and not _has_enemy_stronghold_at(state, cand, lord.side):
                     target = cand
@@ -1644,7 +1662,32 @@ def _h_stand_battle(
                 continue
         lord.location = target
         shift = apply_retreat_service_shift(state, lid)
-        spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+        # AUDIT-004 (4.4.3 2E): Conceded+Retreated losers transfer only
+        # Loot and excess Provender beyond Unladen along the Retreat
+        # Way. Retreated-without-conceding losers transfer all Assets
+        # except Ships.
+        loser_side = cp.attacker_side if result["loser"] == cp.attacker_side else cp.defender_side
+        conceded_side = result.get("conceded")
+        if conceded_side is not None:
+            # conceded_side is "attacker" or "defender" relative to combat.
+            this_lord_conceded = (
+                (conceded_side == "attacker" and result["loser"] == cp.attacker_side)
+                or (conceded_side == "defender" and result["loser"] == cp.defender_side)
+            )
+        else:
+            this_lord_conceded = False
+        if this_lord_conceded:
+            # The Lord just moved to `target`. The Way used to retreat
+            # is the one connecting cp.to_locale (the combat Locale) to
+            # `target`. Defenders retreated FROM cp.to_locale TO target;
+            # Attackers retreated FROM cp.to_locale TO cp.from_locale.
+            way_type = _way_type_between(cp.to_locale, target)
+            spoil = transfer_spoils(
+                state, lid, winner_lords, "loot_and_excess",
+                retreat_way_type=way_type,
+            )
+        else:
+            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
         aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
         aftermath["spoils"].append(spoil)
 
