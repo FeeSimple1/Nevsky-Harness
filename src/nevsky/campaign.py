@@ -337,10 +337,17 @@ def _h_fpd_resolve(
 
     # Feed every MOVED_FOUGHT Lord on this side. Hillforts (T8) skips
     # one eligible Teutonic Lord in Livonia per Feed.
+    # Smoke-test fix: skip Lords whose state != "mustered" (they were
+    # permanently removed in Battle/Storm Aftermath but moved_fought=True
+    # was set before removal). Also clear their stale moved_fought flag.
     hillforts_skip = _hillforts_skip_lord(state, sd)
     feed_results: list[dict[str, Any]] = []
     for lord_id, lord in list(state.lords.items()):
         if lord.side != sd or not lord.moved_fought:
+            continue
+        if lord.state != "mustered":
+            # Lord was removed/disbanded mid-card; skip Feed.
+            lord.moved_fought = False
             continue
         if lord_id == hillforts_skip:
             feed_results.append({"lord_id": lord_id, "hillforts_skipped": True})
