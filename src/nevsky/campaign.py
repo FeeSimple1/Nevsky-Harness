@@ -472,11 +472,14 @@ def _h_fpd_resolve(
         unfed = remaining > 0
         if unfed:
             # Shift Service marker 1 box LEFT (4.8.1 unfed penalty).
+            # If at box 1, the marker goes off_left_service. Note: a
+            # service marker in off_left_service triggers 3.3.1 permanent
+            # removal in the next Disband check.
             sm_box = _find_service_marker_box(state, lord_id)
             if sm_box is not None and sm_box >= 1 and sm_box <= 16:
                 state.calendar.boxes[sm_box - 1].service_markers.remove(lord_id)
                 if sm_box == 1:
-                    state.calendar.off_left.append(lord_id)
+                    state.calendar.off_left_service.append(lord_id)
                 else:
                     state.calendar.boxes[sm_box - 2].service_markers.append(lord_id)
         feed_results.append({
@@ -1640,6 +1643,16 @@ def _h_stand_battle(
         spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
         aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
         aftermath["spoils"].append(spoil)
+
+    # 4.4.4: Winner side -- no Losses rolls per rules. Phase 7
+    # implementation returns all routed units to forces (so the winner
+    # doesn't arbitrarily lose units after winning a Battle).
+    for wlid in winner_lords:
+        if wlid in state.lords:
+            wlord = state.lords[wlid]
+            for utype, n in list(wlord.routed_units.items()):
+                wlord.forces[utype] = wlord.forces.get(utype, 0) + n  # type: ignore[index]
+            wlord.routed_units = {}
 
     # Mark all participants MOVED_FOUGHT.
     for lid in cp.attacker_group + cp.defender_lords:
