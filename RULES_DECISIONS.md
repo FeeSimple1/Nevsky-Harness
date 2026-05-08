@@ -288,3 +288,84 @@ Rules of Play 2E, 4.4.1 (Battle Array, three Front positions),
   secondary Marshals at Front Center count as currently-active.
 
 **Commit.** _to be filled after push._
+
+---
+
+## Q-006 — Relief Sally Array (4.4.1, 4.4.2)
+
+**Adjudication (verbatim from user, Round 10):**
+
+> Implement after Q-005 is merged and green. Extends the Array
+> machinery:
+>
+> * Sallying Attacker Lords arrayed in a row behind the Defender's
+>   Front.
+> * Defender Reserve Lords form a Rearguard row opposite the Sallying
+>   row. If no Rearguard exists, Sallying Lords Flank Front Defenders,
+>   all considered equally close.
+> * Siegeworks rolled separately, applied only against Strikes by
+>   Sallying Attackers against Front Defenders. Front Attackers'
+>   Strikes ignore Siegeworks as before.
+> * On Attacker loss: Withdraw Sallying Lords back into the Stronghold,
+>   reduce Siege markers there to one (Rules of Play 2E p. 14).
+>
+> Same engine-vs-operator split as Q-005: engine handles row geometry,
+> Siegework math, and the Withdraw path; operator chooses placements
+> and Hit directions.
+
+**Citation.**
+Rules of Play 2E, 4.4.1 (Relief Sally Array, page 14), 4.4.2 (Adjust
+Rows / Reposition references), 4.5.3 (Sally / Raid effect on Siege
+markers).
+
+**Encoded.**
+- `src/nevsky/battle.py::_array_sally_lords` — places Sallying Lords
+  in `sally_center` first then `sally_left` / `sally_right` /
+  `sally_reserve`. Operator picks per slot when multiple candidates.
+- `src/nevsky/battle.py::_shift_defender_reserves_to_rearguard` —
+  when Sallying Lords are present, Defender Reserves shift into
+  `rearguard_center` first then `rearguard_left` / `rearguard_right`.
+- `src/nevsky/battle.py::_init_battle_array(sallying_lords=...)` —
+  optional sallying_lords parameter triggers the Relief Sally
+  extensions: sally_* in attacker_positions, rearguard_* in
+  defender_positions.
+- `src/nevsky/battle.py::_strike_target` — extended to handle the
+  Sally row (targets Rearguard if any; else Flanks Front Defenders
+  all equally closely with operator choice) and the Rearguard row
+  (targets Sally row directly-opposed or Flanking).
+- `src/nevsky/battle.py::resolve_battle(sallying_lords, siegeworks_for_sally)` —
+  new params. Sally-row strikers' Hits are tracked separately so a
+  per-Hit Walls roll (Walls 1..siegeworks_for_sally) absorbs Hits
+  before they reach the Defender Front Lord. Marching-attacker Hits
+  bypass Siegeworks as before.
+- `src/nevsky/campaign.py::cmd_stand_battle` — detects Relief Sally:
+  any Lords on the attacker side at to_locale who are
+  `in_stronghold=True` with siege_markers > 0 are Sallying. The
+  to_locale's siege_markers count becomes `siegeworks_for_sally`.
+- `src/nevsky/campaign.py::cmd_stand_battle` aftermath — when
+  attackers lose AND Sallying Lords joined: each Sallying Lord
+  Withdraws back inside (in_stronghold=True at to_locale; not a
+  Retreat); Siege markers at the locale reduce to 1.
+
+**Tests.**
+- `tests/test_q006_relief_sally.py` — 8 dedicated regressions:
+  single-Sally placement, two-Sally with operator pick, Defender
+  Reserve → Rearguard shift, Sally-targets-directly-opposed-Rearguard,
+  Sally-Flanks-Front-when-no-Rearguard, Rearguard-strikes-Sally,
+  init_battle_array-with-Sally populates both rows, attacker-loss
+  Sally Withdraw + Siege → 1.
+- All 325 tests from the Q-005 baseline continue to pass. Total: 333.
+
+**Out of scope.**
+- Storm Reposition (4.5.2 page 17): Storm has its own Reposition rule
+  ("switch Front and any Reserve Lord"). Not in Q-006 scope; future
+  Q-NNN.
+- Multi-round Reposition with Sally rows. The "Adjust Rows" rule
+  (4.4.2 page 15) covers what happens when an entire row Routs in
+  Relief Sally; the current implementation removes Routed Lords from
+  the Array but does not yet promote Rearguard → Reserve nor flip
+  Sallying-vs-Front-Defenders dynamics. Future enhancement; not
+  triggered by the Q-006 test scenarios but is documented as a
+  known gap in the resolve_battle docstring.
+
+**Commit.** _to be filled after push._

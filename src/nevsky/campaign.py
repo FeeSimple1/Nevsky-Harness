@@ -1656,12 +1656,29 @@ def _h_stand_battle(
     active_attacker = (
         cp.attacker_group[0] if cp.attacker_group else None
     )
+    # Q-006 Relief Sally detection (4.4.1 2E): if the marching attacker
+    # side has Besieged Lords at cp.to_locale, those Lords may join the
+    # Attack as Sallying Lords without spending Command actions.
+    sallying_lords = [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered"
+        and l.location == cp.to_locale
+        and l.side == cp.attacker_side
+        and l.in_stronghold
+        and state.locales[cp.to_locale].siege_markers > 0
+        and lid not in cp.attacker_group
+    ]
+    siegeworks_for_sally = (
+        state.locales[cp.to_locale].siege_markers if sallying_lords else 0
+    )
+    # If Relief Sally fires, all_attackers includes the Sallying Lords.
+    all_attackers = list(cp.attacker_group) + sallying_lords
     # Reuse pre-set positions if cmd_stand_battle was called with them.
     pre_atk_pos = cp.attacker_positions or None
     pre_def_pos = cp.defender_positions or None
     result = resolve_battle(
         state, attacker_side=cp.attacker_side,
-        attacker_lords=list(cp.attacker_group),
+        attacker_lords=all_attackers,
         defender_lords=list(cp.defender_lords),
         concede=concede,
         holds=holds_arg,
@@ -1669,7 +1686,14 @@ def _h_stand_battle(
         decision_ctx=decision_ctx,
         attacker_positions=pre_atk_pos,
         defender_positions=pre_def_pos,
+        sallying_lords=sallying_lords or None,
+        siegeworks_for_sally=siegeworks_for_sally,
     )
+    if sallying_lords:
+        result["relief_sally"] = {
+            "sallying_lords": sallying_lords,
+            "siegeworks_for_sally": siegeworks_for_sally,
+        }
     if consumed_holds:
         result["holds_consumed"] = consumed_holds
     winner = result["winner"]
@@ -1685,10 +1709,31 @@ def _h_stand_battle(
             winner_lords = [spoils_target] + [w for w in winner_lords if w != spoils_target]
 
     aftermath: dict[str, Any] = {"battle": result, "retreats": [], "spoils": [], "removed": []}
+    # Q-006 Relief Sally aftermath: if attackers lose AND Sallying
+    # Lords joined, those Sallying Lords Withdraw BACK INTO the
+    # Stronghold (not Retreat); the Locale's Siege markers are
+    # reduced to one (4.4.1 / 4.5.3 2E). Sallying Lords with 0
+    # Forces are still removed.
+    sallying_loser_set: set[str] = set()
+    if sallying_lords and result["loser"] == cp.attacker_side:
+        for lid in sallying_lords:
+            if lid in state.lords and state.lords[lid].forces:
+                # Withdraw back inside (already at the Locale; just
+                # mark in_stronghold).
+                state.lords[lid].in_stronghold = True
+                aftermath.setdefault("sally_withdrew", []).append(lid)
+                sallying_loser_set.add(lid)
+        # Reduce Siege markers to 1.
+        if state.locales[cp.to_locale].siege_markers > 1:
+            state.locales[cp.to_locale].siege_markers = 1
+            aftermath["sally_raid_siege_to_1"] = True
     for lid in list(loser_lords):
         if lid not in state.lords:
             continue
         lord = state.lords[lid]
+        # Q-006: skip Sallying Lords already handled by Withdraw path.
+        if lid in sallying_loser_set:
+            continue
         if not lord.forces:
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
             aftermath["spoils"].append(spoil)

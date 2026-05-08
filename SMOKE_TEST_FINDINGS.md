@@ -916,3 +916,50 @@ covers Q-003 / Q-004 / Q-005 status; Q-006 is a follow-up PR.
 - **Q-003 + Q-005 integration**: secondary Marshal at Front Center
   should count as currently-active for the Lieutenant exclusion.
   Small follow-up commit after both branches land.
+
+
+# Round 10b — Q-006 Relief Sally Array
+
+Builds on Q-005 (q-005-battle-array-three-positions). Implements the
+Relief Sally Array per 4.4.1 page 14 of the 2E rules.
+
+## What changed
+
+- New position values in CombatPending's attacker_positions /
+  defender_positions: sally_center, sally_left, sally_right,
+  sally_reserve (attacker side); rearguard_center, rearguard_left,
+  rearguard_right (defender side).
+- _array_sally_lords builds the Sally row.
+- _shift_defender_reserves_to_rearguard moves Defender Reserves to
+  Rearguard when Sallying Lords are present.
+- _init_battle_array(sallying_lords=...) wires both helpers.
+- _strike_target gained Sally / Rearguard branches:
+  - Sally → directly-opposed Rearguard, or Flank Rearguard, or (if
+    no Rearguard) Flank Front Defenders all equally close.
+  - Rearguard → directly-opposed Sally, or Flank within Sally row.
+- resolve_battle gains sallying_lords and siegeworks_for_sally
+  parameters. Sally strikers' Hits to Defender Front Lords roll
+  Walls 1..siegeworks_for_sally separately before applying.
+- cmd_stand_battle detects Relief Sally: in_stronghold=True Lords on
+  the attacker side at to_locale with siege_markers > 0 are
+  Sallying; siege_markers count = siegeworks_for_sally.
+- cmd_stand_battle aftermath: on attacker loss with Sally, Sallying
+  Lords stay at to_locale with in_stronghold=True (Withdraw, NOT
+  Retreat), and Siege markers reduce to 1.
+
+## Tests
+
+- 8 dedicated regressions in tests/test_q006_relief_sally.py.
+- All 325 tests from Q-005 baseline still pass. Total: 333.
+
+## Open follow-ups
+
+- Storm Reposition (4.5.2 page 17): Storm has its own one-Lord-Front
+  Reposition. Future Q-NNN.
+- Adjust Rows (4.4.2 page 15): entire-row Rout transitions in Relief
+  Sally (Sallying becomes Front, etc.). Documented in the
+  resolve_battle docstring as a known gap; not exercised by the
+  Q-006 test set; deferrable to a future round.
+- Q-003 + Q-005 + Q-006 integration: secondary Marshals at Front
+  Center should count as currently-active for the Lieutenant
+  exclusion. Pending all three branches landing.
