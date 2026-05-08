@@ -129,3 +129,77 @@ entry here with:
 - `tests/test_q_001_setup_transport.py` (new) — table-driven verification
   of every scenario / lord / slot default; override and auto-confirm
   flows.
+
+## Q-002 — Hermann / Rudolf / Yaroslav Transport-(any) slot status
+*Adjudicated 2026-05-08. Encoded in commit (this PR).*
+
+**User adjudication (verbatim, summarized):**
+
+> Transport (no Ship) — Setup Default & Override Spec
+>
+> Resolves: Q-002. Extends Q-001.
+>
+> Finding. Nevsky_Lords.txt shows Hermann, Rudolf, Yaroslav each
+> carry Transport x1 (no Ship). lords.json is correct; the Q-001
+> spec was incomplete by missing the (no Ship) inventory.
+>
+> Complete setup-choice inventory (10 Lords):
+>   (any)     -> {Boat, Cart, Sled, Ship}: Andreas, Vladislav, Andrey,
+>                Domash, Gavrilo, Karelians, Aleksandr.
+>   (no Ship) -> {Boat, Cart, Sled}:        Hermann, Rudolf, Yaroslav.
+>   Fixed (no choice): Knud & Abel (Ship x2), Heinrich (Ship x2).
+>
+> Mechanism. Identical to Q-001. The only difference is allowed_values:
+> read mat.ships_authorized to determine whether Ship is allowed.
+>
+> Per-scenario default table additions (8 rows):
+>   Pleskau:                Hermann@Dorpat=Cart (3b), Yaroslav@Odenpah=Cart (3b)
+>   Watland:                Yaroslav@Pskov=Sled (rule 1, EW start)
+>   Nicolle Variant:        Hermann@Dorpat=Cart (3b)
+>   Peipus:                 Hermann@Dorpat=Sled (rule 1, LW),
+>                           Yaroslav@Pskov=Sled (rule 1, LW)
+>   Crusade on Novgorod:    Hermann@Dorpat=Cart (3b),
+>                           Yaroslav@Odenpah=Cart (3b)
+>
+> Rudolf carve-out. Rudolf NEVER starts Mustered. He is on the
+> Calendar at scenario load in every scenario:
+>   Pleskau box 1, Watland box 4, Return of the Prince box 9,
+>   Nicolle box 9, Peipus box 13, Crusade on Novgorod box 1.
+>
+> _build_lords MUST NOT materialize Rudolf's starting Transport at
+> load and MUST NOT emit a setup_transport_choice PendingDecision for
+> him. The PendingDecision is emitted at the moment Rudolf is
+> Mustered during play (Phase 2 Levy mechanics responsibility).
+>
+> Heuristic in code, alongside the table. Both: (1) lookup table for
+> known scenarios; (2) heuristic fallback (Q-001 decision tree)
+> when a Lord is Mustered at a Locale not covered. Heuristic depends
+> on a Locale -> way-class classifier (Trackway / Waterway / Seaport).
+> Cover the heuristic with a unit test that asserts running it on
+> the table's inputs yields the table's outputs.
+
+**Encoded behavior:**
+- `_Q001_DEFAULTS` -> renamed `_SETUP_TRANSPORT_DEFAULTS`; covers
+  both (any) and (no Ship) slot types; 24 rows total (16 + 8).
+- `_build_lords` skips Lords who are NOT in `setup.mustered_lords`
+  (i.e., on the Calendar). Their setup_transport_choice slots are
+  not materialized at load.
+- Phase 2 Muster (`_place_lord_on_map`) emits a
+  `setup_transport_choice` PendingDecision when a Calendar-at-start
+  Lord with starting_transport_choice is brought onto the map.
+- New `nevsky.map` module exposes way-class classification helpers
+  reused by Supply / Sail / Ravage adjacency in later phases.
+- Heuristic function `_heuristic_setup_transport_default(scenario_id,
+  lord_id, locale_id, season)` re-derives the table's defaults; the
+  heuristic-vs-table consistency test prevents drift.
+
+**Affected files (this PR):**
+- `src/nevsky/scenarios.py` — rename `_Q001_DEFAULTS` ->
+  `_SETUP_TRANSPORT_DEFAULTS`; add 8 rows; skip non-Mustered Lords;
+  call heuristic for fallback.
+- `src/nevsky/map.py` (new) — way-class helpers.
+- `src/nevsky/actions.py::_place_lord_on_map` — emit
+  setup_transport_choice for Calendar-at-start Lords on Muster.
+- `tests/test_q_001_setup_transport.py` -> renamed
+  `tests/test_setup_transport_defaults.py`; +8 rows; +heuristic test.
+- `RULES_QUESTIONS.md` — Q-002 cleared.
