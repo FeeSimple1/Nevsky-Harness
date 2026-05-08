@@ -90,6 +90,35 @@ context, do not gloss them, do not transliterate alternates ("Aleksandr"
 not "Alexander"; "Pleskau" in the scenario name even though the place
 is called "Pskov" in the rules — they are game tokens, use them as
 written).
+Rules Accuracy Trumps Simplification — HARD CONSTRAINT
+Where the rules are clear, the harness MUST implement them faithfully.
+Simplifications, approximations, "Phase N+ deferrals", and
+convenience shortcuts are NOT acceptable when the rules are explicit
+about a behavior.
+
+The only acceptable reasons to depart from the rules are:
+  1. The rules are ambiguous (-> follow the Ambiguity Policy / Q-NNN
+     consultation chain below).
+  2. The user has explicitly adjudicated a deviation (recorded in
+     RULES_DECISIONS.md as [HOUSE RULE]).
+
+Reasons that are NOT acceptable:
+  - "Easier to implement this way."
+  - "Phase N is just a stub; Phase N+1 will fix it."
+  - "Most games won't hit this case."
+  - "The simplification is conservative / lenient."
+
+When implementing a feature, if the chosen approach diverges from the
+rules in any measurable way, the divergence MUST be either:
+  a. Fixed in the same PR before merge.
+  b. Logged as a Q-NNN in RULES_QUESTIONS.md and surfaced to the user
+     before merge.
+
+Code comments that say "simplified", "approximated", "deferred", or
+similar are flags for audit. Each must trace to either a Q-NNN, a
+[HOUSE RULE] decision, or a future-phase commitment with an explicit
+issue tracking it.
+
 Ambiguity Policy
 The harness encodes rules deterministically. Every rule encoded in code
 must trace to a source. The user is the sole authority on rules
