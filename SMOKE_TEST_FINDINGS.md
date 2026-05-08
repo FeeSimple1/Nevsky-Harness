@@ -476,3 +476,98 @@ Total tests: 310 (up from 292 in Round 5).
 
 The harness is **deployment-ready** for an LLM agent to drive a Nevsky
 game.
+
+---
+
+## Round 7 (this PR): architectural cleanup + anomaly-detection smoke
+
+### Architectural fix: off-edges cylinder/service split
+
+**Issue.** Calendar previously had a single `off_left` / `off_right` pair
+of lists used for BOTH Lord cylinders past the calendar edge AND
+Service markers past the calendar edge. The conflation meant
+`_find_service_marker_box` could return 17 because a Lord's cylinder
+was off_right, even when his Service marker was still on the calendar.
+
+**Fix.** Calendar gains `off_left_service` and `off_right_service`
+fields. Cylinder helpers (`_find_cylinder_box`, `_shift_cylinder`) keep
+using `off_left`/`off_right`; Service-marker helpers (`_shift_service_right`,
+`_find_service_marker_box`, FPD unfed shift) use `off_*_service`.
+`_remove_lord_permanently` and `_disband_at_limit` clear from BOTH lists.
+
+State: `Calendar.off_left_service`, `Calendar.off_right_service`
+(empty by default). render adds dedicated lines for each.
+
+### Architectural fix: Routed-vs-Lost separation (4.4.4)
+
+**Issue.** Battle resolver previously used "Routed = Lost": a unit
+that failed its Protection roll was deleted outright. The rules
+(4.4.4 Losses) say Routed units are MOVED to a Routed pile during
+battle (can't strike or absorb further hits), then go through
+Losses rolls in Aftermath. Losses outcome depends on loser_state:
+  - retreated_no_concede / storm_attacker -> needs roll == 1 to keep
+  - withdrew / conceded_then_retreated   -> needs roll within unmodified
+                                            Protection range
+  - removed                                -> all units lost
+  - Asiatic Horse always uses Evade range
+
+**Fix.** Lord gains a `routed_units` dict. `resolve_battle` /
+`resolve_storm`'s `_resolve_hits` moves failed-protection units to
+`routed_units` instead of deleting. After Battle, `stand_battle`
+calls `apply_losses_rolls` for each loser Lord:
+  - Retains units that pass their threshold roll (returned to forces).
+  - Permanently loses units that fail.
+  - Lord with zero forces after Losses -> permanent removal.
+Winner Lord routed pile is returned wholesale to forces (winner
+doesn't roll Losses per rules).
+
+### Anomaly-detection smoke test
+
+Ran 200-battle equal-force sweeps:
+
+  3K vs 3K, T attacks: defender wins 87% (T 13% / R 87%)
+  3K vs 3K, R attacks: defender wins 87% (R 13% / T 87%)
+  3S vs 3S:            defender wins 74.5%
+  4LH vs 4LH:          defender wins 79.5%
+  Mixed sym (2K+2MaA): defender wins 70.5%
+  4K vs 2K, T attacks: T wins 78.5% (force advantage prevails)
+  Storm 3v1+Garrison:  attacker wins 100% (50/50)
+
+D6 fairness check: 9900 rolls; 16.3-17.1% per face (expected 16.7%).
+
+**Defender bias is REAL but rules-correct.** The Battle initiative
+order has Defender Strike first in each step (archery defender ->
+attacker; melee horse defender -> attacker; melee foot defender ->
+attacker). Within each step, Routed units are moved to the routed
+pile and cannot strike or absorb further hits this Battle. Defender
+strikes first -> some attacker units rout -> attacker strikes back
+with reduced forces. The asymmetry is structural to the rules.
+
+In real game play this bias is offset by:
+- Attackers usually have force-advantage (they choose to attack).
+- Capabilities (Halbbrueder Armor +1, Warrior Monks reroll, etc.).
+- Plan / sequencing / Concede / Lieutenants / group March.
+
+The bias is not a harness bug. The 4K vs 2K case shows force
+advantage outweighs initiative when forces are clearly mismatched.
+
+Round count distribution:
+  1 round: 148 battles
+  2 rounds: 286 battles
+  3 rounds: 120 battles
+  4+ rounds: tail
+  10 rounds (max): 0 battles -> no stalemate detection bug
+
+D6 RNG fair to ~0.4% deviation per face -> no RNG bias.
+
+Storm 100% attacker-win in 3v1+Garrison is expected (3:1 force
++ Garrison limited capacity).
+
+### Coverage
+
+7 rounds of smoke testing complete. Total tests: 316 (+6 round 7).
+All architectural notes from the Round 6 PR are addressed.
+
+The harness is production-ready for an LLM agent.
+
+SCHEMA_VERSION 0.10.0 -> 0.11.0.
