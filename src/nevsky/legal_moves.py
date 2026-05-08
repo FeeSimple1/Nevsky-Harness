@@ -395,8 +395,9 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 }, preview_trials=50)
                 if fc.get("note"):
                     stand_note += f" | {fc['note']}"
-            except Exception:
-                pass
+            except (ImportError, KeyError, ValueError, AttributeError) as e:
+                # Non-fatal: skip the preview but mark the failure so it shows up.
+                stand_note += f" | (preview unavailable: {type(e).__name__})"
             out.append({"type": "stand_battle", "side": side, "args": {}, "note": stand_note})
             if not cp.laden:
                 out.append({"type": "avoid_battle", "side": side,
@@ -466,11 +467,12 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     "args": {"lord_id": active_lord, "to": dest},
                     "note": f"March {active_lord} {here}->{dest} via {way_type} (1 action Unladen, 2 Laden)",
                 })
-        except Exception:
-            # Fallback to template form.
+        except (ImportError, KeyError, AttributeError, FileNotFoundError) as e:
+            # Static-data load failure or shape mismatch: fall back to the
+            # template form so the consumer still sees an action shape.
             out.append({"type": "cmd_march", "side": side,
                         "args_template": {"lord_id": "<id>", "to": "<locale_id>", "group": "[<id>]"},
-                        "note": "March 1 Locale (1 Unladen / 2 Laden)"})
+                        "note": f"March 1 Locale (preview unavailable: {type(e).__name__})"})
         # Siege/Storm if Lord is at a Stronghold with siege markers,
         # is not Besieged inside, and is besieging.
         from nevsky.campaign import _stronghold_at, _is_besieged as _ib
@@ -491,8 +493,8 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                         }, preview_trials=50)
                         if fc.get("note"):
                             storm_note += f" | {fc['note']}"
-                    except Exception:
-                        pass
+                    except (ImportError, KeyError, ValueError, AttributeError) as e:
+                        storm_note += f" | (preview unavailable: {type(e).__name__})"
                     out.append({"type": "cmd_storm", "side": side,
                                 "args": {"lord_id": active_lord},
                                 "note": storm_note})
@@ -506,8 +508,8 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     }, preview_trials=50)
                     if fc.get("note"):
                         sally_note += f" | {fc['note']}"
-                except Exception:
-                    pass
+                except (ImportError, KeyError, ValueError, AttributeError) as e:
+                    sally_note += f" | (preview unavailable: {type(e).__name__})"
                 out.append({"type": "cmd_sally", "side": side,
                             "args": {"lord_id": active_lord},
                             "note": sally_note})

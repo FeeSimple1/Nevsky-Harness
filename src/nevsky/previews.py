@@ -76,6 +76,20 @@ def battle_preview(
             "avg_attacker_loss_pct": 0.0, "avg_defender_loss_pct": 0.0,
             "error": "empty side(s)",
         }
+    # Validate all lord_ids exist (catches typos before the simulation
+    # silently treats unknown ids as 0-unit Lords and reports a confident
+    # but meaningless winrate).
+    bad = [lid for lid in (list(attacker_lords) + list(defender_lords))
+           if lid not in state.lords]
+    if bad:
+        return {
+            "trials": 0, "attacker_winrate": 0.0, "defender_winrate": 0.0,
+            "avg_rounds": 0.0,
+            "attacker_units_pre": 0, "defender_units_pre": 0,
+            "avg_attacker_units_lost": 0.0, "avg_defender_units_lost": 0.0,
+            "avg_attacker_loss_pct": 0.0, "avg_defender_loss_pct": 0.0,
+            "error": f"unknown lord_id(s): {bad}",
+        }
 
     defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
     atk_wins = 0
@@ -85,6 +99,8 @@ def battle_preview(
     def_loss_sum = 0
     atk_pre_sum = 0
     def_pre_sum = 0
+    failed_trials = 0
+    last_error: str | None = None
 
     for t in range(trials):
         scopy = deepcopy(state)
@@ -102,10 +118,9 @@ def battle_preview(
                 max_rounds=max_rounds,
                 decision_ctx=BattleDecisionContext(),
             )
-        except Exception:
-            # If the engagement raises (bad inputs, missing data), skip
-            # this trial. Returning zero counts here lets the caller
-            # detect mostly-null result sets.
+        except Exception as e:  # noqa: BLE001 - tracked, not silenced
+            failed_trials += 1
+            last_error = f"{type(e).__name__}: {e}"
             continue
         winner = res.get("winner")
         if winner == attacker_side:
@@ -118,19 +133,24 @@ def battle_preview(
         atk_pre_sum += atk_pre
         def_pre_sum += def_pre
 
-    n = max(1, trials)
-    return {
+    successful = max(1, trials - failed_trials)
+    out_d = {
         "trials": trials,
-        "attacker_winrate": atk_wins / n,
-        "defender_winrate": def_wins / n,
-        "avg_rounds": rounds_sum / n,
-        "attacker_units_pre": atk_pre_sum / n,
-        "defender_units_pre": def_pre_sum / n,
-        "avg_attacker_units_lost": atk_loss_sum / n,
-        "avg_defender_units_lost": def_loss_sum / n,
+        "successful_trials": trials - failed_trials,
+        "attacker_winrate": atk_wins / successful,
+        "defender_winrate": def_wins / successful,
+        "avg_rounds": rounds_sum / successful,
+        "attacker_units_pre": atk_pre_sum / successful,
+        "defender_units_pre": def_pre_sum / successful,
+        "avg_attacker_units_lost": atk_loss_sum / successful,
+        "avg_defender_units_lost": def_loss_sum / successful,
         "avg_attacker_loss_pct": atk_loss_sum / max(1, atk_pre_sum),
         "avg_defender_loss_pct": def_loss_sum / max(1, def_pre_sum),
     }
+    if failed_trials:
+        out_d["failed_trials"] = failed_trials
+        out_d["last_error"] = last_error
+    return out_d
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +208,11 @@ def storm_preview(
         ]
     else:
         defender_lords = list(defender_lords)
+    # Validate lord_ids exist.
+    bad = [lid for lid in (list(attacker_lords) + defender_lords)
+           if lid not in state.lords]
+    if bad:
+        return {"trials": 0, "error": f"unknown lord_id(s): {bad}"}
 
     atk_wins = 0
     def_wins = 0
@@ -198,6 +223,8 @@ def storm_preview(
     atk_pre_sum = 0
     def_pre_sum = 0
     g_pre_sum = 0
+    failed_trials = 0
+    last_error: str | None = None
 
     for t in range(trials):
         scopy = deepcopy(state)
@@ -217,7 +244,9 @@ def storm_preview(
                 garrison=dict(garrison_template),
                 decision_ctx=BattleDecisionContext(),
             )
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - tracked, not silenced
+            failed_trials += 1
+            last_error = f"{type(e).__name__}: {e}"
             continue
         winner = res.get("winner")
         if winner == "attacker":
@@ -233,27 +262,32 @@ def storm_preview(
         def_pre_sum += def_pre
         g_pre_sum += g_pre
 
-    n = max(1, trials)
-    return {
+    successful = max(1, trials - failed_trials)
+    out_d = {
         "trials": trials,
+        "successful_trials": trials - failed_trials,
         "locale_id": locale_id,
         "stronghold_type": static_loc["type"],
         "walls_max": walls_max,
         "siege_markers": siege_markers,
-        "attacker_winrate": atk_wins / n,
-        "defender_winrate": def_wins / n,
-        "avg_rounds": rounds_sum / n,
-        "attacker_units_pre": atk_pre_sum / n,
-        "defender_units_pre": def_pre_sum / n,
-        "avg_garrison_units_pre": g_pre_sum / n,
-        "avg_attacker_units_lost": atk_loss_sum / n,
-        "avg_defender_units_lost": def_loss_sum / n,
-        "avg_garrison_units_lost": g_loss_sum / n,
+        "attacker_winrate": atk_wins / successful,
+        "defender_winrate": def_wins / successful,
+        "avg_rounds": rounds_sum / successful,
+        "attacker_units_pre": atk_pre_sum / successful,
+        "defender_units_pre": def_pre_sum / successful,
+        "avg_garrison_units_pre": g_pre_sum / successful,
+        "avg_attacker_units_lost": atk_loss_sum / successful,
+        "avg_defender_units_lost": def_loss_sum / successful,
+        "avg_garrison_units_lost": g_loss_sum / successful,
         "avg_attacker_loss_pct": atk_loss_sum / max(1, atk_pre_sum),
         "avg_defender_loss_pct": def_loss_sum / max(1, def_pre_sum),
         "avg_garrison_loss_pct": g_loss_sum / max(1, g_pre_sum),
         "stronghold_vp": int(sh.get("vp", 0)),
     }
+    if failed_trials:
+        out_d["failed_trials"] = failed_trials
+        out_d["last_error"] = last_error
+    return out_d
 
 
 # ---------------------------------------------------------------------------

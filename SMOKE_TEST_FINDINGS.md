@@ -1649,3 +1649,75 @@ the consumer is already reading.
   battle preview once and reporting "if you stand: X%; if you
   concede: 50% damage taken this round + lose Battle; if you avoid:
   Z lord-shifts on Service." Deferred.
+
+# Round 17 — Cleanup and repair
+
+User direction: substantive cleanup and repair before further feature
+work. Audit revealed three repair targets and two new open questions.
+
+## Tightened broad except clauses (R15/R16 holdover)
+
+Six `except Exception:` blocks were silently swallowing errors:
+
+- `previews.py` battle_preview / storm_preview: per-trial except now
+  tracks a `failed_trials` counter and `last_error` string, surfaced in
+  the result dict when failures occur. Helper return shape gains a
+  `successful_trials` field; the win-rate denominator uses the
+  successful count rather than the total.
+- `legal_moves.py` four preview-hook sites (cmd_storm, cmd_sally,
+  stand_battle, cmd_march fallback): each except now catches a specific
+  set (`ImportError, KeyError, ValueError, AttributeError,
+  FileNotFoundError`) and surfaces the failure in the action's `note`
+  field as `(preview unavailable: ExceptionName)`. Unexpected exceptions
+  now propagate, so future bugs aren't hidden.
+
+## Lord-id validation in previews
+
+Both `battle_preview` and `storm_preview` now reject calls with
+unknown lord_ids before running trials. Previously a typo like
+`"nonexistent"` produced a confident-looking 0%-attacker-win, 0-pre-
+units result that an LLM consumer might trust. Now returns
+`{trials: 0, error: "unknown lord_id(s): ['nonexistent']"}`.
+
+## Q-007 + Q-008 logged
+
+`RULES_QUESTIONS.md` updated with two new questions surfaced from
+prior smoke / audit work:
+
+- **Q-007 — Russian Archery special rounding (4.4.2).** Forces
+  Reference rule about rounding the half-Hit that causes Armor
+  reduction when Russian -2-Armor archery combines with regular Russian
+  archery. Current implementation flags `striker_has_armor_minus_2` if
+  ANY contributing striker had it; that may over-apply in mixed cases.
+  Three options (current behavior / per-Hit attribution / sub-step
+  rounded-to-1) listed. Non-blocking; current behavior is generous to
+  Russians and Russians already win 84% of balanced 1v1 Battles.
+
+- **Q-008 — Tier 2 Battle Hold mechanical effects (4.4.2).** Bridge,
+  Hill, Ambush, Field Organ are partially wired (consumption tracked,
+  but the per-step Strike-cap / Hit-modification effects are no-ops).
+  Bridge specifically: Q-005 made front-center modeled, so the
+  `2 * round_number` cap on the front-center Lord is now implementable.
+  Three options (literal-reading wire / leave as no-ops / consult
+  Volko's worked examples — last excluded by BRIEF policy). Non-blocking;
+  consumption is tracked and the user/LLM can apply the effect manually.
+
+## Stale comment update
+
+`events.py:621` Bridge docstring previously claimed "no-op since
+front-center is not modeled" — front-center IS modeled per Q-005;
+updated to reference Q-008.
+
+## Playthrough drivers — none stale
+
+Ran each of the 13 `_playthrough_*.py` drivers under the latest
+state. All complete cleanly. Round 6's 16-turn Crusade-on-Novgorod
+driver reports 0 BUGS FOUND. Round 14's all-six-scenarios passive
+smoke driver runs all scenarios without errors. No cleanup needed.
+
+## Tests
+
+- 10 new regression tests in `test_round_17_cleanup.py` cover the
+  validation guards, failed-trial tracking, preview-unavailable note
+  surfacing, and presence of Q-007 / Q-008 in RULES_QUESTIONS.md.
+- 386 → 396 passing.

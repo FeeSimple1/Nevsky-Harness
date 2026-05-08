@@ -618,8 +618,10 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
       "field_organ":   "T10"       -> with args.field_organ_lord
       "raven_rock":    "R4"        -> Russian defender Walls 1-2 vs Melee R1
       "bridge":        "T4"|"R1"   -> opposing front center Lord melee cap
-                                       (Phase 4d simplification: no-op since
-                                       front-center is not modeled)
+                                       (Q-008 candidate: front-center IS
+                                       modeled per Q-005, but the Bridge
+                                       Melee cap rule is not yet wired
+                                       into battle.py per-Lord step caps)
 
     Each consumed card is moved from holds to discard. If the card isn't
     in the side's holds list, IllegalAction is raised.
