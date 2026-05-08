@@ -108,9 +108,13 @@ def render_summary(state: GameState) -> str:
         if bits:
             lines.append(f"  box {cb.box} ({season(cb.box)}): {' '.join(bits)}")
     if state.calendar.off_left:
-        lines.append(f"  off-left: {', '.join(state.calendar.off_left)}")
+        lines.append(f"  off-left (cyl): {', '.join(state.calendar.off_left)}")
     if state.calendar.off_right:
-        lines.append(f"  off-right: {', '.join(state.calendar.off_right)}")
+        lines.append(f"  off-right (cyl): {', '.join(state.calendar.off_right)}")
+    if state.calendar.off_left_service:
+        lines.append(f"  off-left (svc): {', '.join(state.calendar.off_left_service)}")
+    if state.calendar.off_right_service:
+        lines.append(f"  off-right (svc): {', '.join(state.calendar.off_right_service)}")
 
     # Locale markers (only non-empty)
     map_lines = _summarize_locale_markers(state.locales)
@@ -350,9 +354,13 @@ def _render_calendar(calendar: Calendar) -> str:
         season_str = season(cb.box)
         lines.append(f"  box {cb.box:2d} {season_str:<22s}{marker}{' '.join(bits)}")
     if calendar.off_left:
-        lines.append(f"  off-left: {calendar.off_left}")
+        lines.append(f"  off-left (cylinders): {calendar.off_left}")
     if calendar.off_right:
-        lines.append(f"  off-right: {calendar.off_right}")
+        lines.append(f"  off-right (cylinders): {calendar.off_right}")
+    if calendar.off_left_service:
+        lines.append(f"  off-left (service): {calendar.off_left_service}")
+    if calendar.off_right_service:
+        lines.append(f"  off-right (service): {calendar.off_right_service}")
     return "\n".join(lines)
 
 
