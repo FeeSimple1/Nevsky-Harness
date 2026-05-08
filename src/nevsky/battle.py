@@ -294,6 +294,344 @@ def _resolve_hits(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Q-005: Battle Array three-front-positions, Flanking, scripted decisions
+# ---------------------------------------------------------------------------
+#
+# The 2E Battle Array (4.4.1 / 4.4.2 page 14-15) puts Lords in three Front
+# positions per side -- left, center, right -- plus Reserve. Strikes go from
+# each Lord to the directly-opposed enemy Lord, or (if Flanking) to the
+# closest enemy Lord in the row. Reposition happens at the start of each
+# Round after the first: Reserves advance into empty Front slots; an empty
+# center is filled from left or right.
+#
+# Several of these steps require player choice. The harness exposes a
+# DecisionContext that the engine consults whenever an operator-level
+# choice is needed. For tests, a `scripted_decisions` list of pre-canned
+# answers is consumed in order; for live play, an optional callback is
+# invoked. If neither is supplied, the `deterministic_fallback` policy
+# ("leftmost") picks the leftmost legal option so unit tests written
+# pre-Q-005 still behave deterministically.
+
+
+# Decision types the engine may ask the operator about.
+_DECISION_TYPES = (
+    "initial_placement_attacker",   # which non-Active Lord goes to slot
+    "initial_placement_defender",   # which Defender Lord goes to slot
+    "reserve_advance",              # which Reserve Lord advances to slot
+    "center_fill",                  # which left/right Lord slides to center
+    "flanker_target",               # ambiguous Flanker target
+)
+
+
+class BattleDecisionContext:
+    """Funnel for operator decisions during Battle.
+
+    Usage:
+      ctx = BattleDecisionContext(scripted=[...]) for tests, or
+      ctx = BattleDecisionContext(callback=fn) for live play, or
+      ctx = BattleDecisionContext() for fallback leftmost-legal.
+
+    Engine code calls ctx.decide(decision_type, side, options, info).
+    Every call appends a record to ctx.log so the battle log includes
+    a trace of all operator choices.
+    """
+
+    def __init__(
+        self,
+        scripted: list[dict[str, Any]] | None = None,
+        callback: "Any | None" = None,
+        fallback: str = "leftmost",
+    ) -> None:
+        self.scripted: list[dict[str, Any]] = list(scripted or [])
+        self.callback = callback
+        self.fallback = fallback
+        self.log: list[dict[str, Any]] = []
+
+    def decide(
+        self,
+        decision_type: str,
+        side: str,
+        options: list[Any],
+        info: dict[str, Any] | None = None,
+    ) -> Any:
+        if decision_type not in _DECISION_TYPES:
+            raise ValueError(f"unknown decision type: {decision_type!r}")
+        info = dict(info or {})
+        if not options:
+            raise ValueError("decide() called with empty options list")
+        # 1. Try scripted decisions FIFO.
+        if self.scripted:
+            d = self.scripted.pop(0)
+            if d.get("type") != decision_type:
+                raise ValueError(
+                    f"scripted decision type mismatch: expected {decision_type!r}, "
+                    f"got {d.get('type')!r}"
+                )
+            chosen = d["chosen"]
+            if chosen not in options:
+                raise ValueError(
+                    f"scripted choice {chosen!r} not in legal options {options!r} "
+                    f"(decision={decision_type}, side={side}, info={info})"
+                )
+            entry = {
+                "type": decision_type, "side": side, "options": options,
+                "chosen": chosen, "rationale": d.get("rationale", "scripted"),
+                "info": info,
+            }
+            self.log.append(entry)
+            return chosen
+        # 2. Try callback.
+        if self.callback is not None:
+            chosen = self.callback({
+                "type": decision_type, "side": side, "options": options,
+                "info": info,
+            })
+            if chosen not in options:
+                raise ValueError(
+                    f"callback chose {chosen!r} not in legal options {options!r}"
+                )
+            entry = {
+                "type": decision_type, "side": side, "options": options,
+                "chosen": chosen, "rationale": "callback", "info": info,
+            }
+            self.log.append(entry)
+            return chosen
+        # 3. Deterministic fallback.
+        if self.fallback == "leftmost":
+            chosen = options[0]
+        else:
+            raise ValueError(f"unknown fallback policy: {self.fallback!r}")
+        entry = {
+            "type": decision_type, "side": side, "options": options,
+            "chosen": chosen, "rationale": f"fallback={self.fallback}",
+            "info": info,
+        }
+        self.log.append(entry)
+        return chosen
+
+
+def _init_battle_array(
+    state: GameState,
+    attacker_lords: list[str],
+    defender_lords: list[str],
+    active_attacker: str,
+    decision_ctx: BattleDecisionContext,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """4.4.1 Battle Array (2E):
+      - Active Lord at Attacker Front center.
+      - Attacker fills Front left/right with up to 2 other Lords; rest
+        Reserve. Operator picks which Lord per slot if multiple options.
+      - Defender fills center first opposite Attacker center, then left,
+        then right, "as able". If multiple Defenders, operator picks
+        which one fills each slot. Excess Defenders go to Reserve.
+
+    Returns (attacker_positions, defender_positions).
+    """
+    # Attacker side ---------------------------------------------------
+    attacker_positions: dict[str, str] = {}
+    if active_attacker not in attacker_lords:
+        # Defensive: caller should pass an Attacker-side Active Lord.
+        attacker_lords = [active_attacker] + [
+            l for l in attacker_lords if l != active_attacker
+        ]
+    attacker_positions[active_attacker] = "center"
+    others = [l for l in attacker_lords if l != active_attacker]
+    if len(others) == 1:
+        slot = decision_ctx.decide(
+            "initial_placement_attacker", "attacker", ["left", "right"],
+            {"lord": others[0], "phase": "front_left_right_only_one_lord"},
+        )
+        attacker_positions[others[0]] = slot
+    elif len(others) >= 2:
+        # Pick left first, then right.
+        for slot in ("left", "right"):
+            available = [l for l in others if l not in attacker_positions]
+            if not available:
+                break
+            chosen = decision_ctx.decide(
+                "initial_placement_attacker", "attacker", available,
+                {"slot": slot, "phase": "initial_array"},
+            )
+            attacker_positions[chosen] = slot
+        # Remainder to Reserve.
+        for l in others:
+            if l not in attacker_positions:
+                attacker_positions[l] = "reserve"
+    # Defender side --------------------------------------------------
+    defender_positions: dict[str, str] = {}
+    available = list(defender_lords)
+    fill_order: list[str] = []
+    for slot in ("center", "left", "right"):
+        if slot in attacker_positions.values():
+            fill_order.append(slot)
+    for slot in fill_order:
+        if not available:
+            break
+        if len(available) == 1:
+            chosen = available[0]
+        else:
+            chosen = decision_ctx.decide(
+                "initial_placement_defender", "defender", available,
+                {"slot": slot, "phase": "initial_array"},
+            )
+        defender_positions[chosen] = slot
+        available.remove(chosen)
+    for l in available:
+        defender_positions[l] = "reserve"
+    return attacker_positions, defender_positions
+
+
+def _remove_routed_from_array(
+    state: GameState, positions: dict[str, str]
+) -> list[str]:
+    """A Lord Routs the moment his last Unrouted unit Routs (4.4.2).
+    Routed Lords are removed from the Array. Returns a list of Lord
+    ids that newly Routed (had a Front position before, now removed).
+    """
+    newly_routed: list[str] = []
+    for lid in list(positions.keys()):
+        if lid not in state.lords:
+            # Defensive: Lord removed from state entirely.
+            if positions[lid] in ("left", "center", "right", "reserve"):
+                if positions[lid] != "routed":
+                    newly_routed.append(lid)
+                positions[lid] = "routed"
+            continue
+        lord = state.lords[lid]
+        # Routed = no Forces (all units are in routed_units pile).
+        if not lord.forces and positions[lid] != "routed":
+            newly_routed.append(lid)
+            positions[lid] = "routed"
+    return newly_routed
+
+
+def _reposition(
+    state: GameState,
+    positions: dict[str, str],
+    side_label: str,
+    decision_ctx: BattleDecisionContext,
+) -> dict[str, Any]:
+    """4.4.2 Reposition (Round 2+):
+      - Advance Lords: Reserves slide into any empty Front position.
+      - Center fill: if center remains empty after advance, slide one
+        Lord from left or right to fill center.
+
+    Mutates `positions` in place. Returns a log of advances.
+    """
+    moves: list[dict[str, Any]] = []
+    # Step 1: Advance Reserves into empty Front slots.
+    occupied_front: set[str] = {
+        p for lid, p in positions.items()
+        if p in ("left", "center", "right")
+        and lid in state.lords and state.lords[lid].forces
+    }
+    empty_slots = [s for s in ("left", "center", "right") if s not in occupied_front]
+    for slot in empty_slots:
+        reserves = [
+            lid for lid, p in positions.items()
+            if p == "reserve"
+            and lid in state.lords and state.lords[lid].forces
+        ]
+        if not reserves:
+            break
+        if len(reserves) == 1:
+            chosen = reserves[0]
+        else:
+            chosen = decision_ctx.decide(
+                "reserve_advance", side_label, reserves,
+                {"slot": slot, "phase": "advance_lords"},
+            )
+        positions[chosen] = slot
+        moves.append({"step": "advance", "lord": chosen, "to": slot})
+    # Step 2: Center fill from left/right if center still empty.
+    occupied_front = {
+        p for lid, p in positions.items()
+        if p in ("left", "center", "right")
+        and lid in state.lords and state.lords[lid].forces
+    }
+    if "center" not in occupied_front:
+        candidates = [
+            lid for lid, p in positions.items()
+            if p in ("left", "right")
+            and lid in state.lords and state.lords[lid].forces
+        ]
+        if candidates:
+            if len(candidates) == 1:
+                chosen = candidates[0]
+            else:
+                chosen = decision_ctx.decide(
+                    "center_fill", side_label, candidates,
+                    {"phase": "center_fill"},
+                )
+            old_slot = positions[chosen]
+            positions[chosen] = "center"
+            moves.append({"step": "center_fill", "lord": chosen, "from": old_slot})
+    return {"moves": moves}
+
+
+def _opposite_slot(slot: str) -> str:
+    """Map an Attacker slot to the same-row Defender slot. Battle Array
+    is mirrored: Attacker left faces Defender left, etc.
+    """
+    return slot  # mirrored same-name
+
+
+def _row_distance(a: str, b: str) -> int:
+    """Distance between two Front slots in the row (left=0, center=1,
+    right=2). Used for Flanker "closest" target selection.
+    """
+    pos = {"left": 0, "center": 1, "right": 2}
+    return abs(pos[a] - pos[b])
+
+
+def _strike_target(
+    striker_pos: str,
+    enemy_positions: dict[str, str],
+    decision_ctx: BattleDecisionContext,
+    side_label: str,
+    state: GameState,
+) -> str | None:
+    """4.4.2 Strike target rule:
+      - The Lord directly opposite (same slot on enemy side), if exists
+        AND has Forces.
+      - If Flanking (no enemy directly opposite), the closest enemy
+        Lord in the row. If multiple equally-closest (e.g., striker at
+        center facing empty enemy center with both flanks), the
+        striker side picks (operator decision).
+
+    Returns the target Lord id, or None if no enemy on the row.
+    """
+    opp = _opposite_slot(striker_pos)
+    # Direct-opposite candidates: enemy Lords at the same slot with Forces.
+    direct = [
+        lid for lid, p in enemy_positions.items()
+        if p == opp and lid in state.lords and state.lords[lid].forces
+    ]
+    if direct:
+        # If multiple Lords at same slot (rare in standard rules, but
+        # possible in Relief Sally Rearguard), pick the first.
+        return direct[0]
+    # Flanking: closest in row.
+    front_enemies = [
+        (lid, p) for lid, p in enemy_positions.items()
+        if p in ("left", "center", "right")
+        and lid in state.lords and state.lords[lid].forces
+    ]
+    if not front_enemies:
+        return None
+    by_distance = sorted(front_enemies, key=lambda kv: _row_distance(striker_pos, kv[1]))
+    closest_dist = _row_distance(striker_pos, by_distance[0][1])
+    closest = [lid for lid, p in by_distance if _row_distance(striker_pos, p) == closest_dist]
+    if len(closest) == 1:
+        return closest[0]
+    chosen = decision_ctx.decide(
+        "flanker_target", side_label, closest,
+        {"striker_slot": striker_pos, "phase": "flanker_target_tiebreak"},
+    )
+    return chosen
+
+
 def _side_total_units(state: GameState, lord_ids: list[str]) -> int:
     return sum(sum(state.lords[lid].forces.values()) for lid in lord_ids if lid in state.lords)
 
@@ -310,31 +648,70 @@ def resolve_battle(
     max_rounds: int = 10,
     concede: str | None = None,
     holds: dict[str, Any] | None = None,
+    active_attacker: str | None = None,
+    decision_ctx: BattleDecisionContext | None = None,
+    attacker_positions: dict[str, str] | None = None,
+    defender_positions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
-    Returns a dict with keys: rounds, winner, loser, attacker_lords,
-    defender_lords, log (per-round per-step details).
+    Q-005 (2E): Lords are arrayed in three Front positions per side
+    (left, center, right) plus Reserve. The Active Attacker starts at
+    Front center; other Attackers fill left/right; the Defender mirrors.
+    Strikes are resolved per position: each striker Lord's Hits target
+    the Lord directly opposite, or — if the striker is Flanking (no
+    opposed enemy in the same slot) — the closest enemy Lord in the
+    row. Reposition runs at the start of each Round after the first:
+    Reserves advance into empty Front slots; an empty center is filled
+    from left or right. All operator-level decisions (initial slot
+    placement, Reserve advancement, center-fill, Flanker tie-break)
+    flow through `decision_ctx`.
 
-    Phase 3b simplifications (see Q-005 in RULES_QUESTIONS.md
-    for plan to remove these per Rules-Accuracy-Trumps-Simplification):
-      - No Walls in Battle (4.4.2: Walls only by Event in Battle).
-      - No Pursuit Concede (deferred, simple loop ends on full rout).
-      - Reposition: only Round 2+, and reduced to "advance reserves to
-        empty front slots" since front-slot positions are not
-        individually modeled (Phase 3b treats each side as a single
-        pool; flanking is not modeled).
-      - Strikes are pooled across all participating Lords on each side
-        per step; Hits are then distributed to Lords. We use a simple
-        per-step distribution: the side suffering Hits assigns them to
-        the most-eligible unit across its Lords (serfs first, etc.).
+    Returns a dict with keys: rounds, winner, loser, attacker_lords,
+    defender_lords, attacker_positions, defender_positions, log,
+    decisions. The `log` is a list of per-round per-step distributions;
+    `decisions` is the trace of operator choices.
+
+    Parameters:
+      active_attacker: Lord id that started this Battle (placed at
+        Front center). Defaults to attacker_lords[0].
+      decision_ctx: BattleDecisionContext for operator choices. If
+        None, a default leftmost-fallback context is created.
+      attacker_positions / defender_positions: pre-built Array maps
+        (lord_id -> slot). If None, the Array is initialized via
+        _init_battle_array using decision_ctx.
     """
     log: list[dict[str, Any]] = []
     defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
+    if decision_ctx is None:
+        decision_ctx = BattleDecisionContext()
+    if active_attacker is None:
+        active_attacker = attacker_lords[0] if attacker_lords else ""
+    if attacker_positions is None or defender_positions is None:
+        atk_pos, def_pos = _init_battle_array(
+            state, attacker_lords, defender_lords, active_attacker, decision_ctx,
+        )
+    else:
+        atk_pos = dict(attacker_positions)
+        def_pos = dict(defender_positions)
     rounds = 0
     while rounds < max_rounds:
         rounds += 1
-        round_log: dict[str, Any] = {"round": rounds, "steps": []}
+        round_log: dict[str, Any] = {
+            "round": rounds, "steps": [],
+            "attacker_positions": dict(atk_pos),
+            "defender_positions": dict(def_pos),
+            "reposition": None,
+        }
+        # Q-005 Reposition: Round 2+, attacker then defender.
+        if rounds >= 2:
+            _remove_routed_from_array(state, atk_pos)
+            _remove_routed_from_array(state, def_pos)
+            atk_repo = _reposition(state, atk_pos, "attacker", decision_ctx)
+            def_repo = _reposition(state, def_pos, "defender", decision_ctx)
+            round_log["reposition"] = {"attacker": atk_repo, "defender": def_repo}
+            round_log["attacker_positions"] = dict(atk_pos)
+            round_log["defender_positions"] = dict(def_pos)
 
         # Strike steps in initiative order (Battle):
         #   1) Archery defender
@@ -389,135 +766,167 @@ def resolve_battle(
             step_state: dict = {}  # AUDIT-002: Warrior Monks per-step reroll budget
             striker_role = ("attacker" if striker_lords is attacker_lords
                              else "defender")
+            # Q-005: per-Lord positions for this step.
+            striker_positions = atk_pos if striker_role == "attacker" else def_pos
+            enemy_positions = def_pos if striker_role == "attacker" else atk_pos
+            side_label = striker_role
             # Marsh: Rounds 1-2, opposite-side Horse units of the side
-            # FACING the marsh-player don't Strike. The marsh-player is
-            # the side whose Lord played the event; their opponent's
-            # Horse units are blocked. We block by zeroing the Horse
-            # contribution for the affected striker side.
+            # FACING the marsh-player don't Strike.
             block_horse_strike = False
             if marsh_blocks_horse_for is not None and rounds <= 2:
                 if striker_role == marsh_blocks_horse_for:
                     block_horse_strike = True
-            raw_hits = 0.0
-            armor_minus_2 = False
+
+            # Q-005: per-striker raw Hits + per-target routing via
+            # positions. Each striker Lord's Hits target the Lord
+            # directly opposite (same slot) or — if Flanking — the
+            # closest enemy Lord in the row.
+            per_target_hits: dict[str, float] = {}
+            per_target_armor_minus_2: dict[str, bool] = {}
+            per_striker_log: list[dict[str, Any]] = []
+            forces_table = load_forces()
             for lid in striker_lords:
                 if lid not in state.lords:
                     continue
-                if block_horse_strike and kind in ("melee_horse",):
+                if not state.lords[lid].forces:
                     continue
-                if block_horse_strike and kind == "archery":
-                    # Asiatic Horse archery also blocked by Marsh
-                    # (rules: 'Horse does not Strike'; Asiatic Horse
-                    # is mounted).
+                # Reserve / Routed Lords don't strike.
+                if striker_positions.get(lid) not in ("left", "center", "right"):
+                    continue
+                this_raw = 0.0
+                this_armor_minus_2 = False
+                if block_horse_strike and kind == "melee_horse":
+                    pass  # Horse blocked; no contribution.
+                elif block_horse_strike and kind == "archery":
                     units_no_horse = {k: v for k, v in state.lords[lid].forces.items()
                                        if k not in ("asiatic_horse",)}
-                    raw_hits += _hits_for_strike(units_no_horse, "archery")
+                    this_raw += _hits_for_strike(units_no_horse, "archery")
+                else:
+                    this_raw += _hits_for_lord_strike(state, lid, kind)
+                    if kind == "archery" and (
+                        any_capability(state, lid, "Streltsy")
+                        or any_capability(state, lid, "Balistarii")
+                    ):
+                        this_armor_minus_2 = True
+                    # Field Organ: Round 1, +1 Hit per Knights AND
+                    # Sergeants Melee unit for this Lord.
+                    if (field_organ_lord == lid and rounds == 1
+                            and kind == "melee_horse"):
+                        units = state.lords[lid].forces
+                        this_raw += units.get("knights", 0)
+                        this_raw += units.get("sergeants", 0)
+                    # Hill: Rounds 1-2, default Archery doubled.
+                    if (hill_archery_full_for == striker_role and rounds <= 2
+                            and kind == "archery"):
+                        units = state.lords[lid].forces
+                        extra = 0.0
+                        for utype, n in units.items():
+                            spec = forces_table.get(utype)
+                            if spec and spec.get("archery_default_active"):
+                                extra += n * float(spec.get("archery_battle", 0.0))
+                        this_raw += extra
+                if this_raw <= 0:
                     continue
-                raw_hits += _hits_for_lord_strike(state, lid, kind)
-                if kind == "archery" and (
-                    any_capability(state, lid, "Streltsy")
-                    or any_capability(state, lid, "Balistarii")
-                ):
-                    armor_minus_2 = True
-                # Field Organ: Round 1, +1 Hit per Knights AND Sergeants
-                # Melee unit for this Lord.
-                if field_organ_lord == lid and rounds == 1 and kind in ("melee_horse",):
-                    units = state.lords[lid].forces
-                    raw_hits += units.get("knights", 0)
-                    raw_hits += units.get("sergeants", 0)
-                # Hill: Rounds 1-2, default Archery doubled for the
-                # favored side (x1 instead of x1/2).
-                if (hill_archery_full_for == striker_role and rounds <= 2
-                        and kind == "archery"):
-                    units = state.lords[lid].forces
-                    # Add the same archery contribution again (x1/2 + x1/2 = x1).
-                    extra = 0.0
-                    forces_table = load_forces()
-                    for utype, n in units.items():
-                        spec = forces_table.get(utype)
-                        if spec and spec.get("archery_default_active"):
-                            extra += n * float(spec.get("archery_battle", 0.0))
-                    raw_hits += extra
-            # Pursuit: halve conceder Hits this Round (round up).
-            if concede is not None and rounds == 1:
-                if striker_role == concede:
-                    raw_hits = raw_hits / 2.0
-            hits = _round_up(raw_hits)
+                # Pursuit: halve conceder Hits this Round (per striker).
+                if concede is not None and rounds == 1 and striker_role == concede:
+                    this_raw = this_raw / 2.0
+                # Find target via positions.
+                target_lid = _strike_target(
+                    striker_positions[lid], enemy_positions, decision_ctx,
+                    side_label, state,
+                )
+                if target_lid is None:
+                    # No enemy Lord in any Front slot: skip.
+                    continue
+                per_target_hits[target_lid] = per_target_hits.get(target_lid, 0.0) + this_raw
+                if this_armor_minus_2:
+                    per_target_armor_minus_2[target_lid] = True
+                per_striker_log.append({
+                    "striker": lid, "striker_slot": striker_positions[lid],
+                    "target": target_lid, "target_slot": enemy_positions.get(target_lid),
+                    "raw": this_raw,
+                })
+            if not per_target_hits:
+                # Step had no Hits; skip.
+                continue
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
-            remaining = hits
-            # Raven's Rock: Russian defender gets Walls 1-2 vs Melee
-            # Round 1 (R4 Hold event). Roll d6 per Hit; <=2 absorbs.
-            if (raven_rock_walls and rounds == 1 and kind != "archery"
-                    and striker_role == "attacker"
-                    and attacker_side == "teutonic"):
-                absorbed_walls = 0
-                for _ in range(remaining):
-                    r = roll_d6(state)
-                    if r <= 2:
-                        absorbed_walls += 1
-                if absorbed_walls > 0:
-                    distribution.append({"target": "ravens_rock_walls",
-                                          "absorbed": absorbed_walls})
-                    remaining -= absorbed_walls
-            for tlid in target_lords:
-                if tlid not in state.lords:
+            for tlid, raw in per_target_hits.items():
+                hits = _round_up(raw)
+                # Raven's Rock: Russian defender gets Walls 1-2 vs Melee
+                # Round 1 (R4). Per-Hit roll, applied to each Hit
+                # incoming to the target.
+                walls_absorbed = 0
+                if (raven_rock_walls and rounds == 1 and kind != "archery"
+                        and striker_role == "attacker"
+                        and attacker_side == "teutonic"
+                        and tlid in state.lords
+                        and state.lords[tlid].side == "russian"):
+                    for _ in range(hits):
+                        r = roll_d6(state)
+                        if r <= 2:
+                            walls_absorbed += 1
+                    if walls_absorbed > 0:
+                        distribution.append({
+                            "lord": tlid, "target": "ravens_rock_walls",
+                            "absorbed": walls_absorbed,
+                        })
+                        hits -= walls_absorbed
+                if hits <= 0:
                     continue
-                if remaining <= 0:
-                    break
-                if not state.lords[tlid].forces:
+                if tlid not in state.lords or not state.lords[tlid].forces:
                     continue
                 tres = _resolve_hits(
-                    state, tlid, remaining, strike_kind,
-                    striker_has_armor_minus_2=armor_minus_2,
+                    state, tlid, hits, strike_kind,
+                    striker_has_armor_minus_2=per_target_armor_minus_2.get(tlid, False),
                     step_state=step_state,
                 )
                 distribution.append({"lord": tlid, **tres})
-                remaining = 0
-            # SMOKE-004: only record steps that produced or distributed
-            # any Hits. A 0-hit step adds noise without information.
-            if hits > 0 or distribution:
+            if distribution or per_striker_log:
                 round_log["steps"].append({
-                    "step": label, "raw_hits": raw_hits, "hits": hits,
+                    "step": label,
+                    "per_striker": per_striker_log,
                     "distribution": distribution,
                 })
+            # Update positions for newly-Routed Lords.
+            _remove_routed_from_array(state, atk_pos)
+            _remove_routed_from_array(state, def_pos)
             if _all_routed(state, attacker_lords) or _all_routed(state, defender_lords):
                 break
 
         log.append(round_log)
+        # Common return-shape helper.
+        def _ret(winner: Side, loser: Side, **extra: Any) -> dict[str, Any]:
+            r = {
+                "rounds": rounds, "winner": winner, "loser": loser,
+                "attacker_lords": attacker_lords,
+                "defender_lords": defender_lords,
+                "attacker_positions": dict(atk_pos),
+                "defender_positions": dict(def_pos),
+                "log": log,
+                "decisions": list(decision_ctx.log),
+            }
+            r.update(extra)
+            return r
         if concede is not None and rounds == 1:
-            # 4.4.2: a side that Concedes the Field loses; this is the
-            # last Round.
             if concede == "attacker":
-                return {
-                    "rounds": rounds, "winner": defender_side, "loser": attacker_side,
-                    "attacker_lords": attacker_lords, "defender_lords": defender_lords,
-                    "log": log, "conceded": "attacker",
-                }
+                return _ret(defender_side, attacker_side, conceded="attacker")
             else:
-                return {
-                    "rounds": rounds, "winner": attacker_side, "loser": defender_side,
-                    "attacker_lords": attacker_lords, "defender_lords": defender_lords,
-                    "log": log, "conceded": "defender",
-                }
+                return _ret(attacker_side, defender_side, conceded="defender")
         if _all_routed(state, attacker_lords):
-            return {
-                "rounds": rounds, "winner": defender_side, "loser": attacker_side,
-                "attacker_lords": attacker_lords, "defender_lords": defender_lords,
-                "log": log,
-            }
+            return _ret(defender_side, attacker_side)
         if _all_routed(state, defender_lords):
-            return {
-                "rounds": rounds, "winner": attacker_side, "loser": defender_side,
-                "attacker_lords": attacker_lords, "defender_lords": defender_lords,
-                "log": log,
-            }
+            return _ret(attacker_side, defender_side)
 
-    # Stalemate after max rounds: defender wins (attacker fails to break through).
+    # Stalemate after max rounds: defender wins (attacker fails to
+    # break through).
     return {
         "rounds": rounds, "winner": defender_side, "loser": attacker_side,
         "attacker_lords": attacker_lords, "defender_lords": defender_lords,
+        "attacker_positions": dict(atk_pos),
+        "defender_positions": dict(def_pos),
         "log": log, "stalemate": True,
+        "decisions": list(decision_ctx.log),
     }
 
 

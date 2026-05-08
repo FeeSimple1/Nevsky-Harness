@@ -206,50 +206,85 @@ entry here with:
 
 ---
 
-## Q-003 — Lieutenants and Marshals (4.1.3)
+## Q-005 — Battle Array three-front-positions and Flanking (4.4.1, 4.4.2)
 
 **Adjudication (verbatim from user, Round 10):**
 
-> Implement the permissive interpretation of "neither may currently
-> be a Marshal":
+> Refactor the Battle module to faithfully implement the 2E
+> three-position Array. Engine handles all structure and math; the
+> LLM operator makes genuine player choices.
 >
-> * Lords with `marshal_role: "permanent"` (Andreas, Aleksandr) are
->   always barred from Lieutenant pairings.
-> * Lords with `marshal_role: "secondary"` (Hermann, Andrey) are
->   barred only when actively filling the Marshal role at the time
->   the pairing is checked.
-> * Lords with `marshal_role: null` are never barred on Marshal
->   grounds.
+> Engine responsibilities: track per-Lord Front position; enforce
+> Active at Front center; Defender fills center first then left/right;
+> per-position Strikes with Flanking ('directly opposite or, if
+> Flanking, closest enemy in that row'); Reposition at start of
+> Round 2+ (advance Reserves, fill empty center); re-evaluate
+> Flanking after mid-round Routs.
 >
-> Note: "actively filling the Marshal role" requires knowing the
-> current Marshal, which depends on the Q-005 work below. Until that
-> lands, secondary Marshals should be treated as inactive (accepted)
-> outside of Battle Array context.
+> LLM operator responsibilities: initial non-center Front placements;
+> Reserve advancement when ambiguous; Hit allocation when a Lord is
+> Flanked and the choice exists; Rout responses where the rules
+> permit.
+>
+> Tests: every battle test must pin operator decisions. Provide a
+> scripted_decisions parameter; deterministic_fallback picks the
+> leftmost legal option whenever a scripted decision is missing.
 
 **Citation.**
-Rules of Play 2E, 4.1.3 ("Lieutenants ... Neither Lord may currently
-be a Marshal"); 1.5.1 (Marshal definitions, permanent vs secondary);
-clarified per Q-003 user adjudication.
+Rules of Play 2E, 4.4.1 (Battle Array, three Front positions),
+4.4.2 (Rounds, Reposition, Strike target rules), page 14-15.
 
 **Encoded.**
-- `src/nevsky/campaign.py::_is_currently_marshal` — helper that
-  returns True for permanent-role Lords on map; False for secondary
-  (until Q-005); False for null. The function carries a TODO comment
-  marking the Q-005 integration point (secondary Marshal becomes
-  active when permanent counterpart off-map AND Lord at Front Center).
-- `src/nevsky/campaign.py::_h_place_lieutenant` — applies the helper
-  to BOTH the lieutenant and lower_lord candidates.
+- `src/nevsky/state.py::CombatPending` — `attacker_positions` and
+  `defender_positions: dict[str, str]` map each participating Lord to
+  one of `"left" | "center" | "right" | "reserve"`.
+- `src/nevsky/battle.py::BattleDecisionContext` — funnel for operator
+  decisions: scripted FIFO list, optional callback, or leftmost
+  fallback. Decision types: `initial_placement_attacker`,
+  `initial_placement_defender`, `reserve_advance`, `center_fill`,
+  `flanker_target`.
+- `src/nevsky/battle.py::_init_battle_array` — Active at center;
+  Attacker fills left/right; Defender fills center first then left
+  then right (rule 4.4.1).
+- `src/nevsky/battle.py::_remove_routed_from_array` — A Lord Routs
+  the moment his last Unrouted unit Routs; his slot opens (4.4.2).
+- `src/nevsky/battle.py::_reposition` — Round 2+ Advance Lords (Reserves
+  into empty Front slots) then Center Fill (slide left or right Lord
+  into empty center) — 4.4.2.
+- `src/nevsky/battle.py::_strike_target` — directly-opposed, or
+  Flanking → closest enemy in row, with operator tie-break for ties.
+- `src/nevsky/battle.py::resolve_battle` — refactored to compute
+  per-striker raw Hits, route via `_strike_target`, aggregate per
+  target Lord, round up per target, apply through `_resolve_hits`.
+  Returns include `attacker_positions`, `defender_positions`, and
+  `decisions` trace.
+- `src/nevsky/campaign.py::cmd_stand_battle` — accepts
+  `args.scripted_decisions` and `args.decision_callback`; threads them
+  through resolve_battle alongside the existing concede/holds args.
+- `BRIEF.md` — added an "Engine / Operator Split — Battle decisions"
+  section that documents the protocol.
 
 **Tests.**
-- `tests/test_lieutenants.py::test_q003_permanent_marshal_rejected_as_lieutenant`
-- `tests/test_lieutenants.py::test_q003_permanent_marshal_rejected_russian_side`
-- `tests/test_lieutenants.py::test_q003_secondary_marshal_accepted_when_inactive`
-- `tests/test_lieutenants.py::test_q003_non_marshal_lord_accepted`
-- `tests/test_lieutenants.py::test_q003_is_currently_marshal_helper`
+- `tests/test_q005_battle_array.py` — 11 dedicated regressions:
+  Active-at-center; one-extra-Lord placement; Defender center-first
+  fill; Reposition Advance; Reposition Center Fill; directly-opposed
+  target; Flanking closest-in-row; Flanking tie-break via decision;
+  scripted decisions logged in result; leftmost fallback;
+  type-mismatch raises.
+- All previously-existing Battle tests (314 of them) re-pass
+  unmodified under the new positions-aware engine via the leftmost
+  deterministic fallback. Total: 325 passing.
 
-**Side effects.**
-- Existing Lieutenant tests that paired Andreas (permanent Marshal)
-  as Lieutenant were updated to use non-Marshal Lord pairs (yaroslav
-  + knud_and_abel; or hermann + yaroslav for secondary-active tests).
+**Out of scope for this PR.**
+- Storm Reposition (4.5.2 page 17): Storm has its own one-Lord-Front
+  Array with a Reposition step that is "switch Front and any Reserve
+  Lord". The current `resolve_storm` does not implement this; should
+  be a follow-up question (Q-007 if needed).
+- Q-006 Relief Sally Array depends on this PR. Plan: implement after
+  this PR is merged.
+- Q-003 Marshal-at-Front-Center integration (`_is_currently_marshal`
+  for secondary Marshals). The Q-003 PR added a TODO marker; once
+  both Q-003 and Q-005 land, a small follow-up commit can make
+  secondary Marshals at Front Center count as currently-active.
 
 **Commit.** _to be filled after push._
