@@ -1561,3 +1561,91 @@ novgorod (1d6<=Fealty success)"}` directly.
 - Multi-hop `paths_from(locale_id, season, transport, max_hops)` — only
   1-hop adjacency is exposed by cmd_march enumeration. Multi-hop is
   derivable from repeated 1-hop queries; cleaner helper deferred.
+
+# Round 16 — Engagement previews + VP forecast
+
+Follow-on to Round 15 per user direction. With card text and concrete
+action templates in place, the LLM consumer can issue any rule-legal
+move from the harness state alone. This round adds the predictive
+helpers so the consumer can compare candidate moves without rerunning
+combat math by hand.
+
+## battle_preview / storm_preview
+
+`src/nevsky/previews.py` adds two pure functions:
+
+- `battle_preview(state, attacker_side, attacker_lords, defender_lords,
+   *, trials=100, max_rounds=10)` deep-copies the state per trial,
+   runs `resolve_battle` with a unique RNG seed each trial, and
+   aggregates winrate / avg rounds / avg per-side unit losses + loss
+   percentages.
+- `storm_preview(state, attacker_side, attacker_lords, locale_id, *,
+   defender_lords=None, trials=100)` does the same for `resolve_storm`,
+   pulling Walls / Garrison / Siege markers from current state and
+   defaulting `defender_lords` to the Lords currently inside the
+   Stronghold. Includes garrison-loss stats.
+
+Neither helper mutates the caller's state (deepcopy + setattr on the
+copy's `meta.rng_state`). Per-call cost is ~80ms at trials=50 against
+typical configurations.
+
+Spot validation: Hermann (4 units) vs Gavrilo (4 units) 1v1 Battle in
+Pleskau gives 31% attacker win, 69% defender — consistent with the
+Round 13 smoke's "balanced 1v1 ~70% defender" finding. Hermann
+Storming Izborsk (Fort, walls 3, 1 garrison MaA, 1 siege marker) gives
+84% attacker win, 33% expected attacker losses, 88% expected garrison
+loss — also consistent with Round 13.
+
+## vp_forecast
+
+`vp_forecast(state, action, *, preview_trials=50)` returns expected
+VP delta for any candidate action:
+
+- Deterministic: cmd_ravage (+0.5 VP for own marker).
+- Probabilistic: cmd_storm, cmd_sally, stand_battle (uses the preview
+  helpers internally; expected VP = win_prob * stronghold VP).
+- No-op: cmd_tax / cmd_forage / cmd_supply / cmd_pass / cmd_march /
+  cmd_sail / end_card.
+
+Result includes a one-line `note` field summarising the forecast in
+human-readable form, plus the raw `preview` dict for probabilistic
+actions.
+
+## legal_moves notes now embed previews
+
+For three high-stakes options, the legal_moves entry's `note` field
+now includes the preview summary inline:
+
+- `cmd_storm`: `"Storm (4.5.2) -- entire card | storm izborsk: A_win
+  88%, expected +0.88 VP (VP=1); avg A_loss 29% / G_loss 88%"`
+- `cmd_sally`: `"Sally (4.5.3) -- ... | sally: Sallier_win X%, avg
+  Sally_loss Y% / Besieger_loss Z%"`
+- `stand_battle` (combat-pending response): `"engage in Battle |
+  battle: A%/D% win, avg A_loss%/D_loss%"`
+
+`cmd_ravage` now includes the `+0.5 VP` text inline as well.
+
+LLM consumer no longer has to call vp_forecast separately to compare
+"Storm Izborsk vs Ravage Vod" — the comparison is in the action menu
+the consumer is already reading.
+
+## Tests
+
+- 8 new regression tests in `test_round_16_engagement_previews.py`
+  cover preview correctness, no-mutation, vp_forecast for all three
+  kinds, and the legal_moves preview embedding.
+- 378 → 386 passing.
+
+## Items NOT in this round
+
+- Multi-hop path query (`paths_from(locale_id, season, transport,
+  max_hops)`) — still derivable from repeated 1-hop queries via
+  cmd_march enumeration; deferred until smoke shows it's needed.
+- Concede recommendation in Battle decision context — would need a
+  per-round expected-loss model; nontrivial, deferred.
+- Concede / Avoid Battle / Withdraw cost-benefit comparison alongside
+  stand_battle. Currently the three options appear in legal_moves with
+  notes but no comparable forecast. Could be added by running the
+  battle preview once and reporting "if you stand: X%; if you
+  concede: 50% damage taken this round + lose Battle; if you avoid:
+  Z lord-shifts on Service." Deferred.
