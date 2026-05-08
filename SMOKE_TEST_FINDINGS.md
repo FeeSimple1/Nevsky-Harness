@@ -130,3 +130,58 @@ The test did NOT exercise:
   with state pressure (e.g., low VP markers).
 
 These are all candidates for follow-up smoke tests.
+
+---
+
+## Round 2 fixes (this PR)
+
+### SMOKE-003 — Spoils recipient hard-coded (FIXED)
+
+`stand_battle` and `cmd_storm` now accept optional `args.spoils_recipient`
+to direct Spoils to a specific winner-side own-Lord present at the
+Battle Locale (4.4.5). Falls back to `winner_lords[0]` /
+`attackers[0]` when the override is missing or invalid.
+Regression: `test_smoke_003_spoils_recipient_routed_to_named_lord`.
+
+### SMOKE-004 — Battle log records zero-hit Strikes (FIXED)
+
+`resolve_battle` and `resolve_storm` now skip Strike steps that
+produced zero Hits AND distributed nothing. The initiative-order test
+was relaxed from "prefix" to "subsequence in order" to accept the
+filtering. Regression: `test_smoke_004_battle_log_skips_zero_hit_steps`.
+
+### SMOKE-005 — Activation loop semantics undocumented (FIXED via docs)
+
+ACTIONS.md now contains a dedicated "Activation loop semantics" section
+explaining the lord-card lifecycle: actions consume one-by-one until
+exhausted or the card ends via Pass/Battle/Siege/Storm/Sail/Tax/etc.
+Includes a typical-agent-loop pseudocode block.
+
+### SMOKE-006 — Withdraw uses hardcoded capacity table (FIXED)
+
+`_h_withdraw` had a hardcoded dict with WRONG values for City
+(my=2, json=3), Bishopric (my=2, json=3), and Castle (my=1, json=2).
+Now reads from `load_strongholds()`. Trade Routes and locales without
+a Strongholds table entry (Commanderies) reject Withdraw.
+Regression: `test_smoke_006_withdraw_capacity_uses_strongholds_json`.
+
+### SMOKE-007 — Sally loss leaves 0-forces Lord on map (FIXED)
+
+`cmd_sally` loss aftermath now permanently removes any sallying Lord
+whose forces all routed (1.5.1). The loser stays Besieged if he has
+units left; if he has nothing left, he leaves the game.
+Regression: `test_smoke_007_sally_loss_with_zero_forces_removes_lord`.
+
+### SMOKE-008 — Subsumed by SMOKE-007.
+
+### SMOKE-009 — FPD charges 1 Provender for a 0-unit Lord (FIXED)
+
+`fpd_resolve` now uses cost=0 for a 0-unit Lord (defensive — that Lord
+should already be removed via Battle Aftermath / SMOKE-007, but this
+catches stragglers and avoids charging non-existent units).
+Regression: `test_smoke_009_fpd_zero_units_costs_zero`.
+
+## Test count
+
+Pre-fixes: 253 tests. Post-fixes: 271 tests (+18: 5 new regressions, 13
+from Q-002 which landed before this PR).

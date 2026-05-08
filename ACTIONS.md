@@ -450,3 +450,57 @@ Heinrich Sees the Curia) return a deferred placeholder for now.
 `_spend_lordship` and `muster_lord` reject if the Lord is in the
 side's `block_lords_this_levy_*` list (R11 / R17 effect). The block
 list is cleared at the Levy -> Campaign transition.
+
+## Activation loop semantics (4.2)
+
+When `command_reveal` reveals a Lord card, that Lord becomes the active
+Lord with `actions_remaining = effective_command_rating(state, lord)`.
+He retains the activation slot (no T/R alternation) until his card
+ends. A card ends when:
+
+- He calls `cmd_pass` (forfeits remaining actions).
+- He runs out of actions (the next action attempt fails with
+  `lordship_exhausted` / `insufficient_actions`).
+- He performs an entire-card action: `cmd_tax`, `cmd_sail`,
+  `cmd_siege`, `cmd_storm`, `cmd_sally`, `cmd_stone_kremlin`,
+  `cmd_stonemasons`.
+- A March triggers an Approach + Battle that resolves to a state where
+  the Battle handler ends the card (`cmd_march` always ends the card
+  when an Approach occurs).
+- He calls `end_card` voluntarily.
+
+After the card ends, the harness sets
+`campaign_turn.in_feed_pay_disband = True`. Both sides must call
+`fpd_resolve` (T then R) before the next reveal. Once both FPD
+resolves, `next_to_reveal` flips to the other side (alternation per
+4.2). If the other side's plan is empty but the same side still has
+cards, the same side reveals again.
+
+A typical agent loop:
+
+```
+while state.meta.campaign_step == "command":
+    if state.combat_pending is not None:
+        # Approach response (avoid_battle / withdraw / stand_battle).
+        ...
+    elif state.campaign_turn.in_feed_pay_disband:
+        for s in ("teutonic", "russian"):
+            if (s == "teutonic" and not state.campaign_turn.fpd_completed_t) \
+               or (s == "russian" and not state.campaign_turn.fpd_completed_r):
+                do(state, {"type": "fpd_resolve", "side": s, "args": {}})
+    elif state.campaign_turn.actions_remaining == 0:
+        do(state, {"type": "command_reveal",
+                   "side": state.campaign_turn.next_to_reveal, "args": {}})
+    else:
+        # Active-Lord choice.
+        # Inspect legal_moves(state); pick one of the cmd_* options or end_card.
+        ...
+```
+
+## Spoils recipient (4.4.5)
+
+`stand_battle` and `cmd_storm` accept an optional `args.spoils_recipient`
+(a winner-side own-Lord id) to direct Spoils to a specific Lord. The
+recipient must be at the Battle Locale and on the winning side; if
+not, the harness silently falls back to `winner_lords[0]` (or
+`attackers[0]` for Storm).
