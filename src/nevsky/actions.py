@@ -1653,6 +1653,25 @@ def _veche_sea_trade(
                 "sea_trade_winter",
                 "R9 Baltic Sea Trade blocked in Winter seasons",
             )
+        # Teutons may not have more Ships than Rus (Cogs / Lodya apply).
+        from nevsky.campaign import effective_ship_count, effective_boat_count
+        teu_ships = sum(
+            effective_ship_count(state, lid)
+            for lid, l in state.lords.items()
+            if l.side == "teutonic" and l.state == "mustered"
+        )
+        rus_ships = sum(
+            effective_ship_count(state, lid) + (effective_boat_count(state, lid) - state.lords[lid].assets.get("boat", 0))
+            for lid, l in state.lords.items()
+            if l.side == "russian" and l.state == "mustered"
+        )
+        # Lodya doubles a Russian Lord's Boats; we treat that as +Boats
+        # for the comparison only on the Russian side.
+        if teu_ships > rus_ships:
+            raise IllegalAction(
+                "sea_trade_blocked",
+                "R9 Baltic Sea Trade blocked while Teutons have more Ships than Rus",
+            )
         amount = 2
 
     added = min(amount, 8 - state.veche.coin)

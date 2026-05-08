@@ -203,6 +203,9 @@ def _h_command_reveal(
 
     state.campaign_turn.active_lord = card
     state.campaign_turn.actions_remaining = _effective_command_rating(state, card)
+    # Reset per-card capability flags (Phase 4b).
+    state.lords[card].first_march_used_this_card = False
+    state.lords[card].raiders_used_this_card = False
     return ({"revealed": card, "outcome": "active", "actions": state.campaign_turn.actions_remaining}, [])
 
 
@@ -332,10 +335,15 @@ def _h_fpd_resolve(
         raise IllegalAction("not_in_fpd", "not in 4.8 sub-step")
     _require_active(state, sd)
 
-    # Feed every MOVED_FOUGHT Lord on this side.
+    # Feed every MOVED_FOUGHT Lord on this side. Hillforts (T8) skips
+    # one eligible Teutonic Lord in Livonia per Feed.
+    hillforts_skip = _hillforts_skip_lord(state, sd)
     feed_results: list[dict[str, Any]] = []
     for lord_id, lord in list(state.lords.items()):
         if lord.side != sd or not lord.moved_fought:
+            continue
+        if lord_id == hillforts_skip:
+            feed_results.append({"lord_id": lord_id, "hillforts_skipped": True})
             continue
         n_units = sum(lord.forces.values())
         cost = 2 if n_units >= 7 else 1
@@ -1226,9 +1234,19 @@ def _h_cmd_march(
         if _is_besieged(state, gid):
             raise IllegalAction("besieged", f"{gid} is Besieged; cannot March")
 
-    # Action cost: 2 if any group member is Laden.
+    # Action cost: 2 if any group member is Laden, else 1.
     laden = any(_is_laden(state, gid) for gid in group)
     cost = 2 if laden else 1
+    # Converts (T3): first March of this card with Light Horse in the
+    # group costs 0 actions. The active Lord need not have Converts
+    # himself; any group member with Converts plus any group member
+    # with Light Horse qualifies (rule 4.3.x Converts tip).
+    from nevsky.capabilities import any_capability as _any_cap
+    if not state.lords[lord_id].first_march_used_this_card:
+        any_converts = any(_any_cap(state, gid, "Converts") for gid in group)
+        any_lh = any(state.lords[gid].forces.get("light_horse", 0) > 0 for gid in group)
+        if any_converts and any_lh:
+            cost = 0
     if state.campaign_turn.actions_remaining < cost:
         raise IllegalAction(
             "insufficient_actions",
@@ -1259,10 +1277,11 @@ def _h_cmd_march(
             state.lords[gid].location = dest
             state.lords[gid].moved_fought = True
         _consume_actions(state, cost)
+        state.lords[lord_id].first_march_used_this_card = True
         return (
             {
                 "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
-                "group": group, "laden": laden,
+                "group": group, "laden": laden, "cost": cost,
                 "approach": True,
                 "defender_side": state.lords[enemies[0]].side,
                 "defender_lords": enemies,
@@ -1287,14 +1306,12 @@ def _h_cmd_march(
 
     if not placed_siege:
         _consume_actions(state, cost)
-    else:
-        # consume here too; card already ended.
-        pass
+    state.lords[lord_id].first_march_used_this_card = True
 
     return (
         {
             "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
-            "group": group, "laden": laden,
+            "group": group, "laden": laden, "cost": cost,
             "placed_siege": placed_siege,
         },
         [],
@@ -1446,10 +1463,12 @@ def _h_stand_battle(
             continue
         lord = state.lords[lid]
         if not lord.forces:
-            # Lord with zero units -> permanently removed (1.5.1).
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
             aftermath["spoils"].append(spoil)
             from nevsky.actions import _remove_lord_permanently as _rem
+            r = apply_ransom(state, lid, winner, cp.to_locale)
+            if r.get("ransom"):
+                aftermath.setdefault("ransom", []).append(r)
             _rem(state, lid, load_lords()[lid])
             aftermath["removed"].append(lid)
             continue
@@ -1701,12 +1720,14 @@ def _h_cmd_storm(
         from nevsky.static_data import load_lords
         for lid in list(besieged):
             spoils_from_lord = {k: state.lords[lid].assets.get(k, 0) for k in ("coin", "provender", "loot", "boat", "cart", "sled") if state.lords[lid].assets.get(k, 0) > 0}
-            # Transfer to attacker's first Lord.
             if attackers:
                 w = state.lords[attackers[0]]
                 for k, v in spoils_from_lord.items():
                     w.assets[k] = w.assets.get(k, 0) + v  # type: ignore[index]
             state.lords[lid].assets.clear()
+            r = apply_ransom(state, lid, sd, locale_id)
+            if r.get("ransom"):
+                aftermath.setdefault("ransom", []).append(r)
             _rem(state, lid, load_lords()[lid])
         aftermath["besieged_removed"] = list(besieged)
         # Conquer Stronghold.
@@ -2057,3 +2078,282 @@ HANDLERS_PHASE_4A = {
     "cmd_muster_serf": _h_cmd_muster_serf,
 }
 HANDLERS.update(HANDLERS_PHASE_4A)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4b: economy / movement capabilities
+# ---------------------------------------------------------------------------
+
+
+def _h_cmd_raiders_ravage(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Raiders capability action: Ravage an adjacent Locale.
+
+    T2 Teutonic Raiders (this-lord): requires Knight, Sergeant, or Light
+      Horse on Lord; via Trackway only; once per Command card; gets
+      Loot if Locale type is non-Region.
+    R12 / R14 Russian Raiders (this-lord): requires Light Horse or
+      Asiatic Horse; via any Way (incl. waterway); multiple uses per
+      card; never gets Loot.
+
+    Action cost: 1 action.
+
+    args:
+      lord_id   Active Lord
+      to        Adjacent target Locale
+    """
+    from nevsky.capabilities import has_lord_capability
+    from nevsky.static_data import load_locales, load_ways
+
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    target = args.get("to")
+    if not (isinstance(lord_id, str) and isinstance(target, str)):
+        raise IllegalAction("missing_arg", "args: lord_id, to")
+    _require_active_lord_command(state, sd, lord_id)
+
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Raiders Ravage requires Unbesieged Lord")
+    if lord.location is None:
+        raise IllegalAction("no_location", "Lord has no location")
+
+    has_t2 = has_lord_capability(state, lord_id, "Raiders") and sd == "teutonic"
+    has_r = has_lord_capability(state, lord_id, "Raiders") and sd == "russian"
+    if not (has_t2 or has_r):
+        raise IllegalAction("no_capability", f"{lord_id} does not have Raiders")
+    if has_t2 and lord.raiders_used_this_card:
+        raise IllegalAction("already_used", "Teutonic Raiders is once per Command card")
+
+    # Way + adjacency check.
+    static_locales = load_locales()
+    way_type = None
+    for w in load_ways():
+        if (w["a"] == lord.location and w["b"] == target) or (w["b"] == lord.location and w["a"] == target):
+            way_type = w["type"]
+            break
+    if way_type is None:
+        raise IllegalAction("not_adjacent", f"{target} not adjacent to {lord.location}")
+    if has_t2 and way_type != "trackway":
+        raise IllegalAction("trackway_only", "Teutonic Raiders requires Trackway")
+
+    # Force composition check.
+    if has_t2:
+        eligible = ["knights", "sergeants", "light_horse"]
+    else:  # Russian
+        eligible = ["light_horse", "asiatic_horse"]
+    if not any(lord.forces.get(u, 0) > 0 for u in eligible):
+        raise IllegalAction(
+            "no_eligible_horse",
+            f"Lord must have one of {eligible} for Raiders",
+        )
+
+    # Standard Ravage eligibility (4.7.2):
+    static = static_locales[target]
+    if static["territory"] == sd:
+        raise IllegalAction("own_territory", "cannot Ravage own territory")
+    loc = state.locales[target]
+    if loc.russian_conquered > 0 or loc.teutonic_conquered > 0:
+        raise IllegalAction("conquered", "Locale is Conquered")
+    if loc.russian_ravaged or loc.teutonic_ravaged:
+        raise IllegalAction("already_ravaged", "Locale already Ravaged")
+    if any(l.state == "mustered" and l.location == target and l.side != sd for l in state.lords.values()):
+        raise IllegalAction("enemy_at_target", "enemy Lord at target")
+
+    if state.campaign_turn.actions_remaining < 1:
+        raise IllegalAction("insufficient_actions", "Raiders Ravage costs 1 action")
+
+    # Place ravaged marker.
+    if sd == "teutonic":
+        loc.teutonic_ravaged = True
+        state.calendar.teutonic_vp += 0.5
+    else:
+        loc.russian_ravaged = True
+        state.calendar.russian_vp += 0.5
+
+    # +1 Provender always.
+    lord.assets["provender"] = min(8, lord.assets.get("provender", 0) + 1)
+    # T2: +1 Loot if non-Region. R12/R14: NO Loot.
+    if has_t2 and static["type"] != "region":
+        lord.assets["loot"] = min(8, lord.assets.get("loot", 0) + 1)
+
+    if has_t2:
+        lord.raiders_used_this_card = True
+    lord.moved_fought = True
+    _consume_actions(state, 1)
+    return ({"lord_id": lord_id, "target": target, "loot_added": has_t2 and static["type"] != "region"}, [])
+
+
+def apply_ransom(
+    state: GameState, removed_lord: str, killer_side: Side, locale_id: str
+) -> dict[str, Any]:
+    """T16 / R7 Ransom hook (4.4 Aftermath / 4.5.2 Sack).
+
+    Called when an enemy Lord is removed in Battle/Storm or while
+    Besieged. If the killer side has Ransom in play, add Coin equal to
+    removed Lord's Service rating to a friendly Lord present at the
+    same locale.
+    """
+    from nevsky.capabilities import has_side_capability
+    from nevsky.static_data import load_lords
+
+    if not has_side_capability(state, killer_side, "Ransom"):
+        return {"ransom": False}
+    sl = load_lords().get(removed_lord)
+    if sl is None:
+        return {"ransom": False}
+    coin = int(sl["ratings"]["service"])
+    # Find a friendly Lord at locale_id.
+    candidates = [
+        lid for lid, l in state.lords.items()
+        if l.state == "mustered" and l.location == locale_id and l.side == killer_side
+    ]
+    if not candidates:
+        return {"ransom": True, "coin_lost_no_recipient": coin}
+    recip = candidates[0]
+    new_amt = min(8, state.lords[recip].assets.get("coin", 0) + coin)
+    state.lords[recip].assets["coin"] = new_amt
+    return {"ransom": True, "removed": removed_lord, "recipient": recip, "coin": coin}
+
+
+def effective_ship_count(state: GameState, lord_id: str) -> int:
+    """T18 Cogs / R16 Lodya: effective Ship count for this Lord.
+
+    - Cogs: each Ship counts as 2.
+    - Lodya: this Lord may temporarily count up to 2 of his Boats as
+      Ships; for the harness we expose this via a separate
+      lodya_ships_from_boats(), called by the agent when needed.
+    Returns the count after Cogs multiplier (no Lodya conversion).
+    """
+    from nevsky.capabilities import has_lord_capability
+
+    base = state.lords[lord_id].assets.get("ship", 0)
+    if has_lord_capability(state, lord_id, "Cogs"):
+        return base * 2
+    return base
+
+
+def effective_boat_count(state: GameState, lord_id: str) -> int:
+    """R16 Lodya: this Lord's Boats count as 2 Boats."""
+    from nevsky.capabilities import has_lord_capability
+
+    base = state.lords[lord_id].assets.get("boat", 0)
+    if has_lord_capability(state, lord_id, "Lodya"):
+        return base * 2
+    return base
+
+
+def _h_cmd_tax_veliky_knyaz_aware(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Replacement for cmd_tax that applies R17 Veliky Knyaz.
+
+    Veliky Knyaz: this Lord's Tax also adds 2 Transport AND restores all
+    Mustered Forces (lost units back up to starting forces / Mustered
+    Vassal totals).
+
+    args:
+      transport_type   Required when Veliky Knyaz active: which 2
+                       Transport(s) to add (boat / cart / sled / ship).
+                       For Phase 4b we add 2 of the chosen type (must
+                       be Ship-authorized for ship).
+    """
+    from nevsky.capabilities import has_lord_capability
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Tax requires Unbesieged Lord (4.7.4)")
+    if lord.location is None or not _is_own_seat(state, lord_id, lord.location):
+        raise IllegalAction("not_at_seat", f"{lord_id} not at own Seat")
+
+    if lord.assets.get("coin", 0) >= 8:
+        raise IllegalAction("coin_max", f"{lord_id} at Coin cap (1.7.3)")
+
+    # Standard Tax: +1 Coin.
+    lord.assets["coin"] = lord.assets.get("coin", 0) + 1
+    extra: dict[str, Any] = {}
+
+    # Veliky Knyaz add-on.
+    if has_lord_capability(state, lord_id, "Veliky Knyaz"):
+        ttype = args.get("transport_type", "cart")
+        if ttype not in ("boat", "cart", "sled", "ship"):
+            raise IllegalAction("bad_transport", f"transport_type {ttype!r} invalid")
+        sl = load_lords()[lord_id]
+        if ttype == "ship" and not sl.get("ships_authorized", False):
+            raise IllegalAction("ship_unauthorized", f"{lord_id} not Ship-authorized")
+        added = min(2, 8 - lord.assets.get(ttype, 0))
+        lord.assets[ttype] = lord.assets.get(ttype, 0) + added
+        extra["veliky_knyaz_transport_added"] = {"type": ttype, "count": added}
+        # Restore Mustered Forces: bring forces back up to starting +
+        # Mustered Vassals. Phase 4b approximates "Mustered Vassal
+        # totals" by checking Vassal.mustered=True and adding their
+        # forces back.
+        starting = sl["starting_forces"]
+        target_forces: dict[str, int] = {k: int(v) for k, v in starting.items()}
+        for v in sl.get("vassals", []):
+            if lord.vassals.get(v["vassal_id"], None) and lord.vassals[v["vassal_id"]].mustered:
+                for k, n in v.get("forces", {}).items():
+                    target_forces[k] = target_forces.get(k, 0) + int(n)
+        restored: dict[str, int] = {}
+        for k, n in target_forces.items():
+            cur = lord.forces.get(k, 0)
+            if cur < n:
+                lord.forces[k] = n  # type: ignore[index]
+                restored[k] = n - cur
+        extra["veliky_knyaz_restored"] = restored
+
+    lord.moved_fought = True
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return ({"lord_id": lord_id, "added": "coin", **extra}, [])
+
+
+HANDLERS_PHASE_4B = {
+    "cmd_raiders_ravage": _h_cmd_raiders_ravage,
+}
+# Replace cmd_tax with the Veliky-Knyaz-aware variant.
+HANDLERS["cmd_tax"] = _h_cmd_tax_veliky_knyaz_aware
+HANDLERS.update(HANDLERS_PHASE_4B)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4b: 4.8 Feed hook for Hillforts (T8)
+# ---------------------------------------------------------------------------
+
+
+def _hillforts_skip_lord(state: GameState, side: Side) -> str | None:
+    """T8 Hillforts: at any 4.8 Feed, one Unbesieged Teutonic Lord in
+    Livonia may skip Feed (his forces don't need feeding). Phase 4b
+    picks the first eligible Lord deterministically (alphabetical id).
+    Returns the chosen lord_id or None.
+    """
+    from nevsky.capabilities import has_side_capability
+    from nevsky.static_data import load_locales
+
+    if side != "teutonic":
+        return None
+    if not has_side_capability(state, "teutonic", "Hillforts of the Sword Brethren"):
+        return None
+    static = load_locales()
+    eligible = []
+    for lid, l in state.lords.items():
+        if l.side != "teutonic" or l.state != "mustered":
+            continue
+        if not l.moved_fought:
+            continue
+        if _is_besieged(state, lid):
+            continue
+        if l.location is None:
+            continue
+        if static[l.location].get("subregion") != "crusader_livonia":
+            continue
+        eligible.append(lid)
+    return sorted(eligible)[0] if eligible else None

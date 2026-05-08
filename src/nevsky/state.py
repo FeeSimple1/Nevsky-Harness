@@ -243,6 +243,8 @@ class Lord(BaseModel):
     lordship_used: int = 0
     just_arrived_this_levy: bool = False
     in_stronghold: bool = False
+    first_march_used_this_card: bool = False
+    raiders_used_this_card: bool = False
 
     @field_validator("forces", "assets")
     @classmethod
