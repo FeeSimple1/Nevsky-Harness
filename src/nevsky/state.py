@@ -248,6 +248,8 @@ class Lord(BaseModel):
     in_stronghold: bool = False
     first_march_used_this_card: bool = False
     raiders_used_this_card: bool = False
+    lieutenant_of: str | None = None  # Lord this Lord serves under as Lower Lord (4.1.3)
+    has_lower_lord: str | None = None  # Lower Lord stacked on this Lord (Marshal/Lieutenant)
 
     @field_validator("forces", "assets")
     @classmethod
