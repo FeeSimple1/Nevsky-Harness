@@ -211,8 +211,15 @@ def test_battle_strikes_in_initiative_order() -> None:
         "melee_foot_defender", "melee_foot_attacker",
     ]
     first_round_steps = [step["step"] for step in res["log"][0]["steps"]]
-    # Should be a prefix of `expected` (battle may end mid-round).
-    assert first_round_steps == expected[:len(first_round_steps)]
+    # SMOKE-004: zero-hit steps are filtered out; the recorded steps
+    # should appear in the canonical initiative order (subsequence of
+    # `expected`).
+    idx = 0
+    for s in first_round_steps:
+        while idx < len(expected) and expected[idx] != s:
+            idx += 1
+        assert idx < len(expected), f"step {s!r} not in initiative order {expected}"
+        idx += 1
 
 
 def test_stand_battle_resolves_and_clears_pending() -> None:
