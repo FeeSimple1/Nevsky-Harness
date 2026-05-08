@@ -183,3 +183,61 @@ def test_smoke_003_spoils_recipient_routed_to_named_lord() -> None:
         post_yaroslav = s.lords["yaroslav"].assets.get("loot", 0)
         post_hermann = s.lords["hermann"].assets.get("loot", 0)
         assert post_yaroslav > pre_yaroslav_loot or post_hermann == pre_hermann_loot
+
+
+def test_smoke_010_aow_implement_card_no_partial_mutation_on_failure() -> None:
+    """SMOKE-010: aow_implement_card previously popped pending_draw BEFORE
+    calling the resolver; if the resolver raised IllegalAction, the card
+    was lost. After fix: pending_draw stays intact so the agent can retry
+    with corrected args."""
+    from nevsky.actions import IllegalAction, apply_action
+    import pytest as _pytest
+    s = load_scenario("watland", seed=23)
+    s.meta.first_levy_done = True
+    # R17 Dietrich: needs to shift Andreas/Rudolf cylinder, but Andreas
+    # is mustered (no cylinder). Resolver should raise no_cylinder.
+    s.decks.russian.deck = []
+    s.decks.russian.pending_draw = ["R17"]
+    s.meta.active_player = "russian"
+    s.meta.levy_step = "arts_of_war"
+    pre_pending = list(s.decks.russian.pending_draw)
+    with _pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "aow_implement_card", "side": "russian",
+                          "args": {"target": "andreas", "direction": "left"}})
+    assert exc.value.code == "no_cylinder"
+    # Card still in pending_draw -- agent can retry with target="service:andreas".
+    assert s.decks.russian.pending_draw == pre_pending
+
+
+def test_smoke_011_plow_and_reap_only_at_end_of_season() -> None:
+    """SMOKE-011: Plow & Reap fires only at LAST 40-Days of Summer
+    (box 2 / 10) and LAST 40-Days of Late Winter (box 6 / 14). Pre-fix
+    fired on every LW/Summer box."""
+    from nevsky.campaign import _plow_and_reap
+
+    # Box 5 is LW (year 1) but NOT end-of-LW; should be a no-op.
+    s = load_scenario("watland", seed=1)
+    teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
+    s.lords[teu].assets = {"sled": 4}
+    _plow_and_reap(s, 5)
+    assert s.lords[teu].assets.get("sled", 0) == 4  # unchanged
+
+    # Box 6 IS end-of-LW; should flip Sleds to Carts (and halve).
+    _plow_and_reap(s, 6)
+    assert s.lords[teu].assets.get("sled", 0) == 0
+    # Half of 4 rounded up = 2.
+    assert s.lords[teu].assets.get("cart", 0) == 2
+
+
+def test_smoke_011_plow_and_reap_summer() -> None:
+    """SMOKE-011: end-of-Summer (box 2 / 10) flips Carts to Sleds."""
+    from nevsky.campaign import _plow_and_reap
+    s = load_scenario("pleskau", seed=1)
+    teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
+    s.lords[teu].assets = {"cart": 6}
+    # Box 1 is Summer but NOT end-of-Summer (that's box 2).
+    _plow_and_reap(s, 1)
+    assert s.lords[teu].assets.get("cart", 0) == 6  # unchanged
+    _plow_and_reap(s, 2)
+    assert s.lords[teu].assets.get("cart", 0) == 0
+    assert s.lords[teu].assets.get("sled", 0) == 3  # half of 6, round up
