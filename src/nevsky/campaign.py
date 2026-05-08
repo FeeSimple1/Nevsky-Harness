@@ -147,6 +147,66 @@ def _h_finalize_plan(
 # ---------------------------------------------------------------------------
 
 
+
+
+def _h_place_lieutenant(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.1.3 Lieutenants. Plan-time only.
+
+    args:
+      lieutenant: Lord id of the lord acting as Lieutenant (Marshal/upper).
+      lower_lord: Lord id of the Lower Lord stacked on top.
+
+    Constraints:
+      - Both must be at the SAME Locale.
+      - Both must be on the side's side.
+      - Lieutenant has at most 1 Lower Lord at a time.
+      - Lower Lord cannot also be a Lieutenant (no chains).
+      - Neither may currently be a Marshal (Phase 4 simplification:
+        we don't enforce this since the Marshal concept isn't modeled).
+      - Neither may be Besieged (4.5.1 / 4.1.3).
+
+    Effect: lower_lord.lieutenant_of = lieutenant; lieutenant.has_lower_lord
+    = lower_lord. Revealing the Lower Lord's Command card resolves as
+    Pass (4.2.3) -- handled in _h_command_reveal.
+    """
+    sd = _require_side_player(state, side)
+    if state.meta.phase != "campaign":
+        raise IllegalAction("wrong_phase", "place_lieutenant requires campaign phase")
+    if state.meta.campaign_step != "plan":
+        raise IllegalAction("wrong_step", "place_lieutenant only during Plan (4.1.3)")
+    lt = args.get("lieutenant")
+    ll = args.get("lower_lord")
+    if not (isinstance(lt, str) and isinstance(ll, str)):
+        raise IllegalAction("missing_arg", "args: lieutenant, lower_lord")
+    if lt == ll:
+        raise IllegalAction("self_target", "lieutenant and lower_lord must differ")
+    if lt not in state.lords or ll not in state.lords:
+        raise IllegalAction("bad_target", f"unknown lord {lt!r} or {ll!r}")
+    L = state.lords[lt]
+    LL = state.lords[ll]
+    if L.side != sd or LL.side != sd:
+        raise IllegalAction("wrong_side", "both Lords must be your side")
+    if L.state != "mustered" or LL.state != "mustered":
+        raise IllegalAction("not_mustered", "both Lords must be Mustered")
+    if L.location != LL.location or L.location is None:
+        raise IllegalAction("not_co_located", "both Lords must be at the same Locale")
+    if _is_besieged(state, lt) or _is_besieged(state, ll):
+        raise IllegalAction("besieged", "Lieutenant pairing requires Unbesieged Lords")
+    if L.has_lower_lord:
+        raise IllegalAction("lt_full", f"{lt} already has Lower Lord {L.has_lower_lord}")
+    if LL.lieutenant_of:
+        raise IllegalAction("ll_already", f"{ll} is already a Lower Lord under {LL.lieutenant_of}")
+    if LL.has_lower_lord:
+        raise IllegalAction("no_chains", f"{ll} is itself a Lieutenant; cannot become Lower Lord")
+    if L.lieutenant_of:
+        raise IllegalAction("no_chains", f"{lt} is itself a Lower Lord; cannot become Lieutenant")
+    L.has_lower_lord = ll
+    LL.lieutenant_of = lt
+    return ({"lieutenant": lt, "lower_lord": ll, "locale": L.location}, [])
+
+
 def _h_command_reveal(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -200,6 +260,14 @@ def _h_command_reveal(
         state.campaign_turn.actions_remaining = 0
         _enter_feed_pay_disband(state)
         return ({"revealed": card, "outcome": "pass_not_on_map"}, [])
+    # 4.1.3: Lower Lord card resolves as Pass (the Lieutenant carries
+    # the group, but the Lower Lord cannot independently activate).
+    if lord.lieutenant_of is not None:
+        state.campaign_turn.active_lord = None
+        state.campaign_turn.actions_remaining = 0
+        _enter_feed_pay_disband(state)
+        return ({"revealed": card, "outcome": "pass_lower_lord",
+                 "lieutenant_of": lord.lieutenant_of}, [])
 
     state.campaign_turn.active_lord = card
     state.campaign_turn.actions_remaining = _effective_command_rating(state, card)
@@ -1029,7 +1097,12 @@ def _h_end_campaign_resolve(
         if discarded_asset:
             wastage_actions.append({"lord_id": lord_id, "discarded": discarded_asset})
 
-    # 4.9.5 Reset: discard This-Campaign events.
+    # 4.9.5 Reset: unstack Lieutenants / Lower Lords (4.1.3) and
+    # discard This-Campaign events.
+    for lord in state.lords.values():
+        if lord.side == sd:
+            lord.lieutenant_of = None
+            lord.has_lower_lord = None
     deck = _side_deck(state, sd)
     discarded_camp_events = list(deck.this_campaign_events)
     deck.discard.extend(discarded_camp_events)
@@ -1141,6 +1214,7 @@ HANDLERS = {
     # 4.1 Plan
     "plan_add_card": _h_plan_add_card,
     "finalize_plan": _h_finalize_plan,
+    "place_lieutenant": _h_place_lieutenant,
     # 4.2 Activation
     "command_reveal": _h_command_reveal,
     "end_card": _h_end_card,
@@ -1485,10 +1559,15 @@ def _h_stand_battle(
     if cp.pending_response_by != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
 
+    # 4.4.2: optional concede. args.concede is "attacker"|"defender" or None.
+    concede = args.get("concede")
+    if concede not in (None, "attacker", "defender"):
+        raise IllegalAction("bad_concede", "concede must be 'attacker' or 'defender'")
     result = resolve_battle(
         state, attacker_side=cp.attacker_side,
         attacker_lords=list(cp.attacker_group),
         defender_lords=list(cp.defender_lords),
+        concede=concede,
     )
     winner = result["winner"]
     loser_lords = result["attacker_lords"] if result["loser"] == cp.attacker_side else result["defender_lords"]
