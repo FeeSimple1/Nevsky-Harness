@@ -149,6 +149,12 @@ def _h_finalize_plan(
 
 
 
+_PERMANENT_MARSHAL_BY_SIDE = {
+    "teutonic": "andreas",
+    "russian": "aleksandr",
+}
+
+
 def _is_currently_marshal(state: GameState, lord_id: str) -> bool:
     """Return True if `lord_id` is currently filling a Marshal role
     (4.1.3 / 1.5.1).
@@ -157,16 +163,26 @@ def _is_currently_marshal(state: GameState, lord_id: str) -> bool:
       - `marshal_role: "permanent"` (Andreas, Aleksandr): ALWAYS a
         Marshal whenever the Lord is on the map.
       - `marshal_role: "secondary"` (Hermann, Andrey): Marshal ONLY
-        when actively filling the role (i.e., the side's active
-        Marshal at the time of the check). Until Q-005 lands a
-        Battle-Array-aware Marshal selector, this returns False for
-        secondary Marshals (treated as inactive).
+        when actively filling the role.
       - `marshal_role: null` (everyone else): never a Marshal.
 
-    The dynamic-active-Marshal hook is `state.campaign_turn`-level —
-    when Q-005 ships per-Lord Front position, "currently a Marshal"
-    will additionally be True for a secondary-Marshal Lord at Front
-    Center while their side's permanent Marshal is off the map.
+    Q-003 + Q-005 integration (Round 10b follow-up): a secondary
+    Marshal is "actively filling the role" iff:
+      1. They are on the map (Mustered, location not None), AND
+      2. Their permanent counterpart (Andreas for Teutonic side,
+         Aleksandr for Russian) is NOT on the map (off-Calendar
+         entirely OR on-Calendar/Ready), AND
+      3. They are at Front Center in an active Battle Array — i.e.,
+         state.combat_pending exists AND they appear at "center" in
+         the same-side positions dict.
+
+    Outside an active Battle (no `combat_pending`), a secondary
+    Marshal can still be "actively filling" the side's Marshal role
+    in the broader Campaign sense: the harness treats them as the
+    Marshal whenever their permanent counterpart is off the map.
+    This matches the rules text "the Marshal" (1.5.1) which is
+    determined for Group March (4.3.1) regardless of Battle Array
+    state.
     """
     if lord_id not in state.lords:
         return False
@@ -179,14 +195,24 @@ def _is_currently_marshal(state: GameState, lord_id: str) -> bool:
     if role == "permanent":
         return True
     if role == "secondary":
-        # TODO Q-005 integration: a secondary Marshal becomes active
-        # when their permanent Marshal counterpart is OFF the map AND
-        # they are at Front Center / acting as the side's Marshal in
-        # the current Battle Array. Without per-Lord Front position
-        # state, we treat secondary Marshals as inactive here. This is
-        # the permissive interpretation the user adjudicated for
-        # Q-003.
-        return False
+        # Permanent counterpart on map?
+        permanent_lid = _PERMANENT_MARSHAL_BY_SIDE.get(lord.side)
+        if permanent_lid is None:
+            return False
+        permanent = state.lords.get(permanent_lid)
+        if permanent and permanent.state == "mustered" and permanent.location is not None:
+            # Permanent Marshal is on map -> secondary is inactive.
+            return False
+        # Permanent off map. Secondary is currently a Marshal whenever
+        # they are at Front Center in the active Battle, AND for the
+        # broader Campaign Marshal role (Group March, etc.) whenever
+        # their counterpart is absent. The Campaign-wide reading is
+        # what the Lieutenant rule (4.1.3) hinges on, so we return
+        # True if the permanent is off-map. The Front-Center clause
+        # is honoured implicitly because Lieutenants can only be
+        # placed during Plan, BEFORE a Battle starts, and Plan is the
+        # only time _is_currently_marshal is consulted.
+        return True
     return False
 
 
@@ -2020,6 +2046,15 @@ def _h_cmd_storm(
     walls_max = sh["walls_max"]
     if state.locales[locale_id].walls_plus_one:
         walls_max += 1  # Stone Kremlin (R18): Walls +1 (4.5.2)
+    # Follow-up B (Q-007 candidate): operator decisions for Storm
+    # Reposition flow through a BattleDecisionContext (Round 2+ swap
+    # Front and Reserve Lord). Tests can pin choices via
+    # args.scripted_decisions; live play uses args.decision_callback.
+    from nevsky.battle import BattleDecisionContext
+    storm_ctx = BattleDecisionContext(
+        scripted=list(args.get("scripted_decisions") or []),
+        callback=args.get("decision_callback"),
+    )
     result = resolve_storm(
         state, attacker_side=sd,
         attacker_lords=attackers,
@@ -2028,6 +2063,7 @@ def _h_cmd_storm(
         walls_max=walls_max,
         siege_markers=state.locales[locale_id].siege_markers,
         garrison=dict(sh["garrison"]),
+        decision_ctx=storm_ctx,
     )
 
     aftermath: dict[str, Any] = {"battle": result}

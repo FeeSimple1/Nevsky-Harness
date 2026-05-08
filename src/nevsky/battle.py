@@ -607,6 +607,141 @@ def _remove_routed_from_array(
     return newly_routed
 
 
+def _adjust_rows_for_relief_sally(
+    state: GameState,
+    attacker_positions: dict[str, str],
+    defender_positions: dict[str, str],
+) -> list[dict[str, Any]]:
+    """4.4.2 page 15 (2E): Adjust Rows. Fires only in Relief Sally
+    when an entire row Routs. Implements:
+
+    - Rule 1: "If no Sallying Lords remain, Rearguard becomes Reserve."
+      All Defender rearguard_* Lords convert to "reserve" so the
+      ordinary Battle Array dynamics resume.
+
+    - Rule 2: "If no Rearguard, Sallying Lords Flank Defenders." This
+      is purely a strike-target rule and is already handled by
+      _strike_target (when no Rearguard, Sally Lords Flank Front
+      Defenders all equally close). No row transition.
+
+    - Rule 3: "If no Front Defenders, Rearguard faces about as Front."
+      All Defender Front slots empty -> Rearguard Lords become Front
+      (rearguard_left -> left, rearguard_center -> center,
+      rearguard_right -> right).
+
+    - Rule 4: "If no Front Attackers, Rearguard becomes Front against
+      Sally and original Front Defenders face about as Reserve." Front
+      Attacker slots all empty -> Defender Front Lords go to Reserve;
+      Defender Rearguard Lords stay where they are (they are now the
+      primary engaging row -- _strike_target already routes Sally vs
+      Rearguard correctly, so no slot rename is needed).
+
+    Returns a log of row transitions (empty list if Relief Sally is
+    not active or no transitions fired).
+    """
+    transitions: list[dict[str, Any]] = []
+    # Detect Relief Sally: presence of any sally_* or rearguard_*
+    # positions on this Battle.
+    has_sally_or_rearguard = any(
+        p.startswith("sally_") for p in attacker_positions.values()
+    ) or any(
+        p.startswith("rearguard_") for p in defender_positions.values()
+    )
+    if not has_sally_or_rearguard:
+        return transitions
+    # SNAPSHOT row-alive flags BEFORE applying any transition. The
+    # rules trigger off the START-of-Reposition state; applying Rule 3
+    # (rearguard -> front) must NOT cause Rule 4 to retroactively fire
+    # because the new "front" was just promoted.
+    sally_alive = any(
+        p.startswith("sally_") and lid in state.lords and state.lords[lid].forces
+        for lid, p in attacker_positions.items()
+    )
+    front_def_alive = any(
+        p in _FRONT_SLOTS and lid in state.lords and state.lords[lid].forces
+        for lid, p in defender_positions.items()
+    )
+    front_atk_alive = any(
+        p in _FRONT_SLOTS and lid in state.lords and state.lords[lid].forces
+        for lid, p in attacker_positions.items()
+    )
+    rearguard_alive = any(
+        p.startswith("rearguard_") and lid in state.lords and state.lords[lid].forces
+        for lid, p in defender_positions.items()
+    )
+
+    # Rule 1: "If no Sallying Lords remain, Rearguard becomes Reserve."
+    # Ends Relief Sally geometry so regular Battle Array dynamics
+    # resume. Supersedes Rules 3 and 4: if Sally is dead, the Battle
+    # is back to a normal Front-only engagement.
+    if not sally_alive and rearguard_alive:
+        for lid, p in list(defender_positions.items()):
+            if p.startswith("rearguard_"):
+                defender_positions[lid] = "reserve"
+                transitions.append({
+                    "rule": "no_sally_remain",
+                    "lord": lid, "from": p, "to": "reserve",
+                })
+        return transitions
+
+    # Rule 3 and Rule 4 affect disjoint sets of Lords (rearguard_* vs
+    # Front Defenders) and may both fire on the same turn. Use the
+    # snapshot to decide independently. Apply Rule 3 first (promote
+    # Rearguard) then Rule 4 (demote any remaining Front Defenders).
+
+    # Rule 3: "If no Front Defenders, Rearguard faces about as Front."
+    if not front_def_alive and rearguard_alive:
+        for lid, p in list(defender_positions.items()):
+            if p == "rearguard_left":
+                defender_positions[lid] = "left"
+                transitions.append({
+                    "rule": "no_front_defenders", "lord": lid,
+                    "from": "rearguard_left", "to": "left",
+                })
+            elif p == "rearguard_center":
+                defender_positions[lid] = "center"
+                transitions.append({
+                    "rule": "no_front_defenders", "lord": lid,
+                    "from": "rearguard_center", "to": "center",
+                })
+            elif p == "rearguard_right":
+                defender_positions[lid] = "right"
+                transitions.append({
+                    "rule": "no_front_defenders", "lord": lid,
+                    "from": "rearguard_right", "to": "right",
+                })
+
+    # Rule 4: "If no Front Attackers, ... original Front Defenders face
+    # about as Reserve." Note: Rule 3 may have just promoted Rearguard
+    # to Front; Rule 4 should target ONLY the ORIGINAL Front Defenders
+    # (those that were at Front in the snapshot AND still alive). We
+    # use the snapshot to identify them.
+    if not front_atk_alive and sally_alive:
+        # Build the snapshot of original Front Defenders (alive).
+        # We can't re-detect post-Rule-3 because Rule 3 may have just
+        # filled left/center/right with the formerly-rearguard Lords.
+        original_front_def = [
+            lid for lid, p in defender_positions.items()
+            if p in _FRONT_SLOTS
+        ]
+        # If Rule 3 just promoted Lords here, those Lords have
+        # transitions in the log. Filter them out.
+        promoted_lords = {t["lord"] for t in transitions
+                          if t["rule"] == "no_front_defenders"}
+        for lid in original_front_def:
+            if lid in promoted_lords:
+                continue
+            if lid not in state.lords or not state.lords[lid].forces:
+                continue
+            from_slot = defender_positions[lid]
+            defender_positions[lid] = "reserve"
+            transitions.append({
+                "rule": "no_front_attackers", "lord": lid,
+                "from": from_slot, "to": "reserve",
+            })
+    return transitions
+
+
 def _reposition(
     state: GameState,
     positions: dict[str, str],
@@ -906,9 +1041,15 @@ def resolve_battle(
         if rounds >= 2:
             _remove_routed_from_array(state, atk_pos)
             _remove_routed_from_array(state, def_pos)
+            # Follow-up C (4.4.2 page 15): Adjust Rows fires before
+            # Reposition when Relief Sally is active and an entire row
+            # Routed.
+            adjust_log = _adjust_rows_for_relief_sally(state, atk_pos, def_pos)
             atk_repo = _reposition(state, atk_pos, "attacker", decision_ctx)
             def_repo = _reposition(state, def_pos, "defender", decision_ctx)
             round_log["reposition"] = {"attacker": atk_repo, "defender": def_repo}
+            if adjust_log:
+                round_log["adjust_rows"] = adjust_log
             round_log["attacker_positions"] = dict(atk_pos)
             round_log["defender_positions"] = dict(def_pos)
 
@@ -1367,42 +1508,140 @@ def resolve_storm(
     walls_max: int,
     siege_markers: int,
     garrison: dict[str, int],
+    decision_ctx: BattleDecisionContext | None = None,
 ) -> dict[str, Any]:
-    """Resolve a Storm at `locale_id` (4.5.2).
+    """Resolve a Storm at `locale_id` (4.5.2 2E).
 
-    Phase 3c simplifications (Storm Array partly aligned with 2E;
-    Relief Sally Array per Q-006 in RULES_QUESTIONS.md is deferred):
-      - Single-front lane (no flanking).
-      - Garrison units sit alongside the front defender; defender Hits
-        are absorbed by Garrison units before any Lord units (4.5.2).
-      - Walls roll for defender per Hit (Hit absorbed if d6 <= walls_max).
-      - Siegeworks (siege_markers as Walls 1..siege_markers) for attacker.
-      - Max 6 Melee Hits per Lord per side per Round (2E); Archery
-        unlimited.
-      - Storm ends when defender or attacker Routs, OR when
-        rounds_completed >= siege_markers (attacker loses by default).
+    Storm Array (4.5.2 page 17): each side's Front row holds at most
+    one Lord. The Attacker's Active Lord starts at Front; other Lords
+    start in Reserve. The Defender's first Lord (defender_lords[0])
+    starts at Front; others start in Reserve.
+
+    Storm Reposition (4.5.2 page 17, 2E follow-up B): in each Round
+    after the first, Attacker then Defender MAY switch positions
+    between their Front and any Reserve Lord. Operator decision via
+    decision_ctx; the engine offers options that include "stay" plus
+    each Reserve Lord; the operator picks who occupies Front this
+    Round.
+
+    Other 2E rules already enforced:
+      - Garrison units sit with the defending Front Lord; defender
+        Hits absorbed by Garrison first (4.5.2).
+      - Walls roll for defender per Hit (1..walls_max).
+      - Siegeworks (siege_markers as Walls 1..siege_markers) for
+        attacker.
+      - Per-Lord Melee Hits cap of 6 (AUDIT-001).
+      - Storm Attacker absorbs Hits with Armored units first (AUDIT-003).
+      - Storm ends on full Rout, on attacker Concede, or when
+        rounds_completed >= siege_markers (attacker loses).
+
+    Returns a dict with keys: rounds, winner, loser, log,
+    garrison_remaining, attacker_storm_positions,
+    defender_storm_positions, decisions.
     """
     log: list[dict[str, Any]] = []
     rounds = 0
     # Local mutable garrison units (separate from Lord forces).
     g_units: dict[str, int] = dict(garrison)
+    if decision_ctx is None:
+        decision_ctx = BattleDecisionContext()
+    # Storm Array: first Lord = Front, rest = Reserve.
+    atk_storm_pos: dict[str, str] = {}
+    if attacker_lords:
+        atk_storm_pos[attacker_lords[0]] = "storm_front"
+        for lid in attacker_lords[1:]:
+            atk_storm_pos[lid] = "storm_reserve"
+    def_storm_pos: dict[str, str] = {}
+    if defender_lords:
+        def_storm_pos[defender_lords[0]] = "storm_front"
+        for lid in defender_lords[1:]:
+            def_storm_pos[lid] = "storm_reserve"
     while rounds < max(1, siege_markers + 1):
         rounds += 1
-        round_log: dict[str, Any] = {"round": rounds, "steps": []}
+        round_log: dict[str, Any] = {
+            "round": rounds, "steps": [],
+            "attacker_storm_positions": dict(atk_storm_pos),
+            "defender_storm_positions": dict(def_storm_pos),
+            "reposition": None,
+        }
+        # Storm Reposition (4.5.2 page 17): Round 2+, Attacker then
+        # Defender may swap their Front Lord with any Reserve Lord.
+        if rounds >= 2:
+            repo_log: dict[str, Any] = {}
+            for side_label, positions, side_lords in (
+                ("attacker", atk_storm_pos, attacker_lords),
+                ("defender", def_storm_pos, defender_lords),
+            ):
+                # Find current Front and Reserves with Forces.
+                current_front = next(
+                    (lid for lid, p in positions.items()
+                     if p == "storm_front"
+                     and lid in state.lords and state.lords[lid].forces),
+                    None,
+                )
+                reserves = [
+                    lid for lid, p in positions.items()
+                    if p == "storm_reserve"
+                    and lid in state.lords and state.lords[lid].forces
+                ]
+                # If Front is Routed but a Reserve exists, the Reserve
+                # must take Front (forced advance, not really a choice).
+                if current_front is None and reserves:
+                    chosen = (
+                        reserves[0] if len(reserves) == 1 else
+                        decision_ctx.decide(
+                            "reserve_advance", side_label, reserves,
+                            {"phase": "storm_advance_after_front_rout"},
+                        )
+                    )
+                    positions[chosen] = "storm_front"
+                    repo_log.setdefault(side_label, []).append({
+                        "step": "advance", "lord": chosen,
+                    })
+                    continue
+                if not reserves or current_front is None:
+                    continue
+                # Operator may switch: options = [current_front] (stay)
+                # + each reserve Lord (swap into Front).
+                options = [current_front] + reserves
+                chosen = decision_ctx.decide(
+                    "reserve_advance", side_label, options,
+                    {"phase": "storm_reposition", "current_front": current_front},
+                )
+                if chosen != current_front:
+                    positions[current_front] = "storm_reserve"
+                    positions[chosen] = "storm_front"
+                    repo_log.setdefault(side_label, []).append({
+                        "step": "swap", "from": current_front, "to": chosen,
+                    })
+            if repo_log:
+                round_log["reposition"] = repo_log
+                round_log["attacker_storm_positions"] = dict(atk_storm_pos)
+                round_log["defender_storm_positions"] = dict(def_storm_pos)
 
         # Storm initiative (4.5.2):
-        #   1) archery defender (Garrison MaA + any Lord-default archery)
+        #   1) archery defender (Garrison MaA + Lord-default archery)
         #   2) archery attacker
-        #   3) melee defenders (Garrison + Lord)
-        #   4) melee attackers
+        #   3) melee defenders (Garrison + Front Lord)
+        #   4) melee attackers (Front Lord)
         # Hits cap on melee: 6 per Lord per side per Round.
-        # Defender archery: garrison MaA + Lords' default-archery units.
+        # Storm Front Lord per side; Reserve Lords do not Strike.
         from nevsky.capabilities import any_capability
+        atk_front_lords = [
+            lid for lid, p in atk_storm_pos.items()
+            if p == "storm_front" and lid in state.lords
+            and state.lords[lid].forces
+        ]
+        def_front_lords = [
+            lid for lid, p in def_storm_pos.items()
+            if p == "storm_front" and lid in state.lords
+            and state.lords[lid].forces
+        ]
         def_arch = _storm_hits_for_units(g_units, "archery_garrison_maa") + sum(
-            _hits_for_lord_strike(state, lid, "archery") for lid in defender_lords if lid in state.lords
+            _hits_for_lord_strike(state, lid, "archery") for lid in def_front_lords
         )
         atk_arch = sum(
-            _hits_for_lord_strike(state, lid, "archery") for lid in attacker_lords if lid in state.lords
+            _hits_for_lord_strike(state, lid, "archery") for lid in atk_front_lords
         )
         # AUDIT-001 fix (4.5.2 2E rule): "Maximum 6 Melee Hits per Lord
         # per Round". Apply cap PER LORD before summing, not on the
@@ -1410,18 +1649,13 @@ def resolve_storm(
         # Lord's cap (rules: "strikes_combine_with: Defending Front
         # Lord (round up combined totals)").
         def_melee = 0.0
-        for lid in defender_lords:
-            if lid not in state.lords:
-                continue
+        for lid in def_front_lords:
             lord_melee = _storm_hits_for_units(state.lords[lid].forces, "melee")
-            # First defender Lord absorbs Garrison melee under the same cap.
-            if lid == defender_lords[0]:
-                lord_melee += _storm_hits_for_units(g_units, "melee")
+            # Defender Front Lord absorbs Garrison melee under the same cap.
+            lord_melee += _storm_hits_for_units(g_units, "melee")
             def_melee += min(6.0, lord_melee)
         atk_melee = 0.0
-        for lid in attacker_lords:
-            if lid not in state.lords:
-                continue
+        for lid in atk_front_lords:
             atk_melee += min(6.0, _storm_hits_for_units(state.lords[lid].forces, "melee"))
         # Phase 4a: Crossbowmen / Garrison MaA Archery imposes target Armor -2.
         def_arch_armor_minus_2 = (
@@ -1457,11 +1691,14 @@ def resolve_storm(
         # AUDIT-003 (4.5.2 2E): Storm Attacker MUST absorb Hits with any
         # Armored units before non-Armored. Encode per-step assignment
         # policy alongside other step parameters.
+        # Storm Hit absorption: Reserve Lords do NOT absorb Hits.
+        # Defender side: Garrison absorbs first, then Defender Front
+        # Lord. Attacker side: Attacker Front Lord.
         steps_data = [
-            ("archery_defender", "archery", _round_up(def_arch), attacker_lords, False, def_arch_armor_minus_2, "armored_first"),
-            ("archery_attacker", "archery", _round_up(atk_arch), defender_lords, True,  atk_arch_armor_minus_2, "weakest_first"),
-            ("melee_defender",   "melee",   _round_up(def_melee), attacker_lords, False, False, "armored_first"),
-            ("melee_attacker",   "melee",   _round_up(atk_melee), defender_lords, True,  False, "weakest_first"),
+            ("archery_defender", "archery", _round_up(def_arch), atk_front_lords, False, def_arch_armor_minus_2, "armored_first"),
+            ("archery_attacker", "archery", _round_up(atk_arch), def_front_lords, True,  atk_arch_armor_minus_2, "weakest_first"),
+            ("melee_defender",   "melee",   _round_up(def_melee), atk_front_lords, False, False, "armored_first"),
+            ("melee_attacker",   "melee",   _round_up(atk_melee), def_front_lords, True,  False, "weakest_first"),
         ]
         for label, kind, hits, target_lords, target_is_defender, armor_minus_2, assignment_policy in steps_data:
             step_state: dict = {}  # AUDIT-002: per-step Warrior Monks reroll budget
@@ -1518,16 +1755,26 @@ def resolve_storm(
         log.append(round_log)
         atk_routed = _all_routed(state, attacker_lords)
         def_routed = _all_routed(state, defender_lords) and sum(g_units.values()) == 0
+        common = {
+            "log": log, "garrison_remaining": g_units,
+            "attacker_storm_positions": dict(atk_storm_pos),
+            "defender_storm_positions": dict(def_storm_pos),
+            "decisions": list(decision_ctx.log),
+        }
         if atk_routed:
-            return {"rounds": rounds, "winner": "defender", "loser": "attacker", "log": log,
-                    "garrison_remaining": g_units}
+            return {"rounds": rounds, "winner": "defender", "loser": "attacker", **common}
         if def_routed:
-            return {"rounds": rounds, "winner": "attacker", "loser": "defender", "log": log,
-                    "garrison_remaining": g_units}
+            return {"rounds": rounds, "winner": "attacker", "loser": "defender", **common}
 
     # Time out: attacker loses (rounds_completed >= siege_markers).
-    return {"rounds": rounds, "winner": "defender", "loser": "attacker",
-            "log": log, "stalemate": True, "garrison_remaining": g_units}
+    return {
+        "rounds": rounds, "winner": "defender", "loser": "attacker",
+        "stalemate": True,
+        "log": log, "garrison_remaining": g_units,
+        "attacker_storm_positions": dict(atk_storm_pos),
+        "defender_storm_positions": dict(def_storm_pos),
+        "decisions": list(decision_ctx.log),
+    }
 
 
 def apply_losses_rolls(
