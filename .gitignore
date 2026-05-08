@@ -40,3 +40,4 @@ Thumbs.db
 *.state.json
 !tests/**/*.state.json
 round13_smoke_results.json
+round14_smoke_passive.json

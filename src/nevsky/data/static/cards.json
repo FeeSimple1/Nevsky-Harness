@@ -9,7 +9,9 @@
       "capability_name": "Treaty of Stensby",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift Aleksandr OR Andrey OR furthest right Service of either 2 boxes",
+      "capability_text": "Heinrich AND Knud & Abel Command +1"
     },
     {
       "card_id": "T2",
@@ -19,7 +21,9 @@
       "capability_name": "Raiders",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Remove 3 Assets from Domash OR 3 Coin from Veche",
+      "capability_text": "This Lord with Horse once per Command card may Ravage Locale adjacent by Trackway where no enemy Lord"
     },
     {
       "card_id": "T3",
@@ -29,7 +33,9 @@
       "capability_name": "Converts",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play if Teuton Lord closer than any Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils)",
+      "capability_text": "This Lord's or his group's March with Light Horse reaches 1st Locale each card for 0 actions Tip: The group of a Marshall or Lieutenant receives the benefit if any of the Lords Marching together have Converts and at least one has Light Horse\u2014it need not be the same Lord, nor need it be the Active Lord. The March for 0 actions may be Laden but may not carry more than twice as much Provender as usable Transport. Converts does not affect Sail."
     },
     {
       "card_id": "T4",
@@ -39,7 +45,9 @@
       "capability_name": "Balistarii",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play on front center Russian Lord in non-Winter Battle\u2014he Melee Strikes with units up to twice Round number",
+      "capability_text": "This Lord's Men-at-Arms have Archery with -2 to target's Armor Tip: Crossbowmen units Strike with both Archery and Melee."
     },
     {
       "card_id": "T5",
@@ -49,7 +57,9 @@
       "capability_name": "Balistarii",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play if Defending in non-Winter Battle\u2014Russian Horse does not Strike in Rounds 1 and 2",
+      "capability_text": "This Lord's Men-at-Arms have Archery with -2 to target's Armor Tip: Crossbowmen units Strike with both Archery and Melee."
     },
     {
       "card_id": "T6",
@@ -59,7 +69,9 @@
       "capability_name": "Balistarii",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play to block Avoid Battle OR ignore Russian left and right in Battle Round 1",
+      "capability_text": "This Lord's Men-at-Arms have Archery with -2 to target's Armor Tip: Crossbowmen units Strike with both Archery and Melee."
     },
     {
       "card_id": "T7",
@@ -69,7 +81,9 @@
       "capability_name": "Warrior Monks",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play on Hermann OR Yaroslav to shift cylinder 2 Calendar boxes OR for Lordship +2. Tip. The Lordship bonus can apply to either the Muster or Call to Arms segment. Discard the moment used.",
+      "capability_text": "This Lord may reroll 1 Knights' Armor Roll each Archery AND each Melee step Tips: If Flanked, the Lord would still have only one reroll per Round for all Attacking Lords' Archery plus one for all Attacking Lords' Melee. The Capability can affect Rout rolls but not Loss rolls. A Lord may have only one Warrior Monks card."
     },
     {
       "card_id": "T8",
@@ -79,7 +93,9 @@
       "capability_name": "Hillforts of the Sword Brethren",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play on Rudolf to shift cylinder 2 Calendar boxes OR for Lordship +2. Discard the moment used. Rudolf may use the bonus to Levy the Capability on the same card.",
+      "capability_text": "Each Feed skips 1 Unbesieged Teuton Lord in Livonia Tips: The benefit applies to any one Teutonic Lord who, at the moment of any Feed/Pay/Disband, is within Livonia (not Estonia or Rus) and Unbesieged. The Capability may affect a different Lord each Command card. A Lord skipping Feed still participates in Pay and Disband normally."
     },
     {
       "card_id": "T9",
@@ -89,7 +105,9 @@
       "capability_name": "Halbbrueder",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play if Defending in Battle\u2014Round 1 and 2 Teutonic Archery is x1 (not x\u00bd)",
+      "capability_text": "This Lord's Sergeants AND Men-at-Arms have Armor +1"
     },
     {
       "card_id": "T10",
@@ -99,7 +117,9 @@
       "capability_name": "Halbbrueder",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play on a Lord in Battle or Storm\u2014Round 1, his Knights AND Sergeants Melee Strike +1",
+      "capability_text": "This Lord's Sergeants AND Men-at-Arms have Armor +1"
     },
     {
       "card_id": "T11",
@@ -109,7 +129,9 @@
       "capability_name": "Crusade",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift 1 Teuton cylinder 1 box left; add Crusade (this card) to Levied Capabilities",
+      "capability_text": "Each Summer Levy, free Muster all Unbesieged Crusaders; Disband them when card discarded; discard card at outset of Late Winter"
     },
     {
       "card_id": "T12",
@@ -119,7 +141,9 @@
       "capability_name": "Ordensburgen",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift Aleksandr OR Andrey OR Service of either 2 boxes",
+      "capability_text": "Teutonic Lords use Commanderies as extra Seats and start there Command +1"
     },
     {
       "card_id": "T13",
@@ -129,7 +153,9 @@
       "capability_name": "William of Modena",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play to Disband Heinrich to add 4 non-Loot Assets each to 2 on-map Teutonic Lords",
+      "capability_text": "Legate is in play\u2014start pawn on card and return it here when used"
     },
     {
       "card_id": "T14",
@@ -139,7 +165,9 @@
       "capability_name": "Trebuchets",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Immediately remove 1 Ravaged marker from Livonia or Estonia",
+      "capability_text": "This Lord Unrouted at Storm or Sally reduces Russian Walls or Siegeworks -1"
     },
     {
       "card_id": "T15",
@@ -149,7 +177,9 @@
       "capability_name": "Warrior Monks",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Place Ravaged in a Locale in Rus within 2 of Ostrov, not at Russian Lord or Stronghold",
+      "capability_text": "See Teutonic Capability #T7."
     },
     {
       "card_id": "T16",
@@ -159,7 +189,9 @@
       "capability_name": "Ransom",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "This Campaign, Russian Supply adds maximum 1 Provender per Command card from Seats and Forage adds none",
+      "capability_text": "Each Russian Lord removed in Battle or while Besieged, add Coin equal to his Service to Teutonic Lord there"
     },
     {
       "card_id": "T17",
@@ -169,7 +201,9 @@
       "capability_name": "Stonemasons",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play on Andreas OR Rudolf to shift cylinder 2 Calendar boxes OR for Lordship +2.",
+      "capability_text": "This Lord for his full Command and 6 Prov puts available Castle at Unbesieged Fort or Town in Rus"
     },
     {
       "card_id": "T18",
@@ -179,7 +213,9 @@
       "capability_name": "Cogs",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift cylinder or Service of Vladislav AND Karelians each 1 box",
+      "capability_text": "This Lord's Ships each serve as 2 Ships, can be shared anywhere, and will weather Tempest"
     },
     {
       "card_id": "R1",
@@ -189,7 +225,9 @@
       "capability_name": "Luchniki",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play on front center Teutonic Lord in non-Winter Battle\u2014he Melee Strikes with units up to twice Round number",
+      "capability_text": "This Lord's Militia and Light Horse have Archery"
     },
     {
       "card_id": "R2",
@@ -199,7 +237,9 @@
       "capability_name": "Luchniki",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play if Defending in non-Winter Battle\u2014Teutonic Horse does not Strike in Rounds 1 and 2",
+      "capability_text": "This Lord's Militia and Light Horse have Archery"
     },
     {
       "card_id": "R3",
@@ -209,7 +249,9 @@
       "capability_name": "Streltsy",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play at any time to add 4 Provender to a Lord in Rus",
+      "capability_text": "This Lord's Men-at-Arms have Archery with -2 to target's Armor"
     },
     {
       "card_id": "R4",
@@ -219,7 +261,9 @@
       "capability_name": "Smerdi",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play in non-Summer Battle\u2014Round 1 Russians Walls 1-2 against Melee",
+      "capability_text": "Start 6 Serfs on card; Russian Command action Unbesieged in Rus Musters 1 Serf; Serfs return here when removed"
     },
     {
       "card_id": "R5",
@@ -229,7 +273,9 @@
       "capability_name": "Druzhina",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: May play if Defending in Battle\u2014Round 1 and 2 Russian Archery is x1 (not x\u00bd)",
+      "capability_text": "This Lord with Knights Command +1"
     },
     {
       "card_id": "R6",
@@ -239,7 +285,9 @@
       "capability_name": "Druzhina",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play to block Avoid Battle OR ignore Teutonic left and right in Battle Round 1",
+      "capability_text": "This Lord with Knights Command +1"
     },
     {
       "card_id": "R7",
@@ -249,7 +297,9 @@
       "capability_name": "Ransom",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "This Campaign, Teutonic Supply adds maximum 1 Provender per Command card from Seats and Forage adds none",
+      "capability_text": "Each Teutonic Lord removed in Battle or while Besieged, add Coin equal to his Service to Russian Lord there."
     },
     {
       "card_id": "R8",
@@ -259,7 +309,9 @@
       "capability_name": "Black Sea Trade",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play on a Russian Lord to shift cylinder 1 Calendar box OR for Lordship +2. Tip. The Lordship bonus can apply to either the Muster or the Call to Arms segment. Discard the moment used. The Lord may use the bonus to Levy the Capability on the same card.",
+      "capability_text": "Each Call to Arms, add 1 Coin to Veche unless Novgorod or Lovat Conquered"
     },
     {
       "card_id": "R9",
@@ -269,7 +321,9 @@
       "capability_name": "Baltic Sea Trade",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, Teutons choose to shift Service of Andreas OR Heinrich 2 boxes left",
+      "capability_text": "Each non-Winter Call to Arms, add 2 Coin to Veche unless Teutons have more Ships than Rus OR Novgorod or Neva Conquered"
     },
     {
       "card_id": "R10",
@@ -279,7 +333,9 @@
       "capability_name": "Steppe Warriors",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift Andreas cylinder OR Service up to 2 boxes",
+      "capability_text": "Kipchaqs and Mongols may Muster; they Disband if this card discarded"
     },
     {
       "card_id": "R11",
@@ -289,7 +345,9 @@
       "capability_name": "House of Suzdal",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift Knud & Abel OR their Service up to 1 box; this Levy, no Muster of or by them",
+      "capability_text": "This Lord Command +1 while Aleksandr and Andrey on map"
     },
     {
       "card_id": "R12",
@@ -299,7 +357,9 @@
       "capability_name": "Raiders",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Place Ravaged in a Livonia Locale within 2 of Rositten, not at Teutonic Lord or Stronghold",
+      "capability_text": "This Lord with Light or Asiatic Horse may Ravage adjacent Locales where no enemy Lords but take no Loot"
     },
     {
       "card_id": "R13",
@@ -309,7 +369,9 @@
       "capability_name": "Streltsy",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Hold: Play on Vladislav OR Karelians to shift cylinder 2 Calendar boxes OR for Lordship +2. Tip. The Lordship bonus can apply to either the Muster or the Call to Arms segment. Discard the moment used. Vladislav may use the bonus to Levy the Capability on the same card.",
+      "capability_text": "See Russian Capability #R3."
     },
     {
       "card_id": "R14",
@@ -319,7 +381,9 @@
       "capability_name": "Raiders",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "If Andreas on map and Unbesieged and nothing at Riga, put him there; if on Calendar, shift him 2 right",
+      "capability_text": "See Russian Capability #R12."
     },
     {
       "card_id": "R15",
@@ -329,7 +393,9 @@
       "capability_name": "Archbishopric of Novgorod",
       "capability_scope": "side_wide",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Remove Legate and discard William of Modena\u2014This Levy, no William of Modena",
+      "capability_text": "Russian Lords have an extra Seat at Novgorod and start there Command +1."
     },
     {
       "card_id": "R16",
@@ -339,7 +405,9 @@
       "capability_name": "Lodya",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Immediately remove all Ships from a Teutonic Lord, half rounded up if he has Cogs",
+      "capability_text": "This Lord may use his Boats as 2 Boats each OR use up to 2 Ships or Boats as the other"
     },
     {
       "card_id": "R17",
@@ -349,7 +417,9 @@
       "capability_name": "Veliky Knyaz",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "On Calendar, shift Andreas OR Rudolf OR their Service 1 box; this Levy, no Muster of or by them",
+      "capability_text": "This Lord's Tax also adds 2 Transport AND restores all their Mustered Forces"
     },
     {
       "card_id": "R18",
@@ -359,7 +429,9 @@
       "capability_name": "Stone Kremlin",
       "capability_scope": "this_lord",
       "no_event": false,
-      "no_capability": false
+      "no_capability": false,
+      "event_text": "Immediately remove 1 Ravaged marker from Rus",
+      "capability_text": "This Lord for his full Command may mark his Fort, City, or Novgorod Walls +1; remove marker if Sacked"
     },
     {
       "card_id": "T_no_event_1",
@@ -369,7 +441,9 @@
       "capability_name": null,
       "capability_scope": null,
       "no_event": true,
-      "no_capability": true
+      "no_capability": true,
+      "event_text": "",
+      "capability_text": ""
     },
     {
       "card_id": "R_no_event_1",
@@ -379,7 +453,9 @@
       "capability_name": null,
       "capability_scope": null,
       "no_event": true,
-      "no_capability": true
+      "no_capability": true,
+      "event_text": "",
+      "capability_text": ""
     },
     {
       "card_id": "T_no_event_2",
@@ -389,7 +465,9 @@
       "capability_name": null,
       "capability_scope": null,
       "no_event": true,
-      "no_capability": true
+      "no_capability": true,
+      "event_text": "",
+      "capability_text": ""
     },
     {
       "card_id": "R_no_event_2",
@@ -399,7 +477,9 @@
       "capability_name": null,
       "capability_scope": null,
       "no_event": true,
-      "no_capability": true
+      "no_capability": true,
+      "event_text": "",
+      "capability_text": ""
     },
     {
       "card_id": "T_no_event_3",
@@ -409,7 +489,9 @@
       "capability_name": null,
       "capability_scope": null,
       "no_event": true,
-      "no_capability": true
+      "no_capability": true,
+      "event_text": "",
+      "capability_text": ""
     },
     {
       "card_id": "R_no_event_3",
@@ -419,7 +501,9 @@
       "capability_name": null,
       "capability_scope": null,
       "no_event": true,
-      "no_capability": true
+      "no_capability": true,
+      "event_text": "",
+      "capability_text": ""
     }
   ]
 }
