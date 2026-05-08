@@ -1153,6 +1153,64 @@ def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int)
     else:
         cal.boxes[sm_box - 1].service_markers.append(lord_id)
 
+    # Q-002: emit setup_transport_choice PendingDecisions for any
+    # starting_transport_choice slots on the Lord's mat. Apply the
+    # heuristic default per Q-001 / Q-002 spec; the player may override.
+    from nevsky.scenarios import (
+        _SETUP_TRANSPORT_DEFAULTS,
+        _Q001_NO_AUTO_CONFIRM,
+        _heuristic_setup_transport_default,
+    )
+    scenario_id = state.meta.scenario_id
+    season = _season_of_box(state.meta.box)
+    scenario_defaults = _SETUP_TRANSPORT_DEFAULTS.get(scenario_id, {}).get(lord_id, [])
+    no_auto = lord_id in _Q001_NO_AUTO_CONFIRM.get(scenario_id, set())
+    slot_count_total = sum(int(slot["count"]) for slot in sl.get("starting_transport_choice", []))
+    if slot_count_total > 0:
+        first_slot_allowed = list(sl["starting_transport_choice"][0]["options"])
+        heuristic = _heuristic_setup_transport_default(
+            scenario_id, lord_id, seat, season,
+            slot_count_total, first_slot_allowed,
+        )
+    else:
+        heuristic = []
+    slot_idx_global = 0
+    from nevsky.state import PendingDecision
+    for slot in sl.get("starting_transport_choice", []):
+        allowed = list(slot["options"])
+        count = int(slot["count"])
+        for _ in range(count):
+            if slot_idx_global < len(scenario_defaults):
+                chosen = scenario_defaults[slot_idx_global]
+            elif slot_idx_global < len(heuristic):
+                chosen = heuristic[slot_idx_global]
+            else:
+                chosen = allowed[0]
+            if chosen not in allowed:
+                chosen = allowed[0]
+            lord.assets[chosen] = lord.assets.get(chosen, 0) + 1  # type: ignore[index]
+            state.pending_decisions.append(
+                PendingDecision(
+                    kind="setup_transport_choice",
+                    owed_by=lord.side,
+                    context={
+                        "lord_id": lord_id,
+                        "slot_index": slot_idx_global,
+                        "default_value": chosen,
+                        "current_value": chosen,
+                        "allowed_values": allowed,
+                        "auto_confirm_on_levy": not no_auto,
+                        "resolved": False,
+                        "emitted_at_muster": True,
+                    },
+                    note=(
+                        f"{lord_id} Mustered with Transport-(any) slot {slot_idx_global}; "
+                        f"default = {chosen} (Q-001 / Q-002)."
+                    ),
+                )
+            )
+            slot_idx_global += 1
+
 
 def _h_muster_vassal(
     state: GameState, side: str, args: dict[str, Any]
