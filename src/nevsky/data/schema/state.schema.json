@@ -647,6 +647,27 @@
           "title": "End Campaign Completed R",
           "type": "boolean"
         },
+        "block_lords_this_levy_t": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Block Lords This Levy T",
+          "type": "array"
+        },
+        "block_lords_this_levy_r": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Block Lords This Levy R",
+          "type": "array"
+        },
+        "lordship_bonus": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Lordship Bonus",
+          "type": "object"
+        },
         "active_player": {
           "anyOf": [
             {
@@ -961,5 +982,5 @@
   "title": "Nevsky Harness GameState",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-schema-version": "0.7.0"
+  "x-schema-version": "0.8.0"
 }

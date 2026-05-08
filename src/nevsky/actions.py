@@ -226,6 +226,11 @@ def _h_advance_step(
             state.meta.plan_complete_t = False
             state.meta.plan_complete_r = False
             state.meta.active_player = "teutonic"
+            # Phase 4c: clear per-Levy block lists and Lordship bonuses.
+            state.meta.block_lords_this_levy_t = []
+            state.meta.block_lords_this_levy_r = []
+            state.meta.lordship_bonus = {}
+            state.meta.special_rules.pop("block_william_of_modena_this_levy", None)
             # 4.0 capability discard (in excess of own Mustered Lord count)
             for sd_ in ("teutonic", "russian"):
                 deck = state.decks.teutonic if sd_ == "teutonic" else state.decks.russian
@@ -394,14 +399,22 @@ def _h_aow_implement_card(
         deck.holds.append(cid)
         return ({"card": cid, "outcome": "held"}, [])
     if persistence == "this_levy":
+        # Phase 4c: this_levy events that have an immediate effect
+        # (R11 Valdemar, R17 Dietrich) resolve their effect now AND
+        # leave a tracking entry in this_levy_events so end-of-Levy
+        # discard (3.5.3) cleans the block list.
+        from nevsky.events import resolve_immediate_event
+        result = resolve_immediate_event(state, cid, args)
         deck.this_levy_events.append(cid)
-        return ({"card": cid, "outcome": "this_levy_event"}, [])
+        return ({"card": cid, "outcome": "this_levy_event", "effect": result}, [])
     if persistence == "this_campaign":
         deck.this_campaign_events.append(cid)
         return ({"card": cid, "outcome": "this_campaign_event"}, [])
-    # immediate
+    # immediate -- resolve effect and discard
+    from nevsky.events import resolve_immediate_event
+    result = resolve_immediate_event(state, cid, args)
     deck.discard.append(cid)
-    return ({"card": cid, "outcome": "immediate_event_discarded"}, [])
+    return ({"card": cid, "outcome": "immediate_event_discarded", "effect": result}, [])
 
 
 def _h_aow_discard_this_levy(
@@ -930,7 +943,20 @@ def _spend_lordship(state: GameState, lord_id: str) -> None:
             "muster_location",
             f"{lord_id} must be at a Friendly Locale to use Lordship (3.4)",
         )
-    budget = int(sl["ratings"]["lordship"])
+    # Phase 4c: this-levy block (R11 Valdemar, R17 Dietrich).
+    block = (
+        state.meta.block_lords_this_levy_t
+        if lord.side == "teutonic"
+        else state.meta.block_lords_this_levy_r
+    )
+    if lord_id in block:
+        raise IllegalAction(
+            "blocked_this_levy",
+            f"{lord_id} cannot use Lordship this Levy (R11 / R17)",
+        )
+    base = int(sl["ratings"]["lordship"])
+    bonus = int(state.meta.lordship_bonus.get(lord_id, 0))
+    budget = base + bonus
     if lord.lordship_used >= budget:
         raise IllegalAction(
             "lordship_exhausted",
@@ -976,6 +1002,16 @@ def _h_muster_lord(
         raise IllegalAction(
             "aleksandr_veche_only",
             "Aleksandr can only enter play via Veche auto-Muster (3.4.1, 3.5.2)",
+        )
+    block = (
+        state.meta.block_lords_this_levy_t
+        if sd == "teutonic"
+        else state.meta.block_lords_this_levy_r
+    )
+    if target_id in block:
+        raise IllegalAction(
+            "blocked_this_levy",
+            f"{target_id} cannot be Mustered this Levy (R11 / R17)",
         )
 
     target = state.lords[target_id]
@@ -1722,8 +1758,67 @@ def _h_system_setup_complete(
 # ---------------------------------------------------------------------------
 
 
+def _h_aow_play_hold(
+    state: "GameState", side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Play a Hold event from the side's `holds` list. The event's
+    effect resolves immediately; the card is discarded (per "discard the
+    moment used"). args.card_id required, plus event-specific args.
+    Phase 4c covers a subset; uncovered holds get a deferred placeholder.
+    """
+    from nevsky.events import resolve_hold_event
+    sd = _require_side_player(state, side)
+    cid = args.get("card_id")
+    if not isinstance(cid, str):
+        raise IllegalAction("missing_arg", "args.card_id required")
+    deck = _side_deck(state, sd)
+    if cid not in deck.holds:
+        raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    result = resolve_hold_event(state, cid, args)
+    deck.holds.remove(cid)
+    deck.discard.append(cid)
+    return ({"card": cid, "result": result}, [])
+
+
+def _h_aow_lordship_plus_2(
+    state: "GameState", side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Use a Lordship-or-shift Hold event for +2 Lordship to a target Lord.
+    Card discarded the moment used. Allowed in Muster (3.4) and Call to
+    Arms (3.5).
+    args.card_id, args.lord_id, args.mode = "lordship" | "shift",
+    args.direction (when mode=shift): "left" | "right".
+    """
+    from nevsky.events import apply_calendar_shift_hold, apply_lordship_plus_2
+    sd = _require_side_player(state, side)
+    cid = args.get("card_id")
+    lord_id = args.get("lord_id")
+    mode = args.get("mode", "lordship")
+    if not (isinstance(cid, str) and isinstance(lord_id, str)):
+        raise IllegalAction("missing_arg", "args.card_id and args.lord_id required")
+    if state.meta.phase != "levy":
+        raise IllegalAction("wrong_phase", "Lordship +2 hold play allowed in Levy only")
+    if state.meta.levy_step not in ("muster", "call_to_arms"):
+        raise IllegalAction("wrong_step", "Lordship +2 hold allowed in Muster or Call to Arms")
+    deck = _side_deck(state, sd)
+    if cid not in deck.holds:
+        raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    if mode == "lordship":
+        result = apply_lordship_plus_2(state, cid, lord_id)
+    elif mode == "shift":
+        direction = args.get("direction", "left")
+        result = apply_calendar_shift_hold(state, cid, lord_id, direction)
+    else:
+        raise IllegalAction("bad_mode", "mode must be lordship or shift")
+    deck.holds.remove(cid)
+    deck.discard.append(cid)
+    return ({"card": cid, "result": result}, [])
+
+
 _HANDLERS: dict[str, Any] = {
     "advance_step": _h_advance_step,
+    "aow_play_hold": _h_aow_play_hold,
+    "aow_lordship_plus_2": _h_aow_lordship_plus_2,
     # 3.1
     "aow_shuffle": _h_aow_shuffle,
     "aow_draw": _h_aow_draw,

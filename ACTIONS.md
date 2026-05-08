@@ -390,3 +390,63 @@ are reset at `command_reveal` so per-card capability budgets work.
   type (`args.transport_type`, default cart) AND restores Mustered
   Forces back up to starting + Mustered Vassal totals. Ship transport
   requires `ships_authorized`.
+
+## Phase 4c: Event triggers
+
+`src/nevsky/events.py` provides resolvers for AoW events.
+
+### State extensions
+
+- `Meta.block_lords_this_levy_t` / `_r`: list of Lord ids forbidden
+  to use Lordship or be Mustered this Levy (R11 / R17). Cleared on
+  Levy -> Campaign transition.
+- `Meta.lordship_bonus`: dict[lord_id, int] of currently active
+  Lordship +2 bonuses from Hold events. Used by `_spend_lordship` to
+  raise the budget. Cleared on Levy -> Campaign transition.
+
+### Immediate event resolvers (called by `aow_implement_card`)
+
+- T1 Grand Prince favors a son
+- T2 Torzhok (Domash assets OR Veche Coin)
+- T11 Pope Gregory issues indulgences (+ adds Crusade capability)
+- T12 Khan Baty
+- T14 Bountiful Harvest (Teutonic): remove Russian Ravaged
+- T15 Mindaugas: place Teutonic Ravaged in Rus within 2 of Ostrov
+- T18 Swedish Crusade (Vladislav AND Karelians shift)
+- R9 Osilian Revolt
+- R10 Batu Khan
+- R11 Valdemar (this-levy block + shift)
+- R12 Mindaugas (Russian): place Russian Ravaged in Livonia within
+  2 of Rositten
+- R14 Prussian Revolt
+- R15 Death of the Pope
+- R16 Tempest (with Cogs awareness)
+- R17 Dietrich von Grueningen (this-levy block + shift)
+- R18 Bountiful Harvest (Russian)
+
+Tier 2 immediate events (battle-context: Bridge / Marsh / Ambush /
+Hill / Field Organ / Raven's Rock) and Tier 3 (Vodian Treachery,
+Heinrich Sees the Curia) return a deferred placeholder for now.
+
+### Hold events (played via `aow_play_hold`)
+
+- **`aow_play_hold`** — `args.card_id` (must be in side's `holds`),
+  plus event-specific args. The card is consumed (moved to discard).
+  Phase 4c implements R3 Pogost; other holds return a deferred
+  placeholder.
+- **`aow_lordship_plus_2`** — `args.card_id`, `args.lord_id`,
+  `args.mode` ∈ {`lordship`, `shift`}, plus `args.direction` for
+  shift mode. Targets per card:
+  - T7 Tverdilo: Hermann or Yaroslav (shift 2 / +2 Lordship).
+  - T8 Teutonic Fervor: Rudolf only.
+  - T17 Dietrich von Grueningen: Andreas or Rudolf.
+  - R8 Prince of Polotsk: any Russian Lord (shift 1 / +2 Lordship).
+  - R13 Pelgui: Vladislav or Karelians.
+  Card consumed; the Lordship bonus persists in
+  `meta.lordship_bonus` until Levy ends.
+
+### Block enforcement
+
+`_spend_lordship` and `muster_lord` reject if the Lord is in the
+side's `block_lords_this_levy_*` list (R11 / R17 effect). The block
+list is cleared at the Levy -> Campaign transition.
