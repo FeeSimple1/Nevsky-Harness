@@ -206,45 +206,50 @@ entry here with:
 
 ---
 
-## Q-004 — Ordensburgen Commanderies (1.3.1)
+## Q-003 — Lieutenants and Marshals (4.1.3)
 
 **Adjudication (verbatim from user, Round 10):**
 
-> Confirmed Commandery list: Wenden, Fellin, Adsel, Leal. No further
-> Strongholds qualify. Ensure
-> `src/nevsky/data/static/locales.json` has `commandery: true` on
-> exactly these four and `false` on all others. Verify
-> `src/nevsky/actions.py::_seats_of` and
-> `src/nevsky/campaign.py::effective_command_rating` reference this
-> list correctly.
+> Implement the permissive interpretation of "neither may currently
+> be a Marshal":
+>
+> * Lords with `marshal_role: "permanent"` (Andreas, Aleksandr) are
+>   always barred from Lieutenant pairings.
+> * Lords with `marshal_role: "secondary"` (Hermann, Andrey) are
+>   barred only when actively filling the Marshal role at the time
+>   the pairing is checked.
+> * Lords with `marshal_role: null` are never barred on Marshal
+>   grounds.
+>
+> Note: "actively filling the Marshal role" requires knowing the
+> current Marshal, which depends on the Q-005 work below. Until that
+> lands, secondary Marshals should be treated as inactive (accepted)
+> outside of Battle Array context.
 
 **Citation.**
-Rules of Play 2E, 1.3.1 Friendly Locale + Commanderies; Playbook
-pages 5/6/8/36 (the four Commanderies named in playthrough text);
-user adjudication that no additional Strongholds qualify.
+Rules of Play 2E, 4.1.3 ("Lieutenants ... Neither Lord may currently
+be a Marshal"); 1.5.1 (Marshal definitions, permanent vs secondary);
+clarified per Q-003 user adjudication.
 
 **Encoded.**
-- `src/nevsky/data/static/locales.json` — `commandery: true` on
-  exactly four Locales: `wenden`, `fellin`, `adsel`, `leal`.
-  `commandery: false` on all other 49 Locales (verified by test).
-- `src/nevsky/actions.py::_seats_of` — `scope == "all_commanderies"`
-  branch matches on the `commandery` flag (not type).
-- `src/nevsky/campaign.py::_effective_command_rating` — Ordensburgen
-  +1 fires whenever a Teutonic Lord starts a Command card at any
-  Commandery, T12 in play.
+- `src/nevsky/campaign.py::_is_currently_marshal` — helper that
+  returns True for permanent-role Lords on map; False for secondary
+  (until Q-005); False for null. The function carries a TODO comment
+  marking the Q-005 integration point (secondary Marshal becomes
+  active when permanent counterpart off-map AND Lord at Front Center).
+- `src/nevsky/campaign.py::_h_place_lieutenant` — applies the helper
+  to BOTH the lieutenant and lower_lord candidates.
 
 **Tests.**
-- `tests/test_audit_fixes.py::test_q004_commandery_set_is_exactly_the_four_confirmed_locales`
-- `tests/test_audit_fixes.py::test_q004_command_rating_plus_one_at_any_commandery_with_t12`
-- (`tests/test_audit_fixes.py::test_audit_006_ordensburgen_*` from
-  Round 9 already cover the static-data and seats wiring.)
+- `tests/test_lieutenants.py::test_q003_permanent_marshal_rejected_as_lieutenant`
+- `tests/test_lieutenants.py::test_q003_permanent_marshal_rejected_russian_side`
+- `tests/test_lieutenants.py::test_q003_secondary_marshal_accepted_when_inactive`
+- `tests/test_lieutenants.py::test_q003_non_marshal_lord_accepted`
+- `tests/test_lieutenants.py::test_q003_is_currently_marshal_helper`
 
-**Out of scope for this PR.** Several existing type checks across
-campaign.py still list `"commandery"` as a possible value of
-`type` (e.g. `_is_friendly_locale`, withdraw-target validation,
-Stronghold-presence). These are vestigial: no Locale has
-`type == "commandery"`. They are harmless but misleading. Cleanup
-deferred to a future code-hygiene pass; not changed here to keep
-the Q-004 PR small and data-only.
+**Side effects.**
+- Existing Lieutenant tests that paired Andreas (permanent Marshal)
+  as Lieutenant were updated to use non-Marshal Lord pairs (yaroslav
+  + knud_and_abel; or hermann + yaroslav for secondary-active tests).
 
 **Commit.** _to be filled after push._
