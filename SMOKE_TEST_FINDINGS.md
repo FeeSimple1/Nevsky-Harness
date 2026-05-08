@@ -320,3 +320,73 @@ choose. Phase 4+ refinement: accept an optional Wastage override arg.
 - ✗ Re-Muster after Disband (still untested by smoke)
 
 Total tests after Round 4: 282.
+
+---
+
+## Round 5 + Tier 2/3 Holds (this PR)
+
+### SMOKE-012 — Steppe Warriors vassal ready-flip wrong (FIXED)
+
+**Reproduction.** RotP at start has Aleksandr mustered. His Mongol
+vassals are tagged `special: "steppe_warriors"` in `lords.json`. Pre-fix,
+`_place_lord_on_map` checked for `special == "mongols"` (which never
+matches), so the vassal's `ready` flag stayed False even when R10 was
+later put in play.
+
+**Fix.** `_place_lord_on_map` now keys off `special == "steppe_warriors"`
+(the actual data label) and reads R10 in `decks.russian.capabilities_in_play`.
+
+### SMOKE-013 — muster_vassal failed to gate Steppe Warriors (FIXED)
+
+**Reproduction.** Same root cause. `_h_muster_vassal` checked
+`special in ("mongols", "kipchaqs")` which never matched. Phase 4d:
+the gate would silently let an "unready" Steppe Warriors vassal through
+(except `vstate.ready` was False, blocking via the unrelated unready
+check). Latent bug: if a future change sets ready=True on a Mongol
+vassal without R10, the gate would not catch it.
+
+**Fix.** `_h_muster_vassal` now keys off `special == "steppe_warriors"`.
+
+Regression: `test_smoke_012_steppe_warriors_vassal_starts_unready_without_r10`,
+`test_smoke_013_steppe_warriors_vassal_gated_in_muster_vassal`,
+`test_steppe_warriors_vassal_musters_with_r10_in_play`.
+
+### Tier 2 battle Holds implemented (NEW)
+
+`stand_battle` accepts `args.holds` to apply Tier 2 hold-event
+modifiers; cards are consumed from holds and moved to discard.
+
+- **Marsh** (T5/R2): opposing Horse units do not Strike Rounds 1-2
+  (Melee + Asiatic Horse Archery).
+- **Hill** (T9/R5): defender's default Archery doubled Rounds 1-2.
+- **Field Organ** (T10): Round 1 Knights + Sergeants Melee +1 each.
+- **Raven's Rock** (R4): Russian defender gets Walls 1-2 vs Melee
+  Round 1 (non-Summer Battle only).
+- **Bridge** (T4/R1): no-op in Phase 4d (front-center modeling not
+  implemented).
+- **Ambush** (T6/R6): no-op in Phase 4d (no flanking).
+
+The `bridge` and `ambush` cards still consume from holds when listed in
+`args.holds`, even if their effect is currently unmodeled.
+
+### Tier 3 events implemented (NEW)
+
+- **T3 Vodian Treachery** (hold): if a Teutonic Lord is strictly closer
+  to Kaibolovo or Koporye (by Way distance) than any Russian, Conquer
+  the target Fort (no Spoils, +1 VP). Blocked by Walls +1 (R18). BFS
+  distance check.
+- **T13 Heinrich Sees the Curia** (hold): Disband Heinrich (must be on
+  map); distribute 4 non-Loot Assets to each of 2 on-map Teutonic Lords.
+  `args.recipients` and optional `args.assets` distribution dict.
+
+Total tests: 292 (+10).
+
+### Remaining round-5 coverage gaps
+
+- ✗ 16-turn Crusade-on-Novgorod run (still untested).
+- ✗ Re-Muster after Disband full path (script attempted but exited
+  early; code path is exercised by other tests).
+
+Phase 4 (per-card AoW effects) is now **functionally complete** modulo
+the simplifications noted above (no flanking, no Routed-vs-Lost
+separation, no full Reposition).

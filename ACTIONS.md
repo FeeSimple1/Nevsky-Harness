@@ -532,3 +532,37 @@ State adds `Lord.lieutenant_of` (str | None) and
   field for transparency.
 
 `resolve_battle(state, ..., concede=None|"attacker"|"defender")`.
+
+## Phase 4d/Round 5: Tier 2 + Tier 3 holds
+
+### Tier 2 battle Holds (consumed via stand_battle args.holds)
+
+```json
+{"type": "stand_battle", "side": "...", "args": {"holds": {
+  "marsh":       "T5" | "R2" | "attacker" | "defender",
+  "hill":        "T9" | "R5" | "attacker" | "defender",
+  "field_organ": "T10" lord_id key value,
+  "raven_rock":  true,
+  "bridge":      "T4" | "R1",
+  "ambush":      "T6" | "R6"
+}}}
+```
+
+Each card-id form is normalized; the cards are moved from holds to
+discard. Effects:
+- marsh: opposing Horse units don't Strike Rounds 1-2 (Melee + Asiatic
+  Horse Archery).
+- hill: defender's default-archery doubled Rounds 1-2.
+- field_organ: Round 1, target Lord's Knights + Sergeants Melee +1 each.
+- raven_rock: Russian defender Walls 1-2 vs Melee Round 1.
+- bridge / ambush: card consumed (no-op effect; flanking unmodeled).
+
+### Tier 3 hold events (via aow_play_hold)
+
+- **T3 Vodian Treachery**: `args.target` ∈ {kaibolovo, koporye}.
+  Conquers if Teutonic Lord is strictly closer (by Way distance) than
+  any Russian. Blocked by Walls +1.
+- **T13 Heinrich Sees the Curia**: `args.recipients` (list of 2
+  Teutonic Lord ids on map), `args.assets` (optional dict
+  `{recipient: {asset_type: count}}` totaling 4 per recipient, no Loot).
+  Disbands Heinrich; adds the Assets.
