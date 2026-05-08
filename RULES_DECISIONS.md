@@ -203,3 +203,53 @@ entry here with:
 - `tests/test_q_001_setup_transport.py` -> renamed
   `tests/test_setup_transport_defaults.py`; +8 rows; +heuristic test.
 - `RULES_QUESTIONS.md` — Q-002 cleared.
+
+---
+
+## Q-003 — Lieutenants and Marshals (4.1.3)
+
+**Adjudication (verbatim from user, Round 10):**
+
+> Implement the permissive interpretation of "neither may currently
+> be a Marshal":
+>
+> * Lords with `marshal_role: "permanent"` (Andreas, Aleksandr) are
+>   always barred from Lieutenant pairings.
+> * Lords with `marshal_role: "secondary"` (Hermann, Andrey) are
+>   barred only when actively filling the Marshal role at the time
+>   the pairing is checked.
+> * Lords with `marshal_role: null` are never barred on Marshal
+>   grounds.
+>
+> Note: "actively filling the Marshal role" requires knowing the
+> current Marshal, which depends on the Q-005 work below. Until that
+> lands, secondary Marshals should be treated as inactive (accepted)
+> outside of Battle Array context.
+
+**Citation.**
+Rules of Play 2E, 4.1.3 ("Lieutenants ... Neither Lord may currently
+be a Marshal"); 1.5.1 (Marshal definitions, permanent vs secondary);
+clarified per Q-003 user adjudication.
+
+**Encoded.**
+- `src/nevsky/campaign.py::_is_currently_marshal` — helper that
+  returns True for permanent-role Lords on map; False for secondary
+  (until Q-005); False for null. The function carries a TODO comment
+  marking the Q-005 integration point (secondary Marshal becomes
+  active when permanent counterpart off-map AND Lord at Front Center).
+- `src/nevsky/campaign.py::_h_place_lieutenant` — applies the helper
+  to BOTH the lieutenant and lower_lord candidates.
+
+**Tests.**
+- `tests/test_lieutenants.py::test_q003_permanent_marshal_rejected_as_lieutenant`
+- `tests/test_lieutenants.py::test_q003_permanent_marshal_rejected_russian_side`
+- `tests/test_lieutenants.py::test_q003_secondary_marshal_accepted_when_inactive`
+- `tests/test_lieutenants.py::test_q003_non_marshal_lord_accepted`
+- `tests/test_lieutenants.py::test_q003_is_currently_marshal_helper`
+
+**Side effects.**
+- Existing Lieutenant tests that paired Andreas (permanent Marshal)
+  as Lieutenant were updated to use non-Marshal Lord pairs (yaroslav
+  + knud_and_abel; or hermann + yaroslav for secondary-active tests).
+
+**Commit.** _to be filled after push._
