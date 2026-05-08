@@ -411,12 +411,98 @@ class BattleDecisionContext:
         return chosen
 
 
+_SALLY_SLOTS = ("sally_left", "sally_center", "sally_right")
+_REARGUARD_SLOTS = ("rearguard_center", "rearguard_left", "rearguard_right")
+_FRONT_SLOTS = ("left", "center", "right")
+
+
+def _array_sally_lords(
+    state: GameState,
+    sallying_lords: list[str],
+    decision_ctx: BattleDecisionContext,
+) -> dict[str, str]:
+    """Q-006 (4.4.1 2E Relief Sally): place Sallying Lords in a row
+    behind the Defenders. The first Sallying Lord goes to sally_center
+    (per analogy with Active at Front center), the rest fill
+    sally_left/sally_right; remainder to sally_reserve. If multiple
+    candidates, operator picks per slot via decision_ctx.
+    """
+    positions: dict[str, str] = {}
+    if not sallying_lords:
+        return positions
+    # First Sallying Lord -> sally_center.
+    if len(sallying_lords) == 1:
+        positions[sallying_lords[0]] = "sally_center"
+        return positions
+    # First Lord defaults to sally_center; if multiple, operator picks.
+    if len(sallying_lords) > 1:
+        center_choice = decision_ctx.decide(
+            "initial_placement_attacker", "sally", list(sallying_lords),
+            {"slot": "sally_center", "phase": "relief_sally_array"},
+        )
+        positions[center_choice] = "sally_center"
+    others = [l for l in sallying_lords if l not in positions]
+    if len(others) == 1:
+        slot = decision_ctx.decide(
+            "initial_placement_attacker", "sally", ["sally_left", "sally_right"],
+            {"lord": others[0], "phase": "relief_sally_array_one_extra"},
+        )
+        positions[others[0]] = slot
+    elif len(others) >= 2:
+        for slot in ("sally_left", "sally_right"):
+            available = [l for l in others if l not in positions]
+            if not available:
+                break
+            chosen = decision_ctx.decide(
+                "initial_placement_attacker", "sally", available,
+                {"slot": slot, "phase": "relief_sally_array"},
+            )
+            positions[chosen] = slot
+        for l in others:
+            if l not in positions:
+                positions[l] = "sally_reserve"
+    return positions
+
+
+def _shift_defender_reserves_to_rearguard(
+    state: GameState,
+    defender_positions: dict[str, str],
+    decision_ctx: BattleDecisionContext,
+) -> None:
+    """Q-006 (4.4.1 2E): when Sallying Lords are present, "Any
+    Defending Lords in Reserve instead position as above opposite
+    Sallying Attackers to fight them as a Rearguard row." This mutates
+    `defender_positions` in place: Reserve -> rearguard_left/center/right.
+    Operator picks per slot. Lords beyond the third remain in Reserve.
+    """
+    reserves = [lid for lid, p in defender_positions.items() if p == "reserve"]
+    if not reserves:
+        return
+    # Fill rearguard center first, then left, then right.
+    for slot in _REARGUARD_SLOTS:
+        available = [
+            lid for lid in reserves
+            if defender_positions.get(lid) == "reserve"
+        ]
+        if not available:
+            break
+        if len(available) == 1:
+            chosen = available[0]
+        else:
+            chosen = decision_ctx.decide(
+                "initial_placement_defender", "defender", available,
+                {"slot": slot, "phase": "rearguard"},
+            )
+        defender_positions[chosen] = slot
+
+
 def _init_battle_array(
     state: GameState,
     attacker_lords: list[str],
     defender_lords: list[str],
     active_attacker: str,
     decision_ctx: BattleDecisionContext,
+    sallying_lords: list[str] | None = None,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """4.4.1 Battle Array (2E):
       - Active Lord at Attacker Front center.
@@ -425,8 +511,15 @@ def _init_battle_array(
       - Defender fills center first opposite Attacker center, then left,
         then right, "as able". If multiple Defenders, operator picks
         which one fills each slot. Excess Defenders go to Reserve.
+      - Q-006: if `sallying_lords` is non-empty, Relief Sally Array
+        applies: Sallying Lords are placed at sally_center / sally_left
+        / sally_right / sally_reserve (behind the Defenders) and any
+        Defender Reserve Lords are shifted to rearguard_center /
+        rearguard_left / rearguard_right (facing Sallying).
 
-    Returns (attacker_positions, defender_positions).
+    Returns (attacker_positions, defender_positions). Sally positions
+    are stored inside attacker_positions; rearguard positions inside
+    defender_positions.
     """
     # Attacker side ---------------------------------------------------
     attacker_positions: dict[str, str] = {}
@@ -479,6 +572,14 @@ def _init_battle_array(
         available.remove(chosen)
     for l in available:
         defender_positions[l] = "reserve"
+    # Q-006 Relief Sally extensions.
+    if sallying_lords:
+        sally_pos = _array_sally_lords(state, sallying_lords, decision_ctx)
+        attacker_positions.update(sally_pos)
+        # Shift Defender Reserves into Rearguard slots.
+        _shift_defender_reserves_to_rearguard(
+            state, defender_positions, decision_ctx,
+        )
     return attacker_positions, defender_positions
 
 
@@ -592,37 +693,125 @@ def _strike_target(
     side_label: str,
     state: GameState,
 ) -> str | None:
-    """4.4.2 Strike target rule:
-      - The Lord directly opposite (same slot on enemy side), if exists
-        AND has Forces.
-      - If Flanking (no enemy directly opposite), the closest enemy
-        Lord in the row. If multiple equally-closest (e.g., striker at
-        center facing empty enemy center with both flanks), the
-        striker side picks (operator decision).
+    """4.4.2 + 4.4.1 Relief Sally Strike target rule:
 
-    Returns the target Lord id, or None if no enemy on the row.
+    For Front Attacker / Front Defender Lords (positions left, center,
+    right):
+      - The Lord directly opposite (same slot on the enemy side), if
+        exists AND has Forces.
+      - Otherwise Flanking: closest enemy Lord in the row. Ties broken
+        by operator decision.
+
+    For Sally row Lords (sally_left/center/right):
+      - If there are Rearguard Lords (rearguard_*), those take priority.
+        Sally targets the directly-opposed Rearguard slot, or — if
+        Flanking — the closest Rearguard Lord in the row.
+      - If no Rearguard, Sallying Lords Flank Front Defenders all
+        equally closely (Q-006 / 4.4.1): operator picks a Front
+        Defender (any slot is "equally closely").
+
+    For Rearguard row Lords (rearguard_*):
+      - Target Sally row directly-opposed (sally_center vs
+        rearguard_center, etc.) or Flank within the sally row.
+
+    Returns the target Lord id, or None if no enemy on the targeted row.
     """
-    opp = _opposite_slot(striker_pos)
-    # Direct-opposite candidates: enemy Lords at the same slot with Forces.
-    direct = [
-        lid for lid, p in enemy_positions.items()
-        if p == opp and lid in state.lords and state.lords[lid].forces
-    ]
-    if direct:
-        # If multiple Lords at same slot (rare in standard rules, but
-        # possible in Relief Sally Rearguard), pick the first.
-        return direct[0]
-    # Flanking: closest in row.
-    front_enemies = [
-        (lid, p) for lid, p in enemy_positions.items()
-        if p in ("left", "center", "right")
-        and lid in state.lords and state.lords[lid].forces
-    ]
-    if not front_enemies:
+    # Determine which row the striker is in: Front (left/center/right),
+    # Sally (sally_*), or Rearguard (rearguard_*).
+    if striker_pos in _FRONT_SLOTS:
+        # Front targets opposite Front row.
+        opp = striker_pos  # mirrored
+        direct = [
+            lid for lid, p in enemy_positions.items()
+            if p == opp and lid in state.lords and state.lords[lid].forces
+        ]
+        if direct:
+            return direct[0]
+        # Flank within Front.
+        targets = [
+            (lid, p) for lid, p in enemy_positions.items()
+            if p in _FRONT_SLOTS
+            and lid in state.lords and state.lords[lid].forces
+        ]
+    elif striker_pos in _SALLY_SLOTS:
+        # Sally targets Rearguard row first.
+        sally_row = striker_pos.replace("sally_", "")  # left/center/right
+        opp = "rearguard_" + sally_row
+        direct = [
+            lid for lid, p in enemy_positions.items()
+            if p == opp and lid in state.lords and state.lords[lid].forces
+        ]
+        if direct:
+            return direct[0]
+        # Flank within Rearguard.
+        rearguard = [
+            (lid, p) for lid, p in enemy_positions.items()
+            if p in _REARGUARD_SLOTS
+            and lid in state.lords and state.lords[lid].forces
+        ]
+        if rearguard:
+            # Convert rearguard_X to its same-row Front position-equivalent
+            # for distance purposes (rearguard_left at distance 0 from
+            # sally_left).
+            def _rg_dist(p: str) -> int:
+                rg = p.replace("rearguard_", "")
+                return _row_distance(sally_row, rg)
+            by_distance = sorted(rearguard, key=lambda kv: _rg_dist(kv[1]))
+            closest_dist = _rg_dist(by_distance[0][1])
+            closest = [lid for lid, p in by_distance if _rg_dist(p) == closest_dist]
+            if len(closest) == 1:
+                return closest[0]
+            chosen = decision_ctx.decide(
+                "flanker_target", side_label, closest,
+                {"striker_slot": striker_pos,
+                 "phase": "sally_rearguard_tiebreak"},
+            )
+            return chosen
+        # No Rearguard: Sally Lords Flank Front Defenders "all equally
+        # closely" (4.4.1 2E). Operator picks among Front Defenders.
+        targets = [
+            (lid, p) for lid, p in enemy_positions.items()
+            if p in _FRONT_SLOTS
+            and lid in state.lords and state.lords[lid].forces
+        ]
+        if not targets:
+            return None
+        if len(targets) == 1:
+            return targets[0][0]
+        chosen = decision_ctx.decide(
+            "flanker_target", side_label, [lid for lid, _ in targets],
+            {"striker_slot": striker_pos, "phase": "sally_flanks_front_equal"},
+        )
+        return chosen
+    elif striker_pos in _REARGUARD_SLOTS:
+        # Rearguard targets Sally row.
+        rg_row = striker_pos.replace("rearguard_", "")
+        opp = "sally_" + rg_row
+        direct = [
+            lid for lid, p in enemy_positions.items()
+            if p == opp and lid in state.lords and state.lords[lid].forces
+        ]
+        if direct:
+            return direct[0]
+        targets = [
+            (lid, p) for lid, p in enemy_positions.items()
+            if p in _SALLY_SLOTS
+            and lid in state.lords and state.lords[lid].forces
+        ]
+    else:
         return None
-    by_distance = sorted(front_enemies, key=lambda kv: _row_distance(striker_pos, kv[1]))
-    closest_dist = _row_distance(striker_pos, by_distance[0][1])
-    closest = [lid for lid, p in by_distance if _row_distance(striker_pos, p) == closest_dist]
+    # Generic Flanking among `targets` (list of (lid, p) tuples).
+    if not targets:
+        return None
+    # Distance is computed by stripping any prefix and using row order.
+    def _slot_index(p: str) -> int:
+        bare = p.split("_")[-1]  # left/center/right
+        return {"left": 0, "center": 1, "right": 2}[bare]
+    striker_idx = _slot_index(striker_pos)
+    by_distance = sorted(targets, key=lambda kv: abs(_slot_index(kv[1]) - striker_idx))
+    closest_dist = abs(_slot_index(by_distance[0][1]) - striker_idx)
+    closest = [lid for lid, p in by_distance
+               if abs(_slot_index(p) - striker_idx) == closest_dist]
     if len(closest) == 1:
         return closest[0]
     chosen = decision_ctx.decide(
@@ -652,6 +841,8 @@ def resolve_battle(
     decision_ctx: BattleDecisionContext | None = None,
     attacker_positions: dict[str, str] | None = None,
     defender_positions: dict[str, str] | None = None,
+    sallying_lords: list[str] | None = None,
+    siegeworks_for_sally: int = 0,
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
@@ -688,8 +879,16 @@ def resolve_battle(
     if active_attacker is None:
         active_attacker = attacker_lords[0] if attacker_lords else ""
     if attacker_positions is None or defender_positions is None:
+        # If sallying_lords provided, the Active Lord is one of the
+        # Marching attackers (NOT a Sallying Lord); they go in the
+        # Front Array. Sallying go in the sally_* row.
+        marching = [l for l in attacker_lords if not (sallying_lords and l in sallying_lords)]
+        if not marching:
+            marching = list(attacker_lords)
+        active = active_attacker if active_attacker in marching else marching[0]
         atk_pos, def_pos = _init_battle_array(
-            state, attacker_lords, defender_lords, active_attacker, decision_ctx,
+            state, marching, defender_lords, active, decision_ctx,
+            sallying_lords=sallying_lords,
         )
     else:
         atk_pos = dict(attacker_positions)
@@ -851,8 +1050,40 @@ def resolve_battle(
                 continue
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
+            # Q-006: Track Hits that came from Sally-row strikers per
+            # target so Siegeworks-vs-Sally walls can be rolled
+            # separately (4.4.1 2E "Siegeworks ... protect against
+            # Strikes by Sallying Attackers only (round separately)").
+            per_target_sally_hits: dict[str, float] = {}
+            for entry in per_striker_log:
+                if entry["striker_slot"] in _SALLY_SLOTS:
+                    tlid = entry["target"]
+                    per_target_sally_hits[tlid] = (
+                        per_target_sally_hits.get(tlid, 0.0) + entry["raw"]
+                    )
             for tlid, raw in per_target_hits.items():
                 hits = _round_up(raw)
+                # Q-006 Siegeworks-vs-Sally walls: if any Hits incoming
+                # to this target came from a Sally striker AND
+                # siegeworks_for_sally > 0, roll Walls separately on
+                # those Hits. Walls range = 1..siegeworks_for_sally.
+                sally_raw = per_target_sally_hits.get(tlid, 0.0)
+                if sally_raw > 0 and siegeworks_for_sally > 0:
+                    sally_hits = _round_up(sally_raw)
+                    sally_absorbed = 0
+                    for _ in range(sally_hits):
+                        r = roll_d6(state)
+                        if r <= siegeworks_for_sally:
+                            sally_absorbed += 1
+                    if sally_absorbed > 0:
+                        distribution.append({
+                            "lord": tlid,
+                            "target": "siegeworks_vs_sally",
+                            "absorbed": sally_absorbed,
+                        })
+                        # Reduce the target's effective Hits by absorbed.
+                        raw = max(0.0, raw - sally_absorbed)
+                        hits = _round_up(raw)
                 # Raven's Rock: Russian defender gets Walls 1-2 vs Melee
                 # Round 1 (R4). Per-Hit roll, applied to each Hit
                 # incoming to the target.
