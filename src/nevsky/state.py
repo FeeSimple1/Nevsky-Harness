@@ -91,6 +91,9 @@ class Meta(BaseModel):
     plan_complete_r: bool = False
     end_campaign_completed_t: bool = False
     end_campaign_completed_r: bool = False
+    block_lords_this_levy_t: list[str] = Field(default_factory=list)
+    block_lords_this_levy_r: list[str] = Field(default_factory=list)
+    lordship_bonus: dict[str, int] = Field(default_factory=dict)
     active_player: Side | None = None
     span_start_box: int = Field(ge=1, le=16)
     span_end_box: int = Field(ge=1, le=16)
