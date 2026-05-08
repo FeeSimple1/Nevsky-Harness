@@ -59,18 +59,18 @@ def main() -> int:
     # Try mustering Mongol vassal WITHOUT R10 -> should fail.
     print(f"\nWithout R10 in play:")
     step(s, {"type": "muster_vassal", "side": "russian",
-              "args": {"by_lord": "aleksandr", "vassal_id": "mongols"}}, expect_illegal=True)
+              "args": {"by_lord": "aleksandr", "vassal_id": "aleksandr_mongols_1"}}, expect_illegal=True)
 
     # Add R10 to capabilities_in_play and flip vassal to ready.
     if "R10" not in s.decks.russian.capabilities_in_play:
         s.decks.russian.capabilities_in_play.append("R10")
-    if "mongols" in s.lords['aleksandr'].vassals:
-        s.lords['aleksandr'].vassals['mongols'].ready = True
+    if "aleksandr_mongols_1" in s.lords['aleksandr'].vassals:
+        s.lords['aleksandr'].vassals['aleksandr_mongols_1'].ready = True
     print(f"\nWith R10 in play, vassal ready=True:")
     step(s, {"type": "muster_vassal", "side": "russian",
-              "args": {"by_lord": "aleksandr", "vassal_id": "mongols"}})
+              "args": {"by_lord": "aleksandr", "vassal_id": "aleksandr_mongols_1"}})
     print(f"  aleksandr forces after: {dict(s.lords['aleksandr'].forces)}")
-    print(f"  mongols.mustered: {s.lords['aleksandr'].vassals['mongols'].mustered}")
+    print(f"  mongols.mustered: {s.lords['aleksandr'].vassals['aleksandr_mongols_1'].mustered}")
 
     print("\n" + "=" * 60)
     print("Round 5b: Lord Disband -> re-Muster cycle")

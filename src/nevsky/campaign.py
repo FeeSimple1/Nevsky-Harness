@@ -295,8 +295,8 @@ def _h_command_reveal(
     """4.2: reveal the top Command card of the active side.
 
     Sets campaign_turn.active_card / active_lord / actions_remaining.
-    Auto-passes when the card is Pass / belongs to a Lower Lord (4.1.3
-    deferred to Phase 3b — for now, Lower-Lord pass not handled) / Lord
+    Auto-passes when the card is Pass / belongs to a Lower Lord (4.1.3:
+    Lower-Lord card resolves as `pass_lower_lord`) / Lord
     not on map (4.2.3).
     """
     sd = _require_side_player(state, side)
@@ -1330,9 +1330,17 @@ HANDLERS = {
 
 
 def _is_laden(state: GameState, lord_id: str) -> bool:
-    """4.3.2: Lord is Laden if carrying any Loot, OR if Provender count
-    exceeds usable Transport count. Phase 3b uses a simplified test
-    (any Loot OR Provender > 2*usable_transport_count).
+    """4.3.2: a Lord is Laden if (a) carrying any Loot, OR (b) carrying
+    more Provender than usable Transport (any amount over). The
+    "more than twice as much Provender as Transport" case (4.3.2
+    bullet 1) is a separate "may not move unless they discard the
+    excess" gate; that gate is not a Laden condition per se. See
+    `_must_discard_to_move_excess` for the gate.
+
+    SMOKE-012 fix (Round 11): pre-fix this function checked
+    `prov > 2 * usable` which was the can't-move threshold, NOT the
+    Laden threshold. Lords with prov in (usable, 2*usable] were
+    incorrectly reported Unladen.
     """
     lord = state.lords[lord_id]
     if lord.assets.get("loot", 0) > 0:
@@ -1350,7 +1358,30 @@ def _is_laden(state: GameState, lord_id: str) -> bool:
         elif t == "ship" and season in ("summer", "rasputitsa"):
             usable += n
     prov = lord.assets.get("provender", 0)
-    return prov > 2 * usable
+    return prov > usable
+
+
+def _must_discard_to_move_excess(state: GameState, lord_id: str) -> int:
+    """4.3.2 bullet 1: a Lord with more than twice as much Provender
+    as usable Transport may NOT move unless he discards the excess.
+    Returns the number of Provender that must be discarded (max(0,
+    prov - 2*usable)). Loot is unrelated to this gate.
+    """
+    lord = state.lords[lord_id]
+    season = _season_of_box(state.meta.box)
+    usable = 0
+    for t in ("boat", "cart", "sled", "ship"):
+        n = lord.assets.get(t, 0)
+        if t == "boat" and season in ("summer", "rasputitsa"):
+            usable += n
+        elif t == "cart" and season == "summer":
+            usable += n
+        elif t == "sled" and season in ("early_winter", "late_winter", "rasputitsa"):
+            usable += n
+        elif t == "ship" and season in ("summer", "rasputitsa"):
+            usable += n
+    prov = lord.assets.get("provender", 0)
+    return max(0, prov - 2 * usable)
 
 
 def _enemies_at(state: GameState, locale_id: str, side: Side) -> list[str]:
@@ -1431,6 +1462,25 @@ def _h_cmd_march(
             raise IllegalAction("bad_group", f"{gid} not at {src}")
         if _is_besieged(state, gid):
             raise IllegalAction("besieged", f"{gid} is Besieged; cannot March")
+        # SMOKE-012 (4.3.2): a Lord with more than twice usable Transport
+        # in Provender may NOT move unless they discard the excess. The
+        # caller can pass args.discard_excess_provender = True to
+        # auto-discard before March (1.7.2 Greed permits discard for
+        # March/Avoid Battle/Retreat/Sail).
+        excess = _must_discard_to_move_excess(state, gid)
+        if excess > 0:
+            if args.get("discard_excess_provender"):
+                state.lords[gid].assets["provender"] = max(
+                    0, state.lords[gid].assets.get("provender", 0) - excess
+                )
+                if state.lords[gid].assets.get("provender") == 0:
+                    state.lords[gid].assets.pop("provender", None)
+            else:
+                raise IllegalAction(
+                    "excess_provender",
+                    f"{gid} has {excess} more Provender than 2x usable Transport "
+                    f"(4.3.2); pass args.discard_excess_provender=True to discard"
+                )
 
     # Action cost: 2 if any group member is Laden, else 1.
     laden = any(_is_laden(state, gid) for gid in group)

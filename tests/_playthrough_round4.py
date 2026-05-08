@@ -76,14 +76,15 @@ def main() -> int:
     s.lords["gavrilo"].in_stronghold = True
     s.locales["pskov"].siege_markers = 3  # 3 markers in place
 
-    print(f"\n[Plan] Lieutenants: yaroslav serves under hermann at izborsk")
+    print(f"\n[Plan] Lieutenants: knud_and_abel serves under yaroslav at izborsk\n"
+          f"  (Hermann is secondary Marshal active in Pleskau -> can't be Lieutenant per Q-003)")
     # Test 1: Try place_lieutenant during Plan.
     from nevsky.campaign import _plan_target_size
     target = _plan_target_size(s.meta.box)
     res = step(s, {"type": "place_lieutenant", "side": "teutonic",
-                    "args": {"lieutenant": "hermann", "lower_lord": "yaroslav"}})
-    assert s.lords["yaroslav"].lieutenant_of == "hermann"
-    assert s.lords["hermann"].has_lower_lord == "yaroslav"
+                    "args": {"lieutenant": "yaroslav", "lower_lord": "knud_and_abel"}})
+    assert s.lords["knud_and_abel"].lieutenant_of == "yaroslav"
+    assert s.lords["yaroslav"].has_lower_lord == "knud_and_abel"
 
     # Plan: hermann x2, yaroslav x1 (will resolve as Pass), then 3 Pass.
     # Plan target = 6 (Summer, Pleskau).
