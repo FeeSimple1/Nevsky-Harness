@@ -525,9 +525,9 @@ def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
     on the Calendar by the lord_id string in `service_markers` lists.
     """
     cal = state.calendar
-    # Find current Service-marker box; if past-right, treat as box=17.
+    # Find current Service-marker box; off_right_service covers past-right.
     cur_box: int | None = None
-    if lord_id in cal.off_right:
+    if lord_id in cal.off_right_service:
         cur_box = 17
     else:
         for cb in cal.boxes:
@@ -541,10 +541,10 @@ def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
             f"{lord_id} has no Service marker on Calendar",
         )
     if cur_box == 17:
-        cal.off_right.remove(lord_id)
+        cal.off_right_service.remove(lord_id)
     new_box = cur_box + boxes
     if new_box > 16:
-        cal.off_right.append(lord_id)
+        cal.off_right_service.append(lord_id)
         return 17
     cal.boxes[new_box - 1].service_markers.append(lord_id)
     return new_box
@@ -769,9 +769,9 @@ def _find_levy_marker_box(state: GameState) -> int:
 
 
 def _find_service_marker_box(state: GameState, lord_id: str) -> int | None:
-    if lord_id in state.calendar.off_right:
+    if lord_id in state.calendar.off_right_service:
         return 17
-    if lord_id in state.calendar.off_left:
+    if lord_id in state.calendar.off_left_service:
         return 0
     for cb in state.calendar.boxes:
         if lord_id in cb.service_markers:
@@ -808,6 +808,10 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
         cal.off_left.remove(lord_id)
     if lord_id in cal.off_right:
         cal.off_right.remove(lord_id)
+    if lord_id in cal.off_left_service:
+        cal.off_left_service.remove(lord_id)
+    if lord_id in cal.off_right_service:
+        cal.off_right_service.remove(lord_id)
 
 
 def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int) -> None:
@@ -838,12 +842,14 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     lord.location = None
     lord.lordship_used = 0
     cal = state.calendar
-    # Remove service marker from Calendar.
+    # Remove service marker from Calendar (boxes + off_*_service).
     for cb in cal.boxes:
         if lord_id in cb.service_markers:
             cb.service_markers.remove(lord_id)
-    if lord_id in cal.off_right:
-        cal.off_right.remove(lord_id)
+    if lord_id in cal.off_left_service:
+        cal.off_left_service.remove(lord_id)
+    if lord_id in cal.off_right_service:
+        cal.off_right_service.remove(lord_id)
     # Remove cylinder from current location, then place at new_box.
     for cb in cal.boxes:
         if lord_id in cb.cylinders:
@@ -1162,10 +1168,10 @@ def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int)
     for cb in cal.boxes:
         if lord_id in cb.service_markers:
             cb.service_markers.remove(lord_id)
-    if lord_id in cal.off_right:
-        cal.off_right.remove(lord_id)
+    if lord_id in cal.off_right_service:
+        cal.off_right_service.remove(lord_id)
     if sm_box > 16:
-        cal.off_right.append(lord_id)
+        cal.off_right_service.append(lord_id)
     else:
         cal.boxes[sm_box - 1].service_markers.append(lord_id)
 

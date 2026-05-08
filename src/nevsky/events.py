@@ -64,9 +64,9 @@ def _shift_cylinder(state: GameState, lord_id: str, boxes: int, direction: str) 
 def _shift_service(state: GameState, lord_id: str, boxes: int, direction: str) -> int:
     cal = state.calendar
     cur = None
-    if lord_id in cal.off_right:
+    if lord_id in cal.off_right_service:
         cur = 17
-        cal.off_right.remove(lord_id)
+        cal.off_right_service.remove(lord_id)
     else:
         for cb in cal.boxes:
             if lord_id in cb.service_markers:
@@ -80,7 +80,7 @@ def _shift_service(state: GameState, lord_id: str, boxes: int, direction: str) -
     else:
         new = cur + boxes
         if new > 16:
-            cal.off_right.append(lord_id)
+            cal.off_right_service.append(lord_id)
             return 17
     cal.boxes[new - 1].service_markers.append(lord_id)
     return new

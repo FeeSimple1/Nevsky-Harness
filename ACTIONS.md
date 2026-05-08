@@ -566,3 +566,33 @@ discard. Effects:
   Teutonic Lord ids on map), `args.assets` (optional dict
   `{recipient: {asset_type: count}}` totaling 4 per recipient, no Loot).
   Disbands Heinrich; adds the Assets.
+
+## Round 7: Architectural updates
+
+### Calendar off-edges (cylinders vs service markers)
+
+`Calendar.off_left` and `Calendar.off_right` carry CYLINDERS only.
+`Calendar.off_left_service` and `Calendar.off_right_service` carry
+SERVICE MARKERS only. Helpers that operate on cylinders use the
+former; helpers operating on Service markers use the latter.
+`_remove_lord_permanently` and `_disband_at_limit` clear from BOTH.
+
+### Routed-vs-Lost (4.4.4)
+
+`Lord.routed_units: dict[ForceType, int]` is the Routed pile during
+Battle. During engagement, failed-Protection units move from
+`forces` to `routed_units` (cannot strike or absorb further this
+Battle/Storm). After engagement:
+
+- Winner Lord: routed pile returned wholesale to `forces`.
+- Loser Lord: `apply_losses_rolls(state, lord_id, loser_state)` rolls
+  1d6 per Routed unit. Threshold by loser_state:
+    - "retreated_no_concede" / "storm_attacker": roll==1 keeps
+    - "withdrew" / "conceded_then_retreated": roll within unmodified
+      Protection range keeps
+    - "removed": all routed units lost
+  Asiatic Horse always uses Evade range. Successful rolls return the
+  unit to `forces`; failed rolls are permanently lost.
+
+`stand_battle` invokes Losses rolls automatically for loser Lords;
+result includes a `losses` field per Lord with detailed per-unit rolls.

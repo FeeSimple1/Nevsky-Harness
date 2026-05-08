@@ -237,9 +237,12 @@ def _resolve_hits(
             absorbed += 1
             routed_log.append({"unit": utype, "absorbed": True})
         else:
+            # 4.4.4: Routed units move to Lord's routed_units pile, NOT
+            # deleted. Losses rolls in Aftermath decide their fate.
             units[utype] = max(0, units.get(utype, 0) - 1)
             if units.get(utype, 0) == 0:
                 del units[utype]
+            lord.routed_units[utype] = lord.routed_units.get(utype, 0) + 1  # type: ignore[index]
             routed_log.append({"unit": utype, "absorbed": False})
     return {"hits": hits, "absorbed": absorbed, "routed": routed_log}
 
@@ -741,3 +744,91 @@ def resolve_storm(
     # Time out: attacker loses (rounds_completed >= siege_markers).
     return {"rounds": rounds, "winner": "defender", "loser": "attacker",
             "log": log, "stalemate": True, "garrison_remaining": g_units}
+
+
+def apply_losses_rolls(
+    state: GameState,
+    lord_id: str,
+    loser_state: str,
+) -> dict:
+    """4.4.4 Losses: for each Routed unit, roll 1d6.
+
+    Threshold by loser_state:
+      - "retreated_no_concede": needs roll == 1 to keep
+      - "storm_attacker":       needs roll == 1 to keep
+      - "withdrew" or "conceded_then_retreated":
+            needs roll within unmodified Protection range
+      - "removed":              all routed units lost (Lord was wiped)
+
+    Asiatic Horse always uses Evade range.
+
+    Successful rolls: unit returns to lord.forces.
+    Failed rolls: unit permanently lost (removed from routed_units).
+    """
+    from nevsky.rng import roll_d6
+
+    lord = state.lords[lord_id]
+    if not lord.routed_units:
+        return {"lord_id": lord_id, "rolls": []}
+    rolls = []
+    forces_table = load_forces()
+    routed = dict(lord.routed_units)
+    for utype, n in routed.items():
+        spec = forces_table[utype]
+        # Determine threshold.
+        if loser_state == "removed":
+            keep = 0  # all lost
+        elif loser_state in ("retreated_no_concede", "storm_attacker"):
+            keep = 1  # only roll == 1 keeps
+        elif loser_state in ("withdrew", "conceded_then_retreated"):
+            # Unmodified Protection range. For armor: 1-N. For evade: 1-N.
+            # For unarmored / serfs / asiatic_horse-archery: 1.
+            prot = spec["protection_battle_melee"]
+            if utype == "asiatic_horse":
+                # Asiatic Horse always uses Evade range.
+                prot = "evade:1-3"
+            if prot == "none":
+                keep = 0
+            elif prot == "unarmored":
+                keep = 1
+            elif prot.startswith("armor:1-"):
+                keep = int(prot.split("-", 1)[1])
+            elif prot.startswith("evade:1-"):
+                keep = int(prot.split("-", 1)[1])
+            else:
+                keep = 0
+        else:
+            keep = 1
+        rolls_for_type = []
+        kept = 0
+        lost = 0
+        for _ in range(n):
+            r = roll_d6(state)
+            if r <= keep:
+                kept += 1
+                rolls_for_type.append({"roll": r, "outcome": "kept"})
+            else:
+                lost += 1
+                rolls_for_type.append({"roll": r, "outcome": "lost"})
+        # Move kept back to forces; lost just removed.
+        if kept > 0:
+            lord.forces[utype] = lord.forces.get(utype, 0) + kept  # type: ignore[index]
+        # Clear routed pile entry.
+        del lord.routed_units[utype]
+        rolls.append({
+            "unit": utype, "n_routed": n, "keep_threshold": keep,
+            "kept": kept, "lost": lost, "rolls": rolls_for_type,
+        })
+    return {"lord_id": lord_id, "rolls": rolls}
+
+
+def clear_routed_pile(state: GameState, lord_id: str) -> int:
+    """Discard all routed_units for a Lord without rolling. Returns
+    count discarded. Used for permanent-removal cases where the Lord
+    is leaving the game anyway."""
+    if lord_id not in state.lords:
+        return 0
+    lord = state.lords[lord_id]
+    n = sum(lord.routed_units.values())
+    lord.routed_units = {}
+    return n
