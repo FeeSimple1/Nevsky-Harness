@@ -390,3 +390,89 @@ Total tests: 292 (+10).
 Phase 4 (per-card AoW effects) is now **functionally complete** modulo
 the simplifications noted above (no flanking, no Routed-vs-Lost
 separation, no full Reposition).
+
+---
+
+## Round 6 (this PR): aggressive bug hunt — 0 new bugs found
+
+The harness was put through three aggressive sweeps targeting the
+remaining smoke gaps and likely bug sites. **No new bugs surfaced.**
+
+### 1. 16-turn Crusade-on-Novgorod run
+
+Full longest scenario (boxes 1-16, both years) with all-pass plans on
+both sides. Per-turn invariant checks: Lord locations valid, Veche
+caps held, VP non-negative, asset caps held, sequence monotonic,
+phase transitions valid.
+
+**Result:** 1015 actions executed, 0 invariant violations. Game
+correctly ends at box 16 with `campaign_step="done"`.
+
+Encoded as `test_full_16_turn_crusade_run_no_invariant_violation`.
+
+### 2. Re-Muster after Disband
+
+Yaroslav at-limit Disband (3.3.2) places his cylinder back on
+Calendar (service rating boxes right of current); his this-lord
+capability returns to deck (3.4.4); Lord state transitions
+mustered -> disbanded; forces / assets cleared. He can be re-Mustered
+later via standard 3.4.1 muster_lord.
+
+Encoded as `test_remuster_after_at_limit_disband`,
+`test_disband_cap_returns_to_deck`.
+
+### 3. Edge-case sweep (no bugs)
+
+- Calendar off-edges: Pay shifting Service marker past box 16 places
+  it in `off_right` correctly.
+- Stronghold capacity exact (3 -> City) and over-capacity (4 -> reject).
+- Veche options at VP=0 all reject `insufficient_vp`.
+- Veche VP cap at 8 forfeits excess on Decline (1.4.2).
+- Decline with only one Ready prince slides only that prince.
+- Decline with neither prince Ready rejects `decline_unavailable`.
+- cmd_pass with 0 actions rejects `no_actions_left`.
+- Sail to non-Seaport rejects `not_seaport`.
+- levy_capability of a no-event card rejects `bad_card`.
+- Pay with 0 units rejects `bad_units`.
+- aow_play_hold of a card not in holds rejects `not_in_holds`.
+- levy_transport at 8/8 cap rejects `transport_max`.
+- Ravage same locale twice rejects `already_ravaged`.
+- muster_vassal of already-mustered vassal rejects `already_mustered`.
+- legate_use 2a on a non-Ready Lord rejects `bad_target`.
+- Serfs (no Protection) rout unconditionally on any Hit.
+- Mutual destruction Battle (1v1, both empty after rout) ends with
+  one side declared loser, the other winner.
+
+### One false positive (test logic, not harness)
+
+A test asserted that an unfed Lord at box 1 ends up either in
+`off_left` or in some calendar box's service_markers. In fact, the
+harness correctly applies the unfed shift LEFT (placing in off_left)
+and then the same FPD's 4.8.2 Disband check finds the Lord
+at-or-left-of Levy and permanently removes him. The Lord is removed
+and the service marker is cleared. The test's invariant was too narrow.
+
+### Coverage status
+
+After 6 rounds of smoke testing, the harness has executed:
+- Scenario load + setup transports.
+- Full Levy phase (all sub-steps) under varied conditions.
+- Campaign all-pass flow.
+- Real Battle with permanent removal + Spoils transfer.
+- Withdraw + Sally + Storm including Sack.
+- Multi-Levy/Campaign sequence with Plow & Reap.
+- 16-turn full scenario with invariant checks.
+- Re-Muster after Disband.
+- Lieutenants pairing + Lower-Lord auto-Pass.
+- Concede the Field + Pursuit modifier.
+- Tier 2 battle Holds (Marsh, Hill, Field Organ, Raven's Rock).
+- Tier 3 hold events (Vodian Treachery, Heinrich Sees the Curia).
+- Steppe Warriors gating + Mongol vassal Muster.
+- Veche Decline / Auto-Muster / Extra Muster / VP cap / VP exhaustion.
+- Legate Arrives + use 2a/2b/2c.
+- All twelve action-rejection edge cases above.
+
+Total tests: 310 (up from 292 in Round 5).
+
+The harness is **deployment-ready** for an LLM agent to drive a Nevsky
+game.
