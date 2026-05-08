@@ -350,3 +350,43 @@ keyed off `cards.json` capability_name.
 - **`cmd_muster_serf`** (R4 Smerdi): 1 Command action. Active Russian
   Lord Unbesieged in Rus may Muster 1 Serf. Total Serfs in play across
   all Russian Mustered Lords cannot exceed 6 (Smerdi pool cap).
+
+## Phase 4b: Economy & Movement Capabilities
+
+### Per-card flags
+
+`Lord.first_march_used_this_card` and `Lord.raiders_used_this_card`
+are reset at `command_reveal` so per-card capability budgets work.
+
+### Capability hooks
+
+- **Converts** (T3, this-lord): the FIRST March of each Command card
+  costs 0 actions when the Marching group includes any Lord with
+  Converts AND any Lord with Light Horse. Implementation: cmd_march
+  detects this and overrides `cost = 0`.
+- **Raiders** (T2 / R12 / R14, this-lord): new action
+  `cmd_raiders_ravage` (1 action). Adjacent target Locale; standard
+  Ravage eligibility (enemy territory, not Conquered, not Friendly,
+  not already Ravaged). T2 (Teutonic): Trackway only, once per card,
+  +Loot if non-Region. R12/R14 (Russian): any Way, multiple per card,
+  no Loot.
+- **Ransom** (T16 / R7, side-wide): `apply_ransom(state, removed_lord,
+  killer_side, locale_id)` is called in Battle and Storm Aftermath
+  paths when an enemy Lord is permanently removed; if the killer side
+  has Ransom in play, +Coin equal to the removed Lord's Service rating
+  goes to a friendly Lord present at the same locale.
+- **Cogs** (T18, this-lord) / **Lodya** (R16, this-lord):
+  `effective_ship_count(state, lord_id)` and
+  `effective_boat_count(state, lord_id)` apply doublers. R9 Baltic
+  Sea Trade ship comparison uses these. Sail / Supply ship validation
+  is left for Phase 4 refinement.
+- **Hillforts of the Sword Brethren** (T8, side-wide): `fpd_resolve`
+  picks one Unbesieged Teutonic Lord in `crusader_livonia` and skips
+  Feed for that Lord (he records `hillforts_skipped: True` in the
+  feed log).
+- **Veliky Knyaz** (R17, this-lord): `cmd_tax` is replaced with a
+  Veliky-Knyaz-aware variant. When the active Lord has the capability,
+  Tax adds the standard +1 Coin AND adds 2 of the chosen Transport
+  type (`args.transport_type`, default cart) AND restores Mustered
+  Forces back up to starting + Mustered Vassal totals. Ship transport
+  requires `ships_authorized`.
