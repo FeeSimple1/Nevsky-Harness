@@ -863,3 +863,56 @@ The `resolve_storm` docstring is updated to reference Q-006.
 - Q-004: Ordensburgen Commanderies — full set verification from map.
 - Q-005: Battle Array three-front-positions and Flanking.
 - Q-006: Relief Sally Array (depends on Q-005).
+
+
+# Round 10 — Q-003, Q-004, Q-005 closure
+
+User adjudicated Q-003, Q-004, Q-005, Q-006 at Round 10. This entry
+covers Q-003 / Q-004 / Q-005 status; Q-006 is a follow-up PR.
+
+## Q-003 (closed in q-003-lieutenants-marshals)
+- `_is_currently_marshal` helper added to campaign.py.
+- Permanent Marshals (Andreas, Aleksandr) always barred from
+  Lieutenant pairings. Secondary Marshals (Hermann, Andrey) barred
+  only when actively filling the role; until Q-005 has Front Center
+  data, the helper returns False for secondaries.
+- 5 new regression tests; existing Lieutenant tests rebuilt to use
+  non-Marshal Lord pairs. 314 → 319 tests on that branch.
+
+## Q-004 (closed in q-004-ordensburgen-confirm)
+- Commandery set locked at exactly Wenden, Fellin, Adsel, Leal.
+- 2 new regression tests pin the set and verify Ordensburgen +1
+  Command at all four when T12 is in play.
+- The Round 9 wiring is unchanged; this PR is data lock-in plus the
+  decision record.
+
+## Q-005 (closed in q-005-battle-array-three-positions)
+- CombatPending grew `attacker_positions` and `defender_positions`
+  fields tracking each Lord's Front slot.
+- BattleDecisionContext class added — scripted_decisions FIFO list,
+  optional callback, or deterministic leftmost fallback.
+- New helpers in battle.py: `_init_battle_array`,
+  `_remove_routed_from_array`, `_reposition`, `_strike_target`.
+- `resolve_battle` refactored to per-position Strike resolution:
+  per-striker raw Hits → route via `_strike_target` → aggregate per
+  target → round up per target → apply via `_resolve_hits`.
+- `cmd_stand_battle` threads `scripted_decisions` /
+  `decision_callback` through to `resolve_battle`.
+- BRIEF.md gains an "Engine / Operator Split — Battle decisions"
+  section documenting the protocol.
+- 11 new regression tests covering placement, Flanking, Reposition,
+  decision protocol. 314 → 325 tests.
+- All 314 pre-Q-005 tests continue to pass under the new engine via
+  the leftmost deterministic fallback.
+
+## Open follow-ups
+
+- **Q-006** (Relief Sally Array): builds on Q-005's three-position
+  model. Pending PR.
+- **Storm Reposition** (4.5.2 page 17): Storm has its own
+  one-Lord-Front Array with a Reposition step ("switch Front and any
+  Reserve Lord"). Not addressed in Q-005's scope. Likely a future
+  Q-007.
+- **Q-003 + Q-005 integration**: secondary Marshal at Front Center
+  should count as currently-active for the Lieutenant exclusion.
+  Small follow-up commit after both branches land.

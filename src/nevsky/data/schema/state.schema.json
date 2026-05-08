@@ -208,6 +208,13 @@
           "title": "Attacker Group",
           "type": "array"
         },
+        "attacker_positions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Attacker Positions",
+          "type": "object"
+        },
         "attacker_side": {
           "enum": [
             "teutonic",
@@ -222,6 +229,13 @@
           },
           "title": "Defender Lords",
           "type": "array"
+        },
+        "defender_positions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Defender Positions",
+          "type": "object"
         },
         "defender_side": {
           "enum": [

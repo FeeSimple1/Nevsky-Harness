@@ -299,3 +299,41 @@ Networked / multi-user play.
 Sharing or distribution; this is a private project.
 Anything not directly serving "run a Nevsky game with state persistence,
 rules enforcement, and an LLM-friendly interface."
+
+Engine / Operator Split — Battle decisions
+The harness's Battle resolution (resolve_battle) faithfully implements
+the 2E three-position Array with Flanking, Reposition, and per-position
+Strike resolution (Q-005). Some moments in a Battle require player
+judgment that no deterministic rule pins down: which Reserve to advance,
+which left/right Lord to slide to center, where to direct Hits when a
+Flanker creates ambiguity, and similar.
+
+These choice points flow through a BattleDecisionContext. The engine
+generates the legal options at each choice point and asks the context
+for a selection. The context resolves the request in one of three
+ways, in priority order:
+  1. scripted_decisions list (FIFO, consumed in order). Used by tests
+     to pin operator choices. A type mismatch raises immediately.
+  2. callback (callable). Used by live play; the harness invokes the
+     callback with {type, side, options, info} and expects a return
+     value present in options.
+  3. deterministic fallback ("leftmost"). Used when neither scripted
+     nor callback is provided; picks options[0]. Keeps the harness
+     usable as a deterministic black box.
+
+Decision types:
+  initial_placement_attacker — non-Active Attacker Lord into a slot
+  initial_placement_defender — Defender Lord into a slot
+  reserve_advance            — which Reserve advances to which slot
+  center_fill                — which left/right Lord fills empty center
+  flanker_target             — Flanker tie-break when multiple targets
+                               are equally close
+
+The full decision trace appears under result["decisions"] for any
+Battle, so a reproduced Battle from a state file plus a recorded
+scripted_decisions list will replay deterministically.
+
+Tests must use scripted_decisions for any Battle they assert outcomes
+on. The leftmost fallback is acceptable only for tests that verify
+structural properties (winner exists, positions are valid, etc.) and
+not for tests that pin specific Hit counts or Lord-Routs.

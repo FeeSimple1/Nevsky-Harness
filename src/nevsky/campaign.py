@@ -1589,12 +1589,34 @@ def _h_stand_battle(
     if holds_arg:
         from nevsky.events import _consume_battle_holds
         consumed_holds = _consume_battle_holds(state, cp, holds_arg)
+    # Q-005: thread per-Lord Array positions and operator decisions
+    # through resolve_battle. The cp.attacker_group's first entry is
+    # the Active Lord (the one whose Command card triggered the
+    # March). args may include "scripted_decisions" (list[dict]) for
+    # tests/scripted play; live callers can pass a callback via
+    # "decision_callback".
+    from nevsky.battle import BattleDecisionContext
+    scripted = args.get("scripted_decisions") or []
+    decision_ctx = BattleDecisionContext(
+        scripted=list(scripted),
+        callback=args.get("decision_callback"),
+    )
+    active_attacker = (
+        cp.attacker_group[0] if cp.attacker_group else None
+    )
+    # Reuse pre-set positions if cmd_stand_battle was called with them.
+    pre_atk_pos = cp.attacker_positions or None
+    pre_def_pos = cp.defender_positions or None
     result = resolve_battle(
         state, attacker_side=cp.attacker_side,
         attacker_lords=list(cp.attacker_group),
         defender_lords=list(cp.defender_lords),
         concede=concede,
         holds=holds_arg,
+        active_attacker=active_attacker,
+        decision_ctx=decision_ctx,
+        attacker_positions=pre_atk_pos,
+        defender_positions=pre_def_pos,
     )
     if consumed_holds:
         result["holds_consumed"] = consumed_holds

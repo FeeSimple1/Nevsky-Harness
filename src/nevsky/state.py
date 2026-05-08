@@ -191,6 +191,14 @@ class CombatPending(BaseModel):
     pending_response_by: Side
     laden: bool = False
 
+    # Q-005 (4.4.1 2E): per-Lord position in the Battle Array.
+    # Maps lord_id -> "left" | "center" | "right" | "reserve".
+    # Empty until resolve_battle has run _init_battle_array. Populated
+    # for all participating Lords on each side; never includes the
+    # other side's Lords.
+    attacker_positions: dict[str, str] = Field(default_factory=dict)
+    defender_positions: dict[str, str] = Field(default_factory=dict)
+
 
 class VassalState(BaseModel):
     """Per-Vassal mutable state.
