@@ -72,41 +72,133 @@ def load_scenario_raw(scenario_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-# Per-scenario / lord / slot Transport defaults per Q-001 decision
-# (RULES_DECISIONS.md). Values are lists of strings (one per slot) drawn
-# from {"boat","cart","sled","ship"}. Order matches the slot index in
-# lords.json starting_transport_choice. Slots not listed here use the
-# loader's general heuristic (fallback to first allowed option).
-_Q001_DEFAULTS: dict[str, dict[str, list[str]]] = {
+# Per-scenario / lord / slot Transport defaults per Q-001 + Q-002
+# decisions (RULES_DECISIONS.md). Values are lists of strings (one per
+# slot) drawn from {"boat","cart","sled","ship"}. Order matches the
+# slot index in lords.json starting_transport_choice. Slots not listed
+# here use _heuristic_setup_transport_default below.
+#
+# Two slot types per Q-002:
+#   (any)     -> {boat, cart, sled, ship}: Andreas, Vladislav, Andrey,
+#                Domash, Gavrilo, Karelians, Aleksandr.
+#   (no Ship) -> {boat, cart, sled}:        Hermann, Rudolf, Yaroslav.
+# Allowed values per slot are read from lords.json starting_transport_
+# choice options (which encodes mat ships_authorized).
+_SETUP_TRANSPORT_DEFAULTS: dict[str, dict[str, list[str]]] = {
     "pleskau": {
+        # Q-001 (any) slots:
         "gavrilo":   ["cart"],
         "vladislav": ["boat"],
+        # Q-002 (no Ship) slots:
+        "hermann":   ["cart"],   # Dorpat trackways into Rus (rule 3b)
+        "yaroslav":  ["cart"],   # Odenpah trackways (rule 3b)
     },
     "watland": {
         "andreas":   ["sled", "sled"],
         "domash":    ["sled"],
         "vladislav": ["sled"],
+        # Q-002:
+        "yaroslav":  ["sled"],   # Pskov, Late Winter start (rule 1)
     },
     "return_of_the_prince": {
         "andreas":   ["ship", "cart"],
         "aleksandr": ["boat", "cart"],
+        # Q-002: Hermann is Calendar-at-start in RotP (no row needed).
     },
     "return_of_the_prince_nicolle": {
         "andreas":   ["ship", "cart"],
         "aleksandr": ["boat", "cart"],
         "gavrilo":   ["cart"],
+        # Q-002:
+        "hermann":   ["cart"],   # Dorpat (rule 3b)
     },
     "peipus": {
         "aleksandr": ["sled", "sled"],
         "andrey":    ["sled", "sled"],
         "domash":    ["sled"],
         "karelians": ["sled"],
+        # Q-002:
+        "hermann":   ["sled"],   # Dorpat, Late Winter start (rule 1)
+        "yaroslav":  ["sled"],   # Pskov, Late Winter start (rule 1)
     },
     "crusade_on_novgorod": {
         "gavrilo":   ["cart"],
         "vladislav": ["boat"],
+        # Q-002:
+        "hermann":   ["cart"],   # Dorpat (rule 3b)
+        "yaroslav":  ["cart"],   # Odenpah (rule 3b)
     },
 }
+
+# Backward-compatibility alias for existing callers.
+_Q001_DEFAULTS = _SETUP_TRANSPORT_DEFAULTS
+
+
+def _season_for_box(box: int) -> str:
+    """Calendar season per box. Reuses nevsky.actions._season_of_box but
+    in-module to avoid an import cycle (actions imports scenarios)."""
+    table = {
+        1: "summer", 2: "summer",
+        3: "early_winter", 4: "early_winter",
+        5: "late_winter", 6: "late_winter",
+        7: "rasputitsa", 8: "rasputitsa",
+        9: "summer", 10: "summer",
+        11: "early_winter", 12: "early_winter",
+        13: "late_winter", 14: "late_winter",
+        15: "rasputitsa", 16: "rasputitsa",
+    }
+    return table.get(box, "summer")
+
+
+def _heuristic_setup_transport_default(
+    scenario_id: str,
+    lord_id: str,
+    locale_id: str,
+    season: str,
+    slot_count: int,
+    allowed: list[str],
+) -> list[str]:
+    """Q-001 / Q-002 heuristic decision tree for un-tabled (lord, locale,
+    scenario) tuples. Returns a list of slot defaults of length slot_count.
+
+    Decision tree (apply in order; stop at first match):
+      1. Winter rule. Season is early_winter or late_winter -> Sled for
+         every slot.
+      2. Summer/Rasputitsa, 2-slot Lord. Pick one Ship-or-Boat slot and
+         one Cart slot:
+           2a. Locale is a Seaport AND Lord is Ship-authorized (Ship in
+               allowed) -> [Ship, Cart].
+           2b. Locale is Novgorod -> [Boat, Cart].
+      3. Summer/Rasputitsa, 1-slot Lord. Pick by way-class:
+           3a. Locale on Russian river spine -> Boat.
+           3b. Locale interior with Trackway-dominated approaches -> Cart.
+
+    Fallback (Locale missing / unknown): allowed[0].
+    """
+    from nevsky.map import is_seaport, on_russian_river_spine
+
+    # Rule 1: Winter.
+    if season in ("early_winter", "late_winter"):
+        return ["sled"] * slot_count
+
+    # Rule 2: 2-slot Lord, Summer/Rasputitsa.
+    if slot_count == 2:
+        if is_seaport(locale_id) and "ship" in allowed:
+            return ["ship", "cart"]
+        if locale_id == "novgorod":
+            return ["boat", "cart"]
+        # Fall through: 2-slot but no rule 2a/2b -> default to Cart+Cart.
+        return ["cart", "cart"]
+
+    # Rule 3: 1-slot Lord.
+    if slot_count == 1:
+        if on_russian_river_spine(locale_id):
+            return ["boat"]
+        # Rule 3b is the catch-all interior/trackway-dominated default.
+        return ["cart"]
+
+    # Other slot counts: return allowed[0] for each slot.
+    return [allowed[0]] * slot_count
 
 # Player-prompt hotspots: scenario_id -> set of lord_ids whose
 # default the harness should NOT silently auto-confirm. The loader
@@ -141,7 +233,8 @@ def load_scenario(scenario_id: str, seed: int = 0) -> GameState:
     meta = _build_meta(raw, scenario_id, seed)
     veche = _build_veche(setup)
     locales = _build_locales(setup, static_locales)
-    lords, pending = _build_lords(scenario_id, setup, static_lords)
+    start_box = int(raw.get("span", {}).get("start_box", 1))
+    lords, pending = _build_lords(scenario_id, setup, static_lords, start_box)
     calendar = _build_calendar(setup)
     decks = _build_decks(raw, setup)
     legate = Legate(william_of_modena_in_play=False, location="card", locale_id=None)
@@ -237,6 +330,7 @@ def _build_lords(
     scenario_id: str,
     setup: dict[str, Any],
     static_lords: dict[str, dict],
+    start_box: int = 1,
 ) -> tuple[dict[str, Lord], list[PendingDecision]]:
     """Build the Lord dict.
 
@@ -289,28 +383,43 @@ def _build_lords(
                 vassals=vassals,
                 this_lord_capabilities=[],
             )
-            # Q-001: apply per-scenario/lord defaults; populate Lord.assets
-            # with the chosen Transport pieces and emit a PendingDecision
-            # per slot with default_value/current_value pre-populated.
-            scenario_defaults = _Q001_DEFAULTS.get(scenario_id, {}).get(lord_id, [])
+            # Q-001 + Q-002: apply per-scenario/lord defaults; populate
+            # Lord.assets with the chosen Transport pieces and emit a
+            # PendingDecision per slot with default_value/current_value
+            # pre-populated. Untabled rows fall through to the heuristic.
+            scenario_defaults = _SETUP_TRANSPORT_DEFAULTS.get(scenario_id, {}).get(lord_id, [])
             no_auto = lord_id in _Q001_NO_AUTO_CONFIRM.get(scenario_id, set())
+            # Compute heuristic defaults for ALL slots; fall back into
+            # this list when the table is short or absent.
+            from nevsky.scenarios import _heuristic_setup_transport_default
+            slot_count_total = sum(int(slot["count"]) for slot in sl.get("starting_transport_choice", []))
+            allowed_full = []
+            for slot in sl.get("starting_transport_choice", []):
+                allowed_full.extend([list(slot["options"])] * int(slot["count"]))
+            season = _season_for_box(start_box)
+            if slot_count_total > 0:
+                heuristic = _heuristic_setup_transport_default(
+                    scenario_id, lord_id, location, season,
+                    slot_count_total, allowed_full[0],
+                )
+            else:
+                heuristic = []
             slot_idx_global = 0
             for slot in sl.get("starting_transport_choice", []):
                 allowed = list(slot["options"])
-                # If the Lord is Ships-authorized but "ship" is not in
-                # the JSON options, fall back to allowed as-is. The
-                # defaults table is authoritative.
                 count = int(slot["count"])
                 for sub_idx in range(count):
                     if slot_idx_global < len(scenario_defaults):
                         chosen = scenario_defaults[slot_idx_global]
+                    elif slot_idx_global < len(heuristic):
+                        chosen = heuristic[slot_idx_global]
                     else:
-                        # Fallback heuristic: pick first option.
                         chosen = allowed[0]
+                    # If the heuristic returned a value not in the slot's
+                    # allowed_values (e.g. heuristic picked "ship" but
+                    # slot is no-Ship), fall back to allowed[0].
                     if chosen not in allowed:
-                        # Hard-coded default not in JSON options; trust
-                        # the table (Q-001 spec is authoritative).
-                        pass
+                        chosen = allowed[0]
                     # Apply: increment Lord.assets[chosen].
                     lords[lord_id].assets[chosen] = lords[lord_id].assets.get(chosen, 0) + 1  # type: ignore[index]
                     pending.append(
