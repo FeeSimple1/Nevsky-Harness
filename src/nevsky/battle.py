@@ -26,7 +26,7 @@ from typing import Any
 
 from nevsky.rng import roll_d6
 from nevsky.state import GameState, Side
-from nevsky.static_data import load_forces, load_lords
+from nevsky.static_data import load_forces, load_lords, load_ways
 
 ForceCounts = dict[str, int]
 
@@ -189,18 +189,32 @@ def _absorb_hit(
 # ---------------------------------------------------------------------------
 
 
-def _assign_hit_owner_pick(units: ForceCounts, routed: ForceCounts) -> str | None:
-    """Pick which unit type to assign the next Hit to. Phase 3b uses a
-    deterministic policy: prefer least-protected unit class first
-    (serfs > unarmored > armor) so Battle outcomes are well-defined.
+def _assign_hit_owner_pick(
+    units: ForceCounts, routed: ForceCounts, policy: str = "weakest_first"
+) -> str | None:
+    """Pick which unit type to assign the next Hit to.
+
+    `policy`:
+      - "weakest_first" (default, Battle / Storm Defender / Sally):
+            owner-picks order, preferring least-protected first (serfs
+            > unarmored > evade > armor). The owner is "shielding" their
+            stronger units behind weaker ones (4.4.2).
+      - "armored_first" (Storm Attacker, 4.5.2 2E rule):
+            "The Attacking side must absorb Hits with any Armored units
+            before doing so with other units." Reverses the order so
+            Armored absorb first; otherwise weakest-first within each
+            class.
 
     Returns the unit type or None if the Lord has no eligible units.
     """
     if not units:
         return None
     forces = load_forces()
-    # Order: serfs (no protection), unarmored, armor.
-    def rank(u: str) -> tuple[int, int]:
+    # Classify each unit type by Protection family.
+    def classify(u: str) -> tuple[int, int]:
+        # Returns (class_rank, armor_strength). class_rank:
+        #   0 = none (serfs), 1 = unarmored, 2 = evade, 3 = armor.
+        # Higher armor_strength inside armor class = stronger.
         spec = forces[u]["protection_battle_melee"]
         if spec == "none":
             return (0, 0)
@@ -208,13 +222,20 @@ def _assign_hit_owner_pick(units: ForceCounts, routed: ForceCounts) -> str | Non
             return (1, 0)
         if spec.startswith("evade"):
             return (2, 0)
-        # armor 1-N: higher N = better
         n = int(spec.split("-", 1)[1])
         return (3, n)
     eligible = [u for u, n in units.items() if n > 0]
     if not eligible:
         return None
-    eligible.sort(key=rank)
+    if policy == "armored_first":
+        # 4.5.2: Storm Attacker absorbs with ARMORED units first. Sort by
+        # class descending (armor before evade before unarmored before
+        # none), then by armor_strength descending so the highest-armor
+        # type goes first.
+        eligible.sort(key=lambda u: (-classify(u)[0], -classify(u)[1]))
+    else:
+        # Owner-picks: weakest-first.
+        eligible.sort(key=classify)
     return eligible[0]
 
 
@@ -222,10 +243,17 @@ def _resolve_hits(
     state: GameState, lord_id: str, hits: int, strike_kind: str,
     striker_has_armor_minus_2: bool = False,
     step_state: dict | None = None,
+    assignment_policy: str = "weakest_first",
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
     place. Returns a record of what happened.
+
+    `assignment_policy`:
+      - "weakest_first" (default): owner-picks, weakest unit absorbs
+        each Hit (Battle / Storm Defender / Sally).
+      - "armored_first" (4.5.2 2E AUDIT-003): Storm Attacker absorbs
+        Hits with any Armored units before non-Armored.
 
     Phase 4a: passes lord_id and `striker_has_armor_minus_2` to
     _absorb_hit so Halbbrueder / Warrior Monks / Crossbowmen-Streltsy/
@@ -238,7 +266,7 @@ def _resolve_hits(
     if step_state is None:
         step_state = {}
     for _ in range(hits):
-        utype = _assign_hit_owner_pick(units, {})
+        utype = _assign_hit_owner_pick(units, {}, policy=assignment_policy)
         if utype is None:
             break
         absorbed_this = _absorb_hit(
@@ -288,7 +316,8 @@ def resolve_battle(
     Returns a dict with keys: rounds, winner, loser, attacker_lords,
     defender_lords, log (per-round per-step details).
 
-    Phase 3b simplifications:
+    Phase 3b simplifications (see Q-005 in RULES_QUESTIONS.md
+    for plan to remove these per Rules-Accuracy-Trumps-Simplification):
       - No Walls in Battle (4.4.2: Walls only by Event in Battle).
       - No Pursuit Concede (deferred, simple loop ends on full rout).
       - Reposition: only Round 2+, and reduced to "advance reserves to
@@ -526,15 +555,79 @@ def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
     return boxes
 
 
+def _usable_transport_count_for_way(
+    state: GameState, lord_id: str, way_type: str
+) -> int:
+    """Count Transport on a Lord's mat that is "Usable" (1.7.4) along
+    a given Way type in the current Season:
+      - Boats: Rasputitsa/Summer; Waterways only.
+      - Carts: Summer only; Trackways only.
+      - Sleds: Winter (early/late) only; any Way.
+      - Ships: not used for overland Way movement; never counted here.
+
+    way_type is "trackway" or "waterway".
+    """
+    from nevsky.actions import _season_of_box
+    if lord_id not in state.lords:
+        return 0
+    lord = state.lords[lord_id]
+    season = _season_of_box(state.meta.box)
+    n = 0
+    if way_type == "waterway":
+        if season in ("summer", "rasputitsa"):
+            n += int(lord.assets.get("boat", 0))
+        if season in ("early_winter", "late_winter"):
+            n += int(lord.assets.get("sled", 0))
+    elif way_type == "trackway":
+        if season == "summer":
+            n += int(lord.assets.get("cart", 0))
+        if season in ("early_winter", "late_winter"):
+            n += int(lord.assets.get("sled", 0))
+    # Rasputitsa on a Trackway: nothing usable except by special-case
+    # rules — no Transport type fits the standard table.
+    return n
+
+
+def _way_type_between(from_locale: str, to_locale: str) -> str | None:
+    """Return "trackway" or "waterway" if a Way connects the two
+    Locales, else None.
+    """
+    for w in load_ways():
+        if (w["a"] == from_locale and w["b"] == to_locale) or (
+            w["a"] == to_locale and w["b"] == from_locale
+        ):
+            return w["type"]
+    return None
+
+
 def transfer_spoils(
-    state: GameState, from_lord: str, to_lords: list[str], mode: str
+    state: GameState, from_lord: str, to_lords: list[str], mode: str,
+    retreat_way_type: str | None = None,
 ) -> dict[str, Any]:
     """4.4.5 Spoils: transfer Assets from loser Lord to winners.
 
     mode:
-      "all_except_ships"  - removed Lord or retreated-without-conceding
-      "loot_and_excess"   - conceded-then-retreated (simplified)
-      "none"              - withdrew (no transfer)
+      "all_except_ships"  - Removed (Sack / unable to Retreat or
+                            Withdraw) OR Retreated WITHOUT having
+                            Conceded the Field. Transfer all Coin,
+                            Provender, Loot, and overland Transport;
+                            keep Ships only.
+      "loot_and_excess"   - Conceded the Field AND Retreated (4.4.3 2E):
+                            "transfer all Loot and any Provender beyond
+                            that which they could take along the
+                            Retreat Way without being Laden". Lose no
+                            other Assets. Provider must pass
+                            `retreat_way_type` ("trackway" or
+                            "waterway") so the Unladen Transport count
+                            can be computed. If retreat_way_type is
+                            None (e.g., legacy callers), fall back to
+                            "all Loot" only (the original simplified
+                            behavior).
+      "none"              - Withdrew (4.4.3): no transfer.
+
+    AUDIT-004 (Round 9): the "loot_and_excess" branch now actually
+    computes the excess-Provender amount along the retreat Way per the
+    2E rule, instead of transferring zero Provender.
     """
     if mode == "none":
         return {"from": from_lord, "transferred": {}, "mode": mode}
@@ -542,11 +635,30 @@ def transfer_spoils(
         return {"from": from_lord, "transferred": {}, "mode": mode, "error": "no_lord"}
     src = state.lords[from_lord]
     transferred: dict[str, int] = {}
-    for k in ("coin", "provender", "loot", "boat", "cart", "sled"):
-        amt = src.assets.get(k, 0)
-        if amt > 0 and (mode == "all_except_ships" or (mode == "loot_and_excess" and k == "loot")):
-            transferred[k] = amt
-            src.assets.pop(k, None)
+    if mode == "all_except_ships":
+        for k in ("coin", "provender", "loot", "boat", "cart", "sled"):
+            amt = src.assets.get(k, 0)
+            if amt > 0:
+                transferred[k] = amt
+                src.assets.pop(k, None)
+    elif mode == "loot_and_excess":
+        # Conceded + Retreated: transfer all Loot.
+        loot = int(src.assets.get("loot", 0))
+        if loot > 0:
+            transferred["loot"] = loot
+            src.assets.pop("loot", None)
+        # Provender beyond Unladen along the Retreat Way: usable
+        # Transport count on that Way determines how much Provender the
+        # Lord can carry without being Laden (4.3.2).
+        if retreat_way_type in ("trackway", "waterway"):
+            usable = _usable_transport_count_for_way(state, from_lord, retreat_way_type)
+            prov = int(src.assets.get("provender", 0))
+            excess = max(0, prov - usable)
+            if excess > 0:
+                transferred["provender"] = excess
+                src.assets["provender"] = prov - excess  # type: ignore[index]
+                if src.assets["provender"] == 0:
+                    src.assets.pop("provender", None)
     # Distribute to first winner Lord.
     if to_lords and transferred:
         winner = to_lords[0]
@@ -554,7 +666,8 @@ def transfer_spoils(
             for k, v in transferred.items():
                 state.lords[winner].assets[k] = state.lords[winner].assets.get(k, 0) + v  # type: ignore[index]
     return {"from": from_lord, "to": to_lords[0] if to_lords else None,
-            "transferred": transferred, "mode": mode}
+            "transferred": transferred, "mode": mode,
+            "retreat_way_type": retreat_way_type}
 
 
 # ---------------------------------------------------------------------------
@@ -617,7 +730,8 @@ def resolve_storm(
 ) -> dict[str, Any]:
     """Resolve a Storm at `locale_id` (4.5.2).
 
-    Phase 3c simplifications:
+    Phase 3c simplifications (Storm Array partly aligned with 2E;
+    Relief Sally Array per Q-006 in RULES_QUESTIONS.md is deferred):
       - Single-front lane (no flanking).
       - Garrison units sit alongside the front defender; defender Hits
         are absorbed by Garrison units before any Lord units (4.5.2).
@@ -700,13 +814,16 @@ def resolve_storm(
                                          # own Trebuchets bonus against the
                                          # attacker\'s Siegeworks (rule scope).
 
+        # AUDIT-003 (4.5.2 2E): Storm Attacker MUST absorb Hits with any
+        # Armored units before non-Armored. Encode per-step assignment
+        # policy alongside other step parameters.
         steps_data = [
-            ("archery_defender", "archery", _round_up(def_arch), attacker_lords, False, def_arch_armor_minus_2),
-            ("archery_attacker", "archery", _round_up(atk_arch), defender_lords, True,  atk_arch_armor_minus_2),
-            ("melee_defender",   "melee",   _round_up(def_melee), attacker_lords, False, False),
-            ("melee_attacker",   "melee",   _round_up(atk_melee), defender_lords, True,  False),
+            ("archery_defender", "archery", _round_up(def_arch), attacker_lords, False, def_arch_armor_minus_2, "armored_first"),
+            ("archery_attacker", "archery", _round_up(atk_arch), defender_lords, True,  atk_arch_armor_minus_2, "weakest_first"),
+            ("melee_defender",   "melee",   _round_up(def_melee), attacker_lords, False, False, "armored_first"),
+            ("melee_attacker",   "melee",   _round_up(atk_melee), defender_lords, True,  False, "weakest_first"),
         ]
-        for label, kind, hits, target_lords, target_is_defender, armor_minus_2 in steps_data:
+        for label, kind, hits, target_lords, target_is_defender, armor_minus_2, assignment_policy in steps_data:
             step_state: dict = {}  # AUDIT-002: per-step Warrior Monks reroll budget
             if target_is_defender:
                 hits = _walls_absorb(state, hits, eff_walls_max)
@@ -745,6 +862,7 @@ def resolve_storm(
                     state, tlid, remaining, strike_kind,
                     striker_has_armor_minus_2=armor_minus_2,
                     step_state=step_state,
+                    assignment_policy=assignment_policy,
                 )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 remaining = 0
