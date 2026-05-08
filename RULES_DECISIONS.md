@@ -203,3 +203,48 @@ entry here with:
 - `tests/test_q_001_setup_transport.py` -> renamed
   `tests/test_setup_transport_defaults.py`; +8 rows; +heuristic test.
 - `RULES_QUESTIONS.md` — Q-002 cleared.
+
+---
+
+## Q-004 — Ordensburgen Commanderies (1.3.1)
+
+**Adjudication (verbatim from user, Round 10):**
+
+> Confirmed Commandery list: Wenden, Fellin, Adsel, Leal. No further
+> Strongholds qualify. Ensure
+> `src/nevsky/data/static/locales.json` has `commandery: true` on
+> exactly these four and `false` on all others. Verify
+> `src/nevsky/actions.py::_seats_of` and
+> `src/nevsky/campaign.py::effective_command_rating` reference this
+> list correctly.
+
+**Citation.**
+Rules of Play 2E, 1.3.1 Friendly Locale + Commanderies; Playbook
+pages 5/6/8/36 (the four Commanderies named in playthrough text);
+user adjudication that no additional Strongholds qualify.
+
+**Encoded.**
+- `src/nevsky/data/static/locales.json` — `commandery: true` on
+  exactly four Locales: `wenden`, `fellin`, `adsel`, `leal`.
+  `commandery: false` on all other 49 Locales (verified by test).
+- `src/nevsky/actions.py::_seats_of` — `scope == "all_commanderies"`
+  branch matches on the `commandery` flag (not type).
+- `src/nevsky/campaign.py::_effective_command_rating` — Ordensburgen
+  +1 fires whenever a Teutonic Lord starts a Command card at any
+  Commandery, T12 in play.
+
+**Tests.**
+- `tests/test_audit_fixes.py::test_q004_commandery_set_is_exactly_the_four_confirmed_locales`
+- `tests/test_audit_fixes.py::test_q004_command_rating_plus_one_at_any_commandery_with_t12`
+- (`tests/test_audit_fixes.py::test_audit_006_ordensburgen_*` from
+  Round 9 already cover the static-data and seats wiring.)
+
+**Out of scope for this PR.** Several existing type checks across
+campaign.py still list `"commandery"` as a possible value of
+`type` (e.g. `_is_friendly_locale`, withdraw-target validation,
+Stronghold-presence). These are vestigial: no Locale has
+`type == "commandery"`. They are harmless but misleading. Cleanup
+deferred to a future code-hygiene pass; not changed here to keep
+the Q-004 PR small and data-only.
+
+**Commit.** _to be filled after push._
