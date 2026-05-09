@@ -110,12 +110,17 @@ def test_vp_forecast_handles_missing_lord_id():
     assert "lord_id" in fc["note"]
 
 
-def test_rules_questions_includes_q007_and_q008():
-    """RULES_QUESTIONS.md should track the open Q-007 (Russian archery
-    rounding) and Q-008 (Tier 2 Battle Hold effects) entries."""
+def test_rules_questions_q007_q008_resolved_in_decisions():
+    """Q-007 (Russian archery rounding) and Q-008 (Tier 2 Battle Hold
+    effects) were adjudicated and moved to RULES_DECISIONS.md in
+    Round 18; RULES_QUESTIONS.md no longer carries them."""
     from pathlib import Path
-    text = Path("RULES_QUESTIONS.md").read_text()
-    assert "Q-007" in text
-    assert "Russian Archery" in text
-    assert "Q-008" in text
-    assert "Bridge" in text or "Tier 2 Battle Hold" in text
+    decisions = Path("RULES_DECISIONS.md").read_text()
+    questions = Path("RULES_QUESTIONS.md").read_text()
+    assert "Q-007" in decisions
+    assert "Russian Archery" in decisions
+    assert "Q-008" in decisions
+    assert "Bridge" in decisions
+    # And no longer open.
+    assert "Q-007" not in questions
+    assert "Q-008" not in questions

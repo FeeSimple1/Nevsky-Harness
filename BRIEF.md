@@ -12,18 +12,31 @@ This is a private project. Code quality should be good enough for the user
 to maintain, not for external readers.
 Authoritative Sources (Priority Order)
 
-Nevsky_Second_Edition_Changes.txt — overrides any conflict in older
-sources.
-NevskyRules_Second_Edition.pdf — Rules of Play, 2nd Edition.
-The curated reference .txt files in the repo (Lords, Forces,
-Strongholds, Map, Commands, Battle and Storm, Sequence of Play, Call to
-Arms, Calendar and Veche, Scenarios, Miscellaneous Rules, Arts of War,
-Strategy).
-Nevsky_PLAYBOOKFINAL.pdf — examples and historical context. NOT a
-rules source; useful only for clarifying examples.
+1. Nevsky_Second_Edition_Changes.txt — overrides any conflict in older
+   sources.
+2. The curated reference .txt files in the repo (Lords, Forces,
+   Strongholds, Map, Commands, Battle and Storm, Sequence of Play,
+   Call to Arms, Calendar and Veche, Scenarios, Miscellaneous Rules,
+   Arts of War Reference, Strategy). These are designer-clarified
+   distillations and are the FIRST stop for any question about card
+   text, capability mechanics, or rule interpretation. The Tips
+   sections in particular contain Volko Ruhnke's clarifications that
+   resolve most apparent ambiguities without further escalation.
+3. NevskyRules_Second_Edition.pdf — Rules of Play, 2nd Edition. Used
+   to confirm what's in the .txt references when something is missing
+   from them.
+4. Nevsky_PLAYBOOK-FINAL.pdf — examples and historical context. NOT a
+   rules source; useful only for clarifying examples.
 
-When sources conflict, higher priority wins. The reference .txt files are
-the curated entry point and should be consulted before the PDFs.
+PDFs in the repo's source/ directory ARE readable; treat them as
+ordinary inputs. The PDF-restriction language in earlier rounds of
+this project was about external/web PDFs, not the in-repo PDFs.
+
+When sources conflict, higher priority wins. For Q-NNN consultation,
+the FIRST step is always the relevant .txt reference file's section
+(Battle and Storm, Forces, Arts of War Reference, etc.). Skipping that
+step is a process bug. The .txt references are not optional starting
+material — they are the canonical answers.
 Scope of Inquiry — Hard Constraint
 This is a software project to encode a board game's rules. It is NOT a
 historical research project. The game's setting in 13th-century Baltic
@@ -127,23 +140,33 @@ Consultation Chain — REQUIRED before logging any question
 When you encounter anything ambiguous, work through this chain in order
 and document each step:
 
-Curated reference file. Identify the most relevant .txt file
-(Battle and Storm for combat, Commands for Command actions, etc.) and
-read the relevant section in full.
-Rules of Play, primary section. Find the rule section number cited
-in the reference file and read the full section in the PDF, plus any
-sub-sections.
-Rules of Play, related sections. Use the Key Terms index (page 24)
-to locate any cross-referenced sections. Read those too.
-Playbook examples. Search the Playbook for worked examples that
-might illustrate the case. Examples are not rules but they often
-resolve apparent ambiguity.
-Second Edition Changes. Check whether the case is addressed by an
-erratum or 2E modification.
+1. Curated reference file. Identify the most relevant .txt file
+   (Battle and Storm for combat, Commands for Command actions, Arts of
+   War Reference for card text and capability mechanics, etc.) and
+   read the relevant section IN FULL. The Tips paragraphs in the Arts
+   of War Reference are designer-clarified text and resolve most
+   apparent ambiguity about card mechanics on their own. If the answer
+   is in the .txt reference, the consultation ends here and the
+   question does not need to be logged.
+2. Rules of Play, primary section. Find the rule section number cited
+   in the reference file and read the full section in the PDF, plus any
+   sub-sections.
+3. Rules of Play, related sections. Use the Key Terms index (page 24)
+   to locate any cross-referenced sections. Read those too.
+4. Playbook examples. Search the Playbook for worked examples that
+   might illustrate the case. Examples are not rules but they often
+   resolve apparent ambiguity.
+5. Second Edition Changes. Check whether the case is addressed by an
+   erratum or 2E modification.
 
 Only after all five steps have been performed and documented should you
 log a question. If the consultation resolves the question, encode the
 answer with a citation comment in the code and proceed.
+
+Common process error: invoking the PDF-access concern as a reason to
+skip the .txt references. The .txt references are unrestricted in-repo
+files and contain designer-clarified answers for most card-text and
+capability-mechanics questions. Read them first.
 Question Format — REQUIRED fields
 Append questions to RULES_QUESTIONS.md. Each entry must contain:
 

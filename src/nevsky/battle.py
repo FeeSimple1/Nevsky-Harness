@@ -244,11 +244,49 @@ def _assign_hit_owner_pick(
     return eligible[0]
 
 
+def _capped_unit_subset(units: dict[str, int], cap: int) -> dict[str, int]:
+    """Return a subset of `units` whose total count <= `cap`, prioritising
+    heaviest hitters first (Knights > Sergeants > MaA > Light Horse >
+    Militia > Asiatic Horse > Serfs). Used for Q-008 Bridge cap on the
+    front-center Lord's Melee strike list — the capped player benefits
+    from selecting their strongest units to actually strike."""
+    priority = ("knights", "sergeants", "men_at_arms",
+                "light_horse", "militia", "asiatic_horse", "serfs")
+    out: dict[str, int] = {}
+    remaining = cap
+    for utype in priority:
+        n = units.get(utype, 0)
+        if n <= 0 or remaining <= 0:
+            continue
+        take = min(n, remaining)
+        out[utype] = take
+        remaining -= take
+    return out
+
+
+def _striking_unit_count(
+    state: GameState, lord_id: str, utype: str, rounds: int,
+    bridge_target_lord: str | None,
+) -> int:
+    """How many units of `utype` actually Strike this round, after Q-008
+    modifiers (Bridge cap). Used by Field Organ to apply the +1 Hit
+    bonus only to striking units, per Arts of War Reference T10 Tips
+    ('only the units Striking cause the added Hits')."""
+    units = state.lords[lord_id].forces
+    n = units.get(utype, 0)
+    if bridge_target_lord == lord_id:
+        cap = 2 * rounds
+        capped = _capped_unit_subset(units, cap)
+        return capped.get(utype, 0)
+    return n
+
+
 def _resolve_hits(
     state: GameState, lord_id: str, hits: int, strike_kind: str,
     striker_has_armor_minus_2: bool = False,
     step_state: dict | None = None,
     assignment_policy: str = "weakest_first",
+    hit_flags: list[bool] | None = None,
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
@@ -260,9 +298,14 @@ def _resolve_hits(
       - "armored_first" (4.5.2 2E AUDIT-003): Storm Attacker absorbs
         Hits with any Armored units before non-Armored.
 
-    Phase 4a: passes lord_id and `striker_has_armor_minus_2` to
-    _absorb_hit so Halbbrueder / Warrior Monks / Crossbowmen-Streltsy/
-    Balistarii / Garrison-MaA Archery effects apply.
+    `hit_flags` (Q-007 round-in-favor-of-Crossbowmen, Arts of War
+    Reference R1/R2 Luchniki Tips): if provided, must have len(hits)
+    elements, one bool per Hit indicating whether that specific Hit
+    carries the -2-Armor reduction. Used by archery steps so the
+    "crossbow Hits" come first and apply -2 Armor only to the count
+    that should under the rule (round in favor of Crossbowmen). For
+    non-archery steps, pass None and `striker_has_armor_minus_2` is
+    applied uniformly (typically False outside archery).
     """
     lord = state.lords[lord_id]
     units = lord.forces
@@ -270,14 +313,25 @@ def _resolve_hits(
     absorbed = 0
     if step_state is None:
         step_state = {}
-    for _ in range(hits):
+    if hit_flags is not None:
+        # Pad/truncate to match `hits` count for safety; exposes a
+        # mismatch as a deterministic mode rather than IndexError.
+        if len(hit_flags) < hits:
+            hit_flags = hit_flags + [striker_has_armor_minus_2] * (hits - len(hit_flags))
+        elif len(hit_flags) > hits:
+            hit_flags = hit_flags[:hits]
+    for hit_index in range(hits):
         utype = _assign_hit_owner_pick(units, {}, policy=assignment_policy)
         if utype is None:
             break
+        per_hit_armor_minus_2 = (
+            hit_flags[hit_index] if hit_flags is not None
+            else striker_has_armor_minus_2
+        )
         absorbed_this = _absorb_hit(
             state, utype, strike_kind,
             lord_id=lord_id,
-            striker_has_armor_minus_2=striker_has_armor_minus_2,
+            striker_has_armor_minus_2=per_hit_armor_minus_2,
             step_state=step_state,
         )
         if absorbed_this:
@@ -1140,6 +1194,27 @@ def resolve_battle(
         hill_archery_full_for = _norm_hill(H.get("hill"))
         field_organ_lord = H.get("field_organ")
         raven_rock_walls = bool(H.get("raven_rock", False))
+        # Q-008 Bridge: front-center Lord of the targeted side capped to
+        # 2*round_number Melee strike units. holds["bridge"] = lord_id
+        # of the targeted Lord (front-center), or None.
+        bridge_target_lord = H.get("bridge")
+        # Winter check: per the card, Bridge applies non-Winter only.
+        from nevsky.scenarios import _season_for_box
+        if bridge_target_lord and _season_for_box(state.meta.box) in (
+                "early_winter", "late_winter"):
+            bridge_target_lord = None
+        # Q-008 Ambush: Round 1 disables left/right Lords on the
+        # targeted side from striking and from being targeted (they're
+        # "uninvolved"). holds["ambush"] = "attacker"|"defender" or
+        # card-id ("T6"|"R6"). Both are played by the defender, so
+        # effective disable target is the attacker.
+        ambush_raw = H.get("ambush")
+        if ambush_raw in ("attacker", "defender"):
+            ambush_disable_for = ambush_raw
+        elif ambush_raw in ("T6", "R6"):
+            ambush_disable_for = "attacker"
+        else:
+            ambush_disable_for = None
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
         # (round up). conceder is "attacker" or "defender" or None.
         for label, kind, striker_lords, target_lords in steps:
@@ -1157,12 +1232,19 @@ def resolve_battle(
                 if striker_role == marsh_blocks_horse_for:
                     block_horse_strike = True
 
-            # Q-005: per-striker raw Hits + per-target routing via
-            # positions. Each striker Lord's Hits target the Lord
+            # Q-005 + Q-007: per-striker raw Hits split into Crossbow
+            # (-2-Armor) and Normal contributions; per-target routing
+            # via positions. Each striker Lord's Hits target the Lord
             # directly opposite (same slot) or — if Flanking — the
             # closest enemy Lord in the row.
-            per_target_hits: dict[str, float] = {}
-            per_target_armor_minus_2: dict[str, bool] = {}
+            #
+            # Q-007 ('round in favor of Crossbowmen', Arts of War
+            # Reference R1/R2 Luchniki Tips): Crossbow Hits (Streltsy/
+            # Balistarii MaA archery) are tracked separately so the
+            # final Hit count gives Crossbowmen the ceiling-rounded
+            # share. For non-archery steps, all contribution is normal.
+            per_target_cb_raw: dict[str, float] = {}
+            per_target_norm_raw: dict[str, float] = {}
             per_striker_log: list[dict[str, Any]] = []
             forces_table = load_forces()
             for lid in striker_lords:
@@ -1171,69 +1253,127 @@ def resolve_battle(
                 if not state.lords[lid].forces:
                     continue
                 # Reserve / Routed Lords don't strike. Sally and
-                # Rearguard rows DO strike (Q-006). Skip only "reserve",
-                # "sally_reserve", and "routed" positions.
+                # Rearguard rows DO strike (Q-006).
                 pos = striker_positions.get(lid)
                 if pos in ("reserve", "sally_reserve", "routed", None):
                     continue
-                # Otherwise pos is in left/center/right or sally_left/
-                # center/right or rearguard_left/center/right -- all
-                # active strike slots.
-                this_raw = 0.0
-                this_armor_minus_2 = False
-                if block_horse_strike and kind == "melee_horse":
-                    pass  # Horse blocked; no contribution.
-                elif block_horse_strike and kind == "archery":
-                    units_no_horse = {k: v for k, v in state.lords[lid].forces.items()
-                                       if k not in ("asiatic_horse",)}
-                    this_raw += _hits_for_strike(units_no_horse, "archery")
-                else:
-                    this_raw += _hits_for_lord_strike(state, lid, kind)
-                    if kind == "archery" and (
-                        any_capability(state, lid, "Streltsy")
-                        or any_capability(state, lid, "Balistarii")
-                    ):
-                        this_armor_minus_2 = True
-                    # Field Organ: Round 1, +1 Hit per Knights AND
-                    # Sergeants Melee unit for this Lord.
-                    if (field_organ_lord == lid and rounds == 1
-                            and kind == "melee_horse"):
-                        units = state.lords[lid].forces
-                        this_raw += units.get("knights", 0)
-                        this_raw += units.get("sergeants", 0)
-                    # Hill: Rounds 1-2, default Archery doubled.
-                    if (hill_archery_full_for == striker_role and rounds <= 2
-                            and kind == "archery"):
-                        units = state.lords[lid].forces
-                        extra = 0.0
-                        for utype, n in units.items():
-                            spec = forces_table.get(utype)
-                            if spec and spec.get("archery_default_active"):
-                                extra += n * float(spec.get("archery_battle", 0.0))
-                        this_raw += extra
-                if this_raw <= 0:
+                # Q-008 Ambush: Round 1 disables left/right Lords on
+                # the targeted side from striking entirely.
+                if (ambush_disable_for == striker_role and rounds == 1
+                        and pos in ("left", "right")):
                     continue
-                # Pursuit: halve conceder Hits this Round (per striker).
+                this_cb_raw = 0.0
+                this_norm_raw = 0.0
+                # Q-008 Marsh: side-level Horse-Strike block, both
+                # Archery and Melee. All Horse units (Knights, Light
+                # Horse, Asiatic Horse) blocked; absorption unaffected.
+                horse_blocked = (block_horse_strike and rounds <= 2)
+                if horse_blocked and kind == "melee_horse":
+                    pass  # all Horse Melee blocked
+                elif horse_blocked and kind == "archery":
+                    # Compute archery contribution from non-Horse units only.
+                    units = state.lords[lid].forces
+                    foot_units = {k: v for k, v in units.items()
+                                  if k not in ("knights", "light_horse", "asiatic_horse")}
+                    base = _hits_for_strike(foot_units, "archery")
+                    this_norm_raw += base
+                    # Luchniki militia (foot) still strikes; LH is Horse-blocked.
+                    if any_capability(state, lid, "Luchniki"):
+                        this_norm_raw += 0.5 * foot_units.get("militia", 0)
+                    # Streltsy/Balistarii MaA (foot, crossbow).
+                    if any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii"):
+                        this_cb_raw += 0.5 * foot_units.get("men_at_arms", 0)
+                elif kind == "archery":
+                    # Normal archery accumulation: split crossbow vs normal.
+                    units = state.lords[lid].forces
+                    base_archery = _hits_for_strike(units, "archery")
+                    this_norm_raw += base_archery
+                    if any_capability(state, lid, "Luchniki"):
+                        this_norm_raw += 0.5 * units.get("light_horse", 0)
+                        this_norm_raw += 0.5 * units.get("militia", 0)
+                    if any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii"):
+                        this_cb_raw += 0.5 * units.get("men_at_arms", 0)
+                    # Q-008 Hill: Rounds 1-2, this side's archery x1
+                    # (instead of default 0.5/unit). Doubles BOTH
+                    # crossbow and normal contributions equally.
+                    if (hill_archery_full_for == striker_role and rounds <= 2):
+                        this_cb_raw *= 2
+                        this_norm_raw *= 2
+                else:
+                    # Melee step: all hits are "normal" (no -2-Armor effect).
+                    # Q-008 ordering: determine the striking-unit subset
+                    # FIRST (Bridge cap applies on the Lord identified by
+                    # bridge_target_lord), then compute base strike from
+                    # that subset, then add Field Organ bonus per striking
+                    # Knight (in melee_horse) / Sergeant (in melee_foot).
+                    units = state.lords[lid].forces
+                    if bridge_target_lord == lid and rounds <= 8:
+                        cap = 2 * rounds
+                        total_units = sum(units.values())
+                        if total_units > cap:
+                            striking_units = _capped_unit_subset(units, cap)
+                        else:
+                            striking_units = dict(units)
+                    else:
+                        striking_units = dict(units)
+                    this_norm_raw += _hits_for_strike(striking_units, kind)
+                    # Q-008 Field Organ: +1 Hit per actually-striking
+                    # Knight (melee_horse) or Sergeant (melee_foot)
+                    # for the targeted Lord, Round 1 only.
+                    if field_organ_lord == lid and rounds == 1:
+                        if kind == "melee_horse":
+                            this_norm_raw += striking_units.get("knights", 0)
+                        elif kind == "melee_foot":
+                            this_norm_raw += striking_units.get("sergeants", 0)
+                if (this_cb_raw + this_norm_raw) <= 0:
+                    continue
+                # Pursuit: halve conceder Hits this Round (per striker,
+                # both buckets equally).
                 if concede is not None and rounds == 1 and striker_role == concede:
-                    this_raw = this_raw / 2.0
+                    this_cb_raw = this_cb_raw / 2.0
+                    this_norm_raw = this_norm_raw / 2.0
                 # Find target via positions.
                 target_lid = _strike_target(
                     striker_positions[lid], enemy_positions, decision_ctx,
                     side_label, state,
                 )
                 if target_lid is None:
-                    # No enemy Lord in any Front slot: skip.
                     continue
-                per_target_hits[target_lid] = per_target_hits.get(target_lid, 0.0) + this_raw
-                if this_armor_minus_2:
-                    per_target_armor_minus_2[target_lid] = True
+                # Q-008 Ambush: Round 1 disables enemy left/right Lords
+                # from being targeted (they're "uninvolved").
+                if (ambush_disable_for is not None
+                        and ambush_disable_for != striker_role
+                        and rounds == 1
+                        and enemy_positions.get(target_lid) in ("left", "right")):
+                    # Reroute via _strike_target to a non-disabled slot
+                    # if any. The simplest correct behavior: skip this
+                    # striker's contribution if the only available
+                    # target is disabled.
+                    continue
+                per_target_cb_raw[target_lid] = per_target_cb_raw.get(target_lid, 0.0) + this_cb_raw
+                per_target_norm_raw[target_lid] = per_target_norm_raw.get(target_lid, 0.0) + this_norm_raw
                 per_striker_log.append({
                     "striker": lid, "striker_slot": striker_positions[lid],
                     "target": target_lid, "target_slot": enemy_positions.get(target_lid),
-                    "raw": this_raw,
+                    "raw_cb": this_cb_raw, "raw_norm": this_norm_raw,
+                    "raw": this_cb_raw + this_norm_raw,
                 })
+            # Combine cb + norm raws. Q-007 (Arts of War Reference R1/R2
+            # Luchniki Tips, "round in favor of Crossbowmen"):
+            #   total_hits   = ceil(crossbow_raw + normal_raw)
+            #   crossbow_hits = ceil(crossbow_raw)        # round in favor
+            #   normal_hits  = total_hits - crossbow_hits
+            per_target_hits: dict[str, int] = {}
+            per_target_cb_hits: dict[str, int] = {}
+            for tlid in set(list(per_target_cb_raw) + list(per_target_norm_raw)):
+                cb_raw = per_target_cb_raw.get(tlid, 0.0)
+                norm_raw = per_target_norm_raw.get(tlid, 0.0)
+                total = _round_up(cb_raw + norm_raw)
+                cb_hits = _round_up(cb_raw)
+                cb_hits = min(cb_hits, total)
+                per_target_hits[tlid] = total
+                per_target_cb_hits[tlid] = cb_hits
             if not per_target_hits:
-                # Step had no Hits; skip.
                 continue
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
@@ -1248,8 +1388,10 @@ def resolve_battle(
                     per_target_sally_hits[tlid] = (
                         per_target_sally_hits.get(tlid, 0.0) + entry["raw"]
                     )
-            for tlid, raw in per_target_hits.items():
-                hits = _round_up(raw)
+            for tlid in per_target_hits:
+                hits = per_target_hits[tlid]
+                cb_hits = per_target_cb_hits[tlid]
+                raw = float(hits)  # for Sally walls reduction below
                 # Q-006 Siegeworks-vs-Sally walls: if any Hits incoming
                 # to this target came from a Sally striker AND
                 # siegeworks_for_sally > 0, roll Walls separately on
@@ -1294,9 +1436,18 @@ def resolve_battle(
                     continue
                 if tlid not in state.lords or not state.lords[tlid].forces:
                     continue
+                # Q-007: build ordered hit_flags so the first cb_hits
+                # carry -2 Armor, the rest don't. Use the post-walls/
+                # walls-absorbed-adjusted hits count; if walls absorbed
+                # some hits, reduce cb_hits proportionally (crossbow
+                # Hits aren't preferentially absorbed, so floor-divide
+                # against original total).
+                eff_cb_hits = min(cb_hits, hits)
+                eff_norm_hits = hits - eff_cb_hits
+                hit_flags_list = [True] * eff_cb_hits + [False] * eff_norm_hits
                 tres = _resolve_hits(
                     state, tlid, hits, strike_kind,
-                    striker_has_armor_minus_2=per_target_armor_minus_2.get(tlid, False),
+                    hit_flags=hit_flags_list,
                     step_state=step_state,
                 )
                 distribution.append({"lord": tlid, **tres})
@@ -1688,12 +1839,33 @@ def resolve_storm(
             if p == "storm_front" and lid in state.lords
             and state.lords[lid].forces
         ]
-        def_arch = _storm_hits_for_units(g_units, "archery_garrison_maa") + sum(
-            _hits_for_lord_strike(state, lid, "archery") for lid in def_front_lords
-        )
-        atk_arch = sum(
-            _hits_for_lord_strike(state, lid, "archery") for lid in atk_front_lords
-        )
+        # Q-007 split: track Crossbow (-2-Armor) vs Normal archery raws
+        # on each side. Garrison MaA archery is always Crossbow (per
+        # Forces Reference: Storm Garrison MaA archery imposes -2 Armor).
+        def_arch_cb_raw = _storm_hits_for_units(g_units, "archery_garrison_maa")
+        def_arch_norm_raw = 0.0
+        for lid in def_front_lords:
+            units = state.lords[lid].forces
+            base = _hits_for_strike(units, "archery")
+            def_arch_norm_raw += base  # default archery from Asiatic Horse, etc.
+            if any_capability(state, lid, "Luchniki"):
+                def_arch_norm_raw += 0.5 * units.get("light_horse", 0)
+                def_arch_norm_raw += 0.5 * units.get("militia", 0)
+            if any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii"):
+                def_arch_cb_raw += 0.5 * units.get("men_at_arms", 0)
+        atk_arch_cb_raw = 0.0
+        atk_arch_norm_raw = 0.0
+        for lid in atk_front_lords:
+            units = state.lords[lid].forces
+            base = _hits_for_strike(units, "archery")
+            atk_arch_norm_raw += base
+            if any_capability(state, lid, "Luchniki"):
+                atk_arch_norm_raw += 0.5 * units.get("light_horse", 0)
+                atk_arch_norm_raw += 0.5 * units.get("militia", 0)
+            if any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii"):
+                atk_arch_cb_raw += 0.5 * units.get("men_at_arms", 0)
+        def_arch = def_arch_cb_raw + def_arch_norm_raw
+        atk_arch = atk_arch_cb_raw + atk_arch_norm_raw
         # AUDIT-001 fix (4.5.2 2E rule): "Maximum 6 Melee Hits per Lord
         # per Round". Apply cap PER LORD before summing, not on the
         # per-side total. Garrison units share the defending Front
@@ -1713,18 +1885,12 @@ def resolve_storm(
         atk_melee = 0.0
         for lid in atk_front_lords:
             atk_melee += min(6.0, _storm_hits_for_units(state.lords[lid].forces, "melee"))
-        # Phase 4a: Crossbowmen / Garrison MaA Archery imposes target Armor -2.
-        def_arch_armor_minus_2 = (
-            g_units.get("men_at_arms", 0) > 0
-            or any(
-                any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii")
-                for lid in defender_lords if lid in state.lords
-            )
-        )
-        atk_arch_armor_minus_2 = any(
-            any_capability(state, lid, "Streltsy") or any_capability(state, lid, "Balistarii")
-            for lid in attacker_lords if lid in state.lords
-        )
+        # Q-007: per-side Crossbow Hit count derived from raws via
+        # 'round in favor of Crossbowmen'. Total stays = ceil(sum).
+        def_arch_total = _round_up(def_arch)
+        def_arch_cb = min(_round_up(def_arch_cb_raw), def_arch_total)
+        atk_arch_total = _round_up(atk_arch)
+        atk_arch_cb = min(_round_up(atk_arch_cb_raw), atk_arch_total)
         # Phase 4a: Trebuchets reduce Walls and Siegeworks by 1 if any
         # Unrouted Lord on the storming side has it (4.5.2).
         atk_has_trebuchets = any(
@@ -1750,13 +1916,17 @@ def resolve_storm(
         # Storm Hit absorption: Reserve Lords do NOT absorb Hits.
         # Defender side: Garrison absorbs first, then Defender Front
         # Lord. Attacker side: Attacker Front Lord.
+        # Each tuple: (label, kind, hits, target_lords, target_is_defender,
+        # cb_hits, assignment_policy). cb_hits is the count of Hits in
+        # this step that carry -2 Armor reduction (Q-007). Melee steps
+        # have cb_hits=0 (Crossbowmen rule applies to Archery only).
         steps_data = [
-            ("archery_defender", "archery", _round_up(def_arch), atk_front_lords, False, def_arch_armor_minus_2, "armored_first"),
-            ("archery_attacker", "archery", _round_up(atk_arch), def_front_lords, True,  atk_arch_armor_minus_2, "weakest_first"),
-            ("melee_defender",   "melee",   _round_up(def_melee), atk_front_lords, False, False, "armored_first"),
-            ("melee_attacker",   "melee",   _round_up(atk_melee), def_front_lords, True,  False, "weakest_first"),
+            ("archery_defender", "archery", def_arch_total, atk_front_lords, False, def_arch_cb, "armored_first"),
+            ("archery_attacker", "archery", atk_arch_total, def_front_lords, True,  atk_arch_cb, "weakest_first"),
+            ("melee_defender",   "melee",   _round_up(def_melee), atk_front_lords, False, 0, "armored_first"),
+            ("melee_attacker",   "melee",   _round_up(atk_melee), def_front_lords, True,  0, "weakest_first"),
         ]
-        for label, kind, hits, target_lords, target_is_defender, armor_minus_2, assignment_policy in steps_data:
+        for label, kind, hits, target_lords, target_is_defender, cb_hits, assignment_policy in steps_data:
             step_state: dict = {}  # AUDIT-002: per-step Warrior Monks reroll budget
             if target_is_defender:
                 hits = _walls_absorb(state, hits, eff_walls_max)
@@ -1791,9 +1961,16 @@ def resolve_storm(
                 if not state.lords[tlid].forces:
                     continue
                 strike_kind = "archery" if kind == "archery" else "melee"
+                # Q-007: build ordered hit_flags so cb_hits carry -2 Armor.
+                # If walls/garrison have absorbed some hits already, the
+                # remaining hits get the same crossbow share (cb_hits
+                # reduced by absorbed-from-original ratio).
+                eff_cb = min(cb_hits, remaining)
+                eff_norm = remaining - eff_cb
+                hit_flags_list = [True] * eff_cb + [False] * eff_norm
                 tres = _resolve_hits(
                     state, tlid, remaining, strike_kind,
-                    striker_has_armor_minus_2=armor_minus_2,
+                    hit_flags=hit_flags_list,
                     step_state=step_state,
                     assignment_policy=assignment_policy,
                 )
