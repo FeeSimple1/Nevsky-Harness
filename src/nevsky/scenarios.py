@@ -266,8 +266,8 @@ def load_scenario(
     decks = _build_decks(raw, setup)
     legate = Legate(william_of_modena_in_play=False, location="card", locale_id=None)
 
-    russian_vp = _compute_vp("russian", locales, veche)
-    teutonic_vp = _compute_vp("teutonic", locales, veche)
+    russian_vp = _compute_vp("russian", locales, veche, calendar)
+    teutonic_vp = _compute_vp("teutonic", locales, veche, calendar)
     calendar.russian_vp = russian_vp
     calendar.teutonic_vp = teutonic_vp
     _set_victory_markers(calendar, russian_vp, teutonic_vp)
@@ -580,7 +580,7 @@ def _build_decks(raw: dict[str, Any], setup: dict[str, Any]) -> Decks:
 # ---------------------------------------------------------------------------
 
 
-def _compute_vp(side: str, locales: dict[str, Locale], veche: Veche) -> float:
+def _compute_vp(side: str, locales: dict[str, Locale], veche: Veche, calendar=None) -> float:
     """Total VP for `side` from on-map markers + Veche (Russian only).
 
     VP scoring per scenario reference:
@@ -607,6 +607,15 @@ def _compute_vp(side: str, locales: dict[str, Locale], veche: Veche) -> float:
             total += 0.5 if loc.teutonic_ravaged else 0.0
     if side == "russian":
         total += float(veche.vp_markers)
+    # Pleskau special victory: +1 VP per enemy Lord removed. Tracked
+    # via calendar.pleskau_lords_removed_*; the COUNTER for the
+    # ENEMY side is added to THIS side's total. That is, "lords I
+    # removed" = pleskau_lords_removed_<other_side>.
+    if calendar is not None:
+        if side == "russian":
+            total += float(getattr(calendar, "pleskau_lords_removed_teutonic", 0))
+        else:
+            total += float(getattr(calendar, "pleskau_lords_removed_russian", 0))
     return total
 
 
@@ -661,3 +670,69 @@ def set_optional_rule(state: GameState, rule_name: str, enabled: bool) -> dict[s
         "new_state": bool(enabled),
         "all_active": [r for r, on in state.meta.optional_rules.items() if on],
     }
+
+
+
+def determine_scenario_winner(state: GameState) -> dict[str, Any]:
+    """Return the canonical scenario winner per Rules of Play 5.0-5.3.
+
+    Result shape:
+      {
+        "winner": "teutonic" | "russian" | "draw",
+        "reason": str (brief description),
+        "t_vp": float, "r_vp": float,
+        "applied_override": str | None,
+      }
+
+    Order of checks:
+      1. 5.2 Campaign Victory: if a side has zero Mustered Lords during
+         the Campaign phase, the OTHER side wins immediately.
+      2. 5.3 with scenario overrides:
+         - Watland (special_rules.victory_override='watland'):
+           Teutonic victory requires t_vp >= 7 AND t_vp >= 2 * r_vp.
+           Otherwise Russians win. No tie.
+         - Default 5.3: higher VP wins; tie = draw.
+    """
+    t_vp = state.calendar.teutonic_vp
+    r_vp = state.calendar.russian_vp
+    # 5.2 Campaign Victory: check during campaign phase.
+    if state.meta.phase == "campaign":
+        teu_mustered = sum(
+            1 for l in state.lords.values()
+            if l.side == "teutonic" and l.state == "mustered"
+        )
+        rus_mustered = sum(
+            1 for l in state.lords.values()
+            if l.side == "russian" and l.state == "mustered"
+        )
+        if teu_mustered == 0 and rus_mustered > 0:
+            return {"winner": "russian", "reason": "Campaign Victory 5.2 (T has 0 Mustered Lords)",
+                    "t_vp": t_vp, "r_vp": r_vp, "applied_override": "campaign_victory"}
+        if rus_mustered == 0 and teu_mustered > 0:
+            return {"winner": "teutonic", "reason": "Campaign Victory 5.2 (R has 0 Mustered Lords)",
+                    "t_vp": t_vp, "r_vp": r_vp, "applied_override": "campaign_victory"}
+
+    # 5.3 with scenario override.
+    override = state.meta.special_rules.get("victory_override")
+    if override == "watland":
+        # 2E Watland: Teutons need >= 7 VP AND >= 2x Russian VP.
+        if t_vp >= 7 and t_vp >= 2 * r_vp:
+            return {"winner": "teutonic",
+                    "reason": "Watland override: T >= 7 VP AND T >= 2*R",
+                    "t_vp": t_vp, "r_vp": r_vp,
+                    "applied_override": "watland"}
+        return {"winner": "russian",
+                "reason": "Watland override: T failed 7-AND-2x threshold",
+                "t_vp": t_vp, "r_vp": r_vp,
+                "applied_override": "watland"}
+
+    # Standard 5.3.
+    if t_vp > r_vp:
+        return {"winner": "teutonic", "reason": "5.3 higher VP",
+                "t_vp": t_vp, "r_vp": r_vp, "applied_override": None}
+    if r_vp > t_vp:
+        return {"winner": "russian", "reason": "5.3 higher VP",
+                "t_vp": t_vp, "r_vp": r_vp, "applied_override": None}
+    return {"winner": "draw", "reason": "5.3 tie",
+            "t_vp": t_vp, "r_vp": r_vp, "applied_override": None}
+

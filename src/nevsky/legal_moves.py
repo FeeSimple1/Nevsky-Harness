@@ -30,8 +30,13 @@ from nevsky.state import GameState, Side
 from nevsky.static_data import load_cards, load_lords
 
 
-def legal_moves(state: GameState) -> list[dict[str, Any]]:
-    """Return a list of currently-legal action stubs."""
+def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[str, Any]]:
+    """Return a list of currently-legal action stubs.
+
+    `with_previews=True` (default): cmd_storm / cmd_sally / stand_battle
+    notes are augmented with vp_forecast outputs (winrate, expected
+    losses). Each augmentation runs ~15 simulations per option, ~50ms
+    each. Set False in hot loops where preview cost dominates."""
     side = state.meta.active_player
     if side is None:
         return []
@@ -51,7 +56,7 @@ def legal_moves(state: GameState) -> list[dict[str, Any]]:
             moves.extend(_call_to_arms_moves(state, side))
         moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
-        moves.extend(_campaign_moves(state, side))
+        moves.extend(_campaign_moves(state, side, with_previews=with_previews))
     return moves
 
 
@@ -379,7 +384,23 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     return out
 
 
-def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
+
+def _maybe_preview_note(state: GameState, action: dict[str, Any], with_previews: bool, base_note: str) -> str:
+    """Append vp_forecast preview to base_note when with_previews is True."""
+    if not with_previews:
+        return base_note
+    try:
+        from nevsky.previews import vp_forecast
+        fc = vp_forecast(state, action, preview_trials=15)
+        n = fc.get("note") or ""
+        if n:
+            return f"{base_note} | {n}"
+        return base_note
+    except (ImportError, KeyError, ValueError, AttributeError) as e:
+        return f"{base_note} | (preview unavailable: {type(e).__name__})"
+
+
+def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True) -> list[dict[str, Any]]:
     from nevsky.campaign import _plan_target_size
 
     out: list[dict[str, Any]] = []
@@ -387,17 +408,11 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     if state.combat_pending is not None:
         cp = state.combat_pending
         if cp.pending_response_by == side:
-            stand_note = "engage in Battle"
-            try:
-                from nevsky.previews import vp_forecast
-                fc = vp_forecast(state, {
-                    "type": "stand_battle", "side": side, "args": {},
-                }, preview_trials=50)
-                if fc.get("note"):
-                    stand_note += f" | {fc['note']}"
-            except (ImportError, KeyError, ValueError, AttributeError) as e:
-                # Non-fatal: skip the preview but mark the failure so it shows up.
-                stand_note += f" | (preview unavailable: {type(e).__name__})"
+            stand_note = _maybe_preview_note(
+                state,
+                {"type": "stand_battle", "side": side, "args": {}},
+                with_previews, "engage in Battle",
+            )
             out.append({"type": "stand_battle", "side": side, "args": {}, "note": stand_note})
             # Concede pseudo-option: stand_battle with concede flag.
             # Concede halves the Conceder's Hits this Round (4.4.2
@@ -565,32 +580,23 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                             "args": {"lord_id": active_lord},
                             "note": "Siege (4.5.1) -- entire card; surrender or siegeworks"})
                 if not sh.get("no_storm"):
-                    storm_note = "Storm (4.5.2) -- entire card"
-                    try:
-                        from nevsky.previews import vp_forecast
-                        fc = vp_forecast(state, {
-                            "type": "cmd_storm", "side": side,
-                            "args": {"lord_id": active_lord},
-                        }, preview_trials=50)
-                        if fc.get("note"):
-                            storm_note += f" | {fc['note']}"
-                    except (ImportError, KeyError, ValueError, AttributeError) as e:
-                        storm_note += f" | (preview unavailable: {type(e).__name__})"
+                    storm_note = _maybe_preview_note(
+                        state,
+                        {"type": "cmd_storm", "side": side,
+                          "args": {"lord_id": active_lord}},
+                        with_previews, "Storm (4.5.2) -- entire card",
+                    )
                     out.append({"type": "cmd_storm", "side": side,
                                 "args": {"lord_id": active_lord},
                                 "note": storm_note})
             if _ib(state, active_lord):
-                sally_note = "Sally (4.5.3) -- entire card; Besieged Lord attacks Besiegers"
-                try:
-                    from nevsky.previews import vp_forecast
-                    fc = vp_forecast(state, {
-                        "type": "cmd_sally", "side": side,
-                        "args": {"lord_id": active_lord},
-                    }, preview_trials=50)
-                    if fc.get("note"):
-                        sally_note += f" | {fc['note']}"
-                except (ImportError, KeyError, ValueError, AttributeError) as e:
-                    sally_note += f" | (preview unavailable: {type(e).__name__})"
+                sally_note = _maybe_preview_note(
+                    state,
+                    {"type": "cmd_sally", "side": side,
+                      "args": {"lord_id": active_lord}},
+                    with_previews,
+                    "Sally (4.5.3) -- entire card; Besieged Lord attacks Besiegers",
+                )
                 out.append({"type": "cmd_sally", "side": side,
                             "args": {"lord_id": active_lord},
                             "note": sally_note})
