@@ -1,4 +1,6 @@
-"""Round 4 smoke test: Sack-by-Storm + Lieutenants + Veche actions."""
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 4 smoke test: Sack-by-Storm + Lieutenants + Veche actions."""
 
 from __future__ import annotations
 

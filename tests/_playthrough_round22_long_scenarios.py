@@ -1,4 +1,6 @@
-"""Generic active scenario player: drives any scenario end-to-end with
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Generic active scenario player: drives any scenario end-to-end with
 a simple aggressive-but-safe agent. Each side's Lords march toward the
 opposing side's Strongholds, place Sieges, Storm when win-prob > 50%,
 Avoid Battle when significantly outnumbered, otherwise Stand. Russians

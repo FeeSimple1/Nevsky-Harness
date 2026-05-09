@@ -1,4 +1,6 @@
-"""Active-play smoke test: force a Battle to actually happen by
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Active-play smoke test: force a Battle to actually happen by
 pre-positioning Lords adjacent."""
 
 from __future__ import annotations

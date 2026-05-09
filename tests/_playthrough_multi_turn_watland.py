@@ -1,4 +1,6 @@
-"""Round 3 smoke test: 5-turn Watland (boxes 4-8) playthrough.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 3 smoke test: 5-turn Watland (boxes 4-8) playthrough.
 
 Crosses:
   Box 4 Early Winter

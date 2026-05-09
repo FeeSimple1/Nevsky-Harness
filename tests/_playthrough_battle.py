@@ -1,4 +1,6 @@
-"""Active-play smoke test: force a Battle and Siege/Storm sequence
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Active-play smoke test: force a Battle and Siege/Storm sequence
 to stress the rules engine end-to-end."""
 
 from __future__ import annotations

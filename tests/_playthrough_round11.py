@@ -1,4 +1,6 @@
-"""Round 11 smoke: exercise Q-005 / Q-006 / Storm Reposition / Adjust
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 11 smoke: exercise Q-005 / Q-006 / Storm Reposition / Adjust
 Rows in scenarios that drive lots of combat."""
 
 from __future__ import annotations

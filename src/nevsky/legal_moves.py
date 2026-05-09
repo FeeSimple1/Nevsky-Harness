@@ -415,17 +415,15 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             )
             out.append({"type": "stand_battle", "side": side, "args": {}, "note": stand_note})
             # Concede pseudo-option: stand_battle with concede flag.
-            # Concede halves the Conceder's Hits this Round (4.4.2
-            # Pursuit) in exchange for losing the field. Surface a
-            # rough cost-benefit: with stand_battle's expected loss
-            # already shown above, Concede signals "lose the Battle
-            # but keep more forces".
+            # Note describes the mechanical effect only; the consumer
+            # decides whether/when to use it.
             concede_note = (
-                "Concede the Field (4.4.2 NEW ROUND) -- lose the Battle "
-                "but Conceder takes half Hits this Round (Pursuit), "
-                "limits Spoils transfer to Loot+excess Provender (4.4.3 2E). "
-                "Use when stand_battle forecast shows attacker_loss ~> 60% "
-                "AND winrate < 30%."
+                "Concede the Field (4.4.2 NEW ROUND): Conceder loses "
+                "the Battle (other side wins). Conceder takes half Hits "
+                "from the Pursuing side this Round (round up by step). "
+                "Spoils transfer at end of Battle uses the loot_and_excess "
+                "mode (transfer all Loot and any Provender beyond Unladen "
+                "for the Retreat Way) per 4.4.3 2E."
             )
             out.append({
                 "type": "stand_battle", "side": side,
@@ -461,9 +459,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                         continue
                     note = (
                         f"Avoid Battle to {dest} (4.3.4 Unladen). "
-                        f"No Battle this Approach; defender Service "
-                        f"shifts 1 box right (lord_id discretion). "
-                        f"Avoids losses but loses tempo."
+                        f"Defender Lord(s) move to {dest}; no Battle "
+                        f"this Approach. Each Avoiding Lord's Service "
+                        f"marker shifts 1 box right (lord_id discretion)."
                     )
                     out.append({
                         "type": "avoid_battle", "side": side,
@@ -475,10 +473,10 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 "Withdraw all defender Lords into Stronghold at "
                 f"{cp.to_locale} (no args required; capacity-checked "
                 "per Stronghold type, becomes Besieged 4.3.4). "
-                "Converts Battle into Siege: attacker may Storm or "
-                "Siege subsequently; defender denied Tax/Forage/etc "
-                "while Besieged. Trade losses now for Service-clock "
-                "pressure later."
+                "After Withdraw: Siege marker placed at the Locale; "
+                "defender Lord(s) are inside the Stronghold and "
+                "Besieged; Tax/Forage and most actions blocked while "
+                "Besieged (4.3.5)."
             )
             out.append({"type": "withdraw", "side": side, "args": {},
                         "note": withdraw_note})

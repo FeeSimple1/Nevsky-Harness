@@ -194,6 +194,44 @@ answer is encoded. Decisions are permanent — never delete an entry from
 RULES_DECISIONS.md.
 If the user marks a decision [HOUSE RULE] (rules silent on the
 question), treat it as authoritative and cite it like any other rule.
+
+No Agent in the Harness — Hard Constraint
+The harness encodes the rules and exposes state. It MUST NOT make
+strategic decisions on the consumer's behalf. The LLM (or human)
+consumer applies all strategic judgment. The harness's job is:
+
+  - Maintain authoritative game state.
+  - Enforce rules: actions either succeed and mutate state or raise
+    IllegalAction with a code.
+  - Surface state in forms the consumer can read efficiently
+    (render_summary, lord_combat_summary, paths_from, etc.).
+  - Enumerate legal moves with their mechanical effects.
+  - Compute previews / forecasts on request (vp_forecast,
+    battle_preview, storm_preview).
+
+What the harness MUST NOT do:
+
+  - Recommend specific actions ("Use when winrate < 30%").
+  - Editorialise about strategic trade-offs ("loses tempo", "Trade
+    losses now for...").
+  - Pick decisions for the consumer (Reserve advance, Concede,
+    Avoid Battle, Withdraw, Plan ordering, Capability picks, etc.).
+  - Run an internal agent that selects actions when the consumer
+    hasn't.
+
+Test fixtures under `tests/_playthrough_*.py` exercise the engine by
+driving the harness with simple heuristic policies. Those scripts
+ARE agents (necessarily — to stress-test the engine end-to-end) but
+they are NOT part of the shipped harness. They live in the test
+suite, are not in `src/nevsky/`, and are excluded from the package.
+
+If a comment, docstring, note field, or helper output in
+src/nevsky/ contains language like "Use when...", "should",
+"recommend", "prefer", or any other prescription about WHEN to take
+an action, that's a bug. The remedy is to replace the prescriptive
+text with a description of the rule's mechanical effect and let the
+consumer decide.
+
 Architecture Requirements
 The user does not require specific implementation choices, but the
 harness must satisfy these constraints:

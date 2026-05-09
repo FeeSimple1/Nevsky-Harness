@@ -1,4 +1,6 @@
-"""Pleskau full playthrough — Teutons aggressor, 2 turns.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Pleskau full playthrough — Teutons aggressor, 2 turns.
 Adapts: if Muster fails, fall back to Veche B (auto-Muster). If Domash
 still not Mustered at plan time, swap to Pass."""
 from __future__ import annotations

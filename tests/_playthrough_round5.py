@@ -1,4 +1,6 @@
-"""Round 5 smoke: Mongol/Kipchaq Vassal Muster + re-Muster after Disband.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 5 smoke: Mongol/Kipchaq Vassal Muster + re-Muster after Disband.
 
 Targets the still-untested paths from SMOKE_TEST_FINDINGS:
   - R10 Steppe Warriors gating Mongols/Kipchaqs.

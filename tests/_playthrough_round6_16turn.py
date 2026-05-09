@@ -1,4 +1,6 @@
-"""Round 6: 16-turn Crusade-on-Novgorod run + invariant checks.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 6: 16-turn Crusade-on-Novgorod run + invariant checks.
 
 This is the LONGEST scenario. Exercises:
   - Box 1->2 (Summer) -> Plow & Reap (Carts -> Sleds)

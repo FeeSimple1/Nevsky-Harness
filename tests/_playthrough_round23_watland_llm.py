@@ -1,4 +1,6 @@
-"""Watland — playing as the LLM consumer with real strategic judgment.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Watland — playing as the LLM consumer with real strategic judgment.
 
 Setup (box 4, Early Winter 1240):
   T VP: 4 (Pskov 2 + Izborsk 1 + Pskov-rav .5 + Dubrovno-rav .5)

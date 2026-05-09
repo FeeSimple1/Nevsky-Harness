@@ -2271,3 +2271,74 @@ overrides) without regressions.
 - The active driver's `cmd_march` retry loop hits `inner_safety` cap
   more often than ideal. Better filtering of `paths_from` by season-
   usable transport would smooth this; flagged for future round.
+
+# Round 24 — Strip agent advisories from the harness
+
+User direction: the harness should expose information; the LLM
+consumer does the strategic thinking. Confirmed three places where
+the harness was overstepping into recommendation territory and one
+underdocumented constraint.
+
+## Three advisory strings found and stripped from legal_moves.py
+
+- **Concede note** previously said: "Use when stand_battle forecast
+  shows attacker_loss ~> 60% AND winrate < 30%." This is a
+  recommendation about WHEN to take the action. Replaced with a
+  description of the mechanical effect (Conceder loses Battle,
+  half-Hits Pursuit, loot_and_excess Spoils mode per 4.4.3 2E).
+- **Avoid Battle note** previously said: "Avoids losses but loses
+  tempo." Editorial. Replaced with: "Defender Lord(s) move to
+  {dest}; no Battle this Approach. Each Avoiding Lord's Service
+  marker shifts 1 box right (lord_id discretion)."
+- **Withdraw note** previously said: "Trade losses now for
+  Service-clock pressure later." Editorial. Replaced with: "After
+  Withdraw: Siege marker placed at the Locale; defender Lord(s)
+  are inside the Stronghold and Besieged; Tax/Forage and most
+  actions blocked while Besieged (4.3.5)."
+
+The replacements describe what the rule does. The consumer applies
+strategic interpretation.
+
+## BRIEF.md — explicit "No Agent in the Harness" constraint
+
+Added a hard-constraint section to BRIEF.md: the harness encodes the
+rules and exposes state; it must not make strategic decisions. The
+section enumerates what the harness MAY do (state, rules, previews,
+legal-move enumeration) and what it MUST NOT do (recommend, pick,
+editorialise, run an internal agent).
+
+The section also clarifies that `tests/_playthrough_*.py` are test
+fixtures using simple heuristic policies to drive the engine for
+soundness testing — they ARE agents, but they live in `tests/` and
+are not part of the shipped package.
+
+## Playthrough docstring annotations
+
+Each `tests/_playthrough_*.py` module now opens with `TEST FIXTURE /
+engine-soundness smoke driver — NOT part of the shipped harness.` so
+the boundary is explicit at point-of-read.
+
+## Regression test
+
+`tests/test_round_24_no_agent_in_harness.py` (3 tests):
+
+- Scans `src/nevsky/*.py` for advisory patterns (`Use when`, `should`,
+  `recommend`, `optimal`, `loses tempo`, `Trade losses now`, etc.) and
+  fails on any match. False-positive-safe — patterns are bounded to
+  avoid rule-mechanic terms (e.g., "preferred" in 4.4.2 owner-pick).
+- Verifies BRIEF.md carries the No-Agent section.
+- Verifies recent playthrough drivers carry the TEST FIXTURE label.
+
+This test acts as a guard rail — future PRs that introduce strategic
+advice in the harness will fail it.
+
+451 → 454 passing.
+
+## What this round leaves intact
+
+The shipped harness's information surface is unchanged in capability:
+state queries, legal-move enumeration with mechanical-effect notes,
+vp_forecast / battle_preview / storm_preview (which return numbers
+the consumer interprets), and helpers like paths_from / lord_card_
+status / state_view_for_side. None of these recommend; all describe
+or compute.

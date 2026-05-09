@@ -1,4 +1,6 @@
-"""Round 13 — Battle and Storm statistical smoke.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 13 — Battle and Storm statistical smoke.
 
 Per user direction: deep statistical pass on combat outcomes only.
 Don't run whole scenarios. Vary lord counts and force compositions for

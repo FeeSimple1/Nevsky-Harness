@@ -1,4 +1,6 @@
-"""Second smoke pass: force Storm + try Veche actions + multi-Lord plan.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Second smoke pass: force Storm + try Veche actions + multi-Lord plan.
 Goal: surface bugs not exposed by the first smoke pass."""
 
 from __future__ import annotations
