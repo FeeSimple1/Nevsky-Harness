@@ -99,6 +99,16 @@ class Meta(BaseModel):
     span_end_box: int = Field(ge=1, le=16)
     aggressor: Literal["teutonic", "russian", "both"]
     special_rules: dict[str, Any] = Field(default_factory=dict)
+    # Per-scenario optional/variant rules. Defaults all False (base
+    # rules of play). Players may toggle these at scenario load OR
+    # at runtime via set_optional_rule(state, name, enabled).
+    # Sources: Rules of Play 2E section 2.1.2 / 6.0.
+    #   "hidden_mats"            (1.5.2)  fog of war on Lord mats
+    #   "optional_counters"      (1.6)    counter substitution; no engine effect
+    #   "advanced_vassal_service" (3.4.2) Vassal Service tracked on Calendar
+    #   "bidding_for_sides"      (6.0)    bid-Russian-VP marker injection at setup
+    #   "no_horseback_archery"   (6.0)    Asiatic Horse Defense rolls only on '1'
+    optional_rules: dict[str, bool] = Field(default_factory=dict)
 
 
 class CalendarBox(BaseModel):

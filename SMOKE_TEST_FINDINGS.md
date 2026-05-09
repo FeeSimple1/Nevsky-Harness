@@ -1844,110 +1844,113 @@ given Streltsy's -2 Armor advantage; the Q-007 split applies the
 rule precisely without the previous "any-contributor flags
 everything" over-application.
 
-# Round 19 — End-to-end scenario plays (Pleskau + Peipus)
+# Round 20 — R19 interface gaps + optional rules infrastructure
 
-User direction: deep smoke test by playing through two short scenarios
-end-to-end as the LLM agent. Validates whether the R15-R18 interface
-helpers actually let an agent finish a scenario without external rules
-reference.
+User direction: fix the four interface gaps surfaced in Round 19 and
+add optional-rules support so the player can declare which 2E variants
+are active and the LLM agent can respect them.
 
-## Pleskau (Teutons aggressor, 2 turns) — Teutons 1 - 0
+## R19 interface gaps closed
 
-Strategy applied (per Strategy reference): Hermann marches Dorpat →
-Ugaunia → Izborsk turn 1 (places Siege; per rule 4.3 the March-into-
-enemy-Stronghold ends the Command card), Storms Izborsk turn 2.
+**Gap 1 — cmd_march warning when destination is enemy Stronghold.**
+`legal_moves`'s cmd_march entry now augments the note with two lines
+when relevant:
+- `NOTE: enters enemy Stronghold; places Siege & ends the Command card (4.3)`
+  when the destination is an enemy-territory Stronghold.
+- `NOTE: enemy Lord(s) [...] at dest; triggers Approach decision (4.3.4)`
+  when a Mustered enemy Lord is at the destination.
 
-Play summary:
-- Turn 1: Hermann reaches Izborsk; Siege marker placed. Russian
-  Domash auto-Mustered at Novgorod via Veche option B (1 VP marker
-  spent, no Fealty roll). Knud & Abel hold Reval; Yaroslav holds
-  Odenpäh; Russians defend.
-- Turn 2: Hermann Storms Izborsk. The vp_forecast helper returned
-  `storm izborsk: A_win 88%, expected +0.88 VP (VP=1); avg A_loss 29%
-  / G_loss 88%` — and the actual Storm succeeded.
-- Final: T_conq=1 at Izborsk; Yaroslav Disbanded (Service marker at
-  box 2). Final VP Teu 1 - Rus 0.
+**Gap 2 — withdraw arg-shape clarity.** The `withdraw` legal_moves
+entry's note now explicitly says "no args required" and that the
+action auto-targets `combat_pending.to_locale`.
 
-Strategic match with reference: "Hermann should take Izborsk turn 1 by
-Storm" was off by one card slot — the rule that March-into-enemy-
-Stronghold ends the card means Storm has to be on a separate card
-(turn 2 in Pleskau's structure), but the outcome lines up.
+**Gap 3 — paths_from helper.** New `render.paths_from(state,
+from_locale, *, max_hops=4, season=None, transport=None)` returns a
+dict `{locale_id: [intermediate, ..., target]}` of shortest-Way paths
+within `max_hops` hops. Removes the need for an LLM agent to
+reimplement BFS over Ways.
 
-## Peipus (Russians aggressor, 4 turns) — Russians 5 - 4.5
+**Gap 4 — lord_card_status helper.** New
+`render.lord_card_status(state, lord_id)` returns a structured dict
+with `is_mustered, is_besieged, in_plan, in_plan_position,
+is_active, actions_remaining, service_disband_box`. Simplifies
+activation-loop bookkeeping.
 
-Strategy applied (per Strategy reference, "don't fixate on Pskov;
-Yaroslav alone at Pskov will Disband on his own from short Service if
-you SIEGE him so he cannot Tax"):
-- Aleksandr + Andrey march from Novgorod toward Pskov via shortest
-  path (BFS over Ways).
-- Aleksandr places a Siege at Pskov, isolates Yaroslav.
-- Yaroslav (Service marker box 14) cannot Tax while Besieged and
-  Disbands at end of box 14.
-- Russians never assault Pskov by Storm (low expected attacker
-  win-rate at City walls 3 + Siege 1 against a defender Lord; the
-  expected VP doesn't justify the loss).
-- End-of-Rasputitsa Grow halves the Teutonic Ravaged markers in Rus
-  (Sablia, Pskov, Dubrovno removed).
+## Optional rules infrastructure
 
-Play summary:
-- Turn 1-2: Aleksandr marches Novgorod → ... → Pskov; Andrey follows.
-- Yaroslav Withdraws into Pskov stronghold; Russian besieges.
-- Turn 3: Yaroslav Disbands (Service marker rolls past box 14).
-- Turn 4 (Rasputitsa box 16): all Service markers tick out;
-  Aleksandr/Andrey/Domash/Karelians + Hermann all Disband end of
-  scenario.
-- Grow at end of box 16 halves Teutonic Ravaged markers in Rus
-  (Vod / Tesovo / Zheltsy retained; Pskov / Sablia / Dubrovno
-  removed).
-- Final state: Pskov still Teuton-Conquered (T_conq=2); Izborsk
-  Teuton-Conquered (T_conq=1); 3 Teutonic Ravaged markers
-  surviving (1.5 VP for Teutons). Russian Veche carries 4 VP
-  markers + 1 R-VP = 5 VP. Teutonic VP: 2 + 1 + 1.5 = 4.5.
+`meta.optional_rules: dict[str, bool]` field added to the GameState
+schema. Five known optional rules per Rules of Play 2.1.2 / 6.0:
 
-Final VP: **R 5, T 4.5 — Russians win by 0.5**.
+- `hidden_mats` (1.5.2)
+- `optional_counters` (1.6)
+- `advanced_vassal_service` (3.4.2)
+- `bidding_for_sides` (6.0)
+- `no_horseback_archery` (6.0)
 
-## Interface gaps surfaced
+`load_scenario` extended with `optional_rules: dict[str, bool] | None`
+and `bidding_bid: int = 0` keyword args. Unknown rule names raise
+`ValueError`. New runtime helper `set_optional_rule(state, rule_name,
+enabled)` lets the LLM toggle flags on declaration.
 
-1. **`cmd_march` into enemy Stronghold ends the card** is not
-   surfaced in the action's note. An agent reading legal_moves sees
-   `cmd_march` with destination options but no warning that the
-   march will consume the entire card. Future improvement: when
-   the destination is an enemy-territory Stronghold, the note
-   should say "(places Siege; ends the Command card per 4.3)".
+`render_summary` adds an `Optional rules:` line listing active flags
+when any are enabled. Omitted when none are active.
 
-2. **`withdraw` action's exact arg shape was unclear** in the
-   combat-pending response. Tests use it without a target locale
-   in some places and with one in others. The legal_moves note
-   could be more explicit about whether the engine auto-picks the
-   stronghold vs requires an arg.
+## No Horseback Archery (6.0) — wired
 
-3. **Multi-hop path query.** I had to write BFS-over-Ways manually in
-   the Peipus driver to find the shortest route from Novgorod to
-   Pskov. A `paths_from(state, from, to, max_hops, season, transport)`
-   helper would let an LLM agent plan multi-turn marches without
-   reimplementing graph search.
+When `meta.optional_rules.no_horseback_archery` is True, Asiatic Horse
+Defense rolls succeed only on '1' (effectively Unarmored). Negates the
+default `evade:1-3` Battle Melee defense.
 
-4. **No "this Lord can act this round?" predicate.** When iterating
-   plan slots the agent has to track whether each Lord's Command card
-   has been revealed or not. A helper like `lord_card_status(state,
-   lord_id)` returning `{in_plan, revealed_this_card, actions_left}`
-   would simplify activation-loop code.
+Implementation: `_absorb_hit` checks the optional flag and overrides
+the protection spec to `armor:1-1` for Asiatic Horse. The change
+applies in all situations, including Battle Melee — matching the rule
+text "always succeed only on '1'".
 
-## Engine behavior validated
+Smoke check: an all-Asiatic-Horse defender vs balanced attacker shows
+materially lower Russian win rate with the variant on (regression test
+`test_no_horseback_archery_makes_asiatic_horse_more_fragile` pins this
+direction).
 
-- Bridge / Marsh / Hill / Ambush / Field Organ Tier 2 holds (R18) all
-  available but not exercised by these two plays — neither side had
-  reason to play them.
-- Q-007 round-in-favor-of-Crossbowmen would have applied if Russian
-  Storm involved Streltsy MaA + Asiatic Horse mixed archery, but
-  the Russians never Stormed.
-- Veche option B (auto-Muster Domash) worked first try.
-- The Russian Pskov-stall strategy (use Siege to deny Yaroslav Tax)
-  worked exactly as Volko's Strategy reference describes.
+## Bidding for Sides (6.0) — wired
 
-## Test count
+`load_scenario(..., bidding_bid=N)` adds N 1VP markers to the Veche
+(capped at 8 per rule 1.3.3). If `bidding_bid > 0`, the
+`bidding_for_sides` flag auto-enables. Negative bids rejected with
+ValueError.
 
-386 → 396 → 412 (R18) all stable. No new pytest tests added in this
-round (this is end-to-end smoke, not unit testing); the
-`_playthrough_round19_pleskau.py` and `_playthrough_round19_peipus.py`
-drivers are saved as living-spec smoke scripts.
+The bidding mechanic itself (two players concealing dice) is a setup-
+time human procedure outside the harness's responsibility; the harness
+takes the resolved bid value as input.
+
+## Optional rules — scaffolded but not yet engine-affecting
+
+Three optional rules are recorded in `meta.optional_rules` and shown
+in `render_summary`, but full engine wire-up is deferred:
+
+- **`optional_counters` (1.6).** Purely physical counter-substitution
+  for wood pieces. No engine effect; flag is informational only.
+- **`hidden_mats` (1.5.2).** Fog-of-war on Lord mats. The harness
+  currently exposes full state; full implementation needs a
+  `render_summary_for_side(state, side)` filter that omits opposing-
+  side details. Deferred — flag scaffolded so the agent can know it's
+  on and apply self-discipline.
+- **`advanced_vassal_service` (3.4.2).** Vassal Service tracked on
+  the Calendar instead of on Lord mat. Significant refactor of the
+  Vassal Disband mechanic. Flag scaffolded; full implementation
+  deferred.
+
+## Tests
+
+17 new in `test_round_20_gaps_and_optional_rules.py`:
+- cmd_march note warns about enemy Stronghold + enemy Lord at dest.
+- withdraw note explains no-args.
+- paths_from returns ordered path lists; supports starting locale and
+  multi-hop routes.
+- lord_card_status returns the expected key set; handles unknown lord.
+- load_scenario accepts and validates optional_rules kwarg.
+- set_optional_rule toggles + returns summary; rejects unknown names.
+- render_summary shows / omits the optional-rules line correctly.
+- bidding_bid adds VP markers, capped at 8, rejects negatives.
+- No Horseback Archery materially weakens Asiatic Horse defense.
+
+412 → 429 passing.

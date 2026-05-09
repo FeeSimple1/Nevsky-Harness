@@ -217,7 +217,13 @@ class ScenarioPlaceholderError(ValueError):
     """Raised when load_scenario is called on a placeholder scenario."""
 
 
-def load_scenario(scenario_id: str, seed: int = 0) -> GameState:
+def load_scenario(
+    scenario_id: str,
+    seed: int = 0,
+    *,
+    optional_rules: dict[str, bool] | None = None,
+    bidding_bid: int = 0,
+) -> GameState:
     """Build a fully populated GameState from a scenario id."""
     raw = load_scenario_raw(scenario_id)
     if raw.get("status") == "placeholder":
@@ -231,7 +237,28 @@ def load_scenario(scenario_id: str, seed: int = 0) -> GameState:
     static_locales = load_locales()
 
     meta = _build_meta(raw, scenario_id, seed)
+    # Optional rules per Rules of Play 6.0. Default all False; the
+    # caller can override.
+    KNOWN_OPTIONAL_RULES = {
+        "hidden_mats", "optional_counters", "advanced_vassal_service",
+        "bidding_for_sides", "no_horseback_archery",
+    }
+    if optional_rules is None:
+        optional_rules = {}
+    for k, v in optional_rules.items():
+        if k not in KNOWN_OPTIONAL_RULES:
+            raise ValueError(f"unknown optional rule: {k!r}; known: {sorted(KNOWN_OPTIONAL_RULES)}")
+        meta.optional_rules[k] = bool(v)
+    # If bidding_for_sides is on with a positive bid, the Russian
+    # player adds bid VP markers to the Veche (Rules of Play 6.0).
+    if bidding_bid < 0:
+        raise ValueError("bidding_bid must be non-negative")
+    if bidding_bid > 0 and not meta.optional_rules.get("bidding_for_sides", False):
+        # Auto-enable the flag if a bid is supplied.
+        meta.optional_rules["bidding_for_sides"] = True
     veche = _build_veche(setup)
+    if meta.optional_rules.get("bidding_for_sides") and bidding_bid > 0:
+        veche.vp_markers = min(8, veche.vp_markers + bidding_bid)
     locales = _build_locales(setup, static_locales)
     start_box = int(raw.get("span", {}).get("start_box", 1))
     lords, pending = _build_lords(scenario_id, setup, static_lords, start_box)
@@ -606,3 +633,31 @@ def _set_victory_markers(calendar: Calendar, russian_vp: float, teutonic_vp: flo
 
     place("russian", russian_vp)
     place("teutonic", teutonic_vp)
+
+
+KNOWN_OPTIONAL_RULES = {
+    "hidden_mats", "optional_counters", "advanced_vassal_service",
+    "bidding_for_sides", "no_horseback_archery",
+}
+
+
+def set_optional_rule(state: GameState, rule_name: str, enabled: bool) -> dict[str, Any]:
+    """Toggle an optional rule at runtime. The LLM consumer calls this
+    when the player declares which optional rules are active for the
+    current game.
+
+    Returns a dict summarizing the change.
+    """
+    if rule_name not in KNOWN_OPTIONAL_RULES:
+        raise ValueError(
+            f"unknown optional rule: {rule_name!r}; "
+            f"known: {sorted(KNOWN_OPTIONAL_RULES)}"
+        )
+    prior = state.meta.optional_rules.get(rule_name, False)
+    state.meta.optional_rules[rule_name] = bool(enabled)
+    return {
+        "rule": rule_name,
+        "prior_state": prior,
+        "new_state": bool(enabled),
+        "all_active": [r for r, on in state.meta.optional_rules.items() if on],
+    }

@@ -136,6 +136,10 @@ def render_summary(state: GameState) -> str:
     hint = _next_expected_action(state)
     if hint:
         lines.append(f"Next expected: {hint}")
+    # Optional rules in effect.
+    active_optional = [r for r, on in m.optional_rules.items() if on]
+    if active_optional:
+        lines.append(f"Optional rules: {', '.join(sorted(active_optional))}")
     lines.append(
         f"VP: R={state.calendar.russian_vp:g}  T={state.calendar.teutonic_vp:g}  "
         f"Veche: {state.veche.coin} coin, {state.veche.vp_markers} VP markers"
@@ -574,5 +578,87 @@ def lord_combat_summary(state: GameState, lord_id: str) -> dict[str, Any]:
             "melee_capped_at_6": round(min(6.0, storm_melee), 2),
             "melee_uncapped": round(storm_melee, 2),
         },
+    }
+
+
+
+def paths_from(
+    state: GameState, from_locale: str, *, max_hops: int = 4,
+    season: str | None = None, transport: str | None = None,
+) -> dict[str, list[str]]:
+    """Return shortest-Way paths from `from_locale` to every reachable Locale
+    within `max_hops` hops.
+
+    Result format: `{locale_id: [intermediate, ..., target]}` with the
+    starting locale present as `from_locale: []`. Use len(path) as hop
+    count.
+
+    `season` and `transport` are accepted for API completeness but not
+    used in the BFS (the harness doesn't currently filter Ways by
+    season-availability or transport-type at the path-query level; the
+    rules apply those constraints at cmd_march time). An LLM consumer
+    can use these args to remember which season they're planning for.
+    """
+    from nevsky.static_data import load_ways
+    ways = load_ways()
+    adj: dict[str, list[tuple[str, str]]] = {}
+    for w in ways:
+        adj.setdefault(w["a"], []).append((w["b"], w.get("type", "?")))
+        adj.setdefault(w["b"], []).append((w["a"], w.get("type", "?")))
+    visited: dict[str, list[str]] = {from_locale: []}
+    frontier = [from_locale]
+    hops = 0
+    while frontier and hops < max_hops:
+        new_front = []
+        for n in frontier:
+            for m, way_type in adj.get(n, []):
+                if m not in visited:
+                    visited[m] = visited[n] + [m]
+                    new_front.append(m)
+        frontier = new_front
+        hops += 1
+    return visited
+
+
+def lord_card_status(state: GameState, lord_id: str) -> dict[str, Any]:
+    """Per-Lord activation-loop bookkeeping helper:
+
+    Returns:
+      {
+        "lord_id": ...,
+        "in_plan": bool,         # appears in this side's plan deck
+        "in_plan_position": int | None,  # 0-indexed position if in plan
+        "is_active": bool,       # currently active card_id == lord_id
+        "actions_remaining": int,  # only meaningful when is_active
+        "service_disband_box": int | None,  # Calendar box where this Lord disbands
+        "is_besieged": bool,
+        "is_mustered": bool,
+      }
+    """
+    from nevsky.campaign import _is_besieged
+    if lord_id not in state.lords:
+        return {"error": f"unknown lord {lord_id}"}
+    lord = state.lords[lord_id]
+    deck = state.decks.teutonic if lord.side == "teutonic" else state.decks.russian
+    plan = deck.plan
+    in_plan = lord_id in plan
+    in_plan_position = plan.index(lord_id) if in_plan else None
+    is_active = state.campaign_turn.active_lord == lord_id
+    actions = state.campaign_turn.actions_remaining if is_active else 0
+    svc_box = None
+    for cb in state.calendar.boxes:
+        if lord_id in cb.service_markers:
+            svc_box = cb.box
+            break
+    return {
+        "lord_id": lord_id,
+        "side": lord.side,
+        "is_mustered": lord.state == "mustered",
+        "is_besieged": _is_besieged(state, lord_id) if lord.state == "mustered" else False,
+        "in_plan": in_plan,
+        "in_plan_position": in_plan_position,
+        "is_active": is_active,
+        "actions_remaining": actions,
+        "service_disband_box": svc_box,
     }
 
