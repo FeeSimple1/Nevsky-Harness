@@ -442,3 +442,167 @@ conservative subset.
   Command bonus at exactly these four Locales.
 
 The Q-004 entry has been removed from RULES_QUESTIONS.md.
+
+---
+
+## Q-007 — Russian Archery special rounding (4.4.2)
+*Adjudicated 2026-05-08. Encoded in commit (Round 18 PR).*
+
+**User adjudication (verbatim):**
+
+> Both questions resolve to the same underlying issue: the Arts of War
+> Reference (Nevsky_Arts_of_War_Reference.txt) has the canonical
+> designer-clarified text for everything Cowork is calling "ambiguous,"
+> but the consultation log skipped it in favor of the PDFs (which it
+> can't read). The .txt reference is authoritative and unrestricted.
+> Worth a process note to Cowork: when the question is about card text
+> or capability mechanics, that file is the answer first, before
+> invoking the PDF restriction.
+>
+> Q-007 — Russian Archery rounding
+>
+> Recommendation: option (c), with the specific algorithm below.
+>
+> Nevsky_Arts_of_War_Reference.txt line 234 (R1/R2 Luchniki Tips) is
+> the controlling text:
+>
+>   "When Luchniki Archer units combine with Garrison or Streltsy
+>   Crossbowmen units, any Hit that includes at least ½ a Hit from
+>   Crossbowmen does cause the reduction to enemy Armor Protection.
+>   That is, when rounding units with Archery, round in favor of
+>   Crossbowmen."
+>
+> This resolves the rounding-granularity question. The current
+> behavior (option a) over-applies in mixed cases. The fix:
+>
+>   # Per target per step
+>   crossbow_raw = sum of raw Hits from -2-Armor strikers
+>   normal_raw   = sum of raw Hits from non--2-Armor strikers
+>   total_hits        = ceil(crossbow_raw + normal_raw)
+>   crossbow_hits     = ceil(crossbow_raw)             # rounds in favor
+>   normal_hits       = total_hits - crossbow_hits     # the remainder
+>
+> Sanity check against the rule's worded examples:
+>
+>   Crossbow raw  Normal raw  total_hits  -2-Armor Hits  Normal Hits
+>   0.5           1.0         2           1              1
+>   0.5           0.5         1           1              0
+>   0.5           2.0         3           1              2
+>   1.5           0.5         2           2              0
+>   1.5           1.5         3           2              1
+>   0.0           1.5         2           0              2
+>
+> Storm has the same logic — Garrison MaA carry the -2 Armor flag and
+> combine with other Russian Archery the same way.
+>
+> Implementation deltas:
+>
+> _resolve_hits accumulates crossbow_raw and normal_raw separately per
+>   target, then computes the two ceilings as above.
+> _absorb_hit takes is_crossbow_hit: bool per Hit instead of reading a
+>   per-target boolean. The Hit list per target becomes ordered:
+>   crossbow Hits first, then normal Hits.
+> The per-target boolean striker_has_armor_minus_2 becomes redundant;
+>   remove it.
+> New parametrized test covering the table above for Battle and for
+>   Storm-Garrison cases.
+>
+> Conservative-toward-Russian over-application currently inflates
+> Russian win rates; tightening this is correct even though it slightly
+> lowers the smoke-test 84%. The smoke driver is a sanity check, not a
+> balance target.
+
+**Citation.** `reference/Nevsky_Arts_of_War_Reference.txt` line 234,
+R1/R2 Luchniki Tips: "round in favor of Crossbowmen."
+
+
+## Q-008 — Tier 2 Battle Hold mechanical effects (4.4.2)
+*Adjudicated 2026-05-08. Encoded in commit (Round 18 PR).*
+
+**User adjudication (verbatim):**
+
+> Q-008 — Tier 2 Battle Holds
+>
+> Recommendation: option (a) — wire each per the Arts of War Reference
+> designer tips. None of these is genuinely ambiguous; the .txt
+> reference resolves every case Cowork flagged.
+>
+> The relevant Tips from Nevsky_Arts_of_War_Reference.txt:
+>
+> T4/R1 Bridge: "In Round 1, only two of his units may Strike in
+>   Melee; in Round 2, four may do so, and so on." Front-center enemy
+>   Lord only, non-Winter, Melee only. Archery and Hit absorption
+>   unaffected. Doesn't impede Relief-Sallying Lord.
+>   Implementation: Per-Lord melee_strike_unit_cap = 2 * round_number
+>   modifier on the targeted enemy Lord. Q-005 modeled front-center,
+>   so this is now wirable. Cap applies to Melee step only.
+>
+> T5/R2 Marsh: "All enemy Horse's Melee and Archery are blocked for
+>   two Rounds; its ability to absorb Melee Hits is not." Defending
+>   only, non-Winter, Rounds 1-2.
+>   Implementation: Side-level flag blocking Horse units from
+>   Striking (both Archery and Melee) for Rounds 1-2 of the attacker.
+>   Horse can still absorb.
+>
+> T6/R6 Ambush: "Lords of that side who are at left or right front
+>   would Flank the enemy's center Lord, while any enemy Lords at left
+>   or right front would be uninvolved (so could not absorb Hits nor
+>   Rout in Round 1)." Round 1 only. Two play modes: block Avoid
+>   Battle, OR Round 1 ignore.
+>   Implementation: Round 1 modifier: enemy left/right Lords don't
+>   strike, don't absorb, don't Rout. Block-Avoid mode is a separate
+>   gate at Avoid-Battle resolution.
+>
+> T9/R5 Hill: "Round 1 and 2 [side] Archery is x1 (not x½). Melee is
+>   unaffected." Defending only.
+>   Implementation: Side-level Archery multiplier 1.0 (instead of 0.5
+>   default) for the playing side, Rounds 1-2. Single capability on
+>   the player's whole side, not per-Lord.
+>
+> T10 Field Organ: "Each of that Lord's Knights and Sergeants units
+>   when Striking in Melee during Round 1 cause one added Hit—three
+>   Hits each for Knights in Battle or two Hits each in Storm or for
+>   Sergeants. Against Russian #R1 Bridge Event, only the units
+>   Striking cause the added Hits. Horse units blocked from Striking
+>   by #R2 Marsh or #R6 Ambush add no Hits."
+>   Implementation: Per-Lord, Round 1, Melee step only. +1 Hit per
+>   striking Knight or Sergeant unit. Critical: bonus applies only to
+>   units that actually Strike (so it interacts correctly with Bridge
+>   cap and with Horse-blocking Holds).
+>
+> R4 Raven's Rock: Already wired per Cowork.
+>
+> Specific clarifications Cowork's note got wrong or marked TBD:
+>
+> Hill is side-wide Archery x1 (not x½), not per-Lord. The card text
+>   says "[side]ic Archery is x1" with no Lord scoping. Defender's
+>   side, Rounds 1-2. Melee unaffected.
+> Ambush Round 1 mode means enemy left/right Lords are uninvolved —
+>   they don't strike, don't absorb, don't Rout. The playing side's
+>   left/right Lords get to flank-strike the enemy center.
+> Field Organ's effect is +1 Melee Hit per striking Knight or Sergeant
+>   unit, Round 1, on the targeted friendly Lord. Important
+>   interaction: must check the actual strike list at resolution time
+>   (post-Bridge-cap, post-Marsh, post-Ambush), not the unit count on
+>   the mat.
+>
+> Implementation deltas:
+>
+> resolve_battle per-Round Strike phase needs three new modifier
+>   hooks: per-Lord Melee unit cap (Bridge), side-level Horse-Strike
+>   block (Marsh), Round-1 left/right-Lord disable (Ambush).
+> resolve_battle per-Round Archery phase needs a side-level Archery
+>   multiplier override (Hill).
+> _apply_strike_bonuses needs a per-Lord, per-unit-type Round-1 +1 Hit
+>   modifier (Field Organ), evaluated on the post-cap strike list.
+> _consume_battle_holds already validates and discards correctly; no
+>   change there beyond removing the "no-op" doc comments.
+>
+> Tests: one focused test per Hold, covering the explicit interaction
+> edges (Bridge cap × Field Organ, Marsh blocks Horse but not
+> absorption, Ambush left/right disabled including absorption, Hill
+> defender vs attacker side scoping).
+
+**Citation.** `reference/Nevsky_Arts_of_War_Reference.txt` Tips
+sections for T4/R1, T5/R2, T6/R6, T9/R5, T10.
+

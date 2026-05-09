@@ -1721,3 +1721,125 @@ smoke driver runs all scenarios without errors. No cleanup needed.
   validation guards, failed-trial tracking, preview-unavailable note
   surfacing, and presence of Q-007 / Q-008 in RULES_QUESTIONS.md.
 - 386 → 396 passing.
+
+# Round 18 — Q-007 + Q-008 resolutions
+
+User adjudicated Q-007 (Russian Archery rounding) and Q-008 (Tier 2
+Battle Hold mechanical effects), citing the Arts of War Reference Tips
+sections as the controlling text. This round implements both per spec.
+
+## Q-007 — Round in favor of Crossbowmen
+
+Per Arts of War Reference R1/R2 Luchniki Tips: "When Luchniki Archer
+units combine with Garrison or Streltsy Crossbowmen units, any Hit
+that includes at least ½ a Hit from Crossbowmen does cause the
+reduction to enemy Armor Protection. That is, when rounding units
+with Archery, round in favor of Crossbowmen."
+
+Implementation:
+- battle.py archery accumulation now splits per-striker contribution
+  into `this_cb_raw` (Streltsy/Balistarii MaA archery, -2 Armor) and
+  `this_norm_raw` (default + Luchniki, no Armor reduction). Per-target
+  state tracks `per_target_cb_raw` and `per_target_norm_raw`
+  separately.
+- Per the rule's algorithm:
+    `total_hits = ceil(cb_raw + norm_raw)`
+    `cb_hits   = min(ceil(cb_raw), total_hits)`
+    `norm_hits = total_hits - cb_hits`
+- `_resolve_hits` accepts an ordered `hit_flags: list[bool]` so the
+  first `cb_hits` Hits carry -2 Armor and the rest don't. Replaces
+  the old per-target `striker_has_armor_minus_2` boolean.
+- `resolve_storm` archery resolution receives the same treatment;
+  Garrison MaA archery is always Crossbow.
+
+Net effect: in mixed-archery cases (Streltsy MaA + Asiatic Horse on
+the same Lord, etc.), the -2 Armor reduction now applies to the
+correct count of Hits per the rule, rather than the previous
+"any-contributor flags everything" behavior.
+
+## Q-008 — Tier 2 Battle Hold mechanical effects
+
+All five Tier 2 Hold effects wired per the Arts of War Reference Tips,
+each invoked via the existing `holds` dict on `resolve_battle`:
+
+- **T4/R1 Bridge** (`holds["bridge"] = lord_id`): non-Winter only;
+  the targeted Lord's Melee strike is computed from a capped subset
+  of units (`cap = 2 * round_number`), heaviest hitters first via
+  `_capped_unit_subset`. Archery and Hit absorption unaffected. Skips
+  Relief Sallying Lords because Sally rows are on different positions
+  from front-center.
+- **T5/R2 Marsh** (`holds["marsh"] = "T5"|"R2"`): Rounds 1-2,
+  Marsh-target side's Horse units (Knights, Light Horse, Asiatic
+  Horse) blocked from Striking both Archery and Melee. Hit
+  absorption unaffected. Refines the previous Asiatic-Horse-only
+  partial implementation.
+- **T6/R6 Ambush** (`holds["ambush"] = "T6"|"R6"`): Round 1 only,
+  the targeted side's left/right front Lords are uninvolved — they
+  don't strike, don't accept Hits, don't Rout.
+- **T9/R5 Hill** (`holds["hill"] = "T9"|"R5"`): Defender side,
+  Rounds 1-2, ALL archery contributions doubled (including Crossbow
+  contributions; the doubled Crossbow Hits still carry -2 Armor).
+  Refines the previous default-archery-only partial implementation.
+- **T10 Field Organ** (`holds["field_organ"] = lord_id`): per-Lord,
+  Round 1, Melee step only. +1 Hit per actually-striking Knight (in
+  melee_horse) and Sergeant (in melee_foot). Critical: respects
+  Bridge cap and Marsh Horse-block via `_striking_unit_count`-style
+  filtering, so the bonus tracks units that actually strike.
+
+`_consume_battle_holds` validates and discards each Hold per existing
+behavior; that part was already correct.
+
+## Helper additions
+
+- `_capped_unit_subset(units, cap)`: priority-ordered subset
+  (Knights > Sergeants > MaA > Light Horse > Militia > Asiatic Horse
+  > Serfs) for Bridge cap.
+- `_striking_unit_count(state, lord_id, utype, rounds, bridge_target_lord)`:
+  Field Organ × Bridge interaction helper.
+
+## Process note from user adjudication (BRIEF update)
+
+User flagged that Q-007 / Q-008's "ambiguity" framing in earlier
+rounds was a process error: the Arts of War Reference .txt file
+(designer-clarified Tips) contains the answers and is unrestricted in
+the repo. I'd been deferring to the PDF restriction inappropriately.
+
+BRIEF.md updated:
+- Source priority reordered. The .txt references (Forces, Battle and
+  Storm, Arts of War Reference, etc.) are now FIRST stop, ahead of
+  the PDF. Their Tips sections are designer-clarified and authoritative
+  for card text and capability mechanics.
+- PDF-restriction language clarified: in-repo PDFs are readable; the
+  restriction was about external/web PDFs, not source/.
+- Consultation chain updated: step 1 explicitly notes that if the
+  answer is in the .txt reference, the consultation ends there and
+  the question doesn't need to be logged.
+
+events.py:621 stale comment about Bridge ("no-op since front-center
+is not modeled") removed; the Bridge cap is now wired.
+
+## Tests
+
+16 new tests in `test_round_18_q007_q008.py`:
+- Q-007 rounding-table parametrized tests (6 cases) verifying the
+  algorithm against the rule's worked examples directly.
+- `_resolve_hits` accepts ordered `hit_flags`.
+- Q-008 effect tests: Bridge cap reduces damage; Bridge no-op in
+  Winter; Marsh blocks all-Horse-attacker damage; Hill doubles
+  defender archery; Field Organ adds Knight Hits; Field Organ ×
+  Bridge interaction is well-formed.
+- Ambush Round 1: targeted-side left/right strikers don't appear
+  in the per_striker log.
+- Storm Garrison MaA archery uses the Q-007 split (Storm runs
+  cleanly with Garrison-only defense).
+- Helper test: `_capped_unit_subset` priority order.
+
+396 → 412 passing.
+
+## Smoke spot-check
+
+A single 1v1 cell (balanced parity, Russian defender with R3 Streltsy
+in play): 500 trials, Russian win 93.8%. Within the expected band
+given Streltsy's -2 Armor advantage; the Q-007 split applies the
+rule precisely without the previous "any-contributor flags
+everything" over-application.
