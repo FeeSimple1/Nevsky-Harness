@@ -2342,3 +2342,82 @@ vp_forecast / battle_preview / storm_preview (which return numbers
 the consumer interprets), and helpers like paths_from / lord_card_
 status / state_view_for_side. None of these recommend; all describe
 or compute.
+
+# Round 25 — Strategy Digest (advisory, optional)
+
+User direction: there should be a strategy reference document the LLM
+MAY consult, distilled from `reference/Nevsky_Strategy.txt` plus the
+strategic discussions in this project. It must be clearly labeled as
+advisory — the LLM is free to disagree, adapt, or ignore. It is NOT
+an agent; just suggestions a consumer can use if they agree.
+
+## STRATEGY_DIGEST.md added at repo root
+
+Ten sections covering:
+
+1. Core priors that govern every decision (Calendar, logistics,
+   Provender, Friendly Locale Test, Pay > Disband, Ravage 2E rules,
+   Storm cap, "No" cards).
+2. Combat math from harness smoke (defender bias 84% → 96% in 1v1
+   → 4v4 balanced parity; Knight-heavy attacker flips to 64% at
+   1v1; Storm 96-100% defender favour with Lord defender; garrison-
+   only Storm coin-flip vs full siege; reconciliation between
+   conditional-on-engagement bias and played-case selection).
+3. Russian strategic identity: Battle-avoidant, not defensive.
+   Avoid Battle / Withdraw / Stone Kremlin. Russian raid economics
+   (R12/R14 take no Loot vs T2; Black Sea Trade / Lodya as Coin
+   engines).
+4. Late-game Russian counterattack via Aleksandr / Andrey + Druzhina
+   / Steppe Warriors.
+5. Teuton resource constraint: Provender-specific (verified starting
+   asset table; 2-3 Campaign operating window mapping to 1240/1241/
+   1242 timeline).
+6. Game-level race framing: time favours Russians on force,
+   Teutons on VP early; race between consolidation and
+   accumulation.
+7. Levy Capability priorities (Teutonic + Russian high-value picks
+   with rule-text citations).
+8. Plan & Activation tactics, including the 4.3 march-into-
+   Stronghold ends-the-card rule.
+9. Per-scenario priors (Pleskau, Watland, Peipus, ROTP, Crusade)
+   updated with the 2E victory overrides and march-card rule.
+10. How the LLM may use the document — explicit permission to
+    apply / adapt / disagree / ignore.
+
+## Status enforcement
+
+Top-of-file disclaimer: "Status: ADVISORY ONLY. The LLM consumer
+playing through this harness MAY consult this document. The harness
+does not load it, parse it, or enforce any of it. The LLM is free
+to disagree with any section, ignore the document entirely, or play
+from first principles."
+
+## BRIEF.md cross-reference
+
+BRIEF.md "No Agent in the Harness" section now references
+STRATEGY_DIGEST.md as the advisory document. Strategy advice goes
+in the digest, never in the harness code.
+
+## Tests
+
+`test_round_25_strategy_digest.py` (8 tests):
+
+- File exists at repo root.
+- Top-of-file ADVISORY disclaimer present.
+- Per-scenario sections present for all five canonical scenarios.
+- Smoke statistics cited (84% / 96% defender bias, Knight 64%).
+- Russian Battle-avoidant framing captured.
+- Teuton Provender constraint captured (2-3 Campaign operating
+  window).
+- **No file under `src/nevsky/` references `STRATEGY_DIGEST`** — the
+  harness has no runtime dependency on the digest.
+- BRIEF.md references the digest's advisory status.
+
+454 → 462 passing.
+
+## What this round preserves
+
+The harness's "no agent" boundary stays intact. The digest is
+peer-level documentation alongside BRIEF.md and the reference/
+files — it informs the human or LLM reading the project, never the
+engine code.

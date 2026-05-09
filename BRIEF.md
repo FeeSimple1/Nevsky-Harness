@@ -225,6 +225,14 @@ ARE agents (necessarily — to stress-test the engine end-to-end) but
 they are NOT part of the shipped harness. They live in the test
 suite, are not in `src/nevsky/`, and are excluded from the package.
 
+`STRATEGY_DIGEST.md` (top-level) is an advisory document the LLM
+consumer MAY consult for tactical and strategic priors. It curates
+insights from `reference/Nevsky_Strategy.txt` plus this project's
+smoke-driver findings. It is NOT loaded or parsed by the harness;
+the LLM is free to apply, adapt, disagree with, or ignore any of
+it. Adding strategy advice belongs in the digest, not in the
+harness code.
+
 If a comment, docstring, note field, or helper output in
 src/nevsky/ contains language like "Use when...", "should",
 "recommend", "prefer", or any other prescription about WHEN to take
