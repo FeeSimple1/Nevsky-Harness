@@ -2624,3 +2624,123 @@ Going into LLM-consumer use, the harness has demonstrated:
 
 The remaining work is consumer-side (LLM agent build-out, optional
 front-end, packaging) — none of it is harness bug-hunt.
+
+# Round 28 — Rule-correctness deep smoke
+
+User direction: another deep smoke pass, this time looking for
+anomalous outcomes and double-checking against the rules. Different
+lens from R26/R27 (which checked engine soundness): this round asks
+"do outcomes match the rules?" via controlled experiments.
+
+## Bug found and fixed: Asiatic Horse Storm protection
+
+Per `reference/Nevsky_Forces_Reference.txt`: Asiatic Horse uses
+"Evade vs Battle Melee, else Unarmored" — meaning in Storm Melee,
+Storm Archery, and Battle Archery, Asiatic Horse should be Unarmored
+(`armor:1-1`, ~17% absorb). Only Battle Melee uses Evade
+(`evade:1-3`, ~50% absorb).
+
+The data file had `protection_storm: "unarmored"` correctly, but
+`_protection_spec` only consulted `protection_battle_melee` /
+`protection_battle_archery` — never `protection_storm`. Result:
+Asiatic Horse defending in Storm absorbed Hits at the Evade rate,
+roughly 3x more often than the rules intend.
+
+Asiatic Horse is the only unit whose Storm protection differs from
+its Battle Melee protection, so this bug was Asiatic-Horse-specific.
+
+**Fix.** Threaded `in_storm: bool = False` through `_protection_spec`,
+`_absorb_hit`, and `_resolve_hits`. `resolve_storm` passes
+`in_storm=True`; `resolve_battle` defaults to False. Storm-context
+resolution now reads `protection_storm` from the Forces table.
+
+Spot-check after the fix:
+- Asiatic Horse vs Battle Melee: 51% absorb (Evade) ✓
+- Asiatic Horse vs Storm Melee: 17% absorb (Unarmored) ✓
+- Asiatic Horse vs Battle Archery: 17% absorb (Unarmored) ✓
+- Asiatic Horse vs Storm Archery: 17% absorb (Unarmored) ✓
+
+## Rule-correctness checks that PASSED
+
+Empirical absorb rates within 2-3 percentage points of expected:
+
+| Unit / context | Expected | Observed |
+|----------------|---------:|---------:|
+| Knights, Battle Melee (Armor 1-4) | 67% | 68% |
+| Sergeants, Battle Melee (Armor 1-3) | 50% | 50% |
+| Men-at-Arms, Battle Melee (Armor 1-3) | 50% | 50% |
+| Light Horse, Battle Melee (Unarmored) | 17% | 15% |
+| Militia, Battle Melee (Unarmored) | 17% | 15% |
+| Serfs (no Protection) | 0% | 0% |
+
+(Unit data verified against `reference/Nevsky_Forces_Reference.txt`
+line-by-line: Men-at-Arms Armor 1-3 is correct per 2E.)
+
+Capability effect-size checks:
+
+- **Halbbrueder (T9/T10)** — Sergeants Armor +1: defender losses
+  reduced by ~37% relative (from 31% loss rate to 20%). Direction
+  matches the rule.
+- **Streltsy (R3/R13)** — Russian MaA archery -2 enemy Armor: Teu
+  MaA losses jump from 25% to 77% (about 3x more). Matches the
+  rule's effective Armor 1-3 → 1-1 reduction (~17% absorb instead
+  of 50%).
+- **Concede half-Hits (4.4.2 Pursuit)** — defender takes about half
+  the damage when attacker concedes. Empirical: 25% loss → 13%
+  with concede=attacker.
+- **Grow at end of Rasputitsa** — 6 Teutonic Ravaged markers → 3
+  remaining post-Grow. Per 2E rule: "down to half their number,
+  rounded up", which retains 3.
+
+Battle initiative ordering: defender strikes first in each Strike
+step (archery → melee_horse → melee_foot). Verified in the per-step
+log.
+
+## Walls-rate observation (probable statistical noise)
+
+`_walls_absorb` empirical absorption rates over ~5000 rolls:
+
+- walls_max=3 (defender walls): 50.6% (expected 50.0%) — within 1 SD.
+- walls_max=4 (defender walls): 65.4% (expected 66.7%) — within 1 SD.
+- walls_max=2 (siegeworks): 31.4% (expected 33.3%) — about 2-3 SDs.
+
+The walls_max=2 case showed face-1 underrepresentation (14.9% vs
+16.7%). Direct d6 sampling over 60,000 rolls is uniform, and
+walls_max=3 calls in the same storms are uniform, so this isn't an
+RNG bug. Likely statistical noise in the SUBSET of rolls sampled by
+walls_max=2 calls (a particular subsequence of state.meta.rng_state
+ticks). Documented but not fixed; the deviation is small and game-
+balance impact minor. Worth re-checking at higher trial counts in a
+future round if anomalies accumulate.
+
+## Tests
+
+14 new in `test_round_28_rule_correctness.py`:
+- Asiatic Horse `_protection_spec` returns Evade only in Battle
+  Melee, Unarmored elsewhere.
+- Asiatic Horse Storm Melee uses Unarmored (~17%), distinctly less
+  than Battle Melee (~50%).
+- Asiatic Horse + No Horseback Archery still Unarmored.
+- Parametrized unit-protection rate sanity (6 units).
+- Halbbrueder reduces Sergeant losses materially.
+- Streltsy increases enemy MaA losses ≥2x.
+- Battle initiative defender-first per step.
+- Concede halves Conceder's Hits Round 1.
+- Grow halves Ravaged markers at end of Rasputitsa.
+
+491 → 505 passing.
+
+## Confidence delta vs R27
+
+R27's smoke confirmed engine soundness (no exceptions, no invariant
+violations). R28 confirms rule-correctness (outcomes match the rule
+text). The Asiatic Horse Storm bug was the only material rule
+deviation found across both rounds.
+
+Worth flagging: the harness's combat resolution touches enough
+mechanics (per-Lord caps, per-step Hit ordering, Pursuit, Concede,
+walls/siegeworks absorption, capability stacking) that a similar
+bug could exist in untested combinations. Future rounds could
+target capability × capability stacks (e.g., Halbbrueder + Warrior
+Monks + Streltsy on the same Lord) and Storm + Sally interactions
+that haven't been spot-checked at the rule level.

@@ -111,12 +111,17 @@ def _round_up(x: float) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _protection_spec(utype: str, strike_kind: str) -> str:
+def _protection_spec(utype: str, strike_kind: str, in_storm: bool = False) -> str:
     """Return the protection range string for unit `utype` against
-    Hits from `strike_kind` (archery|melee).
+    Hits from `strike_kind` (archery|melee), using Storm protection
+    when `in_storm=True` (4.5.2). Most units have identical Battle
+    and Storm protection; Asiatic Horse is the exception per the
+    Forces Reference ("Evade vs Battle Melee else Unarmored").
     """
     forces = load_forces()
     spec = forces[utype]
+    if in_storm:
+        return spec.get("protection_storm", spec.get("protection_battle_melee", "none"))
     if strike_kind == "archery":
         return spec["protection_battle_archery"]
     return spec["protection_battle_melee"]
@@ -127,9 +132,14 @@ def _absorb_hit(
     lord_id: str | None = None,
     striker_has_armor_minus_2: bool = False,
     step_state: dict | None = None,
+    in_storm: bool = False,
 ) -> bool:
     """Roll Protection for one Hit on a unit of `utype`. Return True
     if absorbed (no Rout), False if unit Routs.
+
+    `in_storm`: when True, use Storm protection per Forces Reference
+    ("Evade vs Battle Melee else Unarmored" for Asiatic Horse). Most
+    units' Storm protection equals their Battle Melee protection.
 
     Phase 4a capability mods (when lord_id is provided):
       - Halbbrueder (T9/T10): owner Lord's Sergeants and MaA gain
@@ -146,7 +156,7 @@ def _absorb_hit(
     """
     from nevsky.capabilities import any_capability
 
-    spec = _protection_spec(utype, strike_kind)
+    spec = _protection_spec(utype, strike_kind, in_storm=in_storm)
     # Optional rule: No Horseback Archery — Asiatic Horse becomes
     # effectively Unarmored (succeed only on roll 1).
     if (utype == "asiatic_horse"
@@ -296,6 +306,7 @@ def _resolve_hits(
     step_state: dict | None = None,
     assignment_policy: str = "weakest_first",
     hit_flags: list[bool] | None = None,
+    in_storm: bool = False,
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
@@ -342,6 +353,7 @@ def _resolve_hits(
             lord_id=lord_id,
             striker_has_armor_minus_2=per_hit_armor_minus_2,
             step_state=step_state,
+            in_storm=in_storm,
         )
         if absorbed_this:
             absorbed += 1
@@ -1982,6 +1994,7 @@ def resolve_storm(
                     hit_flags=hit_flags_list,
                     step_state=step_state,
                     assignment_policy=assignment_policy,
+                    in_storm=True,
                 )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 remaining = 0
