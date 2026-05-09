@@ -1,4 +1,6 @@
-"""Round 11 end-to-end smoke: construct CombatPending states directly
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 11 end-to-end smoke: construct CombatPending states directly
 and exercise stand_battle through the new positional engine. Verifies:
 - Q-005 three-position Battle Array used in cmd_stand_battle.
 - Q-006 Relief Sally detection in cmd_stand_battle.

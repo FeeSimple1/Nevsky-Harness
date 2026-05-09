@@ -1,4 +1,6 @@
-"""Round 4b: Veche actions + Legate use sub-options."""
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 4b: Veche actions + Legate use sub-options."""
 
 from __future__ import annotations
 

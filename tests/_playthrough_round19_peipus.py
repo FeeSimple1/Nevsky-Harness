@@ -1,4 +1,6 @@
-"""Peipus full playthrough — Russians on the offensive, 4 turns.
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Peipus full playthrough — Russians on the offensive, 4 turns.
 
 Strategy (from Strategy reference + R18 helpers):
 - Aleksandr + Andrey at Novgorod are the Russian hammer (3K each).

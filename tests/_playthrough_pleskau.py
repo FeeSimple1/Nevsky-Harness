@@ -1,4 +1,6 @@
-"""Active-play smoke test: drive Pleskau scenario through real moves
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Active-play smoke test: drive Pleskau scenario through real moves
 that actually engage the rules engine (March, Approach, Battle, Siege).
 
 Run:  PYTHONPATH=src python3 tests/_playthrough_pleskau.py

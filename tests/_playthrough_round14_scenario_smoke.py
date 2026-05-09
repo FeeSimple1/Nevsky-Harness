@@ -1,4 +1,6 @@
-"""Round 14 — Per-scenario statistical smoke (passive baseline + light-action agent).
+"""TEST FIXTURE / engine-soundness smoke driver — NOT part of the shipped harness.
+
+Round 14 — Per-scenario statistical smoke (passive baseline + light-action agent).
 
 Goal: surface engine bugs across all six real scenarios and gauge
 win lopsidedness scenario-by-scenario.
