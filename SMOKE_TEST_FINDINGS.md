@@ -1954,3 +1954,121 @@ in `render_summary`, but full engine wire-up is deferred:
 - No Horseback Archery materially weakens Asiatic Horse defense.
 
 412 → 429 passing.
+
+# Round 21 — Finishing deferred work
+
+User direction: finish anything previously deferred. Audit found three
+items still open:
+
+1. `hidden_mats` (1.5.2) render filter — flag was scaffolded R20.
+2. Combat-pending forecasts (Concede / Avoid Battle / Withdraw) — R16
+   deferred for size.
+3. `advanced_vassal_service` (3.4.2) Vassal-on-Calendar wire-up — R20
+   scaffolded, full impl deferred.
+
+All three closed in this round.
+
+## Hidden Mats (1.5.2) — render filter
+
+`render.state_view_for_side(state, side)` returns a deep-copied state
+with opposing-side Lord details masked when
+`meta.optional_rules.hidden_mats` is True. Per the rule, opposing
+Lord-mat fields are hidden: forces, routed_units, assets,
+this_lord_capabilities. Pending AoW draws on the opponent are masked
+to `<hidden>` placeholders. Side-wide opposing Capabilities remain
+visible per 3.4.4. Lord locations remain visible (the map is not
+concealed).
+
+`render.render_summary_for_side(state, side)` is the convenience
+wrapper that calls `render_summary` on the filtered view and prefixes
+with a `[VIEW: side (Hidden Mats active — opposing Lord details
+concealed)]` banner. When the flag is off, returns identical output
+to `render_summary`.
+
+The LLM consumer can pass `state_view_for_side(state, "teutonic")`
+into `lord_combat_summary` or `legal_moves` to operate consistently
+within the fog-of-war.
+
+## Combat-pending forecasts
+
+`legal_moves` at combat-pending response now augments the four options
+with cost-benefit notes:
+
+- **stand_battle**: forecast of A_win%/D_win%/avg_loss% (already in
+  R16; unchanged).
+- **stand_battle with `args.concede=side`** (new pseudo-option):
+  Concede the Field per 4.4.2 NEW ROUND. Note: "lose the Battle but
+  Conceder takes half Hits this Round (Pursuit), limits Spoils
+  transfer to Loot+excess Provender (4.4.3 2E). Use when stand_battle
+  forecast shows attacker_loss ~> 60% AND winrate < 30%."
+- **avoid_battle**: enumerate concrete adjacent destinations as
+  separate `args:{to:dest}` entries, each noting Service shift cost
+  and tempo loss.
+- **withdraw**: note explicitly states "Converts Battle into Siege:
+  attacker may Storm or Siege subsequently; defender denied
+  Tax/Forage/etc while Besieged. Trade losses now for Service-clock
+  pressure later."
+
+## Advanced Vassal Service (3.4.2)
+
+Three integration points:
+
+**Muster Vassal**: when the variant is on, `_h_muster_vassal` places
+the Vassal Service marker on the Calendar at
+`(current_levy_box + vassal.service)`, but only if that box is left
+of the parent Lord's Service marker. Otherwise the marker stays on
+the mat (default behavior). State updates: `vstate.on_calendar=True`,
+`vstate.calendar_box=target_box`, plus
+`calendar.boxes[target-1].vassal_service_markers.append(vid)`.
+
+**Lord Service shift**: `_shift_service_right` propagates the shift
+to all of the Lord's on-Calendar Vassal markers in the same direction
+by the same number of boxes. Vassals shifted past box 16 land at the
+sentinel `calendar_box=17` (off-right); past box 1 land at sentinel
+`calendar_box=0`.
+
+**Disband cleanup**: new `_advanced_vassal_disband_step(state, side)`
+helper applies at the Disband substep:
+
+- Vassal markers LEFT of current box → permanently removed; Vassal's
+  Forces returned to the pool (subtracted from Lord's force totals).
+- Vassal markers IN current box (at Service limit) → moved to mat
+  face-down (Unready); Forces returned to pool.
+- Vassal markers RIGHT of current box → unchanged.
+- If returning Forces leaves a Lord with no Forces, the Lord is
+  Disbanded per 1.6.
+
+Hooked into `_h_disband_at_limit`: result dict now includes a
+`vassal_advanced` key with removed / to_mat_unready / disbanded-due-
+to-no-forces lists.
+
+**End-of-Vassal-Muster flip-up**: when `levy_step` advances from
+"muster" to "call_to_arms", all face-down (unready, unmustered) Vassal
+markers flip face-up (Ready) per the rule's "After a side finishes all
+Vassal Muster for this Levy, flip up all Service markers that are
+Coat-of-Arms side down".
+
+## Tests
+
+12 new in `test_round_21_finish_deferred.py`:
+- `state_view_for_side` masks opposing forces / pending draws when
+  hidden_mats on; no-op when off.
+- `render_summary_for_side` includes the hidden-mats banner.
+- Combat-pending: avoid_battle enumerates destinations with notes;
+  concede pseudo-option emitted; withdraw explains Siege conversion.
+- Advanced Vassal Service: marker placement on Calendar when left of
+  Lord; Disband helper processes at-limit (face-down on mat) + past-
+  limit (permanent remove); helper is no-op when flag off; end-of-
+  Muster flip-up makes face-down Vassals Ready.
+
+429 → 441 passing.
+
+## Open audit items now closed
+
+All previously-deferred items from rounds 11-20 are addressed. The
+RULES_QUESTIONS.md docket is empty (Q-001 through Q-008 all resolved).
+The Tier 2 Battle Holds wire-up is complete. The Optional Rules
+infrastructure is full: all five 2E variants are recognized, three are
+fully wired (no_horseback_archery, bidding_for_sides, advanced_vassal_
+service), one is informational-only (optional_counters), and one has a
+filter helper for consumers (hidden_mats).

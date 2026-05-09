@@ -399,12 +399,74 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 # Non-fatal: skip the preview but mark the failure so it shows up.
                 stand_note += f" | (preview unavailable: {type(e).__name__})"
             out.append({"type": "stand_battle", "side": side, "args": {}, "note": stand_note})
+            # Concede pseudo-option: stand_battle with concede flag.
+            # Concede halves the Conceder's Hits this Round (4.4.2
+            # Pursuit) in exchange for losing the field. Surface a
+            # rough cost-benefit: with stand_battle's expected loss
+            # already shown above, Concede signals "lose the Battle
+            # but keep more forces".
+            concede_note = (
+                "Concede the Field (4.4.2 NEW ROUND) -- lose the Battle "
+                "but Conceder takes half Hits this Round (Pursuit), "
+                "limits Spoils transfer to Loot+excess Provender (4.4.3 2E). "
+                "Use when stand_battle forecast shows attacker_loss ~> 60% "
+                "AND winrate < 30%."
+            )
+            out.append({
+                "type": "stand_battle", "side": side,
+                "args": {"concede": side},
+                "note": concede_note,
+            })
+            # Avoid Battle: per-destination forecast (just no battle).
             if not cp.laden:
-                out.append({"type": "avoid_battle", "side": side,
-                            "args_template": {"to": "<adjacent locale_id>"},
-                            "note": "Avoid Battle (Unladen, 4.3.4)"})
+                from nevsky.static_data import load_ways, load_locales
+                _ways = load_ways()
+                _locs = load_locales()
+                here = cp.to_locale  # defenders are at to_locale
+                # Note: defender retreats one Locale away. They may
+                # not Avoid into a Locale containing enemy Lords.
+                attacker_loc = cp.from_locale
+                # Adjacent destinations.
+                adj_set = set()
+                for w in _ways:
+                    if w["a"] == here:
+                        adj_set.add(w["b"])
+                    elif w["b"] == here:
+                        adj_set.add(w["a"])
+                for dest in sorted(adj_set):
+                    if dest == attacker_loc:
+                        continue  # cannot Avoid back through attackers
+                    # Skip if enemy Lord present at dest.
+                    enemy_at_dest = any(
+                        l.side != side and l.state == "mustered"
+                        and l.location == dest and not l.in_stronghold
+                        for l in state.lords.values()
+                    )
+                    if enemy_at_dest:
+                        continue
+                    note = (
+                        f"Avoid Battle to {dest} (4.3.4 Unladen). "
+                        f"No Battle this Approach; defender Service "
+                        f"shifts 1 box right (lord_id discretion). "
+                        f"Avoids losses but loses tempo."
+                    )
+                    out.append({
+                        "type": "avoid_battle", "side": side,
+                        "args": {"to": dest},
+                        "note": note,
+                    })
+            # Withdraw: convert Battle into Siege.
+            withdraw_note = (
+                "Withdraw all defender Lords into Stronghold at "
+                f"{cp.to_locale} (no args required; capacity-checked "
+                "per Stronghold type, becomes Besieged 4.3.4). "
+                "Converts Battle into Siege: attacker may Storm or "
+                "Siege subsequently; defender denied Tax/Forage/etc "
+                "while Besieged. Trade losses now for Service-clock "
+                "pressure later."
+            )
             out.append({"type": "withdraw", "side": side, "args": {},
-                        "note": "Withdraw all defender Lords into Stronghold at combat_pending.to_locale (no args required; capacity-checked vs Stronghold type, becomes Besieged)"})
+                        "note": withdraw_note})
             return out
         return out
     cstep = state.meta.campaign_step
