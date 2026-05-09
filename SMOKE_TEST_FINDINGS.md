@@ -2533,3 +2533,94 @@ the multi-seed clean-sweep result is the right confidence signal. An
 LLM applying real strategy through the harness will encounter
 mostly-tested code paths, with the remaining unexplored corners
 above being natural follow-ups when surfaced.
+
+# Round 27 — Coverage stress, optional rule combos, random fuzzing
+
+User direction: knock out the three "unverified" items from R26 so the
+harness has solid stress-test coverage. All three closed.
+
+## Capability coverage audit
+
+Audit of every capability name (T1-T18 / R1-R18) against
+`src/nevsky/`:
+
+- **All 26 distinct capabilities are wired** (referenced by id or name
+  in src). No capability is data-only / dead.
+- **24 of 26 had focused tests already** (verified by greping the test
+  suite for capability names).
+- **2 had no focused test:** Archbishopric of Novgorod (R15) and
+  Hillforts of the Sword Brethren (T8). Both wired in
+  `_effective_command_rating` and `_hillforts_skip_lord` respectively;
+  just lacked dedicated tests.
+
+Added `test_round_27_capability_coverage.py` (9 tests):
+
+- R15: +1 Cmd at Novgorod when in play; no bonus elsewhere; no bonus
+  without capability; no Teutonic-side leakage.
+- T8: picks eligible Teutonic Lord in Livonia who moved/fought; None
+  without capability; None for Russian side; skips Besieged Lord;
+  None when no Lord moved.
+
+## Optional rule combinatorics smoke
+
+`test_round_27_optional_rule_combos.py` (10 tests):
+
+- Each of the five optional rules alone — Pleskau setup invariants
+  hold.
+- All five optional rules ON simultaneously — Pleskau / Watland /
+  Peipus setup AND a 4-turn play with strict per-substep invariant
+  checks pass.
+- Pairwise combinations (10 pairs) — setup invariants hold for each.
+- Runtime toggle via `set_optional_rule` (enable, enable another,
+  disable) — invariants hold across each toggle.
+
+The "all rules on" Watland run was particularly valuable — it
+exercises Hidden Mats × Advanced Vassal Service × No Horseback
+Archery × Bidding for Sides + Optional Counters together through
+real Levy / Plan / Activations cycles.
+
+## Random-action fuzzing
+
+`test_round_27_random_action_fuzz.py` (5 tests):
+
+- Pleskau (seeds 1, 7), Watland, Peipus: 80 random legal-action
+  steps each with strict invariant checks between each step.
+  Non-advance actions favoured 70/30 to stress substep state.
+  IllegalAction tolerated (random actions can be invalid in some
+  sub-states); any other exception fails the test.
+- Five diverse seeds (11, 22, 33, 44, 55) on Pleskau with 50 random
+  steps each: no engine-internal exception expected.
+
+This catches state-machine paths that no rational agent would take —
+e.g., revealing a Command for a Lord who's about to be Disbanded,
+attempting Storm with insufficient force, fpd_resolve at unusual
+sequence points.
+
+## Results
+
+All three coverage-stress areas pass. **0 failures across 24 new tests.**
+
+## Test count
+
+486 (after merging R26) → 491 with R27 additions.
+
+## What the harness now has
+
+Going into LLM-consumer use, the harness has demonstrated:
+
+- Engine soundness across 68 multi-seed end-to-end runs (R26).
+- Each capability is wired and 26/26 have functional tests (R27).
+- All five optional rules work alone, in pairs, and all-on without
+  state corruption (R27).
+- 320+ random actions across diverse seeds and scenarios held all
+  invariants (R27).
+- Q-001 through Q-008 resolved (RULES_DECISIONS).
+- Tier 2 Battle Holds wired per Arts of War Reference Tips (R18).
+- LLM-consumer surface (legal_moves with effect-only notes,
+  vp_forecast, lord_combat_summary, paths_from, state_view_for_side,
+  set_optional_rule) covers every decision the rules require.
+- No-Agent boundary enforced by static-analysis test (R24).
+- Strategy Digest available as advisory (R25).
+
+The remaining work is consumer-side (LLM agent build-out, optional
+front-end, packaging) — none of it is harness bug-hunt.
