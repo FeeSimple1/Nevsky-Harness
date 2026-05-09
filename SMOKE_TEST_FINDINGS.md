@@ -2421,3 +2421,115 @@ The harness's "no agent" boundary stays intact. The digest is
 peer-level documentation alongside BRIEF.md and the reference/
 files — it informs the human or LLM reading the project, never the
 engine code.
+
+# Round 26 — Multi-seed sweep with invariant checks
+
+User question: are we past bug-hunt territory in long scenarios?
+Answer: yes at the engine level, demonstrated by a multi-seed sweep
+across all five canonical scenarios with strong per-turn invariant
+checks.
+
+## Results
+
+| Scenario             | Seeds | Exceptions | Invariant violations |
+|----------------------|------:|-----------:|---------------------:|
+| Pleskau              |    30 |          0 |                    0 |
+| Watland              |    15 |          0 |                    0 |
+| Peipus               |    12 |          0 |                    0 |
+| Return of the Prince |     8 |          0 |                    0 |
+| Crusade on Novgorod  |     3 |          0 |                    0 |
+| **Total**            | **68** |     **0** |                **0** |
+
+68 end-to-end multi-seed runs covering 2-, 4-, 5-, 8-, and 16-turn
+spans. Every run played to scenario end without raising an exception
+and without violating any of the per-turn invariants below.
+
+## Invariants checked at each turn boundary
+
+The driver runs `check_invariants(state, label)` after every Levy /
+Plan / Activations transition. Violations recorded:
+
+- Box bounds (1 ≤ box ≤ 16).
+- Mustered Lord must have a valid `location` in `state.locales`.
+- Removed Lord must have null location and empty forces / assets /
+  routed_units.
+- All force/asset/routed counts non-negative.
+- Asset counts ≤ 8 (rule 1.7.3 cap).
+- Veche coin and vp_markers in [0, 8].
+- Calendar VP totals in [0, 17.5] (rule 5.1 cap).
+- Phase / step coherent: levy_step in known values; campaign_step
+  in known values.
+- Each Lord's cylinder appears at most once across calendar boxes +
+  off-edges.
+- Each Lord's service marker appears at most once across calendar
+  boxes + off-edges.
+- Sequence number monotonically increases turn-over-turn.
+- Locale siege_markers, conquered counts non-negative.
+
+## Driver
+
+`tests/_playthrough_round26_multi_seed.py` is the full multi-seed
+fixture. It uses a simple heuristic (each Lord marches toward the
+nearest reachable enemy-territory Stronghold, Storms when win-prob >
+40%, Withdraws or Stands at combat-pending). The driver's strategic
+quality is intentionally modest — the test is engine soundness, not
+agent quality.
+
+`tests/test_round_26_multi_seed_invariants.py` is a smaller pytest
+version (5 scenarios × 1-5 seeds = 14 plays) that runs in <0.2s and
+acts as a regression guard against future engine bugs.
+
+## Win-rate observations (descriptive, not bugs)
+
+Per-scenario winner distribution under the naive driver:
+
+- Pleskau (30): T 0 / R 7 / draw 23 — defaults to draw under
+  passive-ish driver; Russians edge ahead when Hermann doesn't
+  push hard.
+- Watland (15): T 0 / R 15 — the 2E victory override correctly
+  flips raw T-favoured outcomes to Russian wins because the naive
+  driver doesn't push T VP past 7.
+- Peipus (12): T 6 / R 6 — even.
+- ROTP (8): T 7 / R 1 — Teutons hold their starting VP advantage
+  (T 9 - R 3 setup) when Russians don't actively push offensive
+  Aleksandr usage.
+- Crusade (3): T 0 / R 1 / draw 2 — long-form completes cleanly.
+
+These are agent-quality observations, not engine bugs. The harness
+correctly applies the rules in every run; what differs is how
+effectively the driver capitalizes.
+
+## Tests
+
+5 new pytest cases (parametrised across the five scenarios) in
+`test_round_26_multi_seed_invariants.py`. Each runs 1-5 seeds and
+asserts zero exceptions + zero invariant violations.
+
+462 → 467 passing.
+
+## Confidence assessment
+
+The harness is past bug-hunt territory at the engine level for long
+scenarios. The boundary invariants cover the most common
+state-corruption modes; sequence monotonicity catches accidental
+non-progressions; cap checks catch overflow / underflow. None fired
+across 68 runs.
+
+Where the harness is NOT yet stress-tested:
+
+- **Capability stress** — many capabilities only fire under specific
+  conditions; a dedicated capability-coverage smoke would catch any
+  capability that has been wired but never actually exercised
+  end-to-end. Could be a future round.
+- **Optional rule combinatorics** — Hidden Mats × Advanced Vassal
+  Service × No Horseback Archery interactions haven't been
+  exercised end-to-end; only their individual unit tests run.
+- **Random-action fuzzing** — driving the harness with arbitrary
+  legal actions (rather than a heuristic) would catch
+  state-machine paths that no rational agent would take.
+
+For the current goal (the harness as substrate for an LLM consumer),
+the multi-seed clean-sweep result is the right confidence signal. An
+LLM applying real strategy through the harness will encounter
+mostly-tested code paths, with the remaining unexplored corners
+above being natural follow-ups when surfaced.
