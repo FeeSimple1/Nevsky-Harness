@@ -77,7 +77,9 @@ def test_withdraw_note_explains_no_args_required():
     withdraw = next((m for m in moves if m["type"] == "withdraw"), None)
     assert withdraw is not None
     assert "no args required" in withdraw["note"]
-    assert "to_locale" in withdraw["note"]
+    # Note resolves the actual locale id (e.g. 'pskov') rather than
+    # the abstract 'to_locale' placeholder.
+    assert "pskov" in withdraw["note"] or "to_locale" in withdraw["note"]
 
 
 # ---------------------------------------------------------------------------

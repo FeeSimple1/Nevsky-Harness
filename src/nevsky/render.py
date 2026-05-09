@@ -662,3 +662,55 @@ def lord_card_status(state: GameState, lord_id: str) -> dict[str, Any]:
         "service_disband_box": svc_box,
     }
 
+
+
+def state_view_for_side(state: GameState, side: Side) -> GameState:
+    """Return a deep-copied GameState with opposing-side Lord details
+    masked, when meta.optional_rules.hidden_mats is True (Rules of Play
+    1.5.2). Otherwise returns a deep copy unchanged.
+
+    Masked on opposing Lords:
+      - forces (replaced with sentinel `{"_hidden": 1}` if non-empty)
+      - routed_units (cleared)
+      - assets (cleared)
+      - this_lord_capabilities (cleared)
+    Visible on opposing Lords:
+      - lord_id, side, state, location, vassals (mustered status only)
+    Masked on opposing deck:
+      - pending_draw (replaced with `["<hidden>"] * n`)
+      - Side-wide capabilities_in_play remain visible per 3.4.4.
+
+    Use this view as input to render_summary, lord_combat_summary, etc.
+    so the consumer operates within the fog-of-war consistently.
+    """
+    from copy import deepcopy
+    s2 = deepcopy(state)
+    if not s2.meta.optional_rules.get("hidden_mats", False):
+        return s2
+    other: Side = "russian" if side == "teutonic" else "teutonic"
+    for lid, lord in s2.lords.items():
+        if lord.side != other:
+            continue
+        if lord.state != "mustered":
+            continue
+        lord.forces = {"_hidden": 1} if lord.forces else {}
+        lord.routed_units = {}
+        lord.assets = {}
+        lord.this_lord_capabilities = []
+    opp_deck = s2.decks.teutonic if other == "teutonic" else s2.decks.russian
+    if opp_deck.pending_draw:
+        opp_deck.pending_draw = ["<hidden>"] * len(opp_deck.pending_draw)
+    return s2
+
+
+def render_summary_for_side(state: GameState, side: Side) -> str:
+    """Render state from `side`'s perspective. When `hidden_mats` is
+    active, opposing-side Lord-mat details are hidden via
+    state_view_for_side. When the flag is OFF, returns the same as
+    render_summary."""
+    if not state.meta.optional_rules.get("hidden_mats", False):
+        return render_summary(state)
+    view = state_view_for_side(state, side)
+    rendered = render_summary(view)
+    return f"[VIEW: {side} (Hidden Mats active — opposing Lord details concealed)]\n" + rendered
+
