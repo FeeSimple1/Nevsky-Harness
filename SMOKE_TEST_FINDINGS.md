@@ -1843,3 +1843,111 @@ in play): 500 trials, Russian win 93.8%. Within the expected band
 given Streltsy's -2 Armor advantage; the Q-007 split applies the
 rule precisely without the previous "any-contributor flags
 everything" over-application.
+
+# Round 19 — End-to-end scenario plays (Pleskau + Peipus)
+
+User direction: deep smoke test by playing through two short scenarios
+end-to-end as the LLM agent. Validates whether the R15-R18 interface
+helpers actually let an agent finish a scenario without external rules
+reference.
+
+## Pleskau (Teutons aggressor, 2 turns) — Teutons 1 - 0
+
+Strategy applied (per Strategy reference): Hermann marches Dorpat →
+Ugaunia → Izborsk turn 1 (places Siege; per rule 4.3 the March-into-
+enemy-Stronghold ends the Command card), Storms Izborsk turn 2.
+
+Play summary:
+- Turn 1: Hermann reaches Izborsk; Siege marker placed. Russian
+  Domash auto-Mustered at Novgorod via Veche option B (1 VP marker
+  spent, no Fealty roll). Knud & Abel hold Reval; Yaroslav holds
+  Odenpäh; Russians defend.
+- Turn 2: Hermann Storms Izborsk. The vp_forecast helper returned
+  `storm izborsk: A_win 88%, expected +0.88 VP (VP=1); avg A_loss 29%
+  / G_loss 88%` — and the actual Storm succeeded.
+- Final: T_conq=1 at Izborsk; Yaroslav Disbanded (Service marker at
+  box 2). Final VP Teu 1 - Rus 0.
+
+Strategic match with reference: "Hermann should take Izborsk turn 1 by
+Storm" was off by one card slot — the rule that March-into-enemy-
+Stronghold ends the card means Storm has to be on a separate card
+(turn 2 in Pleskau's structure), but the outcome lines up.
+
+## Peipus (Russians aggressor, 4 turns) — Russians 5 - 4.5
+
+Strategy applied (per Strategy reference, "don't fixate on Pskov;
+Yaroslav alone at Pskov will Disband on his own from short Service if
+you SIEGE him so he cannot Tax"):
+- Aleksandr + Andrey march from Novgorod toward Pskov via shortest
+  path (BFS over Ways).
+- Aleksandr places a Siege at Pskov, isolates Yaroslav.
+- Yaroslav (Service marker box 14) cannot Tax while Besieged and
+  Disbands at end of box 14.
+- Russians never assault Pskov by Storm (low expected attacker
+  win-rate at City walls 3 + Siege 1 against a defender Lord; the
+  expected VP doesn't justify the loss).
+- End-of-Rasputitsa Grow halves the Teutonic Ravaged markers in Rus
+  (Sablia, Pskov, Dubrovno removed).
+
+Play summary:
+- Turn 1-2: Aleksandr marches Novgorod → ... → Pskov; Andrey follows.
+- Yaroslav Withdraws into Pskov stronghold; Russian besieges.
+- Turn 3: Yaroslav Disbands (Service marker rolls past box 14).
+- Turn 4 (Rasputitsa box 16): all Service markers tick out;
+  Aleksandr/Andrey/Domash/Karelians + Hermann all Disband end of
+  scenario.
+- Grow at end of box 16 halves Teutonic Ravaged markers in Rus
+  (Vod / Tesovo / Zheltsy retained; Pskov / Sablia / Dubrovno
+  removed).
+- Final state: Pskov still Teuton-Conquered (T_conq=2); Izborsk
+  Teuton-Conquered (T_conq=1); 3 Teutonic Ravaged markers
+  surviving (1.5 VP for Teutons). Russian Veche carries 4 VP
+  markers + 1 R-VP = 5 VP. Teutonic VP: 2 + 1 + 1.5 = 4.5.
+
+Final VP: **R 5, T 4.5 — Russians win by 0.5**.
+
+## Interface gaps surfaced
+
+1. **`cmd_march` into enemy Stronghold ends the card** is not
+   surfaced in the action's note. An agent reading legal_moves sees
+   `cmd_march` with destination options but no warning that the
+   march will consume the entire card. Future improvement: when
+   the destination is an enemy-territory Stronghold, the note
+   should say "(places Siege; ends the Command card per 4.3)".
+
+2. **`withdraw` action's exact arg shape was unclear** in the
+   combat-pending response. Tests use it without a target locale
+   in some places and with one in others. The legal_moves note
+   could be more explicit about whether the engine auto-picks the
+   stronghold vs requires an arg.
+
+3. **Multi-hop path query.** I had to write BFS-over-Ways manually in
+   the Peipus driver to find the shortest route from Novgorod to
+   Pskov. A `paths_from(state, from, to, max_hops, season, transport)`
+   helper would let an LLM agent plan multi-turn marches without
+   reimplementing graph search.
+
+4. **No "this Lord can act this round?" predicate.** When iterating
+   plan slots the agent has to track whether each Lord's Command card
+   has been revealed or not. A helper like `lord_card_status(state,
+   lord_id)` returning `{in_plan, revealed_this_card, actions_left}`
+   would simplify activation-loop code.
+
+## Engine behavior validated
+
+- Bridge / Marsh / Hill / Ambush / Field Organ Tier 2 holds (R18) all
+  available but not exercised by these two plays — neither side had
+  reason to play them.
+- Q-007 round-in-favor-of-Crossbowmen would have applied if Russian
+  Storm involved Streltsy MaA + Asiatic Horse mixed archery, but
+  the Russians never Stormed.
+- Veche option B (auto-Muster Domash) worked first try.
+- The Russian Pskov-stall strategy (use Siege to deny Yaroslav Tax)
+  worked exactly as Volko's Strategy reference describes.
+
+## Test count
+
+386 → 396 → 412 (R18) all stable. No new pytest tests added in this
+round (this is end-to-end smoke, not unit testing); the
+`_playthrough_round19_pleskau.py` and `_playthrough_round19_peipus.py`
+drivers are saved as living-spec smoke scripts.
