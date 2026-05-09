@@ -163,23 +163,43 @@ def test_avoid_battle_unladen_to_safe_neighbor() -> None:
     assert s.combat_pending is None
 
 
-def test_avoid_battle_blocked_when_laden() -> None:
-    """4.3.4: Laden defender cannot Avoid."""
+def test_avoid_battle_laden_discards_loot_to_avoid() -> None:
+    """Round 29: 4.3.4 explicitly permits Laden Lords to Avoid by
+    discarding Loot/excess Provender. 'Lords may discard their Loot
+    and any Provender as needed to become Unladen and thereby Avoid
+    Battle.' Discards transfer to Approaching attacker as Spoils.
+
+    Before Round 29 the harness hard-rejected Laden Lords; that gate
+    was removed and the discard logic added.
+    """
     s = load_scenario("watland", seed=1)
     s.meta.box = 1
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian" and l.state == "mustered")
     s.lords[teu].location = "izborsk"
     s.lords[rus].location = "pskov"
-    s.lords[rus].assets["loot"] = 1  # makes defender Laden
+    s.lords[rus].assets["loot"] = 1  # defender enters Avoid Laden
     s.lords[teu].assets.pop("loot", None)
+    teu_loot_pre = int(s.lords[teu].assets.get("loot", 0))
     _start_command_with(s, teu)
     apply_action(s, {"type": "cmd_march", "side": "teutonic",
                      "args": {"lord_id": teu, "to": "pskov", "discard_excess_provender": True}})
-    with pytest.raises(IllegalAction) as exc:
-        apply_action(s, {"type": "avoid_battle", "side": "russian",
-                         "args": {"to": "novgorod"}})
-    assert exc.value.code == "laden_cannot_avoid"
+    from nevsky.static_data import load_ways
+    # Pick an adjacent locale free of enemy.
+    target = None
+    for w in load_ways():
+        cand = w["b"] if w["a"] == "pskov" else (w["a"] if w["b"] == "pskov" else None)
+        if cand and cand != "izborsk":
+            target = cand
+            break
+    if target is None:
+        pytest.skip("no clear avoid target")
+    apply_action(s, {"type": "avoid_battle", "side": "russian",
+                     "args": {"to": target}})
+    # Defender should have discarded all Loot to become Unladen.
+    assert s.lords[rus].assets.get("loot", 0) == 0
+    # Attacker gains the discarded Loot as Spoils (4.4.3 'as if Spoils').
+    assert s.lords[teu].assets.get("loot", 0) == teu_loot_pre + 1
 
 
 # --- 4.4 Battle resolution ---------------------------------------------------

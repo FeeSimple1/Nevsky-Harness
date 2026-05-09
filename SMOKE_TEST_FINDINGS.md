@@ -2744,3 +2744,155 @@ bug could exist in untested combinations. Future rounds could
 target capability × capability stacks (e.g., Halbbrueder + Warrior
 Monks + Streltsy on the same Lord) and Storm + Sally interactions
 that haven't been spot-checked at the rule level.
+
+
+# Round 29 — Broader rule-correctness audit (4.3.4 / 1.4.1, Spoils, Sea Trade)
+
+After Round 28 fixed the Asiatic Horse Storm Evade bug, the user
+asked: "Let's test anything that you can think of that hasn't been
+independently spot checked." This round broadened from combat
+resolution to the rules around the Approach response (Avoid Battle
+/ Withdraw), the Spoils transfer modes, and the Veche Sea-Trade
+Coin gates — areas with capability-light logic that hadn't been
+hit by the prior rounds' smoke/fuzz.
+
+## Empirical sweep
+
+A single probe (`/tmp/r29/probe_avoid_withdraw.py`) constructed a
+contrived `CombatPending` and exercised each rule clause against
+the existing handlers + legal_moves output. The sweep caught five
+bugs in the Avoid/Withdraw handlers and confirmed the four Spoils
+modes and both Sea-Trade Coin gates were already implemented
+correctly.
+
+## Bugs surfaced + fixed
+
+### (1) `legal_moves` Avoid Battle preview wrongly claimed Service shift
+
+The avoid_battle preview note said "Each Avoiding Lord's Service
+marker shifts 1 box right (lord_id discretion)." Rule 4.3.4 has
+**no** Service shift on Avoid Battle. Service shifts only on
+Retreat (4.4.3, d6 → 1/2/3 boxes left). The note was confusing the
+rules.
+
+The note text was misleading any LLM consumer that took the harness
+notes at face value (the whole point of the harness contract).
+Rewrote the note to describe the actual 4.3.4 effects: no Service
+shift, defender discards Loot + excess Provender (transferring to
+attacker as Spoils), and the 1.4.1 Legate trigger.
+
+### (2) Avoid Battle handler hard-rejected Laden Lords
+
+The handler raised `laden_cannot_avoid` whenever any defender was
+Laden. Rule 4.3.4 explicitly says: *"Lords may discard their Loot
+and any Provender as needed to become Unladen and thereby Avoid
+Battle."* Plus: *"They may take no Loot and take only Provender
+equal to their own or shared Transport that is usable on the Way
+across which they are moving."* Plus: *"The Approaching enemy
+Lords receive and divide among them any Loot and Provender so
+discarded (as if Spoils, 4.4.3)."*
+
+The harness was preventing a legal action (Avoid-with-discard) and
+silently dropping the rule that discards transfer as Spoils.
+
+Rewrote `_h_avoid_battle` to:
+- Drop the Laden-rejection gate.
+- For each defender, discard ALL Loot.
+- For each defender, discard Provender beyond the Transport usable
+  on the destination Way (`_usable_transport_count_for_way`).
+- Sum the discards across defenders and transfer to the first
+  attacker as Spoils.
+
+### (3) Avoid Battle ignored the approach-Way restriction
+
+Rule 4.3.4: *"Lords may not Avoid Battle across any part of the
+Way that the enemy used to Approach the Locale."* The handler
+checked dest adjacency and dest enemy-presence but did not block
+dest == cp.from_locale via the same way_type as the approach.
+
+Added the same `(from_locale, way_type)` test that Retreat already
+uses (so parallel Ways of a different type between the same
+Locales remain available — same logic, same precision).
+
+### (4) Withdraw incorrectly marked moved_fought
+
+`_h_withdraw` set `state.lords[did].moved_fought = True`. Rule
+4.3.4 states: *"NOTE: Withdrawal alone does not mark Lords as
+Moved/Fought."* Marking moved_fought on Withdraw was forcing a
+Feed step that wouldn't otherwise occur and was inflating the
+"moved" set used for downstream end-of-card logic.
+
+Removed the moved_fought write from the Withdraw handler. Lords
+still get `in_stronghold = True`.
+
+### (5) Legate-removal trigger missing on Teutonic Avoid / Withdraw
+
+Rule 1.4.1 / 4.3.4: *"If the Legate is alone with a Russian Lord
+or is with a Teutonic Lord who Avoids Battle or Withdraws, remove
+the pawn and discard William of Modena (1.4.1)."* The handlers
+implemented none of this trigger. Added: when the defender side is
+Teutonic and the Legate is at the Avoid/Withdraw origin Locale,
+remove the pawn, discard William of Modena (T13) from
+capabilities_in_play, return Legate to "card" state.
+
+## Verified clean (no fix needed)
+
+- Avoid Battle handler does NOT shift Service. Pre-fix and post-fix
+  defender Service marker stays at the same box. Matches rule 4.3.4.
+- Withdraw capacity check: 5 defenders into a City (cap=3) raises
+  `over_capacity`; 3 defenders into the same City passes.
+- Spoils modes (4.4.5):
+  - `all_except_ships` (removed / retreated-without-conceding):
+    transfers Coin/Provender/Loot/Boat/Cart/Sled, keeps Ships.
+  - `loot_and_excess` (conceded then retreated): transfers all
+    Loot and Provender beyond Retreat-Way Transport; Coin and
+    Transport stay.
+  - `none` (withdrew): no transfer.
+  - Fallback when retreat_way_type is None: transfers Loot only,
+    Provender stays (legacy callers).
+- Sea-Trade Coin gates (3.5.2):
+  - R8 Black Sea Trade: +1 Coin / Call to Arms; blocked when
+    Novgorod OR Lovat conquered by Teutons.
+  - R9 Baltic Sea Trade: +2 Coin / non-Winter Call to Arms;
+    blocked when Novgorod OR Neva conquered by Teutons; blocked
+    when Teuton ships > Russian ships+boats; blocked in
+    Early/Late Winter.
+  - Both reject when capability is not in `capabilities_in_play`.
+  - Veche Coin caps at 8 — additions beyond cap report
+    `lost_to_cap`.
+
+## Tests
+
+22 new tests across two files:
+- `test_round_29_avoid_withdraw_4_3_4.py` (10 tests):
+  legal_moves note, no-Service-shift regression, approach-Way
+  rejection, Loot discard + Spoils transfer, excess Provender +
+  Spoils transfer, Withdraw moved_fought, Withdraw capacity
+  regression, Legate-on-Teutonic-Avoid, Legate-on-Teutonic-
+  Withdraw, Legate-not-removed-on-Russian-Avoid.
+- `test_round_29_spoils_and_sea_trade.py` (12 tests): four Spoils
+  modes, both R8 block conditions, both R9 block conditions,
+  R9 winter block, capability-not-in-play rejection, Veche cap.
+
+Plus one updated test in `test_march_and_battle.py`: the obsolete
+`test_avoid_battle_blocked_when_laden` was rewritten to verify the
+new (correct) discard-then-Avoid behavior.
+
+515 → 527 passing.
+
+## Confidence delta vs R28
+
+R28 confirmed combat-resolution rule-correctness. R29 broadens to
+the Approach-response and post-combat resource-transfer rules —
+the rules that govern *who keeps what* after a Battle / Avoid /
+Withdraw / Storm Sack. Five additional bugs were latent (four in
+Avoid Battle / Withdraw, one in legal_moves notes); none of them
+would have crashed the engine, which is why fuzz didn't surface
+them. The Spoils mechanism and Sea-Trade Coin gates were already
+implemented to-spec.
+
+Schema observation: `CombatPending` stores `way_type` but not a
+`way_id`. The harness uses `(from_locale, way_type)` as a proxy
+for "the specific Way". For the Nevsky map, parallel Ways of
+identical type between the same Locale pair don't exist, so this
+is exact in practice; documented as a non-issue.

@@ -458,10 +458,16 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     if enemy_at_dest:
                         continue
                     note = (
-                        f"Avoid Battle to {dest} (4.3.4 Unladen). "
-                        f"Defender Lord(s) move to {dest}; no Battle "
-                        f"this Approach. Each Avoiding Lord's Service "
-                        f"marker shifts 1 box right (lord_id discretion)."
+                        f"Avoid Battle to {dest} (4.3.4). Defender "
+                        f"Lord(s) move to {dest}; no Battle this "
+                        f"Approach. No Service shift on Avoid (Service "
+                        f"shifts only on Retreat, 4.4.3). Defender "
+                        f"discards all Loot and any Provender beyond "
+                        f"Transport usable on the Avoid Way; discards "
+                        f"transfer to attacker(s) as Spoils (4.4.3 "
+                        f"\"as if Spoils\"). If Legate co-located "
+                        f"with a Teutonic Avoiding Lord, Legate removed "
+                        f"and William of Modena discarded (1.4.1)."
                     )
                     out.append({
                         "type": "avoid_battle", "side": side,
