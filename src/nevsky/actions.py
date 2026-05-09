@@ -830,9 +830,20 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     - Cylinder removed from Calendar.
     - Service marker removed from Calendar.
     - This-lord capabilities returned to side's deck (3.4.4).
+    - Pleskau: +1 VP per enemy Lord removed (calendar.pleskau_lords_
+      removed_* counters; +1 to the OPPOSING side's tally).
     """
     lord = state.lords[lord_id]
     side: Side = lord.side
+    # Skip double-counting if already removed.
+    if lord.state == "removed":
+        return
+    # Pleskau bonus: increment counter for the OTHER side.
+    if state.meta.special_rules.get("victory_lord_removed_bonus", False):
+        if side == "russian":
+            state.calendar.pleskau_lords_removed_russian += 1
+        else:
+            state.calendar.pleskau_lords_removed_teutonic += 1
     deck = _side_deck(state, side)
     for cid in lord.this_lord_capabilities:
         deck.deck.append(cid)

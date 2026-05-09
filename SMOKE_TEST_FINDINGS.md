@@ -2072,3 +2072,114 @@ infrastructure is full: all five 2E variants are recognized, three are
 fully wired (no_horseback_archery, bidding_for_sides, advanced_vassal_
 service), one is informational-only (optional_counters), and one has a
 filter helper for consumers (hidden_mats).
+
+# Round 22 — Long-scenario end-to-end smoke + scenario-victory bug fixes
+
+User direction: smoke test the longer scenarios. Built a generic active
+agent driver in `tests/_playthrough_round22_long_scenarios.py` that
+plays any scenario end-to-end with a basic strategic policy: each Lord
+marches toward the nearest enemy Stronghold; Stages Sieges; Storms
+when expected attacker win > 40%; Withdraws when outnumbered;
+Russians use Veche option B to auto-Muster Ready Lords.
+
+## Engine soundness — all four longer scenarios run cleanly
+
+| Scenario              | Turns played | Errors | Driver result | Real result (after R22 fixes) |
+|-----------------------|-------------:|-------:|---------------|-------------------------------|
+| pleskau (2 turns)     |            2 |      0 | T 1 - 0       | T 1 - 0                        |
+| watland (5 turns)     |            5 |      0 | T 4.5 - 0     | **R win** (Watland override)   |
+| return_of_the_prince  |            8 |      0 | T 7.5 - 1.0   | T win                          |
+| crusade_on_novgorod   |           16 |      0 | T 1.0 - 0     | T win                          |
+
+The engine survives 16-turn play with zero exceptions and zero illegal-
+action errors. Levy / Plan / Activations / End Campaign / Calendar
+advance / Wastage / Disband / Service-shift / Grow all execute
+correctly across all four scenarios.
+
+## Bug 1: Pleskau Lord-removed VP bonus was not applied
+
+The Pleskau scenario has `special_rules.victory_lord_removed_bonus`
+documented in the scenario JSON. Per rule 5.1: "PLESKAU SCENARIO
+ONLY: +1 VP per enemy Lord removed from the map by any means." The
+Calendar already had `pleskau_lords_removed_russian /
+pleskau_lords_removed_teutonic` counters — but nothing incremented
+them, and `_compute_vp` ignored them.
+
+**Fix.** `_remove_lord_permanently` now increments the counter named
+after the removed Lord's side when the scenario flag is on. The
+counter naming follows the convention "removed_{side_of_removed_lord}"
+so the consumer reads pleskau_lords_removed_russian = "count of
+Russian Lords removed" → bonus to the Teutons. `_compute_vp` adds the
+ENEMY-side counter to each side's tally.
+
+## Bug 2: Watland 2E victory override was not applied
+
+Watland's `special_rules.victory_override = "watland"` was documented
+in the scenario JSON. Per the 2E Watland rule: "Teutons win only with
+at least 7 VP AND at least 2x Russian VP. Otherwise Russians win. No
+tie." The harness only computed raw VP totals; no code applied the
+override. The driver's smoke run reported `T 4.5 - 0 → teutonic win`
+naively, but per the rule that's a Russian win (T < 7).
+
+**Fix.** New `scenarios.determine_scenario_winner(state)` helper
+returns `{winner, reason, t_vp, r_vp, applied_override}` per the
+canonical rules:
+
+1. **5.2 Campaign Victory** (checked during Campaign phase only): a
+   side with zero Mustered Lords loses immediately; the other side
+   wins regardless of VP.
+2. **Watland override** (when `victory_override == "watland"`):
+   Teutons win only if `t_vp >= 7 AND t_vp >= 2 * r_vp`; otherwise
+   Russians win; no tie.
+3. **Standard 5.3**: higher VP wins; tie = draw.
+
+Spot-checks against the rule examples:
+- Watland T=4.5 R=0: Russian wins (T < 7).
+- Watland T=7 R=3: Teutonic wins (7 ≥ 7 AND 7 ≥ 2×3=6).
+- Watland T=7 R=4: Russian wins (7 < 2×4=8).
+- Pleskau T=R=1: draw.
+
+## Driver notes (not bugs — agent quality)
+
+The active driver is intentionally simple. A few observations:
+
+- **Crusade ends at T 1 - R 0**: only Kaibolovo conquered. The agent
+  doesn't bring Aleksandr/Andrey in via Veche option C, doesn't
+  raid for ½-VP, and doesn't optimize plan order. A real LLM agent
+  applying full strategy would score much higher VPs.
+- **Knud & Abel hung the activation loop** until I added a 4-iteration
+  cap on the multi-hop march loop in `execute_lord_card`. The cause
+  was `paths_from` returning legal-shape Way paths that `cmd_march`
+  refused (Knud has Ships and Boats but Watland turn 1 is Early
+  Winter — Sleds-only). The driver's safety cap prevents this from
+  being a real engine concern but a future improvement to
+  `paths_from` could filter by season-usable transport.
+- **`legal_moves(state, with_previews=False)`** flag added so hot
+  loops (smoke drivers, agent activation) can skip the per-call
+  vp_forecast generation for cmd_storm / cmd_sally / stand_battle
+  notes. Default `with_previews=True` preserves the R16/R20 LLM
+  behavior. The smoke driver passes False to keep activation loops
+  fast.
+
+## Tests
+
+10 new in `test_round_22_long_scenarios.py`:
+- Pleskau lord-removed counter increments + propagates to compute_vp.
+- Non-Pleskau lord removals don't touch the counters.
+- determine_scenario_winner: standard higher-VP, tie, Watland under-7,
+  Watland 7+ over 2x, Watland under 2x, Campaign Victory zero-mustered,
+  Campaign Victory skipped during Levy.
+
+441 → 451 passing.
+
+## Items intentionally NOT in this round
+
+- Smarter active agent that uses Veche C (Aleksandr extra Muster) and
+  Veche A (cylinder shift) — would change scenario outcomes
+  meaningfully but is a significant agent design exercise.
+- `paths_from` season-and-transport filtering — would let the active
+  driver avoid Knud-and-Abel-style march dead-ends.
+- `determine_scenario_winner` integration into `end_campaign_resolve`
+  so the harness reports the canonical winner at scenario end without
+  the consumer needing to call it. Currently the helper exists; the
+  consumer wires it into their flow.
