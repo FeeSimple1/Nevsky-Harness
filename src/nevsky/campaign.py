@@ -1579,10 +1579,30 @@ def _h_cmd_march(
 def _h_avoid_battle(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """4.3.4 Avoid Battle: defender (Unladen) moves to an adjacent
+    """4.3.4 Avoid Battle: Inactive defender Lord(s) move to an adjacent
     Locale free of enemy Lord, Stronghold, and Conquered marker.
+
+    Round 29 corrections per 4.3.4 / 1.4.1:
+      - Lords may discard Loot and excess Provender to become Unladen
+        and thereby Avoid Battle (no longer hard-rejecting Laden Lords).
+      - Defender 'may take no Loot'; all Loot is discarded.
+      - Provender capped at Transport usable on the Avoid Way; excess
+        is discarded.
+      - Discarded Loot + excess Provender transfer to the first
+        attacker as Spoils ('as if Spoils', 4.4.3).
+      - May not Avoid across the Way the enemy used to Approach: dest
+        cannot be cp.from_locale via the same way_type (matches the
+        retreat-restriction convention used elsewhere).
+      - Service is NOT shifted on Avoid (4.3.4 has no shift; only
+        4.4.3 Retreat does).
+      - 1.4.1 Legate trigger: if the Avoiding Lord(s) include a
+        Teutonic Lord and the Legate is at the Avoid origin Locale,
+        remove the pawn and discard William of Modena.
+
     args.to: destination locale_id.
     """
+    from nevsky.battle import _usable_transport_count_for_way, _way_type_between
+
     sd = _require_side_player(state, side)
     cp = state.combat_pending
     if cp is None:
@@ -1592,23 +1612,24 @@ def _h_avoid_battle(
     dest = args.get("to")
     if not isinstance(dest, str):
         raise IllegalAction("missing_arg", "args.to required")
-    # Check Avoid eligibility: every defender must be Unladen.
-    for did in cp.defender_lords:
-        if _is_laden(state, did):
-            raise IllegalAction(
-                "laden_cannot_avoid",
-                f"{did} is Laden; Avoid Battle requires Unladen (4.3.4)",
-            )
-    # Adjacent to current locale via any Way.
+
     src = cp.to_locale  # defender currently at to_locale
-    ways = load_ways()
-    adjacent = False
-    for w in ways:
-        if (w["a"] == src and w["b"] == dest) or (w["b"] == src and w["a"] == dest):
-            adjacent = True
-            break
-    if not adjacent:
+    dest_way_type = _way_type_between(src, dest)
+    if dest_way_type is None:
         raise IllegalAction("not_adjacent", f"{dest} not adjacent to {src}")
+
+    # 4.3.4: may not Avoid Battle across the Way the enemy used to
+    # Approach. We identify the approach Way by (from_locale, way_type);
+    # if dest == cp.from_locale and dest_way_type == cp.way_type, the
+    # defender would be retreating along the exact Way the attacker
+    # used. Parallel Ways of a different type between the same Locales
+    # remain available.
+    if dest == cp.from_locale and dest_way_type == cp.way_type:
+        raise IllegalAction(
+            "approach_way_blocked",
+            "may not Avoid Battle across the Way the enemy used to Approach (4.3.4)",
+        )
+
     # Destination must be free of enemy Lord, enemy Stronghold, enemy Conquered.
     if _enemies_at(state, dest, sd):
         raise IllegalAction("dest_blocked", f"{dest} has enemy Lord")
@@ -1618,23 +1639,82 @@ def _h_avoid_battle(
     if (sd == "teutonic" and loc.russian_conquered > 0) or (sd == "russian" and loc.teutonic_conquered > 0):
         raise IllegalAction("dest_blocked", f"{dest} has enemy Conquered marker")
 
-    # Move defender(s).
+    # 4.3.4 discards: each Avoiding defender drops ALL Loot and any
+    # Provender beyond Transport usable on the Avoid Way. Discards
+    # accumulate as Spoils for the Approaching attacker.
+    spoils_loot = 0
+    spoils_prov = 0
+    per_lord_discards: list[dict[str, Any]] = []
+    for did in cp.defender_lords:
+        lord = state.lords[did]
+        loot_n = int(lord.assets.get("loot", 0))
+        if loot_n > 0:
+            spoils_loot += loot_n
+            lord.assets.pop("loot", None)
+        usable = _usable_transport_count_for_way(state, did, dest_way_type)
+        prov_n = int(lord.assets.get("provender", 0))
+        excess = max(0, prov_n - usable)
+        if excess > 0:
+            spoils_prov += excess
+            new_prov = prov_n - excess
+            if new_prov > 0:
+                lord.assets["provender"] = new_prov
+            else:
+                lord.assets.pop("provender", None)
+        per_lord_discards.append({
+            "lord_id": did, "loot": loot_n, "excess_provender": excess,
+        })
+    # Transfer discards to first attacker (Spoils, 4.4.3 "as if Spoils").
+    if (spoils_loot > 0 or spoils_prov > 0) and cp.attacker_group:
+        winner = cp.attacker_group[0]
+        if winner in state.lords:
+            wa = state.lords[winner].assets
+            if spoils_loot > 0:
+                wa["loot"] = wa.get("loot", 0) + spoils_loot
+            if spoils_prov > 0:
+                wa["provender"] = wa.get("provender", 0) + spoils_prov
+
+    # Move defender(s) and mark Moved/Fought (4.3.4 explicit: "Mark
+    # Avoiding Lords as Moved/Fought").
     for did in cp.defender_lords:
         state.lords[did].location = dest
         state.lords[did].moved_fought = True
 
-    # Combat resolves: attackers remain at to_locale; check for Stronghold->Siege.
+    # 1.4.1 Legate trigger: if any Teutonic defender Avoided and the
+    # Legate is at the Avoid origin (cp.to_locale, where the Lord just
+    # left from), remove the pawn and discard William of Modena.
+    if (cp.defender_side == "teutonic"
+            and state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == cp.to_locale):
+        if "T13" in state.decks.teutonic.capabilities_in_play:
+            state.decks.teutonic.capabilities_in_play.remove("T13")
+            state.decks.teutonic.discard.append("T13")
+        state.legate.william_of_modena_in_play = False
+        state.legate.location = "card"
+        state.legate.locale_id = None
+
+    # Stronghold present at the Approach Locale (with no defender Lords
+    # left) -> begin Siege.
     placed_siege = False
     if _has_enemy_stronghold_at(state, cp.to_locale, cp.attacker_side):
         loc2 = state.locales[cp.to_locale]
         if loc2.siege_markers == 0:
             loc2.siege_markers = 1
             placed_siege = True
+
     state.combat_pending = None
-    # Card ends per 4.3 (Marched and Approached counts toward "ended card").
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
-    return ({"avoided_to": dest, "placed_siege": placed_siege}, [])
+    return (
+        {
+            "avoided_to": dest,
+            "placed_siege": placed_siege,
+            "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
+            "discards_per_lord": per_lord_discards,
+        },
+        [],
+    )
 
 
 def _h_withdraw(
@@ -1686,9 +1766,26 @@ def _h_withdraw(
     loc2 = state.locales[cp.to_locale]
     if loc2.siege_markers == 0:
         loc2.siege_markers = 1
+    # 4.3.4 NOTE: "Withdrawal alone does not mark Lords as Moved/Fought."
+    # Lords go inside the Stronghold (Besieged) but are not marked
+    # Moved/Fought by the act of Withdrawing.
     for did in cp.defender_lords:
-        state.lords[did].moved_fought = True
         state.lords[did].in_stronghold = True
+
+    # 1.4.1 Legate trigger: if any Withdrawing Lord is Teutonic and the
+    # Legate is at the Withdraw Locale, remove the pawn and discard
+    # William of Modena.
+    if (cp.defender_side == "teutonic"
+            and state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == cp.to_locale):
+        if "T13" in state.decks.teutonic.capabilities_in_play:
+            state.decks.teutonic.capabilities_in_play.remove("T13")
+            state.decks.teutonic.discard.append("T13")
+        state.legate.william_of_modena_in_play = False
+        state.legate.location = "card"
+        state.legate.locale_id = None
+
     state.combat_pending = None
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
