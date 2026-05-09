@@ -1843,3 +1843,114 @@ in play): 500 trials, Russian win 93.8%. Within the expected band
 given Streltsy's -2 Armor advantage; the Q-007 split applies the
 rule precisely without the previous "any-contributor flags
 everything" over-application.
+
+# Round 20 — R19 interface gaps + optional rules infrastructure
+
+User direction: fix the four interface gaps surfaced in Round 19 and
+add optional-rules support so the player can declare which 2E variants
+are active and the LLM agent can respect them.
+
+## R19 interface gaps closed
+
+**Gap 1 — cmd_march warning when destination is enemy Stronghold.**
+`legal_moves`'s cmd_march entry now augments the note with two lines
+when relevant:
+- `NOTE: enters enemy Stronghold; places Siege & ends the Command card (4.3)`
+  when the destination is an enemy-territory Stronghold.
+- `NOTE: enemy Lord(s) [...] at dest; triggers Approach decision (4.3.4)`
+  when a Mustered enemy Lord is at the destination.
+
+**Gap 2 — withdraw arg-shape clarity.** The `withdraw` legal_moves
+entry's note now explicitly says "no args required" and that the
+action auto-targets `combat_pending.to_locale`.
+
+**Gap 3 — paths_from helper.** New `render.paths_from(state,
+from_locale, *, max_hops=4, season=None, transport=None)` returns a
+dict `{locale_id: [intermediate, ..., target]}` of shortest-Way paths
+within `max_hops` hops. Removes the need for an LLM agent to
+reimplement BFS over Ways.
+
+**Gap 4 — lord_card_status helper.** New
+`render.lord_card_status(state, lord_id)` returns a structured dict
+with `is_mustered, is_besieged, in_plan, in_plan_position,
+is_active, actions_remaining, service_disband_box`. Simplifies
+activation-loop bookkeeping.
+
+## Optional rules infrastructure
+
+`meta.optional_rules: dict[str, bool]` field added to the GameState
+schema. Five known optional rules per Rules of Play 2.1.2 / 6.0:
+
+- `hidden_mats` (1.5.2)
+- `optional_counters` (1.6)
+- `advanced_vassal_service` (3.4.2)
+- `bidding_for_sides` (6.0)
+- `no_horseback_archery` (6.0)
+
+`load_scenario` extended with `optional_rules: dict[str, bool] | None`
+and `bidding_bid: int = 0` keyword args. Unknown rule names raise
+`ValueError`. New runtime helper `set_optional_rule(state, rule_name,
+enabled)` lets the LLM toggle flags on declaration.
+
+`render_summary` adds an `Optional rules:` line listing active flags
+when any are enabled. Omitted when none are active.
+
+## No Horseback Archery (6.0) — wired
+
+When `meta.optional_rules.no_horseback_archery` is True, Asiatic Horse
+Defense rolls succeed only on '1' (effectively Unarmored). Negates the
+default `evade:1-3` Battle Melee defense.
+
+Implementation: `_absorb_hit` checks the optional flag and overrides
+the protection spec to `armor:1-1` for Asiatic Horse. The change
+applies in all situations, including Battle Melee — matching the rule
+text "always succeed only on '1'".
+
+Smoke check: an all-Asiatic-Horse defender vs balanced attacker shows
+materially lower Russian win rate with the variant on (regression test
+`test_no_horseback_archery_makes_asiatic_horse_more_fragile` pins this
+direction).
+
+## Bidding for Sides (6.0) — wired
+
+`load_scenario(..., bidding_bid=N)` adds N 1VP markers to the Veche
+(capped at 8 per rule 1.3.3). If `bidding_bid > 0`, the
+`bidding_for_sides` flag auto-enables. Negative bids rejected with
+ValueError.
+
+The bidding mechanic itself (two players concealing dice) is a setup-
+time human procedure outside the harness's responsibility; the harness
+takes the resolved bid value as input.
+
+## Optional rules — scaffolded but not yet engine-affecting
+
+Three optional rules are recorded in `meta.optional_rules` and shown
+in `render_summary`, but full engine wire-up is deferred:
+
+- **`optional_counters` (1.6).** Purely physical counter-substitution
+  for wood pieces. No engine effect; flag is informational only.
+- **`hidden_mats` (1.5.2).** Fog-of-war on Lord mats. The harness
+  currently exposes full state; full implementation needs a
+  `render_summary_for_side(state, side)` filter that omits opposing-
+  side details. Deferred — flag scaffolded so the agent can know it's
+  on and apply self-discipline.
+- **`advanced_vassal_service` (3.4.2).** Vassal Service tracked on
+  the Calendar instead of on Lord mat. Significant refactor of the
+  Vassal Disband mechanic. Flag scaffolded; full implementation
+  deferred.
+
+## Tests
+
+17 new in `test_round_20_gaps_and_optional_rules.py`:
+- cmd_march note warns about enemy Stronghold + enemy Lord at dest.
+- withdraw note explains no-args.
+- paths_from returns ordered path lists; supports starting locale and
+  multi-hop routes.
+- lord_card_status returns the expected key set; handles unknown lord.
+- load_scenario accepts and validates optional_rules kwarg.
+- set_optional_rule toggles + returns summary; rejects unknown names.
+- render_summary shows / omits the optional-rules line correctly.
+- bidding_bid adds VP markers, capped at 8, rejects negatives.
+- No Horseback Archery materially weakens Asiatic Horse defense.
+
+412 → 429 passing.

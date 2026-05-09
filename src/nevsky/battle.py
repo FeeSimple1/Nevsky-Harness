@@ -139,10 +139,19 @@ def _absorb_hit(
         per-step budget enforced via step_state["wm_reroll_used",
         lord_id, strike_kind]).
       - Striker Crossbowmen / Garrison MaA: target Armor -2.
+
+    Optional rule "no_horseback_archery" (Rules of Play 6.0): when
+    enabled, Asiatic Horse Defense rolls succeed only on '1' (Unarmored
+    in all situations, including Battle Melee; negates Evade).
     """
     from nevsky.capabilities import any_capability
 
     spec = _protection_spec(utype, strike_kind)
+    # Optional rule: No Horseback Archery — Asiatic Horse becomes
+    # effectively Unarmored (succeed only on roll 1).
+    if (utype == "asiatic_horse"
+            and state.meta.optional_rules.get("no_horseback_archery", False)):
+        spec = "armor:1-1"
     if spec == "none":
         return False
     if (

@@ -404,7 +404,7 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                             "args_template": {"to": "<adjacent locale_id>"},
                             "note": "Avoid Battle (Unladen, 4.3.4)"})
             out.append({"type": "withdraw", "side": side, "args": {},
-                        "note": "Withdraw into Stronghold at Battle Locale"})
+                        "note": "Withdraw all defender Lords into Stronghold at combat_pending.to_locale (no args required; capacity-checked vs Stronghold type, becomes Besieged)"})
             return out
         return out
     cstep = state.meta.campaign_step
@@ -461,11 +461,30 @@ def _campaign_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     adj.append((w["b"], w.get("type", "?")))
                 elif w["b"] == here:
                     adj.append((w["a"], w.get("type", "?")))
+            from nevsky.campaign import _has_enemy_stronghold_at
             for dest, way_type in adj:
+                base_note = f"March {active_lord} {here}->{dest} via {way_type} (1 action Unladen, 2 Laden)"
+                # Warn when entering enemy-territory Stronghold: per rule
+                # 4.3 ends_card_when began_siege, this March places a
+                # Siege marker AND ends the Command card.
+                try:
+                    if _has_enemy_stronghold_at(state, dest, side):
+                        base_note += " | NOTE: enters enemy Stronghold; places Siege & ends the Command card (4.3)"
+                except (KeyError, AttributeError):
+                    pass
+                # Warn when entering Locale with enemy Lord(s) -- triggers
+                # Approach decision (Avoid Battle / Withdraw / Stand).
+                enemy_at_dest = [
+                    lid for lid, l in state.lords.items()
+                    if l.side != side and l.state == "mustered"
+                    and l.location == dest and not l.in_stronghold
+                ]
+                if enemy_at_dest:
+                    base_note += f" | NOTE: enemy Lord(s) {enemy_at_dest} at dest; triggers Approach decision (4.3.4)"
                 out.append({
                     "type": "cmd_march", "side": side,
                     "args": {"lord_id": active_lord, "to": dest},
-                    "note": f"March {active_lord} {here}->{dest} via {way_type} (1 action Unladen, 2 Laden)",
+                    "note": base_note,
                 })
         except (ImportError, KeyError, AttributeError, FileNotFoundError) as e:
             # Static-data load failure or shape mismatch: fall back to the
