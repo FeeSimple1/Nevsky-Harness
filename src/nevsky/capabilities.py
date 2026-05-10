@@ -42,20 +42,41 @@ def _name_of(card_id: str) -> str:
     return load_cards()[card_id]["capability_name"]
 
 
+def _scope_of(card_id: str) -> str | None:
+    return load_cards()[card_id].get("capability_scope")
+
+
 def has_lord_capability(state: GameState, lord_id: str, name: str) -> bool:
-    """True if the Lord has a this-lord-tucked capability with `name`."""
+    """True if the Lord has a this-lord-tucked capability with `name`.
+
+    Round 30 hardening: a side-wide-scoped card erroneously placed in
+    ``lord.this_lord_capabilities`` is ignored here -- such a card
+    should only fire via ``has_side_capability``.
+    """
     if lord_id not in state.lords:
         return False
     for cid in state.lords[lord_id].this_lord_capabilities:
+        if _scope_of(cid) != "this_lord":
+            continue
         if _name_of(cid) == name:
             return True
     return False
 
 
 def has_side_capability(state: GameState, side: Side, name: str) -> bool:
-    """True if the side has a side-wide capability with `name` in play."""
+    """True if the side has a side-wide capability with `name` in play.
+
+    Round 30 hardening: only cards with ``capability_scope == "side_wide"``
+    (per cards.json) fire via this path. A ``this_lord``-scoped card
+    accidentally placed in ``deck.capabilities_in_play`` -- e.g., by a
+    test fixture, an out-of-band state edit, or a future regression --
+    will NOT fire side-wide. Without this guard, such a state would
+    erroneously apply the capability to every Lord on that side.
+    """
     deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
     for cid in deck.capabilities_in_play:
+        if _scope_of(cid) != "side_wide":
+            continue
         if _name_of(cid) == name:
             return True
     return False
