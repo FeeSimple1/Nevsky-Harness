@@ -3064,3 +3064,115 @@ draws. These are *script-driver* artifacts, not engine bugs:
 The engine produces correct scenario_winner outputs for the inputs
 it receives. No invariant violations across 75 multi-seed runs
 spanning Pleskau / Watland / Crusade.
+
+# Round 31 — aggressive edge-case bug hunt
+
+Goal: ruthlessly probe corners likely to harbor latent bugs that prior
+rounds didn't exercise. Random fuzzing, edge-case storm/battle setups,
+state-invariant probes (negative forces, position duplicates, save/load
+round-trip), Losses Rolls + Aftermath, sequence monotonicity.
+
+## Bugs surfaced and fixed
+
+### SMOKE-017 — Storm Reserve forced-advance leaves old Front Lord still labeled `storm_front`
+
+**Symptom.** When a Storm defender's Front Lord is Routed (no forces)
+and a Reserve Lord forced-advances to take its place, the engine sets
+the new Lord's position to `storm_front` but does NOT demote the old
+(empty) Lord. The result: two Lords on the same side simultaneously
+labeled `"storm_front"`, violating the "one Front per side per Storm
+Round" invariant.
+
+**Repro.** Storm with `defender_lords = [empty_lord, full_lord]`. After
+Round 2's reposition, the Reserve advances. Final state has both Lords
+mapped to `"storm_front"` in the returned `defender_storm_positions`.
+
+**Combat impact.** None: the strike loop filters by
+`state.lords[lid].forces`, so only the surviving Lord strikes or is
+struck. The bug is in the position label, not the resolution.
+
+**Latent risk.** A future invariant check, render path, or save/load
+canonicalization that assumes "exactly one Front per side" would
+silently pick up a corrupt state. The mirror-image case for the
+attacker side has the same bug (same code branch).
+
+**Fix.** Before promoting the Reserve to Front, demote any other Lord
+still labeled `"storm_front"` (with no forces) to `"storm_reserve"`.
+
+```python
+for lid_, p_ in list(positions.items()):
+    if p_ == "storm_front" and lid_ != chosen:
+        positions[lid_] = "storm_reserve"
+positions[chosen] = "storm_front"
+```
+
+The fix lives in `resolve_storm`'s reposition block (Round 2+ forced-
+advance path).
+
+## Items verified clean
+
+- **Random fuzz (1500 trials)**: 1000 randomized Battles + 500
+  randomized Storms across varied force compositions, capabilities, and
+  holds (Marsh / Hill / Ambush / Bridge / Field Organ / Pursuit). Zero
+  crashes, zero invariant fails. Battle outcomes 47/53 T/R; Storm
+  outcomes 71/29 def/atk.
+- **Battle initial array invariants**: 50 random T-vs-R seeds with
+  variable Lord counts (1–5 per side); never more than 1 Lord per Front
+  slot.
+- **Save/load round-trip**: serialize a state with combat residue
+  (forces depleted, routed_units populated), reload, compare; all
+  Lord forces and routed_units match.
+- **Storm 2v1 with both defender Lords full**: Reserve advance / swap
+  flows preserve the 1-Front invariant.
+- **Storm with no defender Lord and no garrison**: gracefully resolves
+  (attacker wins R1 — there's nothing to defend).
+- **Pydantic Lord construction with negative forces**: rejected with
+  ValidationError.
+- **Losses Rolls (4.4.4 Aftermath)**: handles empty routed pile,
+  handles a Lord whose forces dict went empty mid-Battle but has units
+  in routed_units (proper rejoin path).
+- **Clear routed pile**: returns the correct count and clears the
+  pile.
+- **Sequence monotonicity**: sequence counter increases monotonically
+  across multiple actions.
+- **Bridge (Q-008)**: confirmed working in summer with proper holds
+  threading; also confirmed correctly suppressed in Winter per the
+  card's seasonal restriction (an earlier "Bridge has no effect"
+  observation traced to the test fixture using a Winter scenario box).
+- **Concede halving (Pursuit)**: per-Lord halving applied at raw stage
+  before the per-step ceil. Verified the halved hits show in the log
+  (5K → 4 hits without concede; 5K → 2 hits with concede on attacker —
+  half of 4, ceil of 2).
+
+## Defensive notes (not fixed)
+
+- **Pydantic field bounds (`Field(ge=0, le=8)`) only validate at
+  construction time**, not on direct attribute assignment. So `s.veche.coin = 100` silently sets to 100, bypassing the documented 8-Coin
+  cap. Production paths cap correctly via explicit `min(8, ...)` at
+  every mutation site (verified: every `+=` to `state.veche.coin`,
+  `lord.assets[...]`, calendar VP fields is gated). The footgun is
+  for test fixtures, external state edits, or future regressions.
+  Tightening this would require `model_config = ConfigDict(
+  validate_assignment=True)` on every bound-constrained model;
+  declined for this round to avoid invalidating legitimate test
+  fixtures that intentionally set out-of-spec values for fault-injection
+  tests.
+
+## Tests added
+
+- `test_round_31_storm_position_invariant.py` (3 tests):
+  - `test_storm_reserve_advance_demotes_old_front`
+  - `test_storm_reserve_advance_preserves_invariant_across_multiple_rounds`
+  - `test_storm_attacker_reserve_advance_invariant` (mirror for attacker)
+
+540 → 543 passing.
+
+## Confidence delta vs Round 30
+
+R30 confirmed Battle/Storm outcome distributions are rule-correct and
+side-symmetric. R31 stresses corners: random fuzz, save/load, position
+state coherence, edge-case army compositions, Losses-Rolls invariants.
+One real bug surfaced (SMOKE-017, position-state coherence in Storm
+forced-advance). Combat-result correctness was unaffected, which is
+why prior rounds' outcome-shape tests didn't catch it. Random fuzzing
+plus targeted position-invariant probes were the new tools needed.
