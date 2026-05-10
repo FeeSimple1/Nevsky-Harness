@@ -3176,3 +3176,92 @@ One real bug surfaced (SMOKE-017, position-state coherence in Storm
 forced-advance). Combat-result correctness was unaffected, which is
 why prior rounds' outcome-shape tests didn't catch it. Random fuzzing
 plus targeted position-invariant probes were the new tools needed.
+
+# Round 32 — post-combat lifecycle bug hunt
+
+Goal: probe areas not yet exercised — Feed/Pay/Disband cycle, vassal-
+disband cascade, calendar cylinder/service-marker handling, Conquest
+mechanics, render coherence after combat residue, save/load round-trip,
+VP computation paths.
+
+## Bugs surfaced and fixed
+
+### SMOKE-018 — `_disband_at_limit(... new_box=0)` silently wraps to box 16
+
+**Symptom.** Calling `_disband_at_limit(state, lord_id, 0)` (or any
+non-positive value) used Python's negative indexing: `cal.boxes[-1]`
+resolves to the last box (box 16). The Lord's cylinder was silently
+placed at box 16 instead of off_left.
+
+**Production impact.** None today: every caller computes a strictly
+positive target (`sm_box + srating` with `sm_box >= 1, srating >= 1`),
+so the bug never fires in normal play.
+
+**Latent risk.** A future caller, rule change, or fault injection that
+passes 0 or negative would corrupt the calendar in a way that looks
+like a normal valid Lord at box 16 — hardest kind of bug to spot.
+
+**Fix.** Explicit bounds check in `_disband_at_limit`:
+
+```python
+if new_box_with_overflow > 16:
+    cal.off_right.append(lord_id)
+elif new_box_with_overflow < 1:
+    cal.off_left.append(lord_id)
+else:
+    cal.boxes[new_box_with_overflow - 1].cylinders.append(lord_id)
+```
+
+## Items verified clean
+
+- **Feed mechanic edge cases**:
+  - Lord with 0 forces and `moved_fought=True`: cost=0, no service
+    penalty, `moved_fought` cleared.
+  - Starving Lord (3 units, no Provender, no Loot, no co-located
+    helper): unfed=True; Service marker shifts 1 box LEFT correctly
+    (box 4 → 3).
+  - Co-located helper sharing Provender: target unfed=False, helper's
+    Provender decremented correctly.
+  - 7+ units cost 2 (not 1); verified via 8-unit Lord with 5 Provender
+    ending at 3 (consumed 2).
+- **Service-marker → off_left → permanent removal cascade**: Lord with
+  service marker at box 1 + unfed in same FPD → shift to off_left →
+  next Disband check removes Lord permanently. State correctly reaches
+  `lord.state == "removed"` with all calendar markers cleared.
+- **At-limit Disband during Campaign (3.3.2 2E "count from NEXT box")**:
+  service at Levy box → cylinder placed at next_box + service_rating
+  with proper "disbanded" state, service marker returned off-Calendar.
+- **Save/load round-trip after combat**: Lord forces, routed_units,
+  calendar cylinders + service_markers all preserve through
+  `model_dump()` / `model_validate()`.
+- **Render coherence after combat residue**: `render_summary` and
+  `render_verbose` produce output without crashing when Lords have
+  partial forces, populated routed_units, capability stacks.
+- **Long-cycle invariant fuzz (150 multi-seed runs across 3 scenarios)**:
+  0 exceptions, 0 invariant violations.
+- **VP computation**: `_compute_vp` correctly sums conquered (1 each),
+  castle (1 each), ravaged (0.5 each), Veche vp_markers (Russian only),
+  and Pleskau Lord-removed bonus (gated by
+  `meta.special_rules.victory_lord_removed_bonus`, which is only set
+  for the Pleskau scenario in `_build_meta`).
+- **Calendar boundary handling**: `_disband_at_limit` with valid box
+  range (1-16) places correctly; box 17 → off_right; the new SMOKE-018
+  fix handles box <= 0 → off_left.
+
+## Tests added
+
+- `test_round_32_disband_bounds.py` (5 tests): pin the new bounds
+  behavior for `_disband_at_limit` at box=0, negative, 16 (max in
+  range), 17 (off_right), 5 (mid-range).
+
+543 → 548 passing.
+
+## Confidence delta vs R31
+
+R30/R31 focused on combat-resolution correctness and Battle/Storm
+outcome shapes. R32 broadens to the lifecycle layer — Feed, Disband,
+calendar-marker bookkeeping, render coherence, save/load, VP scoring.
+One defensive bug surfaced (SMOKE-018 calendar wrap-around). The Feed
+mechanic, vassal disband cascade, permanent-removal cleanup, and
+multi-seed scripted-driver runs all behave as specified across 150
+runs.
