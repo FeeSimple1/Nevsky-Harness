@@ -2160,6 +2160,49 @@ def _besieged_lords_at(state: GameState, locale_id: str, side: Side) -> list[str
     ]
 
 
+def _apply_conquest_or_liberation(
+    state: GameState, locale_id: str, attacker_side: Side, sh_vp: int,
+) -> dict[str, Any]:
+    """SMOKE-021 (Round 35): place Conquered marker on Storm/Surrender
+    victory, accounting for native ownership.
+
+    If the attacker is conquering an enemy-territory Locale:
+        set attacker's conquered marker += sh_vp; add attacker VP.
+    If the attacker is liberating own-territory (enemy marker present):
+        clear the enemy marker; subtract enemy VP. The attacker does
+        NOT gain a new conquered marker (you can't conquer your own
+        territory) and does NOT gain VP (the VP swing comes from the
+        enemy LOSING their marker).
+
+    Russian-territory locales: native side = russian.
+    Teutonic / Crusader-territory locales: native side = teutonic.
+    """
+    static = load_locales()[locale_id]
+    loc = state.locales[locale_id]
+    native_side: Side = "russian" if static["territory"] == "russian" else "teutonic"
+    if attacker_side != native_side:
+        # Conquest: attacker is conquering enemy-native locale.
+        if attacker_side == "teutonic":
+            loc.teutonic_conquered += sh_vp
+            state.calendar.teutonic_vp += float(sh_vp)
+        else:
+            loc.russian_conquered += sh_vp
+            state.calendar.russian_vp += float(sh_vp)
+        return {"type": "conquest", "side": attacker_side, "vp": sh_vp}
+    else:
+        # Liberation: attacker reclaims own-native locale; clear enemy marker.
+        if attacker_side == "teutonic":
+            prev = loc.russian_conquered
+            loc.russian_conquered = 0
+            state.calendar.russian_vp -= float(prev)
+            return {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
+        else:
+            prev = loc.teutonic_conquered
+            loc.teutonic_conquered = 0
+            state.calendar.teutonic_vp -= float(prev)
+            return {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
+
+
 def _h_cmd_siege(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -2214,22 +2257,18 @@ def _h_cmd_siege(
         dice.append({"surrender_roll": roll, "vs_siege_markers": sm, "success": success})
         if success:
             # Conquered. Place Conquered marker per 1.3.1 and adjust VP.
-            sh_side = sh["side"]
-            attacker = sd
-            if attacker == "teutonic":
-                state.locales[locale_id].teutonic_conquered += sh["vp"]
-                state.calendar.teutonic_vp += float(sh["vp"])
-            else:
-                state.locales[locale_id].russian_conquered += sh["vp"]
-                state.calendar.russian_vp += float(sh["vp"])
+            # SMOKE-021 (Round 35): use _apply_conquest_or_liberation so
+            # the marker placement correctly distinguishes conquest from
+            # liberation of native territory.
+            change = _apply_conquest_or_liberation(state, locale_id, sd, sh["vp"])
             # Novgorod special: remove all Veche Coin (1.3.3) -- not Sacked,
             # so Coin is removed (not transferred as spoils).
             if locale_id == "novgorod":
                 lost_coin = state.veche.coin
                 state.veche.coin = 0
-                surrender_result = {"conquered": True, "veche_coin_removed": lost_coin}
+                surrender_result = {"conquered": True, "veche_coin_removed": lost_coin, "change": change}
             else:
-                surrender_result = {"conquered": True}
+                surrender_result = {"conquered": True, "change": change}
         else:
             surrender_result = {"conquered": False}
 
@@ -2339,13 +2378,10 @@ def _h_cmd_storm(
                 aftermath.setdefault("ransom", []).append(r)
             _rem(state, lid, load_lords()[lid])
         aftermath["besieged_removed"] = list(besieged)
-        # Conquer Stronghold.
-        if sd == "teutonic":
-            state.locales[locale_id].teutonic_conquered += sh["vp"]
-            state.calendar.teutonic_vp += float(sh["vp"])
-        else:
-            state.locales[locale_id].russian_conquered += sh["vp"]
-            state.calendar.russian_vp += float(sh["vp"])
+        # Conquer/Liberate Stronghold per SMOKE-021 (Round 35).
+        aftermath["conquest_change"] = _apply_conquest_or_liberation(
+            state, locale_id, sd, sh["vp"]
+        )
         # Remove siege markers.
         state.locales[locale_id].siege_markers = 0
         # R18: Walls +1 marker removed if Sacked.
