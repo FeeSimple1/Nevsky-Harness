@@ -1817,6 +1817,15 @@ def resolve_storm(
                             {"phase": "storm_advance_after_front_rout"},
                         )
                     )
+                    # SMOKE-017 (Round 31): demote any prior Lord still
+                    # labeled "storm_front" but Routed (no forces) to
+                    # "storm_reserve" so we don't end up with two Lords
+                    # at Front simultaneously. Strike logic already
+                    # filters by Lord.forces, so this is a state-
+                    # consistency fix, not a combat-result fix.
+                    for lid_, p_ in list(positions.items()):
+                        if p_ == "storm_front" and lid_ != chosen:
+                            positions[lid_] = "storm_reserve"
                     positions[chosen] = "storm_front"
                     repo_log.setdefault(side_label, []).append({
                         "step": "advance", "lord": chosen,

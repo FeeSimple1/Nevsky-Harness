@@ -2896,3 +2896,283 @@ Schema observation: `CombatPending` stores `way_type` but not a
 for "the specific Way". For the Nevsky map, parallel Ways of
 identical type between the same Locale pair don't exist, so this
 is exact in practice; documented as a non-issue.
+
+# Round 30 — battle/storm outcome distribution sweep
+
+Goal: probe the engine for *suspiciously lopsided or anomalous*
+combat outcomes against the prior expectation that Storm should
+strongly favor the defender and Battle should somewhat favor the
+defender. Build deep Monte Carlo sweeps over a range of force
+compositions, terrain holds, capabilities, and stronghold parameters;
+check side-symmetry, round-count distribution, Pursuit/Concede
+dynamics, and storm walls/garrison/siegeworks behavior.
+
+Sweep scripts (smoke-only; not shipped): `/tmp/r30/sweep_*`.
+
+## Outcomes vs expectations
+
+**Battle (no walls, defender-strikes-first):** Pure-symmetric setups
+produce a *strong* defender bias — well above "somewhat":
+
+| matchup                      | atk-win % (200 trials) |
+| ---------------------------- | ---------------------- |
+| 1K vs 1K                     |  27.5                  |
+| 2K vs 2K                     |  27.5                  |
+| 3K vs 3K                     |  13.0                  |
+| 1S/1MaA vs 1S/1MaA           |  35.0                  |
+| 3S/3MaA vs 3S/3MaA           |  25.5                  |
+| 3MIL/3LH/3AH vs same         |  10.5                  |
+| 3v3 lords (3K2MaA each)      | ~15                    |
+
+**Conclusion: rule-correct.** Defender-strikes-first per 4.4.2
+initiative (`archery defender → archery attacker → melee horse
+defender → melee horse attacker → melee foot defender → melee foot
+attacker`) plus per-Lord 6-Hit melee cap means that at parity, the
+defender gets a "free" Round 1 strike that often wipes a Knight or
+two before the attacker can swing. The Round-7 anomaly threshold of
+60% skew flagged this when it was first added; the threshold was
+calibrated against an earlier (pre-Q-008) build. The result remains
+rule-correct under 2E. In real play, attackers offset this with
+capability stacks, terrain (Hill/Marsh/Field Organ), force imbalance,
+and choice of when/where to engage; the symmetric baseline is a
+worst case, not the typical play distribution.
+
+**Storm (with realistic stronghold parameters):** strongly
+defender-favored as expected:
+
+| stronghold (walls / siege / garrison) | atk-win %   |
+| ------------------------------------- | ----------- |
+| Fort     1-3 / 1 / 1 MaA              | 47          |
+| City     1-3 / 3 / 3 MaA              |  0          |
+| Novgorod 1-3 / 3 / 3 MaA              |  0          |
+| Bishopric 1-4 / 3 / 2 MaA + 1 K       |  0          |
+| Castle   1-4 / 2 / 1 MaA + 1 K        |  0          |
+| City + Trebuchets                     |  6          |
+
+**Conclusion: rule-correct.** The single-Front-Lord bottleneck plus
+walls-roll absorption plus garrison strikes plus rounds-completed
+timeout combine to make City-tier and larger Strongholds essentially
+unstormable without overwhelming force or walls-reducing capabilities.
+Trebuchets' Walls -1 buys some attacker odds (City: 0% → 6%).
+
+The Fort case (walls 1-3, siege markers capped at 1) sits near 50/50
+because siege=1 means *one Round* before timeout — the storm is
+either Round-1-decided or the defender wins by attrition. That's the
+intended fast-resolve Fort dynamic.
+
+**Side-symmetry:** With identical forces and explicitly mustered
+equal Lord counts, T-attacks-R and R-attacks-T produce identical
+attacker-win rates to within sample noise (200 trials). Earlier
+Round-7 results showed an apparent asymmetry, but that was a
+test-fixture artifact: Crusade-on-Novgorod has 3 mustered Teutonic
+Lords vs 2 mustered Russian Lords, so a "3v3" test fixture loaded
+from that scenario was actually 3v2. Round 30 added an explicit
+muster-N helper; symmetry holds exactly.
+
+**Pursuit / Concede:** Defender concede → attacker wins 100%.
+Attacker concede → defender wins 100%. The conceder loses
+unconditionally per 4.4.2 ("declare this Round as last; conceder
+loses; enemy gains Pursuit"). The Pursuit half-Hit modifier is
+applied but is moot when the conceder loses outright; it would
+matter for the *non-conceder's* survival in the Round, which
+doesn't change who wins.
+
+**Round-count distribution:** Battle 3K2MaA vs 3K2MaA across 400
+seeds: 16.5% R1, 48% R2, 28.5% R3, 6% R4, 1% R5+. Max=6, well
+under the max_rounds=10 cap. No stalemate detection bug.
+
+## Bugs surfaced and fixed
+
+### SMOKE-016 (low, defensive). Capability-scope leakage in `any_capability`
+
+`has_lord_capability` and `has_side_capability` did not validate
+`capability_scope` from cards.json. A `this_lord`-scoped card
+accidentally placed in `deck.capabilities_in_play` would be
+reported as a side-wide capability — applying its effect to *every*
+Lord on that side instead of just the Lord that tucked it.
+
+**Production impact:** None today. The action paths
+(`actions.py::aow_use_capability`, `actions.py::cmd_capability`)
+correctly route by `capability_scope`. Events.py only puts T11
+(side_wide) and T13 (side_wide) into `capabilities_in_play`.
+Scenarios don't pre-populate caps. So in a normal play flow, no
+`this_lord` cap reaches `capabilities_in_play`.
+
+**Latent footgun:** Test fixtures sometimes append `this_lord` caps
+to `capabilities_in_play` as a shortcut to trigger the cap effect
+(e.g., `test_round_28_rule_correctness.py` for Halbbrueder/Streltsy
+and `test_actions_aow.py` for shuffle behavior). In `test_round_28`
+the cap is also tucked under the Lord, so the existing test still
+passes via the correct (this-lord) path. But a future regression
+that put a `this_lord` cap into `capabilities_in_play` without also
+tucking it would fire side-wide silently. Round 30's broad sweep
+script demonstrated the leak: setting `capabilities_in_play=("T9",)`
+boosted the symmetric-attacker win rate from 25.5% to 52.5%
+(Halbbrueder firing for *all* T Lords' S/MaA), where the rule
+permits it only on the T9-bearing Lord.
+
+**Fix:** Both `has_lord_capability` and `has_side_capability` now
+verify `capability_scope` before firing:
+
+  - `has_lord_capability` ignores side-wide-scoped cards in
+    `lord.this_lord_capabilities`.
+  - `has_side_capability` ignores this-lord-scoped cards in
+    `deck.capabilities_in_play`.
+
+`any_capability` (the union) now correctly reflects this.
+
+### Items verified clean
+
+- **Side symmetry** at 1v1 and 3v3 once Lord counts are explicitly
+  matched.
+- **Defender-strikes-first** is applied uniformly.
+- **Storm walls/garrison/siegeworks** absorbs hits per spec; per-Lord
+  6-Hit melee cap (combined with Garrison) applied correctly.
+- **Concede paths** in both directions.
+- **Asiatic Horse Evade**: 1-3 vs Battle Melee, roll-1-only vs Archery.
+- **Halbbrueder, Streltsy, Trebuchets** effects fire with the right
+  magnitude (when correctly configured per scope).
+- **Storm round-count timeout**: hits siege_markers correctly →
+  defender wins by attrition.
+- **Round-count distribution** in Battle: no stalemate at max_rounds.
+
+## Tests added
+
+- `test_round_30_capability_scope.py` (4 tests): pin the new
+  scope-validating behavior of `has_lord_capability` /
+  `has_side_capability` in both directions (misplaced this_lord
+  in capabilities_in_play; misplaced side_wide in this_lord_caps).
+- `test_round_30_battle_storm_distributions.py` (9 tests): regression
+  baselines for side-symmetry (1v1 and 3v3), defender bias at
+  parity, City and Castle storm strongly favoring defender,
+  Concede unconditional loss in both directions, no stalemate at
+  long-tail rounds.
+
+527 → 540 passing.
+
+## Side note on the multi-seed scripted sweep
+
+`tests/_playthrough_round26_multi_seed.py` produces lopsided
+scenario outcomes: Watland 25/0 Russian, Pleskau 0/6 with most as
+draws. These are *script-driver* artifacts, not engine bugs:
+- Watland's Teutonic victory threshold is 7 VP AND ≥ 2x Russian VP
+  (per `determine_scenario_winner`). The scripted "march to nearest
+  enemy stronghold then Storm if winrate > 0.4" driver doesn't
+  generate enough VP for Teutons to clear that bar in 5 turns.
+- Pleskau is short (2 turns); the scripted driver produces stalemates
+  with both sides at 0 VP. Either side scoring 1 VP wins.
+The engine produces correct scenario_winner outputs for the inputs
+it receives. No invariant violations across 75 multi-seed runs
+spanning Pleskau / Watland / Crusade.
+
+# Round 31 — aggressive edge-case bug hunt
+
+Goal: ruthlessly probe corners likely to harbor latent bugs that prior
+rounds didn't exercise. Random fuzzing, edge-case storm/battle setups,
+state-invariant probes (negative forces, position duplicates, save/load
+round-trip), Losses Rolls + Aftermath, sequence monotonicity.
+
+## Bugs surfaced and fixed
+
+### SMOKE-017 — Storm Reserve forced-advance leaves old Front Lord still labeled `storm_front`
+
+**Symptom.** When a Storm defender's Front Lord is Routed (no forces)
+and a Reserve Lord forced-advances to take its place, the engine sets
+the new Lord's position to `storm_front` but does NOT demote the old
+(empty) Lord. The result: two Lords on the same side simultaneously
+labeled `"storm_front"`, violating the "one Front per side per Storm
+Round" invariant.
+
+**Repro.** Storm with `defender_lords = [empty_lord, full_lord]`. After
+Round 2's reposition, the Reserve advances. Final state has both Lords
+mapped to `"storm_front"` in the returned `defender_storm_positions`.
+
+**Combat impact.** None: the strike loop filters by
+`state.lords[lid].forces`, so only the surviving Lord strikes or is
+struck. The bug is in the position label, not the resolution.
+
+**Latent risk.** A future invariant check, render path, or save/load
+canonicalization that assumes "exactly one Front per side" would
+silently pick up a corrupt state. The mirror-image case for the
+attacker side has the same bug (same code branch).
+
+**Fix.** Before promoting the Reserve to Front, demote any other Lord
+still labeled `"storm_front"` (with no forces) to `"storm_reserve"`.
+
+```python
+for lid_, p_ in list(positions.items()):
+    if p_ == "storm_front" and lid_ != chosen:
+        positions[lid_] = "storm_reserve"
+positions[chosen] = "storm_front"
+```
+
+The fix lives in `resolve_storm`'s reposition block (Round 2+ forced-
+advance path).
+
+## Items verified clean
+
+- **Random fuzz (1500 trials)**: 1000 randomized Battles + 500
+  randomized Storms across varied force compositions, capabilities, and
+  holds (Marsh / Hill / Ambush / Bridge / Field Organ / Pursuit). Zero
+  crashes, zero invariant fails. Battle outcomes 47/53 T/R; Storm
+  outcomes 71/29 def/atk.
+- **Battle initial array invariants**: 50 random T-vs-R seeds with
+  variable Lord counts (1–5 per side); never more than 1 Lord per Front
+  slot.
+- **Save/load round-trip**: serialize a state with combat residue
+  (forces depleted, routed_units populated), reload, compare; all
+  Lord forces and routed_units match.
+- **Storm 2v1 with both defender Lords full**: Reserve advance / swap
+  flows preserve the 1-Front invariant.
+- **Storm with no defender Lord and no garrison**: gracefully resolves
+  (attacker wins R1 — there's nothing to defend).
+- **Pydantic Lord construction with negative forces**: rejected with
+  ValidationError.
+- **Losses Rolls (4.4.4 Aftermath)**: handles empty routed pile,
+  handles a Lord whose forces dict went empty mid-Battle but has units
+  in routed_units (proper rejoin path).
+- **Clear routed pile**: returns the correct count and clears the
+  pile.
+- **Sequence monotonicity**: sequence counter increases monotonically
+  across multiple actions.
+- **Bridge (Q-008)**: confirmed working in summer with proper holds
+  threading; also confirmed correctly suppressed in Winter per the
+  card's seasonal restriction (an earlier "Bridge has no effect"
+  observation traced to the test fixture using a Winter scenario box).
+- **Concede halving (Pursuit)**: per-Lord halving applied at raw stage
+  before the per-step ceil. Verified the halved hits show in the log
+  (5K → 4 hits without concede; 5K → 2 hits with concede on attacker —
+  half of 4, ceil of 2).
+
+## Defensive notes (not fixed)
+
+- **Pydantic field bounds (`Field(ge=0, le=8)`) only validate at
+  construction time**, not on direct attribute assignment. So `s.veche.coin = 100` silently sets to 100, bypassing the documented 8-Coin
+  cap. Production paths cap correctly via explicit `min(8, ...)` at
+  every mutation site (verified: every `+=` to `state.veche.coin`,
+  `lord.assets[...]`, calendar VP fields is gated). The footgun is
+  for test fixtures, external state edits, or future regressions.
+  Tightening this would require `model_config = ConfigDict(
+  validate_assignment=True)` on every bound-constrained model;
+  declined for this round to avoid invalidating legitimate test
+  fixtures that intentionally set out-of-spec values for fault-injection
+  tests.
+
+## Tests added
+
+- `test_round_31_storm_position_invariant.py` (3 tests):
+  - `test_storm_reserve_advance_demotes_old_front`
+  - `test_storm_reserve_advance_preserves_invariant_across_multiple_rounds`
+  - `test_storm_attacker_reserve_advance_invariant` (mirror for attacker)
+
+540 → 543 passing.
+
+## Confidence delta vs Round 30
+
+R30 confirmed Battle/Storm outcome distributions are rule-correct and
+side-symmetric. R31 stresses corners: random fuzz, save/load, position
+state coherence, edge-case army compositions, Losses-Rolls invariants.
+One real bug surfaced (SMOKE-017, position-state coherence in Storm
+forced-advance). Combat-result correctness was unaffected, which is
+why prior rounds' outcome-shape tests didn't catch it. Random fuzzing
+plus targeted position-invariant probes were the new tools needed.
