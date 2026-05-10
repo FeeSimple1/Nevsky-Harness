@@ -3350,3 +3350,87 @@ confirmed). The remaining `siege_markers == 0` / `siege_markers > 0`
 checks (Siege/Storm gating, locale friendliness, route conquered-marker
 block) operate on the locale itself, not on filtering Lords, and are
 correct as written.
+
+# Round 34 — conquest mechanics bug hunt
+
+Goal: probe Pay command, Conquest mechanics (March/Sail entry of
+enemy locales), group March capacity, capability-action triggers.
+
+## Bugs surfaced and fixed
+
+### SMOKE-020 — Trade Routes treated as Strongholds; no Conquered-marker flip on entry
+
+**Two related defects:**
+
+1. **`_has_enemy_stronghold_at` incorrectly included `"trade_route"`**
+   in its Stronghold-type list. Per Strongholds reference, Trade
+   Routes have no Walls, Capacity, or Garrison — they cannot be
+   Sieged or Stormed. The buggy classification caused March/Sail
+   into a Russian trade route to place a `siege_markers = 1` on the
+   trade-route Locale, leaving an orphaned siege marker in a state
+   where no Siege/Storm action is legal.
+
+2. **No auto-flip of Conquered marker on Lord entry.** Per the rule:
+   "Trade Routes are boxed Locales: they take a Conquered marker
+   for 1 VP but have no Walls, Capacity, or Garrison. They flip
+   simply by an enemy Lord's presence with no friendly Lord
+   contesting — no Storm involved, hence no Spoils." The harness
+   never flipped the marker, so a Lord could park on a Russian
+   trade route indefinitely without ever gaining its 1 VP.
+
+**Production impact.** Real. Russia has 4 trade routes worth 4 VP
+total. Pre-fix:
+- Teutons could march into trade routes but gain nothing.
+- The orphaned siege marker on a trade route could confuse downstream
+  Siege/Storm logic (no legal Storm/Sally action at a trade route,
+  but the marker would persist).
+
+**Fix.**
+- Removed `"trade_route"` from `_has_enemy_stronghold_at`'s type
+  list (docstring updated to explain why).
+- Added `_flip_trade_route_if_uncontested(state, locale_id, side)`
+  helper that handles the conquest flip: enemy side enters with no
+  native-side Lord present → conquered marker set, VP added;
+  native side re-enters teu-conquered with no Teu Lord present →
+  marker cleared, VP removed.
+- Wired the helper into both `_h_cmd_march` and `_h_cmd_sail` so
+  any Lord-movement entry path triggers the flip.
+- Return dict now includes a `trade_route_flip` field when a flip
+  occurs, with `flip_to: "teutonic"|"russian"|"neutral"` and the
+  VP amount.
+
+## Items verified clean
+
+- **Pay with Coin (3.2.1)**: respects own-Service / co-located / Veche
+  source rules; Besieged constraint (Lord besieged with target);
+  Veche cannot reach Besieged; correct Service marker shift.
+- **Pay with Loot (3.2.2)**: requires Friendly Locale; co-located
+  target only; correct Service marker shift.
+- **Tax**: full-card action; 8-Coin cap; sets `moved_fought=True`.
+- **Forage**: Friendly Stronghold OR Summer gate; Provender cap;
+  Ravaged Locale rejection.
+- **Ravage**: own-territory/Conquered/Friendly/already-ravaged
+  rejections; loot grant gated on non-Region type; 2-action cost
+  with Unbesieged-enemy adjacent (Round 33 fix).
+- **Sail summer-only**; **March multi-hop**; **March group transport
+  capacity**: all behave as documented.
+
+## Tests added
+
+- `test_round_34_trade_route_flip.py` (4 tests):
+  - `test_march_into_uncontested_russian_trade_route_flips_to_teutonic`
+  - `test_march_into_contested_russian_trade_route_does_not_flip`
+    (Approach Battle triggers instead)
+  - `test_march_into_teu_conquered_route_by_russian_clears_marker`
+  - `test_march_into_trade_route_does_not_place_siege_marker`
+    (regression for first half of SMOKE-020)
+
+552 → 556 passing.
+
+## Confidence delta vs R33
+
+R33 found a Lord-state predicate confusion (locale vs Lord besieged).
+R34 finds a Locale-type classification bug: Trade Routes were
+mis-grouped with siegeable strongholds. Two related defects in one
+SMOKE entry. Trade-Route conquest is now a first-class mechanic in
+both March and Sail.

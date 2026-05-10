@@ -960,6 +960,9 @@ def _h_cmd_sail(
         state.lords[gid].location = dest
         state.lords[gid].moved_fought = True
 
+    # SMOKE-020 (Round 34): trade-route auto-flip on uncontested entry.
+    trade_flip = _flip_trade_route_if_uncontested(state, dest, sd)
+
     # Sailing to Unbesieged enemy Stronghold places a Siege marker.
     placed_siege = False
     dest_loc = state.locales[dest]
@@ -976,16 +979,16 @@ def _h_cmd_sail(
 
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
-    return (
-        {
-            "lord_id": lord_id,
-            "from": src,
-            "to": dest,
-            "group": group,
-            "placed_siege": placed_siege,
-        },
-        [],
-    )
+    result = {
+        "lord_id": lord_id,
+        "from": src,
+        "to": dest,
+        "group": group,
+        "placed_siege": placed_siege,
+    }
+    if trade_flip is not None:
+        result["trade_route_flip"] = trade_flip
+    return (result, [])
 
 
 # ---------------------------------------------------------------------------
@@ -1410,12 +1413,96 @@ def _enemies_at(state: GameState, locale_id: str, side: Side) -> list[str]:
     ]
 
 
+def _flip_trade_route_if_uncontested(
+    state: GameState, locale_id: str, entering_side: Side,
+) -> dict[str, Any] | None:
+    """SMOKE-020 (Round 34): Trade-Route conquest flip per Strongholds
+    reference: "Trade Routes ... flip simply by an enemy Lord's presence
+    with no friendly Lord contesting -- no Storm involved, hence no
+    Spoils."
+
+    Called from cmd_march (and any future code path that moves a Lord
+    onto a Locale). If the destination is a Trade Route and no own-side
+    Lord contests it (the Locale's native side has no Lord present),
+    the Conquered marker flips and VP shifts.
+
+    For Russian-territory Trade Routes (the only kind on the Nevsky map):
+      - Teutonic enters with no Russian Lord present:
+          teutonic_conquered 0 -> 1; calendar.teutonic_vp += 1.
+      - Russian enters when teutonic_conquered == 1, with no Teutonic
+        Lord present: teutonic_conquered -> 0; calendar.teutonic_vp -= 1.
+
+    Returns a result dict describing the flip, or None if no flip.
+    """
+    static = load_locales()[locale_id]
+    if static.get("type") != "trade_route":
+        return None
+    native_side = static.get("territory")  # currently always "russian"
+    enemy_side: Side = "teutonic" if native_side == "russian" else "russian"
+    # The entering side conquers only if it's the non-native side.
+    loc = state.locales[locale_id]
+    vp = int(static.get("vp", 1))
+    if entering_side == enemy_side:
+        # Conquest check: no native-side Lord present at the locale.
+        contesting = [
+            lid for lid, l in state.lords.items()
+            if l.state == "mustered" and l.side == native_side
+            and l.location == locale_id
+        ]
+        if contesting:
+            return None
+        # Flip.
+        if entering_side == "teutonic":
+            if loc.teutonic_conquered == 0:
+                loc.teutonic_conquered = vp
+                state.calendar.teutonic_vp += float(vp)
+                return {"locale": locale_id, "flip_to": "teutonic", "vp": vp}
+        else:
+            if loc.russian_conquered == 0:
+                loc.russian_conquered = vp
+                state.calendar.russian_vp += float(vp)
+                return {"locale": locale_id, "flip_to": "russian", "vp": vp}
+    else:
+        # Native side re-entering: clear any enemy Conquered marker.
+        if entering_side == "russian" and loc.teutonic_conquered > 0:
+            # Check no Teutonic Lord present.
+            contesting = [
+                lid for lid, l in state.lords.items()
+                if l.state == "mustered" and l.side == "teutonic"
+                and l.location == locale_id
+            ]
+            if not contesting:
+                prev = loc.teutonic_conquered
+                loc.teutonic_conquered = 0
+                state.calendar.teutonic_vp -= float(prev)
+                return {"locale": locale_id, "flip_to": "neutral",
+                        "cleared_marker": "teutonic", "vp": prev}
+        elif entering_side == "teutonic" and loc.russian_conquered > 0:
+            contesting = [
+                lid for lid, l in state.lords.items()
+                if l.state == "mustered" and l.side == "russian"
+                and l.location == locale_id
+            ]
+            if not contesting:
+                prev = loc.russian_conquered
+                loc.russian_conquered = 0
+                state.calendar.russian_vp -= float(prev)
+                return {"locale": locale_id, "flip_to": "neutral",
+                        "cleared_marker": "russian", "vp": prev}
+    return None
+
+
 def _has_enemy_stronghold_at(state: GameState, locale_id: str, side: Side) -> bool:
     """Enemy Stronghold present if locale is enemy-territory stronghold
     not Conquered by us, OR own-territory stronghold Conquered by enemy.
+
+    Trade Routes are NOT Strongholds (SMOKE-020, Round 34): they have no
+    Walls, Capacity, or Garrison per Strongholds reference, so they
+    cannot be Sieged or Stormed. Trade-Route flip on enemy presence is
+    handled by `_flip_trade_route_if_uncontested`, NOT by this function.
     """
     static = load_locales()[locale_id]
-    if static["type"] not in ("commandery", "fort", "city", "novgorod", "bishopric", "trade_route", "castle"):
+    if static["type"] not in ("commandery", "fort", "city", "novgorod", "bishopric", "castle"):
         return False
     loc = state.locales[locale_id]
     if side == "teutonic":
@@ -1561,6 +1648,9 @@ def _h_cmd_march(
         state.lords[gid].location = dest
         state.lords[gid].moved_fought = True
 
+    # SMOKE-020 (Round 34): trade-route auto-flip on uncontested entry.
+    trade_flip = _flip_trade_route_if_uncontested(state, dest, sd)
+
     placed_siege = False
     if _has_enemy_stronghold_at(state, dest, sd):
         loc = state.locales[dest]
@@ -1575,14 +1665,14 @@ def _h_cmd_march(
         _consume_actions(state, cost)
     state.lords[lord_id].first_march_used_this_card = True
 
-    return (
-        {
-            "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
-            "group": group, "laden": laden, "cost": cost,
-            "placed_siege": placed_siege,
-        },
-        [],
-    )
+    result = {
+        "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
+        "group": group, "laden": laden, "cost": cost,
+        "placed_siege": placed_siege,
+    }
+    if trade_flip is not None:
+        result["trade_route_flip"] = trade_flip
+    return (result, [])
 
 
 def _h_avoid_battle(
