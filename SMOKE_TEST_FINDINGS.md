@@ -3265,3 +3265,88 @@ One defensive bug surfaced (SMOKE-018 calendar wrap-around). The Feed
 mechanic, vassal disband cascade, permanent-removal cleanup, and
 multi-seed scripted-driver runs all behave as specified across 150
 runs.
+
+# Round 33 — movement and capability-action bug hunt
+
+Goal: probe areas not yet exercised — Ravage adjacency, Sail
+destination + route, Tax/Forage costs, transport-Way compatibility,
+specific capability triggers, event-card effects.
+
+## Bugs surfaced and fixed
+
+### SMOKE-019 — "Unbesieged enemy Lord" check used locale-level `siege_markers` instead of Lord-level `_is_besieged`
+
+**Symptom.** Three sites in `campaign.py` filtered enemy Lords by
+`state.locales[X].siege_markers == 0`, intending the rules-text
+predicate "Unbesieged enemy Lord". These are not equivalent. A Locale's
+`siege_markers > 0` only indicates that someone is besieged there; the
+besieging Lord himself is at the same locale OUTSIDE the stronghold and
+is therefore Unbesieged. The buggy pattern silently skipped these
+besieger Lords from blocking logic.
+
+**Sites.**
+1. `_h_cmd_ravage` — "Ravage costs +1 action if an Unbesieged enemy
+   Lord is in an adjacent locale (2E)." Pre-fix: an adjacent enemy
+   besieger was missed, letting the active Lord Ravage for the cheap
+   1-action cost when the rule required 2.
+2. `_h_cmd_sail` destination check — "Destination must be free of
+   Unbesieged enemy Lords." Pre-fix: Sail could land at a sieged
+   destination even when the besieger Lord (Unbesieged) was sitting
+   there.
+3. `_h_cmd_sail` route check — same logic for intermediate locales
+   along the Sail path.
+
+**Repro (Ravage).** Place T Lord at `gdov`, R Lord at `plyussa_river`
+(adjacent), `plyussa_river.siege_markers = 3`, R `in_stronghold =
+False`. Pre-fix: Ravage costs 1 action. Post-fix: 2 actions (correct).
+
+**Repro (Sail).** T at `reval` with ships, R Unbesieged at `narwia`
+(seaport), `narwia.siege_markers = 3`. Pre-fix: Sail to `narwia`
+succeeded. Post-fix: `IllegalAction("dest_blocked")` as required.
+
+**Fix.** Replace `state.locales[X].siege_markers == 0` with
+`not _is_besieged(state, lord_id)` in all three sites. The helper
+already correctly identifies a Lord as Besieged only when both
+`in_stronghold == True` AND `siege_markers > 0`.
+
+**Production impact.** Moderate. The bug fires in any game with an
+active siege when either side wants to Ravage adjacent to the siege
+site or Sail past/into it. The Ravage variant is a free extra action
+per Ravage near a siege — a real strategic advantage.
+
+## Items verified clean
+
+- **Tax**: requires Active Unbesieged Lord at own Seat; consumes entire
+  card; respects 8-Coin cap; correctly sets `moved_fought=True` before
+  entering FPD sub-step.
+- **Forage**: requires Active Unbesieged Lord at non-Ravaged Locale +
+  (Friendly Stronghold OR Summer); +1 Provender (max 8); consumes 1
+  action.
+- **Ravage rejections**: own-territory, Conquered, Friendly, already-
+  Ravaged all correctly rejected; loot grant gated on non-Region locale
+  type.
+- **Sail summer-only**: `IllegalAction("winter")` raised in winter
+  seasons.
+- **March into Unbesieged enemy locale**: correctly triggers Approach
+  Battle (4.3.4) rather than being blocked. The dest-blocking pattern
+  applies to Sail (which can't trigger Approach mid-sea), not March.
+
+## Tests added
+
+- `test_round_33_besieged_check.py` (4 tests): pins the
+  `_is_besieged`-correct behavior for Ravage adjacency (Unbesieged vs
+  Besieged) and Sail destination (Unbesieged-blocks vs Besieged-
+  allowed).
+
+548 → 552 passing.
+
+## Confidence delta vs R32
+
+R32 found a defensive bounds bug. R33 found a meaningful production
+bug: a recurring pattern of confusing locale-level `siege_markers` with
+Lord-level besieged status. Three sites had the same wrong predicate.
+The same pattern doesn't appear elsewhere in the codebase (grep
+confirmed). The remaining `siege_markers == 0` / `siege_markers > 0`
+checks (Siege/Storm gating, locale friendliness, route conquered-marker
+block) operate on the locale itself, not on filtering Lords, and are
+correct as written.

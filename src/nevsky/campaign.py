@@ -832,9 +832,13 @@ def _h_cmd_ravage(
             adjacent.add(w["b"])
         elif w["b"] == lord.location:
             adjacent.add(w["a"])
-    for ol in state.lords.values():
+    for ol_id, ol in state.lords.items():
         if ol.state == "mustered" and ol.side != sd and ol.location in adjacent:
-            if state.locales[ol.location].siege_markers == 0:  # type: ignore[arg-type]
+            # SMOKE-019 (Round 33): "Unbesieged enemy Lord" must use the
+            # Lord-level _is_besieged check, not locale.siege_markers.
+            # An enemy at a sieged Locale who is OUTSIDE the Stronghold
+            # (e.g., a besieger) is Unbesieged and triggers +1 action.
+            if not _is_besieged(state, ol_id):
                 cost = 2
                 break
     if state.campaign_turn.actions_remaining < cost:
@@ -939,9 +943,12 @@ def _h_cmd_sail(
     if season in ("early_winter", "late_winter"):
         raise IllegalAction("winter", "Sail forbidden in Winter (4.7.3)")
     # Destination must be free of Unbesieged enemy Lords.
-    for ol in state.lords.values():
+    # SMOKE-019 (Round 33): use _is_besieged on the specific Lord,
+    # not locale-level siege markers. A besieger Lord outside the
+    # Stronghold at a sieged Locale IS Unbesieged and DOES block.
+    for ol_id, ol in state.lords.items():
         if ol.state == "mustered" and ol.side != sd and ol.location == dest:
-            if state.locales[dest].siege_markers == 0:
+            if not _is_besieged(state, ol_id):
                 raise IllegalAction("dest_blocked", f"{dest} has Unbesieged enemy Lord")
 
     # Move group.
@@ -1092,9 +1099,11 @@ def _h_cmd_supply(
                     if cloc.siege_markers == 0:
                         raise IllegalAction("route_blocked", f"Route blocked at {chk}")
                 # Enemy Lord present?
-                for ol in state.lords.values():
+                # SMOKE-019 (Round 33): use _is_besieged on the specific
+                # Lord, not locale-level siege_markers.
+                for ol_id, ol in state.lords.items():
                     if ol.state == "mustered" and ol.side != sd and ol.location == chk:
-                        if cloc.siege_markers == 0:
+                        if not _is_besieged(state, ol_id):
                             raise IllegalAction("route_blocked", f"Enemy Lord at {chk} blocks Route")
 
         added += 1
