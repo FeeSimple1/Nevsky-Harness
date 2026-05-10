@@ -1012,8 +1012,14 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
         cal.off_left.remove(lord_id)
     if lord_id in cal.off_right:
         cal.off_right.remove(lord_id)
+    # SMOKE-018 (Round 32): explicit bounds check. Production paths
+    # (Levy disband, Campaign FPD disband) always compute new_box >= 2,
+    # but a defensive guard prevents silent Python negative-index wrap
+    # to box 16 if a future caller passes 0 or negative.
     if new_box_with_overflow > 16:
         cal.off_right.append(lord_id)
+    elif new_box_with_overflow < 1:
+        cal.off_left.append(lord_id)
     else:
         cal.boxes[new_box_with_overflow - 1].cylinders.append(lord_id)
 
