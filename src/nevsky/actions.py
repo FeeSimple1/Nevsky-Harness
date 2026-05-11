@@ -839,11 +839,20 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     if lord.state == "removed":
         return
     # Pleskau bonus: increment counter for the OTHER side.
+    # SMOKE-024 (Round 36): also mirror the bonus into the
+    # calendar.<other_side>_vp incremental float, since
+    # determine_scenario_winner reads that float (not _compute_vp from
+    # markers). Without this mirror, the Pleskau "+1 VP per enemy Lord
+    # removed" rule didn't reach the winner determination at all.
     if state.meta.special_rules.get("victory_lord_removed_bonus", False):
         if side == "russian":
             state.calendar.pleskau_lords_removed_russian += 1
+            state.calendar.teutonic_vp += 1.0
         else:
             state.calendar.pleskau_lords_removed_teutonic += 1
+            state.calendar.russian_vp += 1.0
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
     deck = _side_deck(state, side)
     for cid in lord.this_lord_capabilities:
         deck.deck.append(cid)
@@ -1916,6 +1925,8 @@ def _h_veche_action(
     if state.veche.vp_markers < 8:
         state.veche.vp_markers += 1
         state.calendar.russian_vp += 1.0
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
     # else: cap forfeit per 1.4.2.
     state.veche.acted_this_call_to_arms = True
     return ({"option": "D", "slid": slid, "vp_added": min(1, 8 - (state.veche.vp_markers - 1))}, [])
