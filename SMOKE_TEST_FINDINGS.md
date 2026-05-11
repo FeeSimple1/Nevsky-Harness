@@ -3807,3 +3807,93 @@ pattern as SMOKE-019 (where "Unbesieged enemy" aggregated locale
 state instead of conditioning on Lord state). Worth a catalog entry:
 "Resource aggregation predicates that aren't conditional on the
 context they're used in."
+
+# Round 39 — VP floor + group March + Raiders surface gap
+
+Goal: probe group March transport accounting, Raiders auto-Ravage
+triggers, Pleskau bonus mirror direction, first_march_used_this_card
+flag reset, Sail in Rasputitsa, sequence monotonicity.
+
+## Bugs surfaced and fixed
+
+### SMOKE-027 — Liberation can produce negative VP
+
+**Symptom.** ``_apply_conquest_or_liberation`` (Round 35) does
+``state.calendar.<enemy_side>_vp -= float(prev_marker_value)`` when
+clearing an enemy Conquered marker on liberation. If the float is
+somehow below the marker value (e.g., test fixture with artificial
+state, or a future code path that placed markers without crediting
+the float), the subtraction goes negative.
+
+**Repro.** Set ``locales["pskov"].teutonic_conquered = 2`` but
+``calendar.teutonic_vp = 0.0`` (deliberately out-of-sync). R Storms
+``pskov``: liberation subtracts 2 → T_vp = -2.0.
+
+**Production impact.** In normal play, the float is incrementally
+maintained alongside the marker, so this shouldn't fire. But it's a
+defensive gap — same pattern as the VP_CAP defense-in-depth (R37).
+A VP value below 0 also has no physical-rules meaning (the Victory
+marker can't be off-track to the left).
+
+**Fix.** Two-layer clamp, matching the R37 cap:
+
+  1. ``refresh_victory_markers`` clamps both floats to ``[0, VP_CAP]``.
+  2. ``determine_scenario_winner`` uses ``max(0.0, min(VP_CAP, ...))``
+     as defense-in-depth.
+
+## Items verified clean
+
+- **Pleskau Lord-removed bonus mirror direction**: R removes a T Lord
+  in Pleskau → R_vp += 1.0 (Round 36 fix holds; my earlier probe only
+  tested R-Lord-removed-by-T direction).
+- **Group March transport accounting**: per-Lord ``_must_discard``
+  check fires; if any group member would over-load on the chosen Way,
+  the whole March is rejected. Carts-only group on Trackway succeeds
+  normally.
+- **``first_march_used_this_card`` flag reset on ``command_reveal``**:
+  pre-set ``True`` becomes ``False`` when the Lord's card is revealed
+  again next Activation.
+- **Sail in Rasputitsa**: correctly allowed (Sail is winter-only-
+  forbidden; Rasputitsa is not winter).
+- **Lord state invariants on scenario load**: ``state="ready"`` →
+  ``location=None`` and empty forces; ``state="removed"`` → empty
+  residual state.
+- **Force counts non-negative across 10 scenario loads**.
+- **Sequence monotonicity over 20 actions**: counter strictly
+  increases.
+- **VP non-issues on past-end-box**: ``determine_scenario_winner``
+  works correctly when ``box > end_box``.
+
+## Documented gap (not a bug)
+
+- **Capability-specific commands not in ``legal_moves``**:
+  ``cmd_raiders_ravage``, ``cmd_stone_kremlin``, ``cmd_stonemasons``,
+  ``cmd_muster_serf``, ``cmd_capability``, ``cmd_tax_veliky_knyaz_aware``
+  are valid handlers but ``legal_moves`` doesn't enumerate them. The
+  LLM consumer must know to invoke them from the Lord's tucked-
+  capabilities list. Acceptable design (action space is too large to
+  fully enumerate; capabilities are well-known via Lord/Deck render),
+  but worth flagging as a UX consideration in the porting guide.
+
+## Tests added
+
+- ``test_round_39_vp_floor.py`` (5 tests):
+  - ``test_refresh_clamps_negative_to_zero``
+  - ``test_refresh_handles_negative_for_both_sides``
+  - ``test_liberation_does_not_produce_negative_vp``
+  - ``test_determine_winner_clamps_negative_input``
+  - ``test_normal_vp_unchanged_by_floor``
+
+577 → 582 passing.
+
+## Confidence delta vs R38
+
+R38 closed out a Way-aware-aggregation cluster (SMOKE-019 + SMOKE-026
+share the same "predicate ignored context" pattern). R39 finds the
+mirror of R37: cap (R37) and floor (R39) both needed at the same
+canonical chokepoint. The VP credit pipeline (R36-R39: SMOKE-022
+through SMOKE-027) now has six bugs all fixed, all converging on
+``refresh_victory_markers`` as the canonical update / clamp point.
+That's the cleanest catalog entry yet — one detection probe (does
+calendar.<side>_vp stay in [0, 17.5] AND match the marker reality
+across every VP-changing action?), six bugs caught.

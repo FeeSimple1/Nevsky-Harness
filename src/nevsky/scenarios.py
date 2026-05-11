@@ -672,11 +672,21 @@ def refresh_victory_markers(state) -> None:
     this function (most do indirectly via _apply_conquest_or_liberation
     or _flip_trade_route_if_uncontested); the cap fires at the same
     time the marker box is re-placed.
+
+    SMOKE-027 (Round 39): also clamp to >= 0. Liberation subtracts
+    enemy VP via `_apply_conquest_or_liberation`; if calendar.<side>_vp
+    is somehow lower than the cleared marker value (e.g., out-of-sync
+    state from a test fixture or future code path), the subtraction
+    can go negative. VP is never negative per rules.
     """
     if state.calendar.teutonic_vp > VP_CAP:
         state.calendar.teutonic_vp = VP_CAP
+    if state.calendar.teutonic_vp < 0:
+        state.calendar.teutonic_vp = 0.0
     if state.calendar.russian_vp > VP_CAP:
         state.calendar.russian_vp = VP_CAP
+    if state.calendar.russian_vp < 0:
+        state.calendar.russian_vp = 0.0
     _set_victory_markers(state.calendar, state.calendar.russian_vp,
                           state.calendar.teutonic_vp)
 
@@ -730,11 +740,11 @@ def determine_scenario_winner(state: GameState) -> dict[str, Any]:
            Otherwise Russians win. No tie.
          - Default 5.3: higher VP wins; tie = draw.
     """
-    # SMOKE-025 (Round 37): defense-in-depth -- enforce 17.5 cap even
-    # if a caller mutated calendar.*_vp directly without going through
-    # refresh_victory_markers.
-    t_vp = min(VP_CAP, state.calendar.teutonic_vp)
-    r_vp = min(VP_CAP, state.calendar.russian_vp)
+    # SMOKE-025 / SMOKE-027 (Round 37/39): defense-in-depth -- enforce
+    # both the 17.5 cap and the 0 floor even if a caller mutated
+    # calendar.*_vp directly without going through refresh_victory_markers.
+    t_vp = max(0.0, min(VP_CAP, state.calendar.teutonic_vp))
+    r_vp = max(0.0, min(VP_CAP, state.calendar.russian_vp))
     # 5.2 Campaign Victory: check during campaign phase.
     if state.meta.phase == "campaign":
         teu_mustered = sum(
