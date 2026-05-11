@@ -1352,7 +1352,7 @@ HANDLERS = {
 # ---------------------------------------------------------------------------
 
 
-def _is_laden(state: GameState, lord_id: str) -> bool:
+def _is_laden(state: GameState, lord_id: str, way_type: str | None = None) -> bool:
     """4.3.2: a Lord is Laden if (a) carrying any Loot, OR (b) carrying
     more Provender than usable Transport (any amount over). The
     "more than twice as much Provender as Transport" case (4.3.2
@@ -1364,47 +1364,88 @@ def _is_laden(state: GameState, lord_id: str) -> bool:
     `prov > 2 * usable` which was the can't-move threshold, NOT the
     Laden threshold. Lords with prov in (usable, 2*usable] were
     incorrectly reported Unladen.
+
+    SMOKE-026 fix (Round 38): the "usable Transport" calculation must
+    respect the WAY TYPE being marched -- Boats only work on Waterways,
+    Carts only on Trackways, Sleds on either (in Winter). Pre-fix the
+    function ignored the Way and counted any season-valid Transport,
+    so a Lord with Boats + Provender could march a Trackway with no
+    discard required. When `way_type` is None (e.g., for general
+    Laden-status queries not tied to a specific march), the legacy
+    season-only behavior applies.
     """
     lord = state.lords[lord_id]
     if lord.assets.get("loot", 0) > 0:
         return True
-    season = _season_of_box(state.meta.box)
-    usable = 0
-    for t in ("boat", "cart", "sled", "ship"):
-        n = lord.assets.get(t, 0)
-        if t == "boat" and season in ("summer", "rasputitsa"):
-            usable += n
-        elif t == "cart" and season == "summer":
-            usable += n
-        elif t == "sled" and season in ("early_winter", "late_winter", "rasputitsa"):
-            usable += n
-        elif t == "ship" and season in ("summer", "rasputitsa"):
-            usable += n
+    usable = _usable_transport_count_for_lord(state, lord_id, way_type)
     prov = lord.assets.get("provender", 0)
     return prov > usable
 
 
-def _must_discard_to_move_excess(state: GameState, lord_id: str) -> int:
+def _must_discard_to_move_excess(
+    state: GameState, lord_id: str, way_type: str | None = None,
+) -> int:
     """4.3.2 bullet 1: a Lord with more than twice as much Provender
     as usable Transport may NOT move unless he discards the excess.
     Returns the number of Provender that must be discarded (max(0,
     prov - 2*usable)). Loot is unrelated to this gate.
+
+    SMOKE-026 (Round 38): the "usable Transport" count is Way-aware
+    when `way_type` is provided. Without that, a Lord with Boats could
+    March a Trackway as if the Boats counted (they don't).
+    """
+    lord = state.lords[lord_id]
+    usable = _usable_transport_count_for_lord(state, lord_id, way_type)
+    prov = lord.assets.get("provender", 0)
+    return max(0, prov - 2 * usable)
+
+
+def _usable_transport_count_for_lord(
+    state: GameState, lord_id: str, way_type: str | None = None,
+) -> int:
+    """SMOKE-026 (Round 38) helper: count usable Transport on a Lord's
+    mat. If `way_type` is given (trackway / waterway / sea), only
+    Transport compatible with that Way type is counted (per 1.7.4):
+      - Boats: Waterways only (Summer/Rasputitsa).
+      - Carts: Trackways only (Summer).
+      - Sleds: either Way type (Winter).
+      - Ships: Sea Ways only (Summer/Rasputitsa).
+    If `way_type` is None, falls back to "all season-valid Transport"
+    regardless of Way -- the legacy behavior pre-Round-38, used when
+    the caller doesn't have a specific Way in mind (e.g., a general
+    Laden-status query for display).
     """
     lord = state.lords[lord_id]
     season = _season_of_box(state.meta.box)
-    usable = 0
-    for t in ("boat", "cart", "sled", "ship"):
-        n = lord.assets.get(t, 0)
-        if t == "boat" and season in ("summer", "rasputitsa"):
-            usable += n
-        elif t == "cart" and season == "summer":
-            usable += n
-        elif t == "sled" and season in ("early_winter", "late_winter", "rasputitsa"):
-            usable += n
-        elif t == "ship" and season in ("summer", "rasputitsa"):
-            usable += n
-    prov = lord.assets.get("provender", 0)
-    return max(0, prov - 2 * usable)
+    if way_type is None:
+        n = 0
+        for t in ("boat", "cart", "sled", "ship"):
+            count = int(lord.assets.get(t, 0))
+            if t == "boat" and season in ("summer", "rasputitsa"):
+                n += count
+            elif t == "cart" and season == "summer":
+                n += count
+            elif t == "sled" and season in ("early_winter", "late_winter", "rasputitsa"):
+                n += count
+            elif t == "ship" and season in ("summer", "rasputitsa"):
+                n += count
+        return n
+    # Way-aware path.
+    n = 0
+    if way_type == "waterway":
+        if season in ("summer", "rasputitsa"):
+            n += int(lord.assets.get("boat", 0))
+        if season in ("early_winter", "late_winter"):
+            n += int(lord.assets.get("sled", 0))
+    elif way_type == "trackway":
+        if season == "summer":
+            n += int(lord.assets.get("cart", 0))
+        if season in ("early_winter", "late_winter"):
+            n += int(lord.assets.get("sled", 0))
+    elif way_type == "sea":
+        if season in ("summer", "rasputitsa"):
+            n += int(lord.assets.get("ship", 0))
+    return n
 
 
 def _enemies_at(state: GameState, locale_id: str, side: Side) -> list[str]:
@@ -1578,7 +1619,7 @@ def _h_cmd_march(
         # caller can pass args.discard_excess_provender = True to
         # auto-discard before March (1.7.2 Greed permits discard for
         # March/Avoid Battle/Retreat/Sail).
-        excess = _must_discard_to_move_excess(state, gid)
+        excess = _must_discard_to_move_excess(state, gid, way_type=way_type)
         if excess > 0:
             if args.get("discard_excess_provender"):
                 state.lords[gid].assets["provender"] = max(
@@ -1594,7 +1635,7 @@ def _h_cmd_march(
                 )
 
     # Action cost: 2 if any group member is Laden, else 1.
-    laden = any(_is_laden(state, gid) for gid in group)
+    laden = any(_is_laden(state, gid, way_type=way_type) for gid in group)
     cost = 2 if laden else 1
     # Converts (T3): first March of this card with Light Horse in the
     # group costs 0 actions. The active Lord need not have Converts
