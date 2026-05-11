@@ -3634,3 +3634,88 @@ source of truth for ``determine_scenario_winner``) AND refresh the
 calendar marker display. Three distinct VP sources had distinct gaps:
 markers (Stonemasons), counters (Pleskau bonus), and the visual track
 itself (refresh). Cross-cutting pattern documented for the bug catalog.
+
+# Round 37 — VP cap + Sail-approach + save/load with combat_pending
+
+Goal: probe VP 17.5 cap enforcement, Sail destination behavior with
+enemy Lords, save/load preserving combat_pending, vassal disband
+cascade, end-of-campaign transition, Lieutenant pairing.
+
+## Bugs surfaced and fixed
+
+### SMOKE-025 — VP cap of 17½ never enforced
+
+**Symptom.** Per Calendar reference: "CAP: A side may never exceed 17½
+VP — any excess is forfeit." But ``calendar.teutonic_vp`` /
+``russian_vp`` accumulated without bound. Repro: set T VP to 17.0,
+Storm Novgorod (+3 VP), T VP ends at 20.0 instead of the rules-
+correct 17.5.
+
+**Production impact.** Real. Long campaigns where a side approaches
+the cap (Pleskau bonus + multiple conquests + Veche markers + Ravage
+markers can easily push past 17½) would over-credit and distort
+``determine_scenario_winner``. Severity depends on how close to the
+cap play gets; in symmetric scoring it matters less, in
+``victory_override == "watland"`` (T needs ≥7 AND ≥2× R) it could
+matter a lot.
+
+**Fix.** Two-layer enforcement:
+
+  1. ``refresh_victory_markers`` clamps both floats to ``VP_CAP``
+     (17.5) before placing markers. Since refresh is called from
+     every VP-mutation path (Round 36 wiring), this is the canonical
+     enforcement point.
+  2. ``determine_scenario_winner`` reads ``min(VP_CAP, ...)`` as a
+     defense-in-depth, so a future code path that bypassed refresh
+     still produces a correctly-clamped scoring decision.
+
+``VP_CAP = 17.5`` is now exported from ``scenarios.py`` for any
+caller that needs the value.
+
+## Items verified clean
+
+- **Sail destination with Unbesieged enemy**: correctly raises
+  ``IllegalAction("dest_blocked")`` (Sail is a different action class
+  from March — Sail doesn't trigger Approach Battle; it rejects).
+- **Asset 8-cap on Lord Coin**: ``cmd_tax`` rejects with
+  ``IllegalAction("coin_max")`` at 8.
+- **End-of-campaign transition**: when both Plans empty and FPD
+  completes on both sides, ``meta.campaign_step`` advances to
+  ``"end_campaign"``.
+- **Empty-plan ``command_reveal``**: correctly rejects with
+  ``IllegalAction("plan_empty")``.
+- **Lieutenant pairing**: a Lower-Lord card revealed during
+  Activation resolves as ``outcome: "pass_lower_lord"`` with
+  ``lieutenant_of`` populated.
+- **Save/load preserves ``combat_pending``** across
+  ``model_dump`` / ``model_validate``: attacker_side,
+  pending_response_by, attacker_group, defender_lords all round-trip.
+- **AH protection**: ``protection_storm = "unarmored"`` (evade only
+  on roll 1 in Storm) vs ``protection_battle_melee = "evade:1-3"``.
+  Forces Reference reads "Evade vs Battle Melee else Unarmored" —
+  matches the data.
+
+## Tests added
+
+- ``test_round_37_vp_cap.py`` (6 tests):
+  - ``test_vp_cap_value_is_17_5``
+  - ``test_vp_cap_enforced_via_refresh``
+  - ``test_vp_cap_enforced_via_storm_at_near_cap`` (Novgorod from
+    17.0 → 17.5)
+  - ``test_vp_cap_enforced_in_determine_scenario_winner``
+    (defense-in-depth for direct mutation)
+  - ``test_vp_cap_symmetric_for_russian``
+  - ``test_vp_below_cap_unchanged``
+
+565 → 571 passing.
+
+## Confidence delta vs R36
+
+R36 found 3 VP-credit-pipeline bugs (markers, Castle, Pleskau
+bonus). R37 finds a fourth in the same neighborhood: even after the
+credit reaches the float, the float isn't capped per the rules.
+The fix is the same architectural pattern: clamp at the canonical
+chokepoint (``refresh_victory_markers``) plus defense-in-depth at
+the scoring point. Four bugs in the VP pipeline now all fixed; the
+catalog entry "VP credit pipeline coherence" will have a strong
+detection probe.
