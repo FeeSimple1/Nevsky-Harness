@@ -3434,3 +3434,92 @@ R34 finds a Locale-type classification bug: Trade Routes were
 mis-grouped with siegeable strongholds. Two related defects in one
 SMOKE entry. Trade-Route conquest is now a first-class mechanic in
 both March and Sail.
+
+# Round 35 — liberation / conquest VP bookkeeping bug hunt
+
+Goal: probe Levy Muster, Plan validation, Approach Battle responses,
+Conquest mechanics, schema/model alignment.
+
+## Bugs surfaced and fixed
+
+### SMOKE-021 — Storm and Siege Surrender treated liberation as conquest, double-counting VP
+
+**Symptom.** When the natively-owning side of a Stronghold reclaimed
+it from an enemy Conquered marker (Storm victory or Siege Surrender),
+the harness:
+
+  - Did NOT clear the enemy's Conquered marker.
+  - Did NOT decrement the enemy's VP.
+  - INCREMENTED the liberating side's "conquered" marker on their own
+    native territory (which has no rules-meaning).
+  - INCREMENTED the liberating side's VP.
+
+Net effect: a +2 VP swing relative to the rules-correct outcome
+(liberating side gains the wrongly-counted +1; enemy keeps the wrongly-
+retained +1).
+
+**Repro.** Russian attacker Storms a Teutonic-conquered Russian Fort:
+
+| variable                   | pre   | post (buggy) | post (correct) |
+| -------------------------- | ----- | ------------ | -------------- |
+| teu_conq                   |   1   |   1          |   0            |
+| russ_conq                  |   0   |   1          |   0            |
+| calendar.teutonic_vp       |  1.0  |  1.0         |  0.0           |
+| calendar.russian_vp        |  1.0  |  2.0         |  1.0           |
+
+**Production impact.** Significant. Russia liberating any teu-conquered
+Fort/City/Bishopric/Castle/Novgorod under the bug got +1 VP per Fort or
++2 per City/Bishopric or +3 per Novgorod, AND Teutonic kept that VP.
+Mirror-symmetric for T liberating russ-conquered Teutonic strongholds.
+Long campaigns rely on Conquest/Liberation flow to determine the
+winner; this bug warped late-game outcomes.
+
+**Fix.** Added `_apply_conquest_or_liberation(state, locale_id,
+attacker_side, sh_vp)` helper that branches on whether the attacker is
+the native-owning side:
+
+  - `attacker_side != native_side`: CONQUEST -- increment attacker's
+    marker and VP (existing behavior, now correctly gated).
+  - `attacker_side == native_side`: LIBERATION -- clear the enemy's
+    marker, decrement enemy's VP. No marker placed for attacker (no
+    such rules-meaning on own territory). No VP gained directly (the
+    VP swing comes from the enemy losing theirs).
+
+Wired into both `_h_cmd_storm` (Storm Sack victory) and `_h_cmd_siege`
+(Siege Surrender). Return dicts now include a `conquest_change` /
+`change` field describing the outcome (`{"type": "conquest"|"liberation",
+...}`).
+
+## Items verified clean
+
+- **Plan validation**: rejects non-Mustered Lord, rejects >3 cards of
+  same Lord, rejects finalize before reaching target size.
+- **Command-reveal of removed Lord**: returns `outcome: "pass_not_on_map"`
+  and falls through to FPD without crashing.
+- **Stand_battle / Withdraw / Avoid response paths**: combat_pending
+  state transitions cleanly; pending_response_by gating works.
+- **Force conservation across 500 random battles**: 0 violations
+  (forces + routed_units never exceeds pre-battle count; no unit types
+  appear from nowhere).
+- **State schema / model field alignment**: top-level `GameState` model
+  fields match `state.schema.json` properties exactly.
+
+## Tests added
+
+- `test_round_35_liberation_vp.py` (3 tests):
+  - `test_storm_liberation_clears_enemy_marker_and_subtracts_enemy_vp`
+  - `test_storm_conquest_adds_attacker_marker_and_vp`
+  - `test_siege_surrender_liberation_clears_enemy_marker`
+
+556 → 559 passing.
+
+## Confidence delta vs R34
+
+R34 found a Locale-type classification bug (Trade Routes mis-classified
+as Strongholds). R35 finds a Conquest/Liberation arithmetic bug: the
+Storm and Siege code didn't distinguish "taking enemy-native locale"
+from "reclaiming own-native locale." Same pattern, two sites, both
+fixed via a shared helper. The Round 26 multi-seed sweep didn't catch
+this because the scripted driver doesn't push games long enough to
+liberate previously-conquered locales — the bug only fires when a
+locale changes hands twice.
