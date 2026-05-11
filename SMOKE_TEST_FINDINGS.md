@@ -3897,3 +3897,62 @@ through SMOKE-027) now has six bugs all fixed, all converging on
 That's the cleanest catalog entry yet — one detection probe (does
 calendar.<side>_vp stay in [0, 17.5] AND match the marker reality
 across every VP-changing action?), six bugs caught.
+
+# Round 40 — verification round (no new bugs; invariants locked)
+
+Goal: probe Siegeworks Capacity gate, Aleksandr muster restriction,
+Lord disband capability refund, Sally Raid mechanics, duplicate-
+capability rejection, Sea Trade R8/R9 surface in legal_moves.
+
+R40 surfaced no new bugs. The areas probed were all rule-correct.
+This round's purpose was to convert manual probes into regression
+tests so the catalog has detection coverage for future regressions.
+
+## Items verified clean (locked as regression tests)
+
+- **Siegeworks Capacity gate (Strongholds reference)**: "Capacity
+  governs Siegeworks: a Besieging army with Lords >= Capacity may
+  add a Siege marker per Siege action, up to four." Verified: City
+  capacity=3, 1 besieger → no marker added; 3 besiegers → marker
+  added.
+- **Aleksandr muster restriction (1.5.1)**: ``cmd_muster_lord`` with
+  ``target_lord="aleksandr"`` rejects with ``aleksandr_veche_only``.
+  ``legal_moves`` does not surface Aleksandr as a muster target.
+- **this_lord_capabilities returned to deck**: Both ``_disband_at_limit``
+  and ``_remove_lord_permanently`` push the Lord's tucked
+  capabilities back to ``deck.deck`` and clear ``this_lord_capabilities``.
+- **Sally Raid mechanics**: A besieged Lord sallies out, wins the
+  battle, attackers permanently removed (Pursuit happens
+  automatically when forces are wiped). Siege markers cleared
+  (``sally_outcome: "broken_siege"``).
+- **Duplicate-capability action rejection (3.4.4)**: Direct mutation
+  can violate; action handlers (``aow_use_capability``) correctly
+  reject when same capability name already tucked.
+- **Sea Trade R8 surfaces in legal_moves**: option visible when R8
+  in capabilities_in_play during call_to_arms step.
+- **Veche option B (auto-Muster)**: surfaces Ready Russian Lords with
+  Free Seats. Aleksandr filtered out only when his Seat (Novgorod
+  via R15) isn't free or R15 isn't in play.
+- **Veche option C (Bonus Lordship)**: surfaces Mustered Russian
+  Lords at Friendly non-besieged Locales.
+
+## Tests added
+
+- ``test_round_40_capacity_and_aleksandr.py`` (6 tests):
+  - ``test_siege_capacity_gate_below_capacity_no_marker_added``
+  - ``test_siege_capacity_gate_at_capacity_adds_marker``
+  - ``test_aleksandr_cannot_be_mustered_by_lord``
+  - ``test_legal_moves_does_not_surface_aleksandr_as_muster_target``
+  - ``test_disband_returns_lord_capabilities_to_deck``
+  - ``test_permanent_removal_returns_lord_capabilities_to_deck``
+
+582 → 588 passing.
+
+## Confidence delta vs R39
+
+R39 closed out the VP credit pipeline cluster (six bugs total
+R36-R39). R40 is a verification round — probed several areas not
+yet covered and found everything rule-correct. The new regression
+tests prevent these previously-untested behaviors from silently
+breaking in future refactors. The "convert manual probes to locked
+regressions" pattern is itself a deliverable for the porting guide.
