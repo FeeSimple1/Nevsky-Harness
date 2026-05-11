@@ -3719,3 +3719,91 @@ chokepoint (``refresh_victory_markers``) plus defense-in-depth at
 the scoring point. Four bugs in the VP pipeline now all fixed; the
 catalog entry "VP credit pipeline coherence" will have a strong
 detection probe.
+
+# Round 38 — Way-aware Laden / can't-move predicates
+
+Goal: probe marker uniqueness invariants, transport-Way compatibility
+in March, multi-hop March rejection, Stone Kremlin walls+1 placement,
+Pay-Veche-to-Besieged rejection.
+
+## Bugs surfaced and fixed
+
+### SMOKE-026 — Laden / can't-move gates ignored Way type
+
+**Symptom.** ``_is_laden`` and ``_must_discard_to_move_excess`` counted
+any season-valid Transport on a Lord's mat as "usable," ignoring the
+Way being marched. Per 1.7.4, Boats are usable on Waterways only and
+Carts on Trackways only — but the gates didn't enforce this.
+
+**Repro.** Summer. T Lord at ``adsel`` with 5 Provender + 4 Boats (no
+Carts). Marches a **Trackway** to ``kirrumpah``. Pre-fix: usable = 4
+(boats in Summer), prov 5 > 4 → Laden but not over the can't-move
+threshold (2*4 = 8 ≥ 5). March succeeds at cost 2 with no discard.
+Post-fix: usable on this Trackway = 0 (boats don't help), prov 5 >
+2*0 = 0 → must discard 5 to move. Mirror case for Carts on
+Waterways.
+
+**Production impact.** Material. Trackway-only Lord fleets could
+silently transport Provender via Boats and vice versa, distorting
+the strategic constraint that the Transport mix on a Lord's mat
+must match the Way types in their march plan. The "can't move
+unless discard" gate at 4.3.2 was the most-impacted: a Lord with
+mismatched Transport could march without forfeiting the excess
+Provender, gaining a movement advantage worth multiple feed cycles.
+
+**Fix.** Added optional ``way_type`` parameter to both ``_is_laden``
+and ``_must_discard_to_move_excess``. When provided, only Way-
+compatible Transport is counted (Boats only on Waterways, Carts only
+on Trackways, Sleds on either in Winter, Ships on Sea Ways). When
+``way_type`` is None (general Laden-status query not tied to a
+specific march), the legacy season-only behavior applies — preserves
+back-compat for any other caller. Extracted a shared
+``_usable_transport_count_for_lord`` helper.
+
+``_h_cmd_march`` now passes ``way_type=way_type`` to both gates.
+
+## Items verified clean
+
+- **Conquered marker mutual exclusion**: T conquers fort, R liberates;
+  both teu_conq and russ_conq end at 0, not coexisting > 0
+  simultaneously. SMOKE-021's liberation fix holds.
+- **Multi-hop March rejection**: ``cmd_march`` correctly rejects
+  ``no_way`` for non-adjacent destinations.
+- **Pay Veche to Besieged Russian Lord**: correctly rejected with
+  ``veche_cannot_reach_besieged`` (3.2.1).
+- **Stone Kremlin (R18) walls+1 placement**: succeeds when Lord at
+  Russian Fort/City/Novgorod with the capability tucked and full
+  Command card.
+
+## Defensive note (not fixed)
+
+- **Castle marker mutex**: ``loc.teutonic_castle`` and
+  ``loc.russian_castle`` can both be set to True via direct mutation
+  (pydantic doesn't enforce). No production code path sets both, but
+  there's no explicit invariant either. Same class as the earlier
+  pydantic ``le`` / ``ge`` field bounds — only checked at
+  construction, bypassable on assignment.
+
+## Tests added
+
+- ``test_round_38_way_aware_laden.py`` (6 tests):
+  - ``test_boat_only_lord_with_excess_provender_cannot_march_trackway``
+  - ``test_cart_lord_marches_trackway_normally``
+  - ``test_cart_only_lord_with_excess_provender_cannot_march_waterway``
+  - ``test_boat_lord_marches_waterway_normally``
+  - ``test_no_provender_lord_marches_any_way``
+  - ``test_discard_excess_provender_allows_march``
+
+571 → 577 passing.
+
+## Confidence delta vs R37
+
+R37 closed out the VP credit pipeline cluster (4 bugs total R36+R37).
+R38 finds a related-but-distinct cluster: predicates that aggregate
+"usable" resources without conditioning on the operation being
+performed. ``_is_laden`` aggregated all season-valid Transport across
+Way types; the rules condition the aggregation on Way type. Same
+pattern as SMOKE-019 (where "Unbesieged enemy" aggregated locale
+state instead of conditioning on Lord state). Worth a catalog entry:
+"Resource aggregation predicates that aren't conditional on the
+context they're used in."
