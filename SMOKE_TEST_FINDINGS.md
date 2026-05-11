@@ -3523,3 +3523,114 @@ fixed via a shared helper. The Round 26 multi-seed sweep didn't catch
 this because the scripted driver doesn't push games long enough to
 liberate previously-conquered locales — the bug only fires when a
 locale changes hands twice.
+
+# Round 36 — VP credit pathways: marker refresh + missing-VP grants
+
+Goal: probe Calendar VP track marker freshness, Stonemasons /
+Stone-Kremlin / Castle-marker VP grants, Pleskau Lord-removed bonus
+reaching winner determination, service-marker uniqueness through
+Disband/Muster cycle.
+
+Three related defects in the VP-credit pipeline, all caused by the
+same underlying pattern: ``calendar.teutonic_vp`` / ``russian_vp``
+are *incremental floats* (the source of truth read by
+``determine_scenario_winner``), while ``_compute_vp`` is a parallel
+*derived* function that re-sums from markers. Several VP-granting
+sites updated the markers (or only the bonus counters) without
+mirroring the change into the float; the floats and derived sums
+silently diverged.
+
+## Bugs surfaced and fixed
+
+### SMOKE-022 — Calendar VP track markers stale after VP changes
+
+**Symptom.** ``_set_victory_markers`` only fires once at scenario
+load. Across a game, ``calendar.teutonic_vp`` / ``russian_vp`` change
+via Storm/Siege/Ravage/Veche/Pleskau, but the per-box
+``russian_victory_marker`` / ``teutonic_victory_marker`` bools stay
+at the initial position. Render output showed stale marker positions
+alongside the correct float values.
+
+**Production impact.** Display-only (the floats are correct; render
+shows both). But the LLM consumer might read the marker box and
+mis-plan. Tightening is cheap.
+
+**Fix.** ``_set_victory_markers`` now clears all existing markers
+before placing fresh ones (idempotent), and a new
+``refresh_victory_markers(state)`` wrapper calls it from the
+incremental-VP-mutation sites: ``_apply_conquest_or_liberation``,
+``_flip_trade_route_if_uncontested``, ``_h_cmd_ravage``, the Veche
+option D path, and ``_remove_lord_permanently`` (Pleskau bonus).
+
+### SMOKE-023 — Stonemasons (T17) didn't grant Castle VP
+
+**Symptom.** ``_h_cmd_stonemasons`` set ``loc.teutonic_castle = True``
+(which is worth +1 VP per Strongholds reference: "1 VP per Castle
+marker of your color on the map") but never added to
+``calendar.teutonic_vp``. ``determine_scenario_winner`` (which reads
+the float) missed the VP.
+
+**Production impact.** Real. Teutons playing Stonemasons gained a
+defensive marker on the map (Walls 1-4 with Castle garrison/spoils)
+but lost the +1 VP that came with it. Up to 2 Castles can be built
+per game = up to 2 missing VP.
+
+**Fix.** Added ``state.calendar.teutonic_vp += 1.0`` and
+``_refresh_vp_markers(state)`` immediately after the Castle marker
+placement. Strongholds reference cited in the comment.
+
+### SMOKE-024 — Pleskau Lord-removed bonus never reached winner determination
+
+**Symptom.** ``_remove_lord_permanently`` incremented
+``calendar.pleskau_lords_removed_*`` counters when the Pleskau
+``victory_lord_removed_bonus`` special rule is active. ``_compute_vp``
+correctly added these counters to the side's total. But the
+incremental ``calendar.teutonic_vp`` / ``russian_vp`` floats — which
+``determine_scenario_winner`` reads — were not bumped.
+
+**Production impact.** Critical for the Pleskau scenario. Repro: in
+Pleskau, T removes 2 R Lords. ``_compute_vp('teutonic') = 2.0``
+(correct via markers + bonus), but ``calendar.teutonic_vp = 0.0``
+(missed the bonus). ``determine_scenario_winner`` reports R wins 1-0
+despite T's rules-correct 2-1 lead. The Pleskau scenario's defining
+mechanic was effectively a no-op for winner determination.
+
+**Fix.** When the Pleskau bonus fires, mirror the +1 into the
+opposite side's ``calendar.*_vp`` float and refresh the markers.
+
+## Items verified clean
+
+- **Novgorod 3-VP conquest**: ``teu_conq = 3``, T VP +3 (Strongholds
+  reference: "3 for Novgorod").
+- **Service marker uniqueness through Disband cycle**: 1 svc marker
+  pre-Disband, 0 svc + 1 cyl post-Disband (marker returns to Lord's
+  mat per 3.3.2).
+- **March into undefended enemy Stronghold**: ``placed_siege = True``,
+  Lord at locale, ``in_stronghold = False`` (besieging position).
+- **``refresh_victory_markers`` idempotence**: calling 3× produces
+  exactly 1 marker (was additive in earlier versions).
+- **VP grant only fires in Pleskau**: confirmed
+  ``victory_lord_removed_bonus`` is False in Crusade-on-Novgorod, and
+  Lord removal there does NOT bump VP.
+
+## Tests added
+
+- ``test_round_36_vp_consistency.py`` (6 tests):
+  - ``test_vp_marker_refreshes_after_storm_conquest`` (SMOKE-022)
+  - ``test_vp_marker_refreshes_after_ravage`` (SMOKE-022)
+  - ``test_refresh_victory_markers_is_idempotent`` (SMOKE-022)
+  - ``test_stonemasons_grants_castle_vp_to_calendar_float`` (SMOKE-023)
+  - ``test_pleskau_lord_removed_reaches_winner_determination`` (SMOKE-024)
+  - ``test_pleskau_lord_removed_only_fires_when_special_rule_set``
+
+559 → 565 passing.
+
+## Confidence delta vs R35
+
+R35 found one bug in the Conquest/Liberation arithmetic. R36 finds
+three related bugs in the *VP credit pipeline*: anywhere we award VP,
+the credit must reach the float ``calendar.<side>_vp`` (the canonical
+source of truth for ``determine_scenario_winner``) AND refresh the
+calendar marker display. Three distinct VP sources had distinct gaps:
+markers (Stonemasons), counters (Pleskau bonus), and the visual track
+itself (refresh). Cross-cutting pattern documented for the bug catalog.

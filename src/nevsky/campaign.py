@@ -854,6 +854,7 @@ def _h_cmd_ravage(
     else:
         loc.russian_ravaged = True
         state.calendar.russian_vp += 0.5
+    _refresh_vp_markers(state)
 
     # +1 Provender.
     lord.assets["provender"] = min(8, lord.assets.get("provender", 0) + 1)
@@ -1456,11 +1457,13 @@ def _flip_trade_route_if_uncontested(
             if loc.teutonic_conquered == 0:
                 loc.teutonic_conquered = vp
                 state.calendar.teutonic_vp += float(vp)
+                _refresh_vp_markers(state)
                 return {"locale": locale_id, "flip_to": "teutonic", "vp": vp}
         else:
             if loc.russian_conquered == 0:
                 loc.russian_conquered = vp
                 state.calendar.russian_vp += float(vp)
+                _refresh_vp_markers(state)
                 return {"locale": locale_id, "flip_to": "russian", "vp": vp}
     else:
         # Native side re-entering: clear any enemy Conquered marker.
@@ -1475,6 +1478,7 @@ def _flip_trade_route_if_uncontested(
                 prev = loc.teutonic_conquered
                 loc.teutonic_conquered = 0
                 state.calendar.teutonic_vp -= float(prev)
+                _refresh_vp_markers(state)
                 return {"locale": locale_id, "flip_to": "neutral",
                         "cleared_marker": "teutonic", "vp": prev}
         elif entering_side == "teutonic" and loc.russian_conquered > 0:
@@ -1487,6 +1491,7 @@ def _flip_trade_route_if_uncontested(
                 prev = loc.russian_conquered
                 loc.russian_conquered = 0
                 state.calendar.russian_vp -= float(prev)
+                _refresh_vp_markers(state)
                 return {"locale": locale_id, "flip_to": "neutral",
                         "cleared_marker": "russian", "vp": prev}
     return None
@@ -2160,6 +2165,12 @@ def _besieged_lords_at(state: GameState, locale_id: str, side: Side) -> list[str
     ]
 
 
+def _refresh_vp_markers(state: GameState) -> None:
+    """SMOKE-022 (Round 36) local wrapper to avoid scenarios.py import cycle."""
+    from nevsky.scenarios import refresh_victory_markers
+    refresh_victory_markers(state)
+
+
 def _apply_conquest_or_liberation(
     state: GameState, locale_id: str, attacker_side: Side, sh_vp: int,
 ) -> dict[str, Any]:
@@ -2188,6 +2199,7 @@ def _apply_conquest_or_liberation(
         else:
             loc.russian_conquered += sh_vp
             state.calendar.russian_vp += float(sh_vp)
+        _refresh_vp_markers(state)
         return {"type": "conquest", "side": attacker_side, "vp": sh_vp}
     else:
         # Liberation: attacker reclaims own-native locale; clear enemy marker.
@@ -2195,11 +2207,13 @@ def _apply_conquest_or_liberation(
             prev = loc.russian_conquered
             loc.russian_conquered = 0
             state.calendar.russian_vp -= float(prev)
+            _refresh_vp_markers(state)
             return {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
         else:
             prev = loc.teutonic_conquered
             loc.teutonic_conquered = 0
             state.calendar.teutonic_vp -= float(prev)
+            _refresh_vp_markers(state)
             return {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
 
 
@@ -2679,8 +2693,15 @@ def _h_cmd_stonemasons(
             spend -= take
 
     # Place Teutonic castle marker; remove Walls +1.
+    # SMOKE-023 (Round 36): Castle marker is worth 1 VP per Strongholds
+    # reference ("1 VP per Castle marker of your color"). The old code
+    # set the marker bool but did not increment calendar.teutonic_vp,
+    # so determine_scenario_winner (which reads the incremental float)
+    # missed the VP. Fix: add 1 and refresh markers.
     state.locales[loc].teutonic_castle = True
     state.locales[loc].walls_plus_one = False
+    state.calendar.teutonic_vp += 1.0
+    _refresh_vp_markers(state)
     sr["stonemasons_castles_built"] = built + 1
 
     lord.moved_fought = True
@@ -2831,6 +2852,7 @@ def _h_cmd_raiders_ravage(
     else:
         loc.russian_ravaged = True
         state.calendar.russian_vp += 0.5
+    _refresh_vp_markers(state)
 
     # +1 Provender always.
     lord.assets["provender"] = min(8, lord.assets.get("provender", 0) + 1)

@@ -620,7 +620,8 @@ def _compute_vp(side: str, locales: dict[str, Locale], veche: Veche, calendar=No
 
 
 def _set_victory_markers(calendar: Calendar, russian_vp: float, teutonic_vp: float) -> None:
-    """Place each side's Calendar Victory marker.
+    """Place each side's Calendar Victory marker, clearing any stale
+    positions first.
 
     Box position = floor(VP), clamped to 1..16. Zero-VP totals leave the
     marker off Calendar (no box flagged). Half-VPs are tracked as the
@@ -629,7 +630,16 @@ def _set_victory_markers(calendar: Calendar, russian_vp: float, teutonic_vp: flo
     Phase 1 records the per-box bool only; the +1/2 indicator is
     derivable from the total. (No-marker for 0 VP is the convention used
     by the scenario reference's example setups.)
+
+    SMOKE-022 (Round 36): this function is now idempotent -- clearing
+    all existing marker flags before placing -- so it can be safely
+    called at any point during play to refresh the track marker after
+    VP mutations. Earlier versions placed markers additively, so
+    calling more than once produced duplicate markers across boxes.
     """
+    for cb in calendar.boxes:
+        cb.russian_victory_marker = False
+        cb.teutonic_victory_marker = False
 
     def place(side: str, vp: float) -> None:
         if vp < 1.0:
@@ -642,6 +652,16 @@ def _set_victory_markers(calendar: Calendar, russian_vp: float, teutonic_vp: flo
 
     place("russian", russian_vp)
     place("teutonic", teutonic_vp)
+
+
+def refresh_victory_markers(state) -> None:
+    """SMOKE-022 (Round 36): re-place VP track markers from the current
+    `calendar.teutonic_vp` / `russian_vp` floats. Call after any
+    handler that mutates VP totals so the calendar marker display
+    stays consistent with the source-of-truth float values.
+    """
+    _set_victory_markers(state.calendar, state.calendar.russian_vp,
+                          state.calendar.teutonic_vp)
 
 
 KNOWN_OPTIONAL_RULES = {
