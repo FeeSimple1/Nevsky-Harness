@@ -654,12 +654,29 @@ def _set_victory_markers(calendar: Calendar, russian_vp: float, teutonic_vp: flo
     place("teutonic", teutonic_vp)
 
 
+VP_CAP = 17.5
+"""SMOKE-025 (Round 37): Calendar reference, "CAP: A side may never
+exceed 17½ VP — any excess is forfeit." Applied at every VP mutation
+via refresh_victory_markers, and as a safety net in
+determine_scenario_winner."""
+
+
 def refresh_victory_markers(state) -> None:
     """SMOKE-022 (Round 36): re-place VP track markers from the current
     `calendar.teutonic_vp` / `russian_vp` floats. Call after any
     handler that mutates VP totals so the calendar marker display
     stays consistent with the source-of-truth float values.
+
+    SMOKE-025 (Round 37): also enforce the 17½ VP cap here as the
+    canonical chokepoint. Any handler that bumps calendar VP must call
+    this function (most do indirectly via _apply_conquest_or_liberation
+    or _flip_trade_route_if_uncontested); the cap fires at the same
+    time the marker box is re-placed.
     """
+    if state.calendar.teutonic_vp > VP_CAP:
+        state.calendar.teutonic_vp = VP_CAP
+    if state.calendar.russian_vp > VP_CAP:
+        state.calendar.russian_vp = VP_CAP
     _set_victory_markers(state.calendar, state.calendar.russian_vp,
                           state.calendar.teutonic_vp)
 
@@ -713,8 +730,11 @@ def determine_scenario_winner(state: GameState) -> dict[str, Any]:
            Otherwise Russians win. No tie.
          - Default 5.3: higher VP wins; tie = draw.
     """
-    t_vp = state.calendar.teutonic_vp
-    r_vp = state.calendar.russian_vp
+    # SMOKE-025 (Round 37): defense-in-depth -- enforce 17.5 cap even
+    # if a caller mutated calendar.*_vp directly without going through
+    # refresh_victory_markers.
+    t_vp = min(VP_CAP, state.calendar.teutonic_vp)
+    r_vp = min(VP_CAP, state.calendar.russian_vp)
     # 5.2 Campaign Victory: check during campaign phase.
     if state.meta.phase == "campaign":
         teu_mustered = sum(
