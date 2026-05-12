@@ -1224,6 +1224,20 @@ def _h_end_campaign_resolve(
     deck.discard.extend(discarded_camp_events)
     deck.this_campaign_events = []
 
+    # 4.9.5 Reset (SMOKE-028a): Remove all Serfs from Russian Lord mats
+    # (even if Besieged) back to the Smerdi (R4) Capability card / pool.
+    # Reference: Nevsky Calender and Veche Reference.txt lines 175-176:
+    # "Remove all Serfs from Russian mats (even if Besieged) to the
+    #  Smerdi Capability card."
+    serfs_returned: list[dict[str, Any]] = []
+    if sd == "russian":
+        for lord_id, lord in state.lords.items():
+            if lord.side == "russian":
+                count = lord.forces.get("serfs", 0)
+                if count > 0:
+                    lord.forces.pop("serfs", None)
+                    serfs_returned.append({"lord_id": lord_id, "count": count})
+
     if sd == "teutonic":
         if state.meta.end_campaign_completed_t:
             raise IllegalAction("already_done", "Teutonic End Campaign already done")
@@ -1249,6 +1263,7 @@ def _h_end_campaign_resolve(
             _plow_and_reap(state, state.meta.box)
             # Advance Calendar marker by 1, flip to Levy.
             cal = state.calendar
+            new_box_after_advance: int | None = None
             for cb in cal.boxes:
                 if cb.has_levy_campaign_marker:
                     cb.has_levy_campaign_marker = False
@@ -1258,7 +1273,63 @@ def _h_end_campaign_resolve(
                         cal.boxes[new_box - 1].has_levy_campaign_marker = True
                         cal.boxes[new_box - 1].levy_campaign_face = "levy"
                     state.meta.box = new_box
+                    new_box_after_advance = new_box
                     break
+            # 4.9.5 Reset (SMOKE-028b/c): If the new 40 Days is the year's
+            # first Late Winter (box 5 or 13), discard the Crusade
+            # Capability (T11) if in play and Disband the Summer Crusaders
+            # Special Vassal from any Teutonic Lord. Reference:
+            # Nevsky Calender and Veche Reference.txt lines 187-189.
+            crusade_auto_discarded = False
+            summer_crusaders_disbanded: list[dict[str, Any]] = []
+            if new_box_after_advance in (5, 13):
+                tdeck = state.decks.teutonic
+                if "T11" in tdeck.capabilities_in_play:
+                    tdeck.capabilities_in_play.remove("T11")
+                    tdeck.discard.append("T11")
+                    crusade_auto_discarded = True
+                # Disband Summer Crusaders: per static_data, only Andreas
+                # (andreas_summer_crusaders_1, 3 knights) and Rudolf
+                # (rudolf_summer_crusaders, 2 knights) carry this vassal.
+                from nevsky.static_data import load_lords as _load_lords_sc
+                _slords = _load_lords_sc()
+                for lord_id, lord in state.lords.items():
+                    if lord.side != "teutonic":
+                        continue
+                    sl = _slords.get(lord_id, {})
+                    for vid, vstate in list(lord.vassals.items()):
+                        vdata = next((v for v in sl.get("vassals", [])
+                                       if v["vassal_id"] == vid), None)
+                        if vdata is None or vdata.get("special") != "summer_crusaders":
+                            continue
+                        # Return Forces from Lord's mat to the pool.
+                        v_forces = vdata.get("forces", {}) or {}
+                        returned = {}
+                        if vstate.mustered:
+                            for k, v in v_forces.items():
+                                avail = lord.forces.get(k, 0)
+                                take = min(int(v), avail)
+                                if take > 0:
+                                    lord.forces[k] = avail - take
+                                    if lord.forces[k] == 0:
+                                        del lord.forces[k]
+                                    returned[k] = take
+                        was_mustered = vstate.mustered
+                        was_ready = vstate.ready
+                        vstate.mustered = False
+                        vstate.ready = False  # gating capability gone
+                        # Clear any Advanced Vassal Service marker too.
+                        if vstate.on_calendar and vstate.calendar_box is not None:
+                            cb_idx = vstate.calendar_box - 1
+                            if 0 <= cb_idx < 16 and vid in cal.boxes[cb_idx].vassal_service_markers:
+                                cal.boxes[cb_idx].vassal_service_markers.remove(vid)
+                            vstate.on_calendar = False
+                            vstate.calendar_box = None
+                        summer_crusaders_disbanded.append({
+                            "lord_id": lord_id, "vassal_id": vid,
+                            "was_mustered": was_mustered, "was_ready": was_ready,
+                            "forces_returned": returned,
+                        })
             # Reset campaign-turn / step bookkeeping for next Campaign;
             # transition to Levy.
             state.meta.phase = "levy"
@@ -1283,6 +1354,11 @@ def _h_end_campaign_resolve(
 
     return ({"side": sd, "grew": grew, "wastage": wastage_actions,
              "this_campaign_discarded": discarded_camp_events,
+             "serfs_returned": serfs_returned,
+             "crusade_auto_discarded": (
+                 crusade_auto_discarded if advanced else False),
+             "summer_crusaders_disbanded": (
+                 summer_crusaders_disbanded if advanced else []),
              "advanced_to_next_levy": advanced, "game_over": game_over}, [])
 
 

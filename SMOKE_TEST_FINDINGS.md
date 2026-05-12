@@ -3956,3 +3956,148 @@ yet covered and found everything rule-correct. The new regression
 tests prevent these previously-untested behaviors from silently
 breaking in future refactors. The "convert manual probes to locked
 regressions" pattern is itself a deliverable for the porting guide.
+
+
+# Round 41 — End-Campaign Reset (4.9.5) incomplete cleanups
+
+Goal: probe areas not yet covered by R30-R40 (the verification round
+in R40 found no new bugs). Explore-agent shortlisted candidates:
+Sally-Raid garrison teardown, FPD with stale flags, Avoid Battle
+Spoils + Siege placement, Vassal Disband cascade, Calendar / Season
+Grow boundary, End-Campaign Reset completeness. Round 41 hit the
+last of those.
+
+## Bugs surfaced and fixed
+
+### SMOKE-028 — End-Campaign Reset (4.9.5) missing three rule-required cleanups
+
+**Symptom.** ``_h_end_campaign_resolve`` ran Wastage, unstacked
+Lieutenants/Lower Lords, discarded This-Campaign Events, and
+advanced the Calendar marker. It did NOT do the three Reset-step
+operations that the .txt reference spells out explicitly.
+
+**Authority.** ``reference/Nevsky Calender and Veche Reference.txt``,
+RESET (4.9.5), lines 174-189:
+
+  - "Remove all Serfs from Russian mats (even if Besieged) to the
+     Smerdi Capability card."
+  - "If the new 40 Days is the year's first Late Winter (box 5 or
+     box 13), discard the Crusade Capability if in play and Disband
+     the Summer Crusaders Special Vassal."
+
+Three concrete missing operations:
+
+  (a) **Serfs not returned.** A Russian Lord ends a Campaign with N
+      Serfs on his mat; those Serfs stay there into the next Levy,
+      indefinitely. The Smerdi (R4) pool tracks "serfs across all
+      Lords" against a 6-marker cap, so unreturned Serfs progressively
+      lock the Russian player out of further Smerdi musters. Russian
+      siege-defence stronger than rules-correct.
+
+  (b) **Crusade Capability (T11) not auto-discarded** when advancing
+      to box 5 or box 13 (the year's first Late Winter 40 Days).
+      Production impact: T11 keeps gating Summer Crusaders Muster
+      forever; the Teutons can re-Muster Summer Crusaders into Late
+      Winter / Rasputitsa, which the rule explicitly forbids by
+      tying the gating capability to Summer only.
+
+  (c) **Summer Crusaders Special Vassal not Disbanded** at the same
+      box-5 / box-13 transitions. A Mustered Summer Crusaders Vassal
+      (andreas_summer_crusaders_1 = 3 Knights;
+      rudolf_summer_crusaders = 2 Knights) keeps its Forces on the
+      parent Lord's mat into the next Campaign. Teutonic Late-Winter
+      siege strength inflated.
+
+**Repro (probe `probe_reset3.py` reproduces (b); `probe_reset.py`
+reproduces (a); both fail pre-fix).**
+
+  - Scenario: Crusade on Novgorod (span 1-16).
+  - (a) Give any Mustered Russian Lord ``forces["serfs"] = 3``; drive
+        to End Campaign at any box; both sides resolve; Lord's serfs
+        count stays at 3.
+  - (b) Append ``"T11"`` to ``state.decks.teutonic.capabilities_in_play``;
+        drive to box 4 -> End Campaign -> box 5; T11 still in play.
+  - (c) Set ``andreas.state="mustered"``, mark
+        ``andreas.vassals["andreas_summer_crusaders_1"].mustered=True``,
+        add 3 Knights to andreas.forces; drive box 4 -> 5; vassal
+        still mustered, knights still on mat.
+
+**Fix.** Three additions to ``_h_end_campaign_resolve``:
+
+  1. In the per-side Reset block (after Lieutenant unstack), when
+     ``sd == "russian"`` iterate all Russian Lords and zero their
+     ``forces["serfs"]`` count; record returned counts in a new
+     ``serfs_returned`` result field.
+
+  2. In the post-both-sides-completed block, after the Calendar
+     marker advance, capture ``new_box_after_advance``. If that
+     equals 5 or 13:
+
+       - Remove ``"T11"`` from
+         ``state.decks.teutonic.capabilities_in_play`` (if present)
+         and append to ``.discard``. Surface
+         ``crusade_auto_discarded: bool`` in the result.
+       - Iterate Teutonic Lords; for each Vassal whose static
+         ``special == "summer_crusaders"``, subtract its Forces from
+         the parent Lord's mat, set ``mustered=False`` and
+         ``ready=False`` (gating Capability is gone), clear any
+         Advanced Vassal Service Calendar marker. Surface
+         ``summer_crusaders_disbanded: list`` in the result.
+
+The Disband path matches the existing
+``_advanced_vassal_disband_step`` pattern for Force return.
+
+## Items verified clean (this round)
+
+- **Grow halving rounding (4.9.1).** ``to_remove = len(ravaged) // 2``
+  correctly leaves "half rounded UP" markers remaining (5 -> 3, 3 -> 2,
+  1 -> 1). Calendar reference line 152-153 ("5 / 2 = 2.5, round up to 3")
+  matches.
+- **Wastage discard exactly one (4.9.4).** Code picks one Asset type
+  with highest count (deterministic; falls to a capability discard
+  via ``elif`` only if no Asset > 1). Rule wording ("must discard
+  exactly ONE Asset OR ONE such card") matches the harness behaviour.
+  The player-choice latitude (which Asset type when tied) is handled
+  by a leftmost / insertion-order tiebreak, consistent with the Battle
+  decision pattern.
+- **Plow & Reap (4.9.3).** ``_END_OF_SUMMER_BOXES = (2, 10)`` and
+  ``_END_OF_LATE_WINTER_BOXES = (6, 14)`` match the Calendar reference
+  season-to-box map.
+- **Crusade auto-discard does NOT fire at non-(5,13) boxes** (probe
+  ``test_smoke_028b_crusade_not_discarded_at_other_transitions``):
+  box 2 -> 3, box 8 -> 9, box 10 -> 11 transitions all leave T11 in
+  play.
+
+## Tests added
+
+``test_round_41_end_campaign_reset.py`` (13 tests):
+
+  - ``test_smoke_028a_serfs_returned_on_reset``
+  - ``test_smoke_028a_serfs_returned_even_when_besieged``
+  - ``test_smoke_028a_serfs_returned_from_multiple_lords``
+  - ``test_smoke_028a_no_serfs_no_op``
+  - ``test_smoke_028b_crusade_discarded_at_box_5``
+  - ``test_smoke_028b_crusade_discarded_at_box_13``
+  - ``test_smoke_028b_crusade_not_discarded_at_other_transitions``
+  - ``test_smoke_028b_crusade_not_in_play_no_op``
+  - ``test_smoke_028c_summer_crusaders_disbanded_at_box_5``
+  - ``test_smoke_028c_summer_crusaders_disbanded_at_box_13``
+  - ``test_smoke_028c_unmustered_summer_crusaders_still_flagged_unready``
+  - ``test_smoke_028c_no_disband_at_non_late_winter_box``
+  - ``test_smoke_028_composite_box_5_transition``
+
+588 -> 601 passing.
+
+## Confidence delta vs R40
+
+R40 was a verification round with no bugs. R41 returned to active
+bug-hunting on un-probed surface; the Explore-agent shortlist of
+six candidates yielded one rich cluster (End-Campaign Reset
+4.9.5). The bug class is "phase-step missing rule-required
+cleanups," which is potentially catalog-worthy: it's not predicate
+confusion (SMOKE-019, SMOKE-026), not arithmetic (SMOKE-021), not
+data-driven (SMOKE-020) - it's a category of "sequence-of-play
+step implemented but not exhaustively." Other phases (Levy, Plan,
+End-of-game scoring) may have similar gaps. Worth probing the
+same shape in R42+: pick each Sequence-of-Play step and ask "does
+the harness implement every sub-bullet from the .txt reference?"
