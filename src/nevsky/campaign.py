@@ -1985,14 +1985,17 @@ def _h_avoid_battle(
             "lord_id": did, "loot": loot_n, "excess_provender": excess,
         })
     # Transfer discards to first attacker (Spoils, 4.4.3 "as if Spoils").
+    # SMOKE-032: enforce 1.7.3 8-asset cap; excess vanishes.
+    avoid_spoils_lost: dict[str, int] = {}
     if (spoils_loot > 0 or spoils_prov > 0) and cp.attacker_group:
         winner = cp.attacker_group[0]
-        if winner in state.lords:
-            wa = state.lords[winner].assets
-            if spoils_loot > 0:
-                wa["loot"] = wa.get("loot", 0) + spoils_loot
-            if spoils_prov > 0:
-                wa["provender"] = wa.get("provender", 0) + spoils_prov
+        from nevsky.battle import _award_assets_capped
+        award = _award_assets_capped(state, winner, {
+            "loot": spoils_loot, "provender": spoils_prov,
+        })
+        spoils_loot = award["added"].get("loot", 0)
+        spoils_prov = award["added"].get("provender", 0)
+        avoid_spoils_lost = award["lost_to_cap"]
 
     # Move defender(s) and mark Moved/Fought (4.3.4 explicit: "Mark
     # Avoiding Lords as Moved/Fought").
@@ -2031,6 +2034,7 @@ def _h_avoid_battle(
             "avoided_to": dest,
             "placed_siege": placed_siege,
             "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
+            "spoils_lost_to_cap": avoid_spoils_lost,
             "discards_per_lord": per_lord_discards,
         },
         [],
@@ -2599,9 +2603,15 @@ def _h_cmd_storm(
         for lid in list(besieged):
             spoils_from_lord = {k: state.lords[lid].assets.get(k, 0) for k in ("coin", "provender", "loot", "boat", "cart", "sled") if state.lords[lid].assets.get(k, 0) > 0}
             if attackers:
-                w = state.lords[attackers[0]]
-                for k, v in spoils_from_lord.items():
-                    w.assets[k] = w.assets.get(k, 0) + v  # type: ignore[index]
+                # SMOKE-032: per-type 8 cap (1.7.3); excess vanishes.
+                from nevsky.battle import _award_assets_capped
+                award = _award_assets_capped(state, attackers[0], spoils_from_lord)
+                spoils_from_lord = dict(award["added"])
+                # Track lost-to-cap on aftermath for transparency.
+                if award["lost_to_cap"]:
+                    aftermath.setdefault("storm_spoils_lost_to_cap", []).append({
+                        "from_lord": lid, "lost": award["lost_to_cap"],
+                    })
             state.lords[lid].assets.clear()
             r = apply_ransom(state, lid, sd, locale_id)
             if r.get("ransom"):

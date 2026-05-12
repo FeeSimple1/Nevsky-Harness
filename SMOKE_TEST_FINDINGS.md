@@ -4538,3 +4538,117 @@ Areas still likely to harbor latent bugs (R45+ candidates):
   - Stonemasons + Stone Kremlin per-Stronghold uniqueness
   - Advanced Vassal Service interactions with Disband
   - Avoid Battle Spoils + Siege placement edge cases (R41 audit)
+
+
+# Round 45 — Spoils 8-asset cap enforcement (SMOKE-032)
+
+Goal: continue deep smoke-testing the post-AoW-update tree. After
+R44 closed two bug classes (Famine event effect + side-wide cap
+discard cascade), R45 went after Spoils/Aftermath asset
+transfers. One real bug class surfaced across three call sites.
+
+## Bug surfaced and fixed
+
+### SMOKE-032 — Spoils transfers ignore the 1.7.3 8-asset cap
+
+**Symptom.** Three Spoils paths used direct
+``lord.assets[k] = lord.assets.get(k, 0) + v`` mutations with NO
+cap enforcement. Rule 1.7.3 (Wastage per Lord, Misc Reference
+lines 50-54): "Each Lord's mat may hold AT MOST 8 of each Asset
+type. Any excess gained beyond 8 is lost immediately." Three
+distinct sites violated:
+
+  1. ``_h_avoid_battle`` (4.3.4) — defender drops Loot + excess
+     Provender to first attacker. Probe ``probe_spoils_cap.py``:
+     Heinrich at 7 Loot + 7 Provender; Gavrilo Avoids dropping 5
+     Loot + 3 excess Provender; Heinrich ends with 12 Loot, 10
+     Provender (rule: cap at 8).
+
+  2. ``transfer_spoils`` (battle.py, 4.4.3 / 4.4.5) — Battle
+     aftermath transfers Loot / Provender / Coin / Transport from
+     loser to winner. Same uncapped ``+=``. Probe: Heinrich at
+     7 Loot + 6 Provender + 5 Coin; loser had 4 / 5 / 6; winner
+     reached 11 / 11 / 11.
+
+  3. Storm Sack inter-Lord transfer in ``_h_cmd_storm`` (4.5.2) —
+     same direct-mutation pattern.
+
+**Authority.** Rule 1.7.3 is unambiguous. Forage / Supply / Tax /
+Raiders Ravage / Veliky Knyaz Transport / Veche Coin / Heinrich
+Curia bonus / Stronghold Storm Spoils (loot/provender/coin = VP)
+ALL already pre-capped via ``min(8, ...)`` patterns. The three
+Spoils paths above were the outliers.
+
+**Fix.** New helper in ``src/nevsky/battle.py``:
+
+    def _award_assets_capped(state, lord_id, assets) -> dict:
+        """Add per-type capped at 8. Returns {added, lost_to_cap}."""
+
+All three sites now route through it. The Avoid Battle result
+gains a ``spoils_lost_to_cap`` field. ``transfer_spoils`` gains a
+``lost_to_cap`` field and updates its ``transferred`` dict to
+reflect only what the winner actually kept. Storm Sack accumulates
+losses into ``aftermath["storm_spoils_lost_to_cap"]`` for
+transparency.
+
+## Items verified clean
+
+- **Veche 8-Coin cap (1.4.2)** — actions.py:2073 uses
+  ``added = min(amount, 8 - state.veche.coin)`` before adding. ✓
+- **Veche VP markers 8-cap (1.4.2)** — Pydantic field
+  ``vp_markers: int = Field(ge=0, le=8, default=0)`` enforces; all
+  call sites pre-check ``< 8``. ✓
+- **transfer_spoils all_except_ships** keeps Ships on loser per
+  rule (loser retains Ships); winner only receives non-Ship
+  assets. ✓
+- **transfer_spoils mode='none' (Withdraw)** — no transfer, no
+  cap interaction. ✓
+- **Lordship +2 bonus accumulation** — ``_spend_lordship`` reads
+  ``state.meta.lordship_bonus`` and includes in budget
+  (``base + bonus``). ✓
+- **Trebuchets (T14)** — Storm path reduces ``walls_max`` by 1
+  when an Unrouted attacker has the capability. ✓
+- **Cogs (T18) for Sail/Supply** — ``_effective_ship_count``
+  applies the Cogs x2 multiplier. ✓
+- **Battle Adjust Rows (4.4.2 page 15)** —
+  ``_adjust_rows_for_relief_sally`` implemented; runs before the
+  per-Round Reposition. R41 audit had flagged this as a gap; it
+  was actually wired in Q-006. Audit was stale.
+- **Pass card command_reveal** correctly resets
+  ``seat_supply_this_card = 0`` (R44 fix) on auto-Pass and on
+  not-on-map / lower-Lord auto-Pass branches.
+
+## Tests
+
+``tests/test_round_45_spoils_cap.py`` — 8 regressions:
+
+  - Helper caps each asset independently (mixed loot/coin/provender).
+  - Helper no-loss when under cap.
+  - Avoid Battle: 5 dropped loot → 1 transferred, 4 lost to cap.
+  - Avoid Battle under-cap no-loss.
+  - transfer_spoils all_except_ships caps all three of loot/prov/coin.
+  - transfer_spoils preserves Ships on loser.
+  - transfer_spoils mode='none' (Withdraw) is a no-op.
+  - Storm Sack inspection regression: source no longer has the
+    uncapped ``+= v`` pattern; uses ``_award_assets_capped``.
+
+654 -> 662 passing.
+
+## Confidence delta vs R44
+
+Each round so far has yielded one or two bug classes that share a
+pattern: rule effects encoded in data or persistence buckets that
+handlers don't read (SMOKE-019, SMOKE-026, SMOKE-029, SMOKE-030,
+SMOKE-031, SMOKE-032). The pattern is "data is right; handlers
+don't consult it". Worth continuing R46-R48 to keep clearing
+similar latent gaps.
+
+Candidate surfaces for R46+:
+  - Lord-removal cascade (just_arrived_this_levy flag, lordship_used
+    reset, vassal state on remove)
+  - Pursuit (4.4.4) full mechanics audit
+  - Multi-Lord Group March variant: Marshal carries Forces of all,
+    but Lordship spent only by the Marshal
+  - Plan-card validation (Sequence of Play 4.1.2: max 6 Cards,
+    no duplicate Lords, no Lower-Lord-without-Lieutenant)
+  - Save / Load roundtrip with all R41-R45 state fields
