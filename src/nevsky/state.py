@@ -177,6 +177,11 @@ class CampaignTurn(BaseModel):
     in_feed_pay_disband: bool = False
     fpd_completed_t: bool = False
     fpd_completed_r: bool = False
+    # SMOKE-030 (T16/R7 Famine): per-Command-card running counter of
+    # Seat-sourced Supply Provender. Famine (T16 against Russian; R7
+    # against Teutonic) caps this at 1 per Command card. Reset to 0
+    # at each command_reveal.
+    seat_supply_this_card: int = 0
 
 
 class CombatPending(BaseModel):
