@@ -2,6 +2,8 @@ ARTS OF WAR
  
 This section provides tips on how to implement the effects of the various Events and Capabilities in each side's Arts of War deck. See Selected Sources for expansion of the abbreviated references given here in brackets.
  
+Eligibility lines list the Lord coats of arms printed on the card. For Capabilities, this is who may Levy the Capability and who is affected by it (per Rules 1.9.1 and 3.4.4). For Events, this is the Lord(s) the Event targets or may be played on. "ALL" means the effect blankets every Lord of the indicated side simultaneously. "any" means any one Lord on that side may be the target or the Levier (typical of This Lord Capabilities). "NOT [Lord]" means any Lord on that side except the named one. A dash means no Lord coat of arms appears on that half (typically map effects, marker placements, or pawn effects).
+ 
  
 ===========================
 TEUTONIC EVENTS
@@ -9,74 +11,92 @@ TEUTONIC EVENTS
 ===========================
  
 T1. Grand Prince favors a son
+Eligibility: Aleksandr, Andrey
 On Calendar, shift Aleksandr OR Andrey OR furthest right Service of either 2 boxes
 Tips. Teutons choose direction of shift; off-Calendar positions do not force opposite shifts. If both cylinders are on the Calendar, Teutons choose which to shift. If both Service are, the one in the highest Calendar box shifts. If both Service are in the same box, or if one cylinder and one Service is on the Calendar, Teutons choose. Discard immediately.
  
 T2. Torzhok – Mongols deny Novgorod grain
+Eligibility: Domash
 Remove 3 Assets from Domash OR 3 Coin from Veche
 Tips. Teutons choose which Assets to remove and may select Domash or Veche even if that choice would remove fewer than three. Discard immediately.
  
 T3. Vodian Treachery
+Eligibility: any Teuton
 Hold: Play if Teuton Lord closer than any Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils)
 Tips. Closer means the shortest chain of adjacent spaces away (by Ways, not by sea). Vodian Treachery does not remove a Walls +1 marker from Russian Capability #R18 Stone Kremlin. If Stonemasons has placed Castles at both Kaibolovo and Koporye, this Event cannot be played, because neither Locale has a Fort.
  
 T4. Bridge
+Eligibility: any Russian
 Hold: May play on front center Russian Lord in non-Winter Battle—he Melee Strikes with units up to twice Round number
 Tips. Tuck the card with Event showing under the affected enemy Lord's mat. In Round 1, only two of his units may Strike in Melee; in Round 2, four may do so, and so on. If desired, place that enemy Lord's units that are selected to melee Strike onto the Bridge card as each Battle Round progresses. Archery and ability to absorb Melee Hits are unaffected. Bridge cannot impede a Relief-Sallying Lord who is Attacking from behind.
  
 T5. Marsh
+Eligibility: ALL Russian
 Hold: May play if Defending in non-Winter Battle—Russian Horse does not Strike in Rounds 1 and 2
 Tips. The Event may not be played on Attack. All enemy Horse's Melee and Archery are blocked for two Rounds; its ability to absorb Melee Hits is not.
  
 T6. Ambush
+Eligibility: any Russian
 Hold: Play to block Avoid Battle OR ignore Russian left and right in Battle Round 1
 Tips. If played to block Avoid Battle, declare Event after Defender declares Avoid Battle; any discard of Assets to Avoid Battle also is blocked; Event used to Block Avoid Battle does not otherwise affect the ensuing Battle. Ambush does not block Withdrawal into a Stronghold. If played for Round 1 of Battle, Lords of that side who are at left or right front would Flank the enemy's center Lord, while any enemy Lords at left or right front would be uninvolved (so could not absorb Hits nor Rout in Round 1).
  
 T7. Tverdilo – Pskovan ally
+Eligibility: Hermann, Yaroslav
 Hold: Play on Hermann OR Yaroslav to shift cylinder 2 Calendar boxes OR for Lordship +2.
 Tip. The Lordship bonus can apply to either the Muster or Call to Arms segment. Discard the moment used.
  
 T8. Teutonic Fervor
+Eligibility: Rudolf
 Hold: Play on Rudolf to shift cylinder 2 Calendar boxes OR for Lordship +2. Discard the moment used. Rudolf may use the bonus to Levy the Capability on the same card.
 Tips. The Lordship bonus can apply to either the Muster or the Call to Arms segment. Rudolf may receive the benefits of Teutonic Fervor plus #T17 Dietrich von Grüningen at the same time. While Russian Event #R17 Dietrich von Grüningen is in effect, Rudolf may not use any Lordship even with Teutonic Fervor.
  
 T9. Hill
+Eligibility: ALL Teuton
 Hold: May play if Defending in Battle—Round 1 and 2 Teutonic Archery is x1 (not x½)
 Tips. The Event may not be played on Attack. Melee is unaffected.
  
 T10. Field Organ
+Eligibility: any Teuton
 Hold: Play on a Lord in Battle or Storm—Round 1, his Knights AND Sergeants Melee Strike +1
 Tips. Teutons may play the Event when on Attack or Defense. Each of that Lord's Knights and Sergeants units when Striking in Melee during Round 1 cause one added Hit—three Hits each for Knights in Battle or two Hits each in Storm or for Sergeants. Against Russian #R1 Bridge Event, only the units Striking cause the added Hits. Horse units blocked from Striking by #R2 Marsh or #R6 Ambush add no Hits. Archery and Hits on Teutons are unaffected.
  
 T11. Pope Gregory issues indulgences
+Eligibility: any Teuton
 On Calendar, shift 1 Teuton cylinder 1 box left; add Crusade (this card) to Levied Capabilities
 Tips. The Teutons player chooses any 1 Teutonic cylinder on the Calendar to shift. The Event ignores the restriction on who can Levy Crusade. Tuck the card under the Teuton player's board edge to show Levied Crusade. Russian Event #R15 Death of the Pope does not affect this Event, which can represent indulgences authorized earlier.
  
 T12. Khan Baty – Mongols' return feared
+Eligibility: Aleksandr, Andrey
 On Calendar, shift Aleksandr OR Andrey OR Service of either 2 boxes
 Tips. Teutons choose direction of shift; off-Calendar positions do not force opposite shifts. Shifting just one box off the Calendar from box 1 or box 16 is allowed. Discard immediately.
  
 T13. Heinrich Sees the Curia
+Eligibility: Heinrich
 Hold: Play to Disband Heinrich to add 4 non-Loot Assets each to 2 on-map Teutonic Lords
 Tips. If Heinrich is not on map, drawing the Event card will delay Levy of the William of Modena Capability until discarded or Heinrich Musters. Whenever Heinrich is on map, Teutons may play the Event to immediately Disband him regardless of Service or situation; other Disband rules apply. Permanent removal of Heinrich in Battle or Storm does not trigger or equate to play of the Event.
  
 T14. Bountiful Harvest
+Eligibility: —
 Immediately remove 1 Ravaged marker from Livonia or Estonia
 Tips. Teutons choose any one black Ravaged marker to remove, reducing Russian victory points by ½VP. Then discard the card immediately.
  
 T15. Mindaugas – Lithuanian chief raids Rus
+Eligibility: —
 Place Ravaged in a Locale in Rus within 2 of Ostrov, not at Russian Lord or Stronghold
 Tips. Teutons may place a black Ravaged marker at a Locale on the Russian side of the border and at, adjacent to, or two Locales away from Ostrov and free of Russian Lords or Strongholds. They may not place it where Ravaged already. They may place it at a Stronghold they have Conquered.
  
 T16. Famine
+Eligibility: ALL Russian
 This Campaign, Russian Supply adds maximum 1 Provender per Command card from Seats and Forage adds none
 Tips. The Teutonic Event affects Russian Lords wherever they are. It does not affect Teutonic Lords. It does not affect Provender via Supply from Ships, Ravage, or Spoils. Discard at end of this Campaign.
  
 T17. Dietrich von Grüningen focuses Order on Rus
+Eligibility: Andreas, Rudolf
 Hold: Play on Andreas OR Rudolf to shift cylinder 2 Calendar boxes OR for Lordship +2.
 Tips. The Lordship bonus can apply to either the Muster or the Call to Arms segment. While Russian Event #R17 Dietrich von Grüningen is in effect, Andreas and Rudolf may not use any Lordship even with this Teutonic Event. Discard the moment used. Andreas or Rudolf may use the bonus to Levy the Capability on the same card.
  
 T18. Swedish Crusade into Tavastia
+Eligibility: Vladislav, Karelians
 On Calendar, shift cylinder or Service of Vladislav AND Karelians each 1 box
 Tips. Teutons choose direction of shift; off-Calendar positions do not force opposite shifts. Discard this Event card immediately after implementing it.
  
@@ -87,61 +107,76 @@ TEUTONIC CAPABILITIES
 ===========================
  
 T1. Treaty of Stensby – Danish-Teutonic comity enforced
+Eligibility: Heinrich, Knud & Abel
 Heinrich AND Knud & Abel Command +1
 Tips. Although only two Lords can Levy and be affected by this Capability, count it as an overall Teutonic Capability rather than This Lord. The Command bonus is cumulative with effects of the Legate and of #T3 Converts.
  
 T2. Raiders
+Eligibility: any Teuton
 This Lord with Horse once per Command card may Ravage Locale adjacent by Trackway where no enemy Lord
 Tips. Any Knight, Sergeant, or Light Horse on the Lord's mat would qualify him. Unlike Russian Raiders (Capability #R12&R14), this Capability allows acquisition of Loot from an adjacent Locale but can only be used once per Command card. The Lord could still Ravage normally with other Commands on that card. All other Ravage rules apply, including placement of Ravaged markers and the ban on a Besieged Lord using Ravage.
  
 T3. Converts – Guides and scouts
+Eligibility: any Teuton
 This Lord's or his group's March with Light Horse reaches 1st Locale each card for 0 actions
 Tip: The group of a Marshall or Lieutenant receives the benefit if any of the Lords Marching together have Converts and at least one has Light Horse—it need not be the same Lord, nor need it be the Active Lord. The March for 0 actions may be Laden but may not carry more than twice as much Provender as usable Transport. Converts does not affect Sail.
  
 T4.-T6. Balistarii – Crossbowmen
+Eligibility: any Teuton
 This Lord's Men-at-Arms have Archery with -2 to target's Armor
 Tip: Crossbowmen units Strike with both Archery and Melee.
  
 T7. Warrior Monks
+Eligibility: Andreas, Rudolf
 This Lord may reroll 1 Knights' Armor Roll each Archery AND each Melee step
 Tips: If Flanked, the Lord would still have only one reroll per Round for all Attacking Lords' Archery plus one for all Attacking Lords' Melee. The Capability can affect Rout rolls but not Loss rolls. A Lord may have only one Warrior Monks card.
  
 T8. Hillforts of the Sword Brethren
+Eligibility: ALL Teuton
 Each Feed skips 1 Unbesieged Teuton Lord in Livonia
 Tips: The benefit applies to any one Teutonic Lord who, at the moment of any Feed/Pay/Disband, is within Livonia (not Estonia or Rus) and Unbesieged. The Capability may affect a different Lord each Command card. A Lord skipping Feed still participates in Pay and Disband normally.
  
 T9.&T10. Halbbrüder – Half-Brothers of the Teutonic Order
+Eligibility: Andreas, Rudolf
 This Lord's Sergeants AND Men-at-Arms have Armor +1
 Tips. The modification affects Rout rolls but not Loss rolls. A Lord may have only one Halbbrüder card.
  
 T11. Crusade
+Eligibility: Andreas, Rudolf
 Each Summer Levy, free Muster all Unbesieged Crusaders; Disband them when card discarded; discard card at outset of Late Winter
 Tips. This Capability not only makes Summer Crusader Special Vassals available, it automatically Musters all Summer Crusader Knights to Andreas and Rudolf at no cost in Lordship actions, even in enemy territory, provided that the Lord is himself Mustered and is Unbesieged. If already Mustered and any Knights have been lost from the Lord's Forces, restore Knight units up those shown on the Vassal marker. Summer Crusaders otherwise follow Disband rules and also Disband immediately if the Crusade card is discarded. Early Winter alone does not Disband Summer Crusaders. At the start of the first Late Winter 40-Days of each year, discard Crusade and Disband Summer Crusaders. Remove the number of Knights shown on the Service markers, to the degree able, even if that Lord is already missing some Knight units. Teutons may Levy the Crusade Capability card in any Season, but Crusader Forces still would Muster only in Summer.
  
 T12. Ordensburgen
+Eligibility: ALL Teuton
 Teutonic Lords use Commanderies as extra Seats and start there Command +1
 Tips. The extra Ordensburgen Seats can allow Muster of Lords, added Supply Sources, and Tax at Commanderies. As an example, Wenden would be two Seats each for Andreas and Rudolf. Whenever a Teutonic Lord starts his Command card already at a Commandery Locale, he would receive +1 Command action on that card.
  
 T13. William of Modena – Papal legate to Livonia
+Eligibility: ALL Teuton
 Legate is in play—start pawn on card and return it here when used
 Tips. Without this Capability, the Teutons skip their Call to Arms segment. See Rules section 3.5.1.
  
 T14. Trebuchets
+Eligibility: any Teuton
 This Lord Unrouted at Storm or Sally reduces Russian Walls or Siegeworks -1
 Tips. Trebuchets reduce Walls and Siegeworks whenever the Lord with the Capability card is at a Storm, Sally, or Relief Sally Locale, even if the Lord is in Reserve or is not among Sallying Lord(s). Strikes from all Lords on his side receive the Walls 1 benefit. The number of Storm Rounds is not affected. If the Lord with Trebuchets Routs, the benefit no longer applies for that Storm or Sally.
  
 T15. Warrior Monks
+Eligibility: Andreas, Rudolf
 See Teutonic Capability #T7.
  
 T16. Ransom
+Eligibility: ALL Teuton
 Each Russian Lord removed in Battle or while Besieged, add Coin equal to his Service to Teutonic Lord there
 Tips. Any one Teutonic Lord present receives the Coin, regardless of who is active or originally Levied the card. "Removed" includes Disbanded or removed from play during any part of Battle or while Besieged; Disband of a Retreated Lord in a Feed/Pay/Disband segment, including by shifts from Battle Retreat, would not provide any Coin because the Lord was no longer in Battle when removed.
  
 T17. Stonemasons
+Eligibility: any Teuton
 This Lord for his full Command and 6 Prov puts available Castle at Unbesieged Fort or Town in Rus
 Tips. The Lord must not be Besieged, have taken any actions on his current Command card, or have fewer than six Provender (including through Sharing). The Castle marker replaces the Fort or Town at its Locale and removes any "Walls +1" marker there (see Russian Capability R18 Stone Kremlin). The Teutons may build at most two Castles during a game. The Castles are permanent. They flip when Conquered. Discard of the Capability does not affect Castle markers already on the map.
  
 T18. Cogs – Floating forts
+Eligibility: Heinrich, Knud & Abel, Andreas
 This Lord's Ships each serve as 2 Ships, can be shared anywhere, and will weather Tempest
 Tips. This card does not affect the limit of eight markers per Asset type per Lord. When sharing Ships via Cogs, normal Supply and Sail rules apply; a Supplying Lord must still have a Route to a Seaport to use the shared Ships, for example. Cogs protects only the Lord with the card from the full effect of the Russian Event #R16 Tempest.
  
@@ -152,74 +187,92 @@ RUSSIAN EVENTS
 ===========================
  
 R1. Bridge
+Eligibility: any Teuton
 Hold: May play on front center Teutonic Lord in non-Winter Battle—he Melee Strikes with units up to twice Round number
 Tips. See Teutonic Event #T4.
  
 R2. Marsh
+Eligibility: ALL Teuton
 Hold: May play if Defending in non-Winter Battle—Teutonic Horse does not Strike in Rounds 1 and 2
 Tips. See Teutonic Event #T5.
  
 R3. Pogost – Novgorodan outpost
+Eligibility: any Russian
 Hold: Play at any time to add 4 Provender to a Lord in Rus
 Tips. The Event offers great flexibility of timing as, for example, it can be played to add to a Lord's Provender in the midst of his Command actions or even while under Siege or during a Teutonic Activation, as long as the receiving Lord is inside Rus.
  
 R4. Raven's Rock – Battle of the Ice
+Eligibility: ALL Russian
 Hold: May play in non-Summer Battle—Round 1 Russians Walls 1-2 against Melee
 Tips. The Russians may play Raven's Rock in field Battle on either Attack or Defense, inside or outside of Rus, as long as the current Season is Winter or Rasputitsa. Teutonic Archery is not affected.
  
 R5. Hill
+Eligibility: ALL Russian
 Hold: May play if Defending in Battle—Round 1 and 2 Russian Archery is x1 (not x½)
 Tips. See Teutonic Event #T9.
  
 R6. Ambush
+Eligibility: any Teuton
 Hold: Play to block Avoid Battle OR ignore Teutonic left and right in Battle Round 1
 Tips. See Teutonic Event #T6. The Russians may use Ambush to block Avoid Battle by a lone Legate and thereby Capture him (return the pawn to the William of Modena card).
  
 R7. Famine
+Eligibility: ALL Teuton
 This Campaign, Teutonic Supply adds maximum 1 Provender per Command card from Seats and Forage adds none
 Tips. The Russian Event affects Teutonic Lords wherever they are. It does not affect Russian Lords. It does not affect Provender via Supply from Ships, Ravage, or Spoils. Discard at end of this Campaign.
  
 R8. Prince of Polotsk
+Eligibility: any Russian
 Hold: Play on a Russian Lord to shift cylinder 1 Calendar box OR for Lordship +2.
 Tip. The Lordship bonus can apply to either the Muster or the Call to Arms segment. Discard the moment used. The Lord may use the bonus to Levy the Capability on the same card.
  
 R9. Osilian Revolt
+Eligibility: Heinrich, Andreas
 On Calendar, Teutons choose to shift Service of Andreas OR Heinrich 2 boxes left
 Tips. The Teuton player must select and immediately shift the Service marker of either Heinrich or Andreas by 2 boxes to the degree able. If only one of the two is on the map, his marker shifts. If both are on the map, the Teutons player may select either, as long as neither marker is yet in box 1 or off the left end of the Calendar. Discard immediately.
  
 R10. Batu Khan – Mongols turn west
+Eligibility: Andreas
 On Calendar, shift Andreas cylinder OR Service up to 2 boxes
 Tips. Russians choose direction of shift; off-Calendar positions do not force opposite shifts. Shifting just one box off the Calendar from box 1 or box 16 is allowed. Discard immediately.
  
 R11. Valdemar – Danish unrest after king's death
+Eligibility: Knud & Abel
 On Calendar, shift Knud & Abel OR their Service up to 1 box; this Levy, no Muster of or by them
 Tips. Russians choose direction of shift; off-Calendar positions do not force opposite shifts. The Event blocks Knud & Abel's use of Lordship, including during Call to Arms. Discard at end of this Levy. The Event can occur several times in a game, representing continued Danish infighting.
  
 R12. Mindaugas – Lithuanian chief raids Livonia
+Eligibility: —
 Place Ravaged in a Livonia Locale within 2 of Rositten, not at Teutonic Lord or Stronghold
 Tips. Russians may place a white Ravaged marker at a Locale within Livonia and at, adjacent to, or two Locales away from Rositten and free of Teutonic Lords or Strongholds. They may not place it where Ravaged already. They may place it at a Stronghold they have Conquered. Discard the card immediately.
  
 R13. Pelgui – Baptized Ingrian elder
+Eligibility: Vladislav, Karelians
 Hold: Play on Vladislav OR Karelians to shift cylinder 2 Calendar boxes OR for Lordship +2.
 Tip. The Lordship bonus can apply to either the Muster or the Call to Arms segment. Discard the moment used. Vladislav may use the bonus to Levy the Capability on the same card.
  
 R14. Prussian Revolt
+Eligibility: Andreas
 If Andreas on map and Unbesieged and nothing at Riga, put him there; if on Calendar, shift him 2 right
 Tips. "Nothing at Riga" means no Lords, no Legate, no Conquered, no Ravage, and so on—neither any piece nor any marker at the Riga Locale. Discard the card immediately.
  
 R15. Death of the Pope
+Eligibility: —
 Remove Legate and discard William of Modena—This Levy, no William of Modena
 Tips. Death of the Pope affects the William of Modena card only if currently in play as a Capability, not if Held as Heinrich Sees the Curia (Teutonic Event #T13). Remove the Legate pawn from the map even if Besieged. Discard Death of the Pope at the end of Levy. William of Modena and the pawn may return in a later 40 Days. Death of the Pope can occur several times in a game, representing continued impact on the crusade against Rus.
  
 R16. Tempest
+Eligibility: —
 Immediately remove all Ships from a Teutonic Lord, half rounded up if he has Cogs
 Tips. The Russian player chooses which Teutonic Lord is affected. Discard immediately.
  
 R17. Dietrich von Grüningen leads Order to Kurland
+Eligibility: Andreas, Rudolf
 On Calendar, shift Andreas OR Rudolf OR their Service 1 box; this Levy, no Muster of or by them
 Tips. Russians choose direction of shift; off-Calendar positions do not force opposite shifts. The Event blocks Andreas's and Rudolf's use of Lordship, including during Call to Arms and via any Teutonic Events. Discard at end of this Levy.
  
 R18. Bountiful Harvest
+Eligibility: —
 Immediately remove 1 Ravaged marker from Rus
 Tips. Russians choose any one white Ravaged marker to remove, reducing Teutonic victory points by ½VP. Then discard the card immediately.
  
@@ -230,63 +283,79 @@ RUSSIAN CAPABILITIES
 ===========================
  
 R1.&R2. Luchniki – Massed Archers
+Eligibility: Gavrilo, Domash, Vladislav, Karelians
 This Lord's Militia and Light Horse have Archery
 Tips. Luchniki ("Archers") units Strike with both Archery and Melee. When Luchniki Archer units combine with Garrison or Streltsy Crossbowmen units, any Hit that includes at least ½ a Hit from Crossbowmen does cause the reduction to enemy Armor Protection. That is, when rounding units with Archery, round in favor of Crossbowmen.
  
 R3. Streltsy – Crossbowmen
+Eligibility: NOT Karelians
 This Lord's Men-at-Arms have Archery with -2 to target's Armor
 Tips. "NOT" on the card means that any Russian Lord except Karelians may have Crossbowmen. (The Karelians have no Men-at-Arms.) Streltsy ("shooters") Crossbowmen units Strike with both Archery and Melee. See Capability #R1&R2 Luchniki above about rounding Crossbowmen.
  
 R4. Smerdi – Peasant army
+Eligibility: ALL Russian
 Start 6 Serfs on card; Russian Command action Unbesieged in Rus Musters 1 Serf; Serfs return here when removed
 Tips. The Lord must be in a Locale within Rus. Multiple actions by one or several Lords could Muster up to all six Serf units. Serf units may be re-Mustered whenever on the card, even after removal during the same Campaign.
  
 R5.&R6. Druzhina – Elite Retinue
+Eligibility: Aleksandr, Gavrilo, Andrey
 This Lord with Knights Command +1
 Tips. A Lord with Druzhina receives the benefit with even a single Knights piece on his mat. A Lord may have only one Druzhina card but may combine it with #R11 House of Suzdal for +2 Command.
  
 R7. Ransom
+Eligibility: ALL Russian
 Each Teutonic Lord removed in Battle or while Besieged, add Coin equal to his Service to Russian Lord there.
 Tips. Any one Russian Lord present receives the Coin, regardless of who is active or originally Levied the card. "Removed" includes Disbanded or removed from play during any part of Battle or while Besieged; Disband of a Retreated Lord in a Feed/Pay/Disband segment, including from shifts from Battle Retreat, would not provide any Coin because the Lord was no longer in Battle during Feed/Pay/Disband.
  
 R8. Black Sea Trade
+Eligibility: ALL Russian
 Each Call to Arms, add 1 Coin to Veche unless Novgorod or Lovat Conquered
 Tips. Add Coin once any time during Russian Call to Arms, including in the same Levy as Mustering the Capability. When in effect, place the appropriate Coin marker on the card as a reminder, then move it to the Veche box during Russian Call to Arms. When Levied but not in effect, keep a "SEA TRADE Blocked" marker on the card. If Teutons Conquer Lovat or Novgorod, but Russians retake it, the benefit resumes.
  
 R9. Baltic Sea Trade
+Eligibility: ALL Russian
 Each non-Winter Call to Arms, add 2 Coin to Veche unless Teutons have more Ships than Rus OR Novgorod or Neva Conquered
 Tips. See #R8 Black Sea Trade Tips above. #R16 Lodya and Teutonic Capability #T18 Cogs both apply to determining whether Baltic Sea Trade is blocked.
  
 R10. Steppe Warriors
+Eligibility: Aleksandr, Andrey
 Kipchaqs and Mongols may Muster; they Disband if this card discarded
 Tips. This Capability makes Kipchaq and Mongol Asiatic Horse Special Vassals available for Muster. These Special Vassal Forces once Levied follow Disband rules normally, except that they also Disband immediately (even if Besieged) upon discard of the Steppe Warriors card.
  
 R11. House of Suzdal – Preeminent dynasty
+Eligibility: Aleksandr, Andrey
 This Lord Command +1 while Aleksandr and Andrey on map
 Tips. Although this Capability attaches to only one Lord at a time and affects the Command rating of only that Lord—either Aleksandr or Andrey—it relies on both those Lords' cylinders being on the map at the same time to provide its benefit. A Lord may combine House of Suzdal with #R5/R6 Druzhina for +2 Command.
  
 R12. Raiders
+Eligibility: any Russian
 This Lord with Light or Asiatic Horse may Ravage adjacent Locales where no enemy Lords but take no Loot
 Tips. Any Light Horse or Asiatic Horse on the Lord's mat would qualify him. Unlike Teutonic Raiders (Capability #T2), this Capability may be used for multiple actions on a single Command card and allows Ravage of Locales adjacent by land or water to gain Provender but no Loot. All other Ravage rules apply, including placement of Ravaged markers and the ban on a Besieged Lord using Ravage.
  
 R13. Strelsty – Crossbowmen
+Eligibility: NOT Karelians
 See Russian Capability #R3.
  
 R14. Raiders
+Eligibility: any Russian
 See Russian Capability #R12.
  
 R15. Archbishopric of Novgorod
+Eligibility: ALL Russian
 Russian Lords have an extra Seat at Novgorod and start there Command +1.
 Tips. The extra Archbishopric Seat can allow both Muster of Lords and an added Supply Source at Novgorod. As an example, Novgorod would be two seats for Domash. Whenever a Russian Lord starts his Command card already at Novgorod, he would receive +1 Command action on that card.
  
 R16. Lodya – Russian river-lake-sea craft
+Eligibility: any Russian
 This Lord may use his Boats as 2 Boats each OR use up to 2 Ships or Boats as the other
 Tips. Russians during any given action or for use of Capability #R9 Baltic Sea Trade may either double this Lord's Boats or may temporarily designate up to two of his Ships as Boats or Boats as Ships, including when this Lord Shares. During an action, a Ship counted as a Boat does not count as a Ship, and vice versa. Lodya does not affect Wastage removal or the limit of eight markers per Asset type per Lord.
  
 R17. Veliky Knyaz – Grand Prince Yaroslav
+Eligibility: any Russian
 This Lord's Tax also adds 2 Transport AND restores all their Mustered Forces
 Tips. All other Tax rules apply. A Lord with this Capability and Unbesieged at his Seat will receive for each Command card that they use to Tax the usual one Coin plus any two Transport (up to the maximum of eight per type) plus returning any unit pieces that they have lost from their starting forces and Mustered Vassals.
  
 R18. Stone Kremlin readied
+Eligibility: any Russian
 This Lord for his full Command may mark his Fort, City, or Novgorod Walls +1; remove marker if Sacked
 Tips. The Lord must be at the Locale receiving the marker as he expends his entire Command card to do nothing except place the marker. He may be Besieged. "Walls +1" gives a Walls 1-3 Stronghold Walls 1-4. A Stronghold may have only one Walls +1 marker—the markers are not cumulative. At most all four markers may be on the map at a time. Markers to be placed may be taken from the map, even if not all four are out. Discard of the card does not affect Walls markers already on the map, nor would the Stronghold's Surrender. Teutonic placement of a Castle marker at a Walls +1 Fort removes the Walls marker (see Teutonic Capability #T17 Stonemasons).
