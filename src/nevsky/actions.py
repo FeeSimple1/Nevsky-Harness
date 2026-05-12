@@ -262,7 +262,12 @@ def _h_advance_step(
             state.meta.block_lords_this_levy_r = []
             state.meta.lordship_bonus = {}
             state.meta.special_rules.pop("block_william_of_modena_this_levy", None)
-            # 4.0 capability discard (in excess of own Mustered Lord count)
+            # 4.0 capability discard (in excess of own Mustered Lord count).
+            # SMOKE-031: route each discard through _discard_side_capability
+            # so per-card cleanup (Summer Crusaders Disband on T11, Mongols/
+            # Kipchaqs Disband on R10, Legate-leaves-map on T13) cascades.
+            from nevsky.campaign import _discard_side_capability as _disc_cap
+            rule_4_0_cleanup: list[dict[str, Any]] = []
             for sd_ in ("teutonic", "russian"):
                 deck = state.decks.teutonic if sd_ == "teutonic" else state.decks.russian
                 mustered_count = sum(
@@ -270,7 +275,8 @@ def _h_advance_step(
                     if lord.side == sd_ and lord.state == "mustered"
                 )
                 while len(deck.capabilities_in_play) > mustered_count:
-                    deck.discard.append(deck.capabilities_in_play.pop())
+                    cid_to_drop = deck.capabilities_in_play[-1]
+                    rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_to_drop))
 
     return ({"new_step": state.meta.levy_step,
              "phase": state.meta.phase,

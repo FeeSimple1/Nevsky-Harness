@@ -336,6 +336,7 @@ def _h_command_reveal(
         # for cards that did not move/fight no MOVED_FOUGHT lords -> trivial.
         state.campaign_turn.active_lord = None
         state.campaign_turn.actions_remaining = 0
+        state.campaign_turn.seat_supply_this_card = 0
         _enter_feed_pay_disband(state)
         return ({"revealed": "pass", "outcome": "pass"}, [])
 
@@ -345,6 +346,7 @@ def _h_command_reveal(
         # 4.2.3: Lord on card not on map -> Pass.
         state.campaign_turn.active_lord = None
         state.campaign_turn.actions_remaining = 0
+        state.campaign_turn.seat_supply_this_card = 0
         _enter_feed_pay_disband(state)
         return ({"revealed": card, "outcome": "pass_not_on_map"}, [])
     # 4.1.3: Lower Lord card resolves as Pass (the Lieutenant carries
@@ -352,12 +354,15 @@ def _h_command_reveal(
     if lord.lieutenant_of is not None:
         state.campaign_turn.active_lord = None
         state.campaign_turn.actions_remaining = 0
+        state.campaign_turn.seat_supply_this_card = 0
         _enter_feed_pay_disband(state)
         return ({"revealed": card, "outcome": "pass_lower_lord",
                  "lieutenant_of": lord.lieutenant_of}, [])
 
     state.campaign_turn.active_lord = card
     state.campaign_turn.actions_remaining = _effective_command_rating(state, card)
+    # SMOKE-030: reset Famine seat-Supply counter at each new card reveal.
+    state.campaign_turn.seat_supply_this_card = 0
     # Reset per-card capability flags (Phase 4b).
     state.lords[card].first_march_used_this_card = False
     state.lords[card].raiders_used_this_card = False
@@ -774,10 +779,20 @@ def _h_cmd_forage(
 
     if lord.assets.get("provender", 0) >= 8:
         raise IllegalAction("provender_max", f"{lord_id} at Provender cap")
-    lord.assets["provender"] = lord.assets.get("provender", 0) + 1
+    # SMOKE-030: Famine event ("T16" against Russian / "R7" against
+    # Teutonic) makes Forage add NO Provender this Campaign. The action
+    # still resolves and consumes 1 action; the Lord just gets nothing.
+    famine_against_us = (
+        ("T16" in state.decks.teutonic.this_campaign_events) if sd == "russian"
+        else ("R7" in state.decks.russian.this_campaign_events)
+    )
+    delta = 0 if famine_against_us else 1
+    lord.assets["provender"] = lord.assets.get("provender", 0) + delta
     lord.moved_fought = True
     _consume_actions(state, 1)
-    return ({"lord_id": lord_id, "added": "provender", "new_count": lord.assets["provender"]}, [])
+    return ({"lord_id": lord_id, "added": "provender",
+             "new_count": lord.assets["provender"], "delta": delta,
+             "famine_active": famine_against_us}, [])
 
 
 # ---------------------------------------------------------------------------
@@ -1117,12 +1132,32 @@ def _h_cmd_supply(
     if ship_count > 2:
         raise IllegalAction("too_many_ship_sources", "max 2 Ship sources")
 
+    # SMOKE-030: T16 Famine (against Russian) / R7 Famine (against
+    # Teutonic) cap Seat-sourced Provender at 1 per Command card.
+    # Ship-sourced Provender is NOT affected (Tip: "does not affect
+    # Provender via Supply from Ships, Ravage, or Spoils").
+    famine_against_us = (
+        ("T16" in state.decks.teutonic.this_campaign_events) if sd == "russian"
+        else ("R7" in state.decks.russian.this_campaign_events)
+    )
+    famine_seats_dropped = 0
+    if famine_against_us and seat_count > 0:
+        already_used = state.campaign_turn.seat_supply_this_card
+        allowed = max(0, 1 - already_used)
+        if seat_count > allowed:
+            famine_seats_dropped = seat_count - allowed
+            added -= famine_seats_dropped
+        state.campaign_turn.seat_supply_this_card = already_used + min(seat_count, allowed)
+
     # Add provender (cap 8).
     final_added = min(added, 8 - lord.assets.get("provender", 0))
     lord.assets["provender"] = lord.assets.get("provender", 0) + final_added
     lord.moved_fought = True
     _consume_actions(state, 1)
-    return ({"lord_id": lord_id, "added": final_added, "lost_to_cap": added - final_added}, [])
+    return ({"lord_id": lord_id, "added": final_added,
+             "lost_to_cap": added + famine_seats_dropped - final_added,
+             "famine_seats_dropped": famine_seats_dropped,
+             "famine_active": famine_against_us}, [])
 
 
 def _all_seats(state: GameState, lord_id: str) -> list[str]:
@@ -1135,6 +1170,105 @@ def _all_seats(state: GameState, lord_id: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # 4.9 End Campaign
 # ---------------------------------------------------------------------------
+
+
+def _disband_special_vassals(state: GameState, side: str, special_kind: str
+                              ) -> list[dict[str, Any]]:
+    """SMOKE-031: Disband all Special Vassals of ``special_kind`` from
+    every ``side`` Lord. Returns Forces from the parent Lord's mat,
+    flips mustered=False and ready=False, clears any Advanced Vassal
+    Service Calendar marker. Returns a list of {lord_id, vassal_id,
+    was_mustered, was_ready, forces_returned}.
+
+    Used when the gating Capability is discarded (per AoW Reference
+    T11 Crusade Tips: 'Summer Crusaders ... also Disband immediately
+    if the Crusade card is discarded'; R10 Steppe Warriors Tips:
+    'Special Vassal Forces ... also Disband immediately ... upon
+    discard of the Steppe Warriors card').
+    """
+    from nevsky.static_data import load_lords as _load_sl
+    _slords = _load_sl()
+    cal = state.calendar
+    disbanded: list[dict[str, Any]] = []
+    for lord_id, lord in state.lords.items():
+        if lord.side != side:
+            continue
+        sl = _slords.get(lord_id, {})
+        for vid, vstate in list(lord.vassals.items()):
+            vdata = next((v for v in sl.get("vassals", [])
+                           if v["vassal_id"] == vid), None)
+            if vdata is None or vdata.get("special") != special_kind:
+                continue
+            v_forces = vdata.get("forces", {}) or {}
+            returned: dict[str, int] = {}
+            if vstate.mustered:
+                for k, v in v_forces.items():
+                    avail = lord.forces.get(k, 0)
+                    take = min(int(v), avail)
+                    if take > 0:
+                        lord.forces[k] = avail - take
+                        if lord.forces[k] == 0:
+                            del lord.forces[k]
+                        returned[k] = take
+            was_mustered = vstate.mustered
+            was_ready = vstate.ready
+            vstate.mustered = False
+            vstate.ready = False
+            if vstate.on_calendar and vstate.calendar_box is not None:
+                cb_idx = vstate.calendar_box - 1
+                if 0 <= cb_idx < 16 and vid in cal.boxes[cb_idx].vassal_service_markers:
+                    cal.boxes[cb_idx].vassal_service_markers.remove(vid)
+                vstate.on_calendar = False
+                vstate.calendar_box = None
+            disbanded.append({
+                "lord_id": lord_id, "vassal_id": vid,
+                "was_mustered": was_mustered, "was_ready": was_ready,
+                "forces_returned": returned,
+            })
+    return disbanded
+
+
+def _discard_side_capability(state: GameState, side: str, cid: str
+                              ) -> dict[str, Any]:
+    """SMOKE-031: discard a side-wide capability with per-card cleanup.
+
+    Removes ``cid`` from the side's ``capabilities_in_play`` (if
+    present) and appends to ``discard``. Then runs cascading cleanup
+    per AoW Reference Tips:
+
+      - T11 Crusade discarded -> Disband Summer Crusaders (Teutonic).
+      - R10 Steppe Warriors discarded -> Disband Mongols / Kipchaqs
+        Asiatic Horse Special Vassals (Russian).
+      - T13 William of Modena discarded -> Legate leaves map (return
+        pawn to William of Modena card).
+
+    Returns ``{"card": cid, "disbanded_vassals": [...],
+              "legate_removed": bool}``.
+    """
+    deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
+    was_in_play = cid in deck.capabilities_in_play
+    if was_in_play:
+        deck.capabilities_in_play.remove(cid)
+        if cid not in deck.discard:
+            deck.discard.append(cid)
+    # Per-card cleanup runs regardless of where the card came from. The
+    # caller is expected to invoke this helper when the rule says
+    # "Disband [cascade-vassals]" — passing the same card_id twice is
+    # idempotent (Disband-already-disbanded sets the same fields).
+    disbanded: list[dict[str, Any]] = []
+    legate_removed = False
+    if cid == "T11" and side == "teutonic":
+        disbanded = _disband_special_vassals(state, "teutonic", "summer_crusaders")
+    elif cid == "R10" and side == "russian":
+        disbanded = _disband_special_vassals(state, "russian", "steppe_warriors")
+    elif cid == "T13" and side == "teutonic":
+        if state.legate.william_of_modena_in_play:
+            state.legate.william_of_modena_in_play = False
+            state.legate.location = "card"
+            state.legate.locale_id = None
+            legate_removed = True
+    return {"card": cid, "disbanded_vassals": disbanded,
+            "legate_removed": legate_removed, "was_in_play": was_in_play}
 
 
 def _h_end_campaign_resolve(
@@ -1275,61 +1409,26 @@ def _h_end_campaign_resolve(
                     state.meta.box = new_box
                     new_box_after_advance = new_box
                     break
-            # 4.9.5 Reset (SMOKE-028b/c): If the new 40 Days is the year's
-            # first Late Winter (box 5 or 13), discard the Crusade
-            # Capability (T11) if in play and Disband the Summer Crusaders
-            # Special Vassal from any Teutonic Lord. Reference:
-            # Nevsky Calender and Veche Reference.txt lines 187-189.
+            # 4.9.5 Reset (SMOKE-028b/c, refactored R44/SMOKE-031): If the
+            # new 40 Days is the year's first Late Winter (box 5 or 13),
+            # discard the Crusade Capability (T11) if in play; the unified
+            # _discard_side_capability helper cascades the Summer
+            # Crusaders Disband per AoW Reference T11 Tip.
             crusade_auto_discarded = False
             summer_crusaders_disbanded: list[dict[str, Any]] = []
             if new_box_after_advance in (5, 13):
-                tdeck = state.decks.teutonic
-                if "T11" in tdeck.capabilities_in_play:
-                    tdeck.capabilities_in_play.remove("T11")
-                    tdeck.discard.append("T11")
+                # Disband Summer Crusaders unconditionally per rule 4.9.5
+                # (the rule pairs Crusade-discard with Summer-Crusaders-
+                # Disband; the latter must fire even when T11 was never
+                # in capabilities_in_play, e.g., state was edited or the
+                # Vassal was force-set by a test fixture). Then if T11 is
+                # in play, discard it through the helper (which would do
+                # an idempotent re-disband — no double effect).
+                summer_crusaders_disbanded = _disband_special_vassals(
+                    state, "teutonic", "summer_crusaders")
+                if "T11" in state.decks.teutonic.capabilities_in_play:
+                    _discard_side_capability(state, "teutonic", "T11")
                     crusade_auto_discarded = True
-                # Disband Summer Crusaders: per static_data, only Andreas
-                # (andreas_summer_crusaders_1, 3 knights) and Rudolf
-                # (rudolf_summer_crusaders, 2 knights) carry this vassal.
-                from nevsky.static_data import load_lords as _load_lords_sc
-                _slords = _load_lords_sc()
-                for lord_id, lord in state.lords.items():
-                    if lord.side != "teutonic":
-                        continue
-                    sl = _slords.get(lord_id, {})
-                    for vid, vstate in list(lord.vassals.items()):
-                        vdata = next((v for v in sl.get("vassals", [])
-                                       if v["vassal_id"] == vid), None)
-                        if vdata is None or vdata.get("special") != "summer_crusaders":
-                            continue
-                        # Return Forces from Lord's mat to the pool.
-                        v_forces = vdata.get("forces", {}) or {}
-                        returned = {}
-                        if vstate.mustered:
-                            for k, v in v_forces.items():
-                                avail = lord.forces.get(k, 0)
-                                take = min(int(v), avail)
-                                if take > 0:
-                                    lord.forces[k] = avail - take
-                                    if lord.forces[k] == 0:
-                                        del lord.forces[k]
-                                    returned[k] = take
-                        was_mustered = vstate.mustered
-                        was_ready = vstate.ready
-                        vstate.mustered = False
-                        vstate.ready = False  # gating capability gone
-                        # Clear any Advanced Vassal Service marker too.
-                        if vstate.on_calendar and vstate.calendar_box is not None:
-                            cb_idx = vstate.calendar_box - 1
-                            if 0 <= cb_idx < 16 and vid in cal.boxes[cb_idx].vassal_service_markers:
-                                cal.boxes[cb_idx].vassal_service_markers.remove(vid)
-                            vstate.on_calendar = False
-                            vstate.calendar_box = None
-                        summer_crusaders_disbanded.append({
-                            "lord_id": lord_id, "vassal_id": vid,
-                            "was_mustered": was_mustered, "was_ready": was_ready,
-                            "forces_returned": returned,
-                        })
             # Reset campaign-turn / step bookkeeping for next Campaign;
             # transition to Levy.
             state.meta.phase = "levy"

@@ -4370,3 +4370,171 @@ passing the new gate, so the downstream layer is now safe-by-
 construction.
 
 SMOKE-030 (Famine event effect) is queued for a follow-up round.
+
+
+# Round 44 — Famine event effect + side-wide capability discard cascade
+
+Goal: continue deep smoke testing for AoW Reference knock-ons. Two
+bug classes surfaced, both tied to card-effects the harness was
+supposed to enforce but didn't.
+
+## Bugs surfaced and fixed
+
+### SMOKE-030 — T16 / R7 Famine event effect ignored by Supply/Forage
+
+**Symptom.** T16 Famine (Teutonic event) and R7 Famine (Russian
+event) both have ``event_persistence == "this_campaign"``. When
+drawn, the harness correctly records them in
+``state.decks.<owner_side>.this_campaign_events``. But neither
+``_h_cmd_supply`` nor ``_h_cmd_forage`` reads that list, so the
+rule effect never fires.
+
+**Authority.** AoW Reference T16 line 75-76 (and R7 symmetric):
+"This Campaign, Russian Supply adds maximum 1 Provender per
+Command card from Seats and Forage adds none." Tip:
+"affects Russian Lords wherever they are. ... does not affect
+Provender via Supply from Ships, Ravage, or Spoils."
+
+**Repro (probe /tmp/r44/probe_famine_fix.py):**
+
+  Forage by Russian Lord with T16 in Teutonic this_campaign_events
+  -> +1 Provender (rule says +0).
+
+  Supply by Russian Lord with T16, 2 Seat sources in one card
+  -> +2 Provender (rule caps at 1 from Seats per Command card).
+
+**Fix.** Three additions:
+
+  1. New ``CampaignTurn.seat_supply_this_card: int = 0`` (state.py).
+     Reset to 0 at every ``command_reveal`` and at the auto-Pass
+     branches.
+  2. ``_h_cmd_supply`` reads the opposing side's
+     ``this_campaign_events`` for T16/R7. Under Famine: only
+     ``max(0, 1 - seat_supply_this_card)`` of the action's Seat
+     sources contribute Provender; the rest drop. Ship sources
+     unaffected. Counter increments by the accepted seat count.
+  3. ``_h_cmd_forage`` sets ``delta = 0`` instead of ``+1`` under
+     Famine. Action still consumes 1 action; Lord just gets nothing.
+
+Result dicts gain ``famine_active: bool`` and (Supply) 
+``famine_seats_dropped: int`` for transparency.
+
+### SMOKE-031 — Side-wide capability discard skips per-card cleanup cascade
+
+**Symptom.** Rule 4.0 (top of ``_h_advance_step``, Levy -> Campaign
+transition): "side-wide capabilities in excess of Mustered Lord
+count get discarded." The harness implemented this as a literal
+``while len(deck.capabilities_in_play) > mustered_count:
+deck.discard.append(deck.capabilities_in_play.pop())``. The pop
+silently dropped T11 / R10 / T13 to discard with NO per-card
+cleanup.
+
+Three concrete sub-cases reproduced:
+
+  (a) **T11 (Crusade) popped** -> Summer Crusaders Vassal must
+      Disband (T11 Tip: "Summer Crusaders ... also Disband
+      immediately if the Crusade card is discarded"). The harness
+      left them Mustered with their Knights on the parent Lord's
+      mat.
+
+  (b) **R10 (Steppe Warriors) popped** -> Mongols/Kipchaqs Special
+      Vassal must Disband (R10 Tip: "These Special Vassal Forces
+      ... also Disband immediately (even if Besieged) upon discard
+      of the Steppe Warriors card"). Left Mustered.
+
+  (c) **T13 (William of Modena) popped** -> Legate pawn must
+      return to the William of Modena card. Left on the map at its
+      previous Locale.
+
+**Repro (probe /tmp/r44/probe_4_0_v2.py and probe_t11_overflow.py).**
+Three side-wide caps in play, fewer Mustered Lords; advance from
+Levy call_to_arms -> Campaign. The while-loop pops the excess; no
+cascade.
+
+**Fix.** Two new helpers in ``src/nevsky/campaign.py``:
+
+  - ``_disband_special_vassals(state, side, special_kind) -> list``
+    walks side Lords, finds Vassals with the given ``special``
+    kind, returns Forces from the parent Lord's mat, flips
+    ``mustered = False, ready = False``, clears any Advanced
+    Vassal Service Calendar marker. Returns Disband records.
+  - ``_discard_side_capability(state, side, cid) -> dict`` moves
+    the card from ``capabilities_in_play`` to ``discard`` (only if
+    it was in play; idempotent on repeated calls) and dispatches:
+      T11 -> ``_disband_special_vassals(side, "summer_crusaders")``
+      R10 -> ``_disband_special_vassals(side, "steppe_warriors")``
+      T13 -> Legate leaves map (matches existing inline logic in
+            Avoid Battle / Withdraw / R15 paths)
+    Returns ``{card, disbanded_vassals, legate_removed, was_in_play}``.
+
+Rule 4.0 while-loop in ``_h_advance_step`` now routes through
+``_discard_side_capability`` per card. The R41 box-5/13 Crusade
+discard handler (in ``_h_end_campaign_resolve``) is refactored to
+the new helper: it ALWAYS Disbands Summer Crusaders at the
+transition (the rule pairs the two effects; the unconditional
+Disband matches R41 test expectations and the rule's "and Disband
+the Summer Crusaders" wording), and conditionally routes the T11
+discard through the helper if T11 is in play.
+
+## Items verified clean
+
+- **Tempest (R16) vs Cogs (T18)**: with Cogs tucked, half Ships
+  removed (rounded up). Without Cogs, all Ships removed.
+- **Hillforts (T8)**: ``_hillforts_skip_lord`` correctly picks an
+  Unbesieged Teutonic Lord in ``crusader_livonia`` subregion
+  (Estonia and Rus excluded). Alphabetical tie-break.
+- **Stonemasons (T17)**: Castle placement at Unbesieged Fort/Town
+  in Rus rejects City-type locales (Pskov rejected correctly).
+- **Stone Kremlin (R18)**: Walls +1 marker placed; FPD entry
+  blocks a 2nd attempt on the same Command card (correct: rule
+  is "full Command").
+- **Veliky Knyaz (R17) Tax**: +1 Coin baseline, +2 Transport of
+  chosen type, Forces restored to starting (3-unit restore on a
+  Lord with 3 losses confirmed).
+- **Existing R41/R42/R43 tests**: still pass after the helper
+  refactor; one round of repair was needed when the helper's
+  Disband became conditional on T11-in-play (which broke R41
+  unconditional-Disband-at-box-5/13). Fixed by making the helper
+  idempotent and the R41 caller call ``_disband_special_vassals``
+  unconditionally at box 5/13.
+
+## Tests added
+
+``tests/test_round_44_famine_and_cascade.py`` — 10 regressions:
+
+  Famine (SMOKE-030):
+    - Forage under T16: delta=0, famine_active=True.
+    - Forage under R7 (against Teutons): symmetric.
+    - Forage without Famine: positive control delta=1.
+    - Supply under T16: 2nd Seat-source on same card yields 0.
+    - seat_supply_this_card counter reset semantics.
+
+  Cascade (SMOKE-031):
+    - Rule 4.0 pops T11 -> Summer Crusaders Disband + Forces
+      returned.
+    - Rule 4.0 pops R10 -> Mongols Disband.
+    - Rule 4.0 pops T13 -> Legate leaves map.
+    - 3-cap, 0-Lord edge case: all three pop, no crashes.
+    - Helper idempotency: card-not-in-play call doesn't falsely
+      append to discard.
+
+644 -> 654 passing.
+
+## Confidence delta vs R43
+
+R42 added Eligibility metadata; R43 enforced it; R44 closes two
+adjacent latent gaps that the deep audit revealed. The bug-class
+pattern is the same as SMOKE-016 (capability-data) and SMOKE-019
+(predicate confusion): rule effects encoded in data or persistence
+buckets that handlers don't read.
+
+Areas now exhaustively audited for this update wave:
+  - capability_eligibility at Levy entry points (R43)
+  - Famine event effect at Supply/Forage (R44)
+  - Side-wide cap discard cascade at rule 4.0 + box 5/13 (R44)
+
+Areas still likely to harbor latent bugs (R45+ candidates):
+  - Hold-event discard timing post-Battle consumption
+  - Stonemasons + Stone Kremlin per-Stronghold uniqueness
+  - Advanced Vassal Service interactions with Disband
+  - Avoid Battle Spoils + Siege placement edge cases (R41 audit)
