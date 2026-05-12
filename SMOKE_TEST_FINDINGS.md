@@ -4210,3 +4210,163 @@ straight Tier 0 walk through ``cards.json``. That pattern —
 audit-then-update — is worth keeping for future reference
 refreshes (e.g., if the Calendar / Sequence of Play references
 get similar polish in a later commit).
+
+
+# Round 43 — Aggressive bug-hunt for AoW Reference knock-ons
+
+Goal: now that R42 landed the AoW Reference update + cards.json
+``event_eligibility`` / ``capability_eligibility`` metadata, probe
+aggressively for related bugs. The audit at
+``outputs/round-41/AoW_UPDATE_BLAST_RADIUS.md`` classified the diff
+as Tier 0 (no mechanical change), but the NEW Eligibility metadata
+exposes a category of pre-existing latent bugs: places where the
+harness was supposed to enforce "who may Levy / target this card"
+but didn't.
+
+## Bugs surfaced and fixed
+
+### SMOKE-029 — Capability Levy ignores Eligibility (printed Lord coats of arms)
+
+**Symptom.** Two distinct paths tucked Capabilities under ineligible
+Lords:
+
+  (a) ``_h_levy_capability`` (3.4.4 explicit Levy via Lordship)
+      validated side / Mustered / deck-availability / cap-limit /
+      duplicate-name, but never read ``capability_eligibility`` from
+      cards.json. Eleven same-side ineligible Levies reproduced as
+      silently accepted (probes in ``/tmp/r43/probe_clean.py``):
+
+        - Domash levies R5 Druzhina (Eligibility: Aleksandr/Gavrilo/Andrey)
+        - Heinrich levies T7 Warrior Monks (Andreas/Rudolf)
+        - Hermann levies T11 Crusade side_wide (Andreas/Rudolf)
+        - Karelians levies R3 Streltsy onto self (NOT Karelians)
+        - Domash levies R10 Steppe Warriors (Aleksandr/Andrey)
+        - Vladislav levies R11 House of Suzdal (Aleksandr/Andrey)
+        - Aleksandr levies R1 Luchniki (Gavrilo/Domash/Vladislav/Karelians)
+        - Aleksandr levies R13 (=R3 alt) onto Karelians (target excluded)
+        - Hermann levies T9 Halbbrueder (Andreas/Rudolf)
+        - Yaroslav levies T1 Stensby (Heinrich/Knud&Abel)
+        - Gavrilo levies R10 Steppe Warriors (Aleksandr/Andrey)
+
+  (b) ``_h_aow_implement_card`` (first-Levy auto-implement,
+      3.1.2 this_lord branch) had the same gap — tucking T7
+      Warrior Monks under Hermann or R3 Streltsy under Karelians
+      both succeeded.
+
+**Authority.** AoW Reference header paragraph (added in commit
+44f7694, lines 5-6): "For Capabilities, [Eligibility] is who may
+Levy the Capability AND who is affected by it (per Rules 1.9.1 and
+3.4.4)." That makes Eligibility a hard gate at both Levy entry
+points.
+
+**Production impact.** Sustained. Any consumer (including the
+LLM) could Levy ineligible cards without rejection, building states
+the rulebook forbids. E.g., T11 Crusade Levied by Hermann would
+then auto-discard at box 5/13 (R41 fix) but the in-between Summer
+Crusader auto-musters would happen anyway because the Vassal data
+is on Andreas/Rudolf's mats. So inconsistent rule states could
+arise.
+
+**Fix.** New helper ``_check_capability_eligibility(card, lord_id,
+role)`` in ``src/nevsky/actions.py``. Called from both
+``_h_levy_capability`` (for ``by_lord`` and, if this_lord cap, for
+``target_lord``) and from ``_h_aow_implement_card`` first-Levy
+this_lord branch (for ``lord_id``). Behavior per scope:
+
+  - ``lords``: ``lord_id`` MUST be in the explicit list.
+  - ``any`` / ``all``: any same-side Lord qualifies (side already
+    checked by surrounding code).
+  - ``any_except``: ``lord_id`` MUST NOT be in the excluded list.
+  - ``none``: events-only marker; never applies to capabilities.
+
+Error codes: ``ineligible_levyer`` (by_lord violation),
+``ineligible_target`` (target_lord violation).
+
+## Items verified clean (this round)
+
+- **Eligibility metadata is internally consistent.** scope/side enums
+  valid; explicit lord_ids resolve against ``lords.json``;
+  excluded lord_ids resolve; ``any``/``all`` always carry a side;
+  no cross-side leaks (Russian Lords on a Teutonic card's
+  capability_eligibility, or vice versa).
+- **Lordship +2 Hold events** (T7, T8, T17, R8, R13) already enforce
+  target via ``_LORDSHIP_PLUS_2_TARGETS`` in events.py. Hardcoded
+  lists matched the new AoW Eligibility byte-for-byte.
+- **Vassal Muster gating** is implicit via static-data design:
+  Mongols/Kipchaqs live only on Aleksandr/Andrey's mats; Summer
+  Crusaders only on Andreas/Rudolf. Lords who don't own a Special
+  Vassal can't Muster one.
+- **Side-wide capability EFFECTS already correctly scoped to eligible
+  Lords.** Treaty of Stensby (T1) +1 Command checks
+  ``lord_id in ("heinrich", "knud_and_abel")``. House of Suzdal
+  (R11) is this_lord-scoped and R29's fix now prevents tucking under
+  ineligible Lords. Spot-checked
+  ``_effective_command_rating`` for all capability branches.
+- **Event target-side validation**: T2 Torzhok rejects non-Domash
+  target; T11 Pope Gregory rejects Russian target_cylinder; R9
+  Osilian Revolt rejects non-Heinrich/Andreas; R16 Tempest rejects
+  non-Teutonic Lord. T15/R12 Mindaugas locale eligibility correctly
+  enforces Rus vs Crusader Livonia.
+- **Existing test suite**: all 610 R30-R42 regressions remained
+  green after the fix — every existing test already used eligible
+  Levyers, so the new gate only changed rejected-action behavior
+  for previously-unwritten test paths.
+
+## Pre-existing latent gap NOT fixed in this round
+
+### SMOKE-030 — T16 / R7 Famine event effect not enforced
+
+**Symptom.** T16 Famine (Teutonic event) and R7 Famine (Russian
+event) both persist as ``this_campaign`` cards. The handlers
+``_h_aow_implement_card`` correctly store them in
+``state.decks.<side>.this_campaign_events``. But neither
+``_h_cmd_supply`` nor ``_h_cmd_forage`` reads ``this_campaign_events``
+to apply the rule's effect:
+
+  T16 (per AoW Reference line 75-76): "This Campaign, Russian Supply
+       adds maximum 1 Provender per Command card from Seats and
+       Forage adds none."
+  R7  (line 199-200, symmetric for Teutons).
+
+The card-text states the constraint; the harness records the card
+but never honors it.
+
+**Status.** Documented in R41 ``AoW_UPDATE_BLAST_RADIUS.md`` as a
+known gap. Not new from the AoW update — pre-dates it. Fix scope
+is larger than R43 (touches Supply + Forage); deferred to a
+focused round (R44 candidate).
+
+**Probe**: ``/tmp/r43/probe_famine.py`` confirms the gap.
+
+## Tests added
+
+``tests/test_round_43_eligibility_gating.py`` — 34 regressions:
+
+  - Levy rejects: by_lord not on explicit list; side_wide variant;
+    target_lord not on list; by_lord excluded; target_lord excluded.
+  - Levy accepts: eligible by/target; alt target outside excluded;
+    ``any``/``all`` scope admits any same-side Lord.
+  - First-Levy ``aow_implement_card``: rejects ineligible
+    this_lord target; rejects excluded target; accepts eligible target.
+  - Parametrized positive controls: 11 eligible Levies (T1, T7, T9,
+    T18, R1, R10, R11) confirm acceptance.
+  - Parametrized negative controls: 11 ineligible Levies span all
+    affected card families; assertions on specific error code
+    (``ineligible_levyer`` vs ``ineligible_target``).
+
+610 -> 644 passing.
+
+## Confidence delta vs R42
+
+R42 added Eligibility metadata as reference data only. R43 turned
+that metadata into a hard runtime gate at the two Capability-entry
+points. The bug class — "harness validates side but not the
+within-side Eligibility constraint" — is now caught at both Levy
+and first-Levy auto-implement. Same pattern may apply downstream
+(e.g., capability-USE handlers like Stone Kremlin, Stonemasons,
+Veliky Knyaz, Smerdi) but those already verify the Lord owns the
+card and the card couldn't have gotten to that Lord without
+passing the new gate, so the downstream layer is now safe-by-
+construction.
+
+SMOKE-030 (Famine event effect) is queued for a follow-up round.
