@@ -4101,3 +4101,112 @@ step implemented but not exhaustively." Other phases (Levy, Plan,
 End-of-game scoring) may have similar gaps. Worth probing the
 same shape in R42+: pick each Sequence-of-Play step and ask "does
 the harness implement every sub-bullet from the .txt reference?"
+
+
+# Round 42 — Arts of War Reference update (Eligibility metadata)
+
+Goal: incorporate the AoW Reference update (origin/main commit
+``44f7694 Update Nevsky_Arts_of_War_Reference.txt``) without
+introducing regressions. The R41 blast-radius audit
+(``outputs/round-41/AoW_UPDATE_BLAST_RADIUS.md``) had pre-mapped
+every harness dependency on AoW content. The audit's diff-driven
+procedure was then run against the actual change.
+
+## Diff classification
+
+  - Lines added in the new file: 69
+  - Lines removed: 0
+  - Tip rewordings: 0
+  - Card-text rewordings: 0
+  - New header paragraph: 1 (defining the "Eligibility" notation)
+  - Per-card ``Eligibility:`` lines added: 68 (one per event/cap half)
+
+**Tier classification (per the audit's scheme):** every hunk is
+Tier 0 — text-only clarification, no mechanics. No Q-NNN re-quoting
+needed (Q-007 R1/R2 Luchniki Tips wording is unchanged; Q-008 T4/T5/
+T6/T9/T10 Tips wording is unchanged). No code change in
+``src/nevsky/`` is required.
+
+The update does, however, introduce a new structured datum that
+the LLM consumer may want to read: which Lord(s) may Levy /
+target / be affected by each card. This is added to ``cards.json``
+as ``event_eligibility`` and ``capability_eligibility`` fields.
+
+## What landed
+
+1. ``reference/Nevsky_Arts_of_War_Reference.txt`` refreshed from
+   ``origin/main`` commit 44f7694
+   (md5 ``a5f25cb...`` -> ``ebb75e3...``; 292 -> 361 lines).
+
+2. ``src/nevsky/data/static/cards.json`` gained two new fields on
+   each numbered card (T1-T18, R1-R18, 36 cards total). Each is
+   an object of shape::
+
+     {
+       "raw": str,                    # original wording from the
+                                       # AoW Reference Eligibility line
+       "scope": "lords" | "any" | "all" | "any_except" | "none",
+       "side": "teutonic" | "russian" | None,
+       "lords": [lord_id, ...],       # explicit list, scope=="lords"
+       "excluded": [lord_id, ...],    # excluded list, scope=="any_except"
+     }
+
+   Examples:
+
+     T1 event   → {scope: "lords", lords: ["aleksandr", "andrey"]}
+     T1 capability → {scope: "lords", lords: ["heinrich", "knud_and_abel"]}
+     T11 capability "Crusade" → {scope: "lords", lords: ["andreas", "rudolf"]}
+     T2 capability "Raiders" → {scope: "any", side: "teutonic"}
+     T5 event "Marsh" → {scope: "all", side: "russian"}
+     R3 capability "Streltsy" → {scope: "any_except", side: "russian",
+                                  excluded: ["karelians"]}
+     T14 event "Bountiful Harvest" → {scope: "none"} (map effect, no Lord)
+
+   The 3 No-Event / No-Capability structural cards per side
+   (rule 3.1.2-3.1.3) are left alone — no Eligibility metadata.
+
+3. ``cards.json`` ``_doc`` updated to describe the new fields.
+
+4. New test file ``tests/test_round_42_aow_eligibility.py`` (9
+   tests) locks the invariants: every numbered card has both
+   halves; ``scope`` is a valid enum; ``side`` is a valid enum;
+   every explicit lord_id resolves against ``lords.json``; every
+   excluded lord_id resolves; ``any``/``all`` carry a side;
+   anchor spot-checks (T1, T11, T18, R1, R3, T5, T14); no
+   eligibility on No-Event / No-Capability structural cards;
+   raw strings match the AoW Reference quotes.
+
+## Items deliberately NOT done (out of scope for this round)
+
+  - **legal_moves** does not yet consume Eligibility metadata to
+    filter capability-Levy targets. The existing harness already
+    enforces "who can Levy what" implicitly via the Lord-specific
+    handlers (T11 Summer Crusaders gating, R10 Steppe Warriors
+    gating, etc.). A Tier 1 follow-up could refactor those to
+    read from cards.json Eligibility — that would be a behavioural
+    consolidation, not a rule change.
+
+  - **render.py** does not yet surface Eligibility in the state
+    summary. Simple two-line addition once the LLM consumer
+    indicates demand.
+
+  - **Q-NNN re-quoting** intentionally skipped — Q-007 and Q-008
+    cited Tip text that is byte-identical in the new file. The
+    citations remain accurate. (Audit table in
+    ``outputs/round-41/AoW_UPDATE_BLAST_RADIUS.md`` would have
+    flagged any drift.)
+
+## Tests
+
+  601 -> 610 passing. All R30-R41 regression tests still green.
+
+## Confidence delta vs R41
+
+R41 was a bug-hunting round (SMOKE-028: End-Campaign Reset).
+R42 is a reference-update round triggered by an external commit
+on main. The pre-emptive R41 blast-radius audit turned what
+could have been a long discovery-shaped investigation into a
+straight Tier 0 walk through ``cards.json``. That pattern —
+audit-then-update — is worth keeping for future reference
+refreshes (e.g., if the Calendar / Sequence of Play references
+get similar polish in a later commit).
