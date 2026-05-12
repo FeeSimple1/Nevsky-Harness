@@ -421,6 +421,10 @@ def _h_aow_implement_card(
                         "duplicate_capability",
                         f"{lord_id} already has capability '{card['capability_name']}' (3.4.4)",
                     )
+            # SMOKE-029: enforce capability_eligibility on first-Levy
+            # auto-implement too. The chosen Lord must be allowed to
+            # carry this Capability per the AoW Reference (3.1.2 / 3.4.4).
+            _check_capability_eligibility(card, lord_id, role="target")
             deck.pending_draw = deck.pending_draw[1:]
             lord.this_lord_capabilities.append(cid)
             return ({"card": cid, "outcome": "tucked_under_lord", "lord_id": lord_id}, [])
@@ -1528,6 +1532,47 @@ def _h_levy_transport(
     return ({"by_lord": by_id, "transport_type": ttype, "new_count": lord.assets[ttype]}, [])  # type: ignore[index]
 
 
+def _check_capability_eligibility(card: dict[str, Any], lord_id: str, role: str) -> None:
+    """SMOKE-029: enforce ``capability_eligibility`` printed on the AoW card.
+
+    Reference: ``reference/Nevsky_Arts_of_War_Reference.txt`` header
+    (added in commit 44f7694, 2026-05): "For Capabilities, [Eligibility]
+    is who may Levy the Capability and who is affected by it (per Rules
+    1.9.1 and 3.4.4)."
+
+    Scopes:
+      - ``lords``: ``lord_id`` MUST appear in the explicit list.
+      - ``any``: any same-side Lord qualifies (caller already side-checked).
+      - ``all``: any same-side Lord qualifies (same as ``any`` for gating).
+      - ``any_except``: ``lord_id`` MUST NOT appear in ``excluded``.
+      - ``none``: events-only marker; capabilities never carry this scope.
+
+    ``role`` is ``"levyer"`` or ``"target"`` for the error code.
+
+    Raises IllegalAction("ineligible_" + role) on violation.
+    """
+    e = card.get("capability_eligibility")
+    if e is None:
+        return
+    scope = e.get("scope")
+    if scope == "lords":
+        if lord_id not in e.get("lords", []):
+            raise IllegalAction(
+                f"ineligible_{role}",
+                f"{lord_id} not on {card['card_id']} capability_eligibility "
+                f"({e.get('raw', '')}) (3.4.4)",
+            )
+    elif scope == "any_except":
+        if lord_id in e.get("excluded", []):
+            raise IllegalAction(
+                f"ineligible_{role}",
+                f"{lord_id} is excluded from {card['card_id']} "
+                f"({e.get('raw', '')}) (3.4.4)",
+            )
+    # scope in ("any", "all"): no further restriction beyond side (caller).
+    # scope == "none": capabilities don't carry this scope; ignore.
+
+
 def _h_levy_capability(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1576,6 +1621,15 @@ def _h_levy_capability(
         raise IllegalAction("bad_card", "No-Event/No-Capability cards have no Capability (3.4.4)")
 
     target_lord_id = args.get("lord_id", by_id) if card["capability_scope"] == "this_lord" else None
+
+    # SMOKE-029: enforce capability_eligibility from the AoW Reference
+    # (printed Lord coats of arms; AoW Reference header re: Rules 1.9.1
+    # and 3.4.4). by_lord must be an eligible Levyer; for this_lord
+    # capabilities, target_lord must also be eligible (the card is "who
+    # is affected by it").
+    _check_capability_eligibility(card, by_id, role="levyer")
+    if card["capability_scope"] == "this_lord" and isinstance(target_lord_id, str):
+        _check_capability_eligibility(card, target_lord_id, role="target")
 
     _spend_lordship(state, by_id)
 
