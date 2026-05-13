@@ -5397,3 +5397,43 @@ test_round_54, test_round_55).
   - Cogs (T18) Sail x2 interaction — covered by effective_ship_count
     but the test doesn't explicitly exercise it.
   - Supply 4.6 source validation (Seat sources, ship sources, route).
+
+
+# Round 59 — Supply parallel-Ways indexing (1 bug)
+
+## SMOKE-047 — Supply route's way_index loses parallel Way types
+
+**Symptom.** `_h_cmd_supply` built `way_index: dict[tuple[str,str],
+str]` by iterating `load_ways()` and assigning `way_index[(a,b)] = w["type"]`. With parallel Ways (e.g., dorpat-odenpah has BOTH a
+trackway and a waterway), the second-loaded type overwrote the
+first. A Supply route using `transport="cart"` along the trackway
+between dorpat-odenpah then failed with `"Carts use only Trackways"`
+because the way_index returned `"waterway"` (the last-inserted
+parallel Way).
+
+**Fix.** `way_index` is now `dict[tuple, set[str]]`. The route check
+accepts a segment if ANY available Way type matches the transport's
+type constraint:
+
+  - Cart needs trackway → `"trackway" in wtypes`
+  - Boat needs waterway → `"waterway" in wtypes`
+  - Sled/Ship match any Way type (existing).
+
+## Tests
+
+`tests/test_round_59_supply_parallel_ways.py` — 2 regressions:
+  - Supply via Cart works on parallel trackway+waterway pair.
+  - Supply via Boat works on the same pair (using the waterway).
+
+733 → 735 passing.
+
+## Candidate surfaces for R60
+
+  - Supply Transport unit count validation: per 2E rule the Lord must
+    have enough Transport units for the Provender drawn. Currently
+    the harness validates transport TYPE compatibility but not COUNT.
+    Latent for low-Provender Supply but real for multi-source.
+  - Transport sharing across co-located Lords (1.5.2): not modeled.
+  - Cogs (T18) explicit Sail test exercising the x2 multiplier.
+  - Veliky Knyaz Transport restoration cap (already at 8 per type).
+  - Plow & Reap on Pleskau-like short scenarios (game-end skips it).

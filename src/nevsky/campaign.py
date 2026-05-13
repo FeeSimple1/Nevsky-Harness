@@ -1114,10 +1114,15 @@ def _h_cmd_supply(
 
     static_locales = load_locales()
     ways_list = load_ways()
-    way_index: dict[tuple[str, str], str] = {}
+    # SMOKE-047 (Round 59): collect ALL Way types between two locales,
+    # not just the last one inserted. Parallel Ways (e.g., dorpat-
+    # odenpah has both trackway and waterway) need each type tracked
+    # so the route's transport_type compatibility check can find a
+    # match instead of being blocked by the arbitrary last-loaded type.
+    way_index: dict[tuple[str, str], set[str]] = {}
     for w in ways_list:
-        way_index[(w["a"], w["b"])] = w["type"]
-        way_index[(w["b"], w["a"])] = w["type"]
+        way_index.setdefault((w["a"], w["b"]), set()).add(w["type"])
+        way_index.setdefault((w["b"], w["a"]), set()).add(w["type"])
 
     season = _season_of_box(state.meta.box)
     seat_count = 0
@@ -1170,13 +1175,15 @@ def _h_cmd_supply(
             raise IllegalAction("bad_route", "route must start at source and end at Lord's locale")
         for i in range(len(route) - 1):
             a, b = route[i], route[i + 1]
-            wtype = way_index.get((a, b))
-            if wtype is None:
+            wtypes = way_index.get((a, b))
+            if not wtypes:
                 raise IllegalAction("bad_route", f"no Way between {a} and {b}")
-            # Transport-Way compatibility (1.7.4).
-            if ttype == "boat" and wtype != "waterway":
+            # SMOKE-047: Transport-Way compatibility (1.7.4). Accept the
+            # route segment if ANY available Way type matches the
+            # transport's constraints.
+            if ttype == "boat" and "waterway" not in wtypes:
                 raise IllegalAction("transport_way", "Boats use only Waterways")
-            if ttype == "cart" and wtype != "trackway":
+            if ttype == "cart" and "trackway" not in wtypes:
                 raise IllegalAction("transport_way", "Carts use only Trackways")
             # sleds, ships fine for any (within seasonal limits)
             # Route may not enter enemy Lord/Stronghold/Conquered locale unless Besieged there.
