@@ -143,6 +143,9 @@ def test_cmd_sail_summer_to_seaport() -> None:
     s.meta.box = 1  # summer
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     s.lords[teu].location = "riga"
+    # SMOKE-046 (Round 58): Sail validates ship requirements (4.7.3).
+    # Provide enough Ships for the Lord's horse units + provender + 2x loot.
+    s.lords[teu].assets["ship"] = 8
     _start_command_with(s, teu)
     apply_action(s, {"type": "cmd_sail", "side": "teutonic",
                      "args": {"lord_id": teu, "destination": "reval"}})

@@ -993,12 +993,43 @@ def _h_cmd_sail(
             if not _is_besieged(state, ol_id):
                 raise IllegalAction("dest_blocked", f"{dest} has Unbesieged enemy Lord")
 
-    # Move group.
+    # First sweep: validate group membership (location + side) before
+    # the Ship requirements check (which iterates the same group).
     for gid in group:
         if gid not in state.lords or state.lords[gid].side != sd:
             raise IllegalAction("bad_group", f"{gid} not on your side")
         if state.lords[gid].location != src:
             raise IllegalAction("bad_group", f"{gid} not co-located with {lord_id}")
+
+    # SMOKE-046 (Round 58): 4.7.3 Sail Ship requirements:
+    # 1 Ship / Teutonic horse unit, 2 Ships / Russian horse unit,
+    # 1 Ship / Provender, 2 Ships / Loot. Compute group totals and
+    # compare to group's effective Ship count (T18 Cogs doubles each
+    # Ship). Sleds, Carts, Boats are not Ship-loadable for Sail.
+    horse_unit_types = ("knights", "sergeants", "light_horse", "asiatic_horse")
+    horse_units = sum(
+        int(state.lords[gid].forces.get(u, 0))
+        for gid in group for u in horse_unit_types
+    )
+    provender_total = sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
+    loot_total = sum(int(state.lords[gid].assets.get("loot", 0)) for gid in group)
+    horse_ship_factor = 1 if sd == "teutonic" else 2
+    ships_needed = (
+        horse_units * horse_ship_factor
+        + provender_total
+        + loot_total * 2
+    )
+    ships_available = sum(effective_ship_count(state, gid) for gid in group)
+    if ships_needed > ships_available:
+        raise IllegalAction(
+            "insufficient_ships",
+            f"Sail needs {ships_needed} Ships (horse={horse_units}x{horse_ship_factor}, "
+            f"prov={provender_total}, loot={loot_total}x2); group has "
+            f"{ships_available} effective Ships (4.7.3)",
+        )
+
+    # Move group (location + moved_fought already validated above).
+    for gid in group:
         state.lords[gid].location = dest
         state.lords[gid].moved_fought = True
         # SMOKE-036 (Round 47): clear in_stronghold on any movement to a
@@ -1083,10 +1114,15 @@ def _h_cmd_supply(
 
     static_locales = load_locales()
     ways_list = load_ways()
-    way_index: dict[tuple[str, str], str] = {}
+    # SMOKE-047 (Round 59): collect ALL Way types between two locales,
+    # not just the last one inserted. Parallel Ways (e.g., dorpat-
+    # odenpah has both trackway and waterway) need each type tracked
+    # so the route's transport_type compatibility check can find a
+    # match instead of being blocked by the arbitrary last-loaded type.
+    way_index: dict[tuple[str, str], set[str]] = {}
     for w in ways_list:
-        way_index[(w["a"], w["b"])] = w["type"]
-        way_index[(w["b"], w["a"])] = w["type"]
+        way_index.setdefault((w["a"], w["b"]), set()).add(w["type"])
+        way_index.setdefault((w["b"], w["a"]), set()).add(w["type"])
 
     season = _season_of_box(state.meta.box)
     seat_count = 0
@@ -1139,13 +1175,15 @@ def _h_cmd_supply(
             raise IllegalAction("bad_route", "route must start at source and end at Lord's locale")
         for i in range(len(route) - 1):
             a, b = route[i], route[i + 1]
-            wtype = way_index.get((a, b))
-            if wtype is None:
+            wtypes = way_index.get((a, b))
+            if not wtypes:
                 raise IllegalAction("bad_route", f"no Way between {a} and {b}")
-            # Transport-Way compatibility (1.7.4).
-            if ttype == "boat" and wtype != "waterway":
+            # SMOKE-047: Transport-Way compatibility (1.7.4). Accept the
+            # route segment if ANY available Way type matches the
+            # transport's constraints.
+            if ttype == "boat" and "waterway" not in wtypes:
                 raise IllegalAction("transport_way", "Boats use only Waterways")
-            if ttype == "cart" and wtype != "trackway":
+            if ttype == "cart" and "trackway" not in wtypes:
                 raise IllegalAction("transport_way", "Carts use only Trackways")
             # sleds, ships fine for any (within seasonal limits)
             # Route may not enter enemy Lord/Stronghold/Conquered locale unless Besieged there.
@@ -1170,6 +1208,40 @@ def _h_cmd_supply(
         raise IllegalAction("too_many_seat_sources", "max 2 Seat sources (4.6.1)")
     if ship_count > 2:
         raise IllegalAction("too_many_ship_sources", "max 2 Ship sources")
+
+    # SMOKE-048 (Round 60): 4.6 Transport count validation per 2E:
+    # "1 usable Transport required per Provender per Way of each Route.
+    # Transports cannot do double duty across multiple Sources or
+    # multiple Provender." Pool counts from the active Lord and co-
+    # located own-side Lords (1.5.2 sharing). Ships always count for
+    # ship-sourced supply; non-ship sources use the matching
+    # ground/water transport.
+    transport_needed: dict[str, int] = {}
+    for src in sources:
+        ttype = src["transport"]
+        route_len = max(0, len(src["route"]) - 1)
+        if ttype == "ship":
+            # Ship sources: 1 ship per source (Sea route is direct).
+            transport_needed["ship"] = transport_needed.get("ship", 0) + 1
+        else:
+            transport_needed[ttype] = transport_needed.get(ttype, 0) + route_len
+    if transport_needed:
+        # Pool from active Lord + co-located own-side Lords.
+        pool: dict[str, int] = {}
+        for ol_id, ol in state.lords.items():
+            if ol.state != "mustered" or ol.side != sd:
+                continue
+            if ol.location != lord.location:
+                continue
+            for k in ("boat", "cart", "sled", "ship"):
+                pool[k] = pool.get(k, 0) + int(ol.assets.get(k, 0))
+        for k, need in transport_needed.items():
+            avail = pool.get(k, 0)
+            if avail < need:
+                raise IllegalAction(
+                    "insufficient_transport",
+                    f"Supply needs {need} {k}(s); shared pool has {avail} (4.6 2E)",
+                )
 
     # SMOKE-030: T16 Famine (against Russian) / R7 Famine (against
     # Teutonic) cap Seat-sourced Provender at 1 per Command card.

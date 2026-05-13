@@ -42,6 +42,8 @@ def test_solo_nonmarshal_sail_allowed():
     y.location = "reval"
     y.has_lower_lord = None; y.lieutenant_of = None
     y.in_stronghold = False
+    # SMOKE-046 (R58): Sail validates Ship requirements; pad with ships.
+    y.assets["ship"] = 8
     st.locales["reval"].siege_markers = 0
     st.meta.box = 8
     st.meta.phase = "campaign"
