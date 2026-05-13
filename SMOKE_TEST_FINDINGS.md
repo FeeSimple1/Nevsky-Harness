@@ -5042,3 +5042,54 @@ the list empty, making the auto-fire idempotent.
   - AoW deck-exhaustion mid-Levy (no auto-reshuffle).
   - 4.0 capability discard with No-Capability structurals in
     capabilities_in_play (should they be excluded from the discard?).
+
+
+# Round 52 — Castle marker doesn't flip on Conquest (1 bug)
+
+## SMOKE-040 — Castle markers permanent but don't flip color on Conquest
+
+**Rule.** T17 Stonemasons Tips (Arts of War Reference): "The Castles
+are permanent. They flip when Conquered. Discard of the Capability
+does not affect Castle markers already on the map."
+
+**Symptom.** `_apply_conquest_or_liberation` placed/cleared
+Conquered markers correctly but never touched the Castle bools
+(`teutonic_castle` / `russian_castle`). When a Russian Castle was
+Conquered by Teutons (Storm Sack or Siege Surrender), the marker
+stayed as `russian_castle = True` instead of flipping to
+`teutonic_castle = True`. Since each Castle marker is worth 1 VP
+(`scenarios.py::_compute_vp`), the missed flip also leaked 2 VP
+(should be -1 from old color, +1 to new color).
+
+**Fix.** `_apply_conquest_or_liberation` detects the existing Castle
+marker color and, if the attacker is the opposite color, flips:
+clear old, set new, swing `calendar.<color>_vp` by ±1. The flip is
+reported as `result["castle_flip"]` for transparency.
+
+Handles all three flip vectors:
+  - Russian Castle → Teutonic (pre-placed Russian Castles +
+    Stonemasons-built then Conquered).
+  - Teutonic Castle → Russian (Stonemasons Castles or pre-placed
+    Crusader Castles Conquered or Liberated).
+  - Same-color attacker on existing castle: no-op (defensive guard).
+
+## Tests
+
+`tests/test_round_52_castle_flip.py` — 4 regressions:
+
+  - Russian Castle flips to Teutonic on Conquest with correct VP swing.
+  - Teutonic Castle flips to Russian on Liberation with correct VP swing.
+  - No Castle marker → no flip.
+  - Same-color "conquest" (degenerate edge) → no flip.
+
+701 → 705 passing.
+
+## Candidate surfaces for R53
+
+  - Surrender (Siege.Conquered branch) is the same call site so it's
+    fixed by the helper change. But verify the Storm + Surrender
+    test paths still pass with Castle markers in play.
+  - Multi-flip scenarios: same castle Conquered then Liberated
+    back-and-forth across multiple campaigns.
+  - Cumulative `+=` on Conquered count if same-side Storm fires
+    twice (latent — guarded by no_siege check, but worth a probe).

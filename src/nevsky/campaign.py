@@ -2454,6 +2454,25 @@ def _apply_conquest_or_liberation(
     static = load_locales()[locale_id]
     loc = state.locales[locale_id]
     native_side: Side = "russian" if static["territory"] == "russian" else "teutonic"
+    # SMOKE-040 (Round 52): Castle markers flip on Conquest per T17
+    # Tips ("Castles are permanent. They flip when Conquered."). Each
+    # Castle marker is worth 1 VP to its color side (scenarios.py
+    # _compute_vp), so a flip swings VP by 2 (-1 old, +1 new). We
+    # detect the existing Castle marker color and flip it iff the
+    # attacker is the opposite color.
+    castle_flip: dict[str, Any] | None = None
+    if attacker_side == "teutonic" and loc.russian_castle:
+        loc.russian_castle = False
+        loc.teutonic_castle = True
+        state.calendar.russian_vp -= 1.0
+        state.calendar.teutonic_vp += 1.0
+        castle_flip = {"from": "russian", "to": "teutonic"}
+    elif attacker_side == "russian" and loc.teutonic_castle:
+        loc.teutonic_castle = False
+        loc.russian_castle = True
+        state.calendar.teutonic_vp -= 1.0
+        state.calendar.russian_vp += 1.0
+        castle_flip = {"from": "teutonic", "to": "russian"}
     if attacker_side != native_side:
         # Conquest: attacker is conquering enemy-native locale.
         if attacker_side == "teutonic":
@@ -2463,7 +2482,10 @@ def _apply_conquest_or_liberation(
             loc.russian_conquered += sh_vp
             state.calendar.russian_vp += float(sh_vp)
         _refresh_vp_markers(state)
-        return {"type": "conquest", "side": attacker_side, "vp": sh_vp}
+        out = {"type": "conquest", "side": attacker_side, "vp": sh_vp}
+        if castle_flip:
+            out["castle_flip"] = castle_flip
+        return out
     else:
         # Liberation: attacker reclaims own-native locale; clear enemy marker.
         if attacker_side == "teutonic":
@@ -2471,13 +2493,16 @@ def _apply_conquest_or_liberation(
             loc.russian_conquered = 0
             state.calendar.russian_vp -= float(prev)
             _refresh_vp_markers(state)
-            return {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
+            out = {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
         else:
             prev = loc.teutonic_conquered
             loc.teutonic_conquered = 0
             state.calendar.teutonic_vp -= float(prev)
             _refresh_vp_markers(state)
-            return {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
+            out = {"type": "liberation", "side": attacker_side, "cleared_vp": prev}
+        if castle_flip:
+            out["castle_flip"] = castle_flip
+        return out
 
 
 def _h_cmd_siege(
