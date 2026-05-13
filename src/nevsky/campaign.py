@@ -2975,12 +2975,25 @@ def _h_cmd_sally(
                 aftermath.setdefault("spoils", []).append(spoil)
             else:
                 # Retreat to first clear neighbor.
+                # SMOKE-049 (Round 61): per 4.4.3 Battle Retreat, the
+                # target must be a Friendly neighbor — no enemy Lord,
+                # no enemy Stronghold, no enemy-Conquered marker.
+                # Previously only enemy Lords were checked, allowing
+                # retreat into enemy-Conquered or enemy-Stronghold
+                # locales.
                 target = None
                 for w in load_ways():
                     cand = w["b"] if w["a"] == locale_id else (w["a"] if w["b"] == locale_id else None)
                     if cand is None:
                         continue
-                    if any(ll.location == cand and ll.side != l.side for ll in state.lords.values()):
+                    if any(ll.location == cand and ll.side != l.side and ll.state == "mustered" for ll in state.lords.values()):
+                        continue
+                    if _has_enemy_stronghold_at(state, cand, l.side):
+                        continue
+                    cand_loc = state.locales[cand]
+                    if l.side == "teutonic" and cand_loc.russian_conquered > 0:
+                        continue
+                    if l.side == "russian" and cand_loc.teutonic_conquered > 0:
                         continue
                     target = cand
                     break
