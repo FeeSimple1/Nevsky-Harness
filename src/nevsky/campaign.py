@@ -2795,6 +2795,8 @@ def _h_cmd_sally(
                     aftermath.setdefault("spoils", []).append(spoil)
                 else:
                     l.location = target
+                    # SMOKE-036: clear in_stronghold on Sally retreat.
+                    l.in_stronghold = False
                     shift = apply_retreat_service_shift(state, lid)
                     spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})

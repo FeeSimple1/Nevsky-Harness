@@ -4915,3 +4915,42 @@ False` alongside the existing `state = "mustered"`, `lordship_used =
   - Hold cards (R1/T1/R6/T6) face-down hand size and reveal timing.
   - Plan-stack visibility: confirm an opponent's PLAYED cards are
     visible but unplayed are hidden (1.9.2 + 4.1).
+
+
+# Round 49 — SMOKE-036 follow-up (mop-up paths)
+
+## SMOKE-036 follow-up
+
+Two additional movement paths were missed in R47's coverage:
+
+  - `events.py::_ev_andreas_to_riga` (R14 event): teleports Andreas's
+    cylinder to riga without clearing in_stronghold.
+  - `campaign.py::_h_cmd_sally` Sally aftermath retreat path
+    (campaign.py:2797): defenders retreat to a friendly neighbor
+    without clearing in_stronghold.
+
+**Fix.** Both paths now set `in_stronghold = False` immediately after
+the `location = target` assignment. Round-47 invariant (in_stronghold
+clears on any movement) is now consistently enforced across all
+location-change call sites.
+
+## Verified clean (no fix needed)
+
+  - Storm success: attackers occupy locale but are not in_stronghold
+    (they don't enter the Stronghold structure after Sack). Existing
+    behavior is correct.
+  - Veche option A (slide cylinder 2 left): correctly rejects
+    Mustered / off_left / off_right Lords.
+  - Forage / Ravage Provender + Loot caps use `min(8, ...)` pattern
+    correctly.
+
+694 → 694 passing (no test count change; mop-up patches).
+
+## Candidate surfaces for R50
+
+  - Veche option D edge: cyl_box == 0 (off_left) for Aleksandr/Andrey
+    is hypothetical (start state has them at boxes 5-9), but the
+    `cyl_box <= 16` branch would mis-index `boxes[-1]`. Latent.
+  - Multi-leg Sail with Trade Route flips at intermediate ports.
+  - Vassal markers on Calendar mid-Levy when host Lord disbands.
+  - Adjacent-enemy Ravage cost +1 when Lieutenant is the enemy.

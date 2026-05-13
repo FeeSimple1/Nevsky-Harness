@@ -373,6 +373,8 @@ def _ev_prussian_revolt(state: GameState, args: dict[str, Any]) -> dict[str, Any
         besieged = a.in_stronghold and state.locales[a.location].siege_markers > 0
         if not besieged and riga_empty:
             a.location = "riga"
+            # SMOKE-036 (Round 47/49): movement clears in_stronghold.
+            a.in_stronghold = False
             return {"event": "R14", "moved_to_riga": True}
         return {"event": "R14", "no_effect": True, "reason": "andreas_on_map_but_riga_not_empty_or_besieged"}
     # Andreas not on map -> shift cylinder 2 right.
