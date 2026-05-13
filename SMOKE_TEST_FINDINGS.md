@@ -4652,3 +4652,132 @@ Candidate surfaces for R46+:
   - Plan-card validation (Sequence of Play 4.1.2: max 6 Cards,
     no duplicate Lords, no Lower-Lord-without-Lieutenant)
   - Save / Load roundtrip with all R41-R45 state fields
+
+
+# Round 46 — Lord-removal cascade & Lieutenant pairing (2 bugs)
+
+Date: continuation of R45 — fresh probes against `round-46-deep-smoke`
+from `main` at `fe2fc1f`. Baseline 675 passing → 687 passing.
+
+## Probe surfaces (continuation of R45's candidate list)
+
+1. **Save / Load roundtrip with R41-R45 state fields.** Confirmed
+   `model_dump_json()` / `model_validate_json()` is byte-identical for
+   a freshly loaded scenario including `CampaignTurn.seat_supply_this_card`
+   (R44 field). No bug.
+2. **Plan-card validation (`_h_plan_add_card`, campaign.py:56).**
+   Verified: side check, Mustered state check, target size, max 3/Lord.
+   No bug.
+3. **Lord permanent removal cascade (`_remove_lord_permanently`,
+   actions.py:836) and at-limit Disband (`_disband_at_limit`,
+   actions.py:990).** Bug found — SMOKE-033.
+4. **Lieutenant + Lower Lord move-together (4.1.3) in `_h_cmd_march`.**
+   Bug found — SMOKE-034.
+
+## SMOKE-033 — dangling Lieutenant/Lower-Lord pointers on Lord exit
+
+**Rule.** Sequence of Play 4.1.3: "if either is removed/Disbanded, the
+survivor reverts to a normal Lord."  4.9.5 End-Campaign reset
+unstacks all Lieutenants and Lower Lords on a side; that clears
+pointers at most once per Campaign, which is too late for mid-Campaign
+Lord exits.
+
+**Symptom.** Probe set up yaroslav (Lieutenant, `has_lower_lord =
+hermann`) over hermann (Lower Lord, `lieutenant_of = yaroslav`),
+then called `_remove_lord_permanently(state, "hermann", ...)`. After:
+
+  - `hermann.state = removed` ✓
+  - `hermann.lieutenant_of = yaroslav`  (dangling — points at active Lord)
+  - `yaroslav.has_lower_lord = hermann` (dangling — claims a removed Lord)
+
+Reverse direction (Marshal removed): same pattern with the partner
+left pointing at a removed Lord. Same dangling behavior on
+`_disband_at_limit` (3.3.2). Effect on play: a surviving Marshal still
+believes it has a Lower Lord, blocking new `place_lieutenant` calls and
+warping group-move membership assumptions until 4.9.5 cleanup.
+
+**Fix.** In both `_remove_lord_permanently` and `_disband_at_limit`,
+after the cylinder/service-marker/asset cleanup, clear both directions
+of the stack pointer. The clearing is defensive (only touches the
+partner if its back-pointer matches) so a stale single-direction
+pointer cannot accidentally clobber an unrelated valid stack.
+
+## SMOKE-034 — Lieutenant March can leave Lower Lord behind (4.1.3)
+
+**Rule.** Sequence of Play 4.1.3: "move together in March, Retreat,
+etc., as if Lieutenant were Marshal."
+
+**Symptom.** `_h_cmd_march` accepts a caller-specified `group`. With
+yaroslav active as a Lieutenant (`has_lower_lord = hermann`), calling
+`cmd_march` with `group = ["yaroslav"]` succeeded — yaroslav moved to
+the destination while hermann stayed at the origin. That violates
+4.1.3.
+
+**Fix.** Reject `cmd_march` when the active Lord has `has_lower_lord`
+set and the named Lower Lord is missing from `group`. Error code
+`lower_lord_required`. Existing Marshal-led group March remains
+optional — the constraint only fires when a Lieutenant pair exists.
+
+## Audit notes (not fixed in R46)
+
+- **Avoid Battle / Withdraw.** Both operate on `cp.defender_lords`,
+  which is populated by `_enemies_at` and naturally includes the
+  whole stack (both Marshal + Lower Lord since they're co-located).
+  No fix needed.
+- **Battle Retreat.** Each loser Lord retreats individually via its
+  own Way search. In practice they pick the same valid neighbor and
+  end up co-located, but the code does not explicitly enforce
+  "Lieutenant + Lower Lord retreat together." This may want a follow-
+  up probe under stress: contrived geometry where the Lieutenant has
+  one valid Way and the Lower Lord has a different one. Logged as a
+  candidate for R47.
+- **Sail (`_h_cmd_sail`).** Existing comment claims Q-003 does not
+  constrain Sail group membership beyond co-location. Q-003 is about
+  WHO may be a Lieutenant, not about how Lieutenants MOVE. Rule 4.1.3
+  uses "March, Retreat, etc." — whether "etc." covers Sail is a
+  Q-NNN-worthy question. Conservative R46 fix is March-only;
+  R47 should propose Q-009 to resolve.
+- **Active-Lord removed mid-card.** If the campaign's `active_lord` is
+  removed via Battle, `campaign_turn.active_lord` still references the
+  removed Lord id. Reveal cycle correctly routes around it via the
+  `state != "mustered"` Pass branch (4.2.3), so this is just a stale
+  string; no behavioral bug. Logged as cosmetic.
+
+## Tests
+
+`tests/test_round_46_lord_remove_unstack.py` — 12 regressions:
+
+  - Remove Lieutenant clears Marshal's `has_lower_lord` (and own).
+  - Remove Marshal clears Lieutenant's `lieutenant_of` (and own).
+  - Disband Lieutenant clears Marshal's pointer.
+  - Disband Marshal clears Lieutenant's pointer.
+  - Remove unstacked Lord: zero side effects on other Lords.
+  - Idempotent remove: second call doesn't restore partner pointer.
+  - Defensive: stale single-direction pointer at non-existent Lord
+    doesn't crash.
+  - Defensive: partner back-pointer mismatch doesn't clobber an
+    unrelated valid stack.
+  - SMOKE-034: Lieutenant March without Lower Lord → IllegalAction.
+  - SMOKE-034: Lieutenant March with Lower Lord in group → ok.
+  - SMOKE-034: Marshal-with-Lower-Lord must bring the Lower Lord too.
+  - SMOKE-034: Unstacked Lord may march alone.
+
+675 → 687 passing.
+
+## Candidate surfaces for R47
+
+  - Q-009 candidate: does 4.1.3 "etc." cover Sail? (logged)
+  - Battle Retreat — Lieutenant + Lower Lord retreating to different
+    neighbors under contrived geometry.
+  - just_arrived_this_levy flag on permanent removal (does it leak
+    across Lord re-Muster cycles?).
+  - lordship_used reset on disband at limit (1.7.3 implications).
+  - Vassal Service marker cleanup when Lord is permanently removed
+    in-Calendar (do markers stay orphaned on the calendar?).
+  - Plan-card "no Lower-Lord-without-Lieutenant" — does the harness
+    block adding a Lower Lord's card if their Lieutenant isn't also
+    in the Plan? (4.2.3 makes the card a Pass anyway, but the rule
+    text suggests it should be rejected at Plan time.)
+  - Multi-Lord Group March variant: Marshal carries forces — does the
+    Marshal's Lordship spend cover everyone, or does each Lord need
+    independent action accounting?

@@ -886,6 +886,24 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
         cal.off_left_service.remove(lord_id)
     if lord_id in cal.off_right_service:
         cal.off_right_service.remove(lord_id)
+    # SMOKE-033 (Round 46): Marshal/Lieutenant unstack on removal
+    # (Sequence of Play 4.1.3: "if either is removed/Disbanded, the
+    # survivor reverts to a normal Lord"). Clear the partner's pointer
+    # and this Lord's own stack pointers; otherwise the surviving
+    # Marshal still believes it has a Lower Lord (blocking new
+    # stacking and warping group-move behavior).
+    if lord.lieutenant_of is not None:
+        partner_id = lord.lieutenant_of
+        partner = state.lords.get(partner_id)
+        if partner is not None and partner.has_lower_lord == lord_id:
+            partner.has_lower_lord = None
+        lord.lieutenant_of = None
+    if lord.has_lower_lord is not None:
+        partner_id = lord.has_lower_lord
+        partner = state.lords.get(partner_id)
+        if partner is not None and partner.lieutenant_of == lord_id:
+            partner.lieutenant_of = None
+        lord.has_lower_lord = None
 
 
 def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]:
@@ -1041,6 +1059,25 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
         cal.off_left.append(lord_id)
     else:
         cal.boxes[new_box_with_overflow - 1].cylinders.append(lord_id)
+    # SMOKE-033 (Round 46): Marshal/Lieutenant unstack on Disband
+    # (Sequence of Play 4.1.3: "if either is removed/Disbanded, the
+    # survivor reverts to a normal Lord"). A Lord exiting the Mustered
+    # state must release any stack partner; otherwise the surviving
+    # partner retains a dangling pointer that survives across Levy and
+    # would have to be cleared by the End-Campaign reset (4.9.5), which
+    # is too late.
+    if lord.lieutenant_of is not None:
+        partner_id = lord.lieutenant_of
+        partner = state.lords.get(partner_id)
+        if partner is not None and partner.has_lower_lord == lord_id:
+            partner.has_lower_lord = None
+        lord.lieutenant_of = None
+    if lord.has_lower_lord is not None:
+        partner_id = lord.has_lower_lord
+        partner = state.lords.get(partner_id)
+        if partner is not None and partner.lieutenant_of == lord_id:
+            partner.lieutenant_of = None
+        lord.has_lower_lord = None
 
 
 # ---------------------------------------------------------------------------

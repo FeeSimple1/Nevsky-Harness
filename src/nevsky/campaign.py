@@ -1770,6 +1770,20 @@ def _h_cmd_march(
     src = lord.location
     if src is None:
         raise IllegalAction("no_location", "Lord has no location")
+    # SMOKE-034 (Round 46): an active Lieutenant (Lord with a Lower
+    # Lord stacked on them via 4.1.3) MUST move together with the Lower
+    # Lord -- "move together in March, Retreat, etc., as if Lieutenant
+    # were Marshal" (Sequence of Play 4.1.3). Reject any March group
+    # that omits the Lower Lord. Likewise reject a Lower Lord
+    # appearing as active here (its card resolves as Pass via
+    # _h_command_reveal), but if a caller bypasses reveal we still
+    # guard the group.
+    if lord.has_lower_lord is not None and lord.has_lower_lord not in group:
+        raise IllegalAction(
+            "lower_lord_required",
+            f"Active Lieutenant {lord_id} must move with Lower Lord "
+            f"{lord.has_lower_lord} (4.1.3)",
+        )
 
     # Way check.
     ways = load_ways()
