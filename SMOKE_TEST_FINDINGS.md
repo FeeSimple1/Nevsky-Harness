@@ -5248,3 +5248,51 @@ behavior: the Legate stays at the source.
     continues because attacker lost?).
   - Lord at Friendly Locale Tax: does the Tax helper correctly use
     locale-level VP value vs. Veche Coin add?
+
+
+# Round 56 — Disbanded Lord re-Muster (1 bug)
+
+## SMOKE-044 — Disbanded Lord cannot re-Muster (state never transitions back to 'ready')
+
+**Rule.** 3.3.2 at-limit Disband places the Lord's cylinder at
+`current_box + service_rating`. In subsequent Levies, when the
+Levy/Campaign marker advances to or past that box, the Lord is
+"Ready" again for re-Muster (3.4.1).
+
+**Symptom.** `_disband_at_limit` sets `lord.state = "disbanded"`.
+`_h_muster_lord` checks `target.state != "ready"` and rejects with
+`bad_target`. No code path ever transitions `"disbanded"` → `"ready"`,
+so a Disbanded Lord stays out forever — never re-Mustering, even
+when the Levy marker catches up to their cylinder. The Lord is
+effectively removed from play, contrary to the rules.
+
+**Fix.** `_h_advance_step`, in the `next_step == "muster"` branch
+(start of new Muster step), now sweeps all Lords and transitions
+`state="disbanded"` → `"ready"` for any Lord whose cylinder is on
+the Calendar at or before the current Levy marker box. Includes
+defensive handling: missing levy marker → no-op; off_left cylinder
+(box 0) counts as ≤ levy_box and transitions.
+
+## Tests
+
+`tests/test_round_56_disband_remuster.py` — 6 regressions:
+
+  - Disbanded → Ready when Levy marker catches up (cyl <= levy box).
+  - Disbanded stays Disbanded when cylinder still in future.
+  - Off_left cylinder transitions to Ready (cyl 0 <= levy).
+  - Mustered Lords unchanged by transition.
+  - Ready Lords unchanged by transition.
+  - End-to-end: disband, advance Levy, successfully re-Muster.
+
+718 → 724 passing.
+
+## Candidate surfaces for R57
+
+  - Conquered marker double-stacking (`+=` overflow) — latent;
+    reachable only via contrived flows but worth a defensive cap.
+  - Tax with Lord at a Ravaged Seat: per rule does Tax still work
+    or is it blocked? Probe.
+  - Pleskau scenario VP bonus: when a Lord with `removed` state is
+    "re-removed" via a contrived path, does the bonus fire twice?
+  - Lord state="removed" can never come back, but does the harness
+    correctly differentiate it from "disbanded"?
