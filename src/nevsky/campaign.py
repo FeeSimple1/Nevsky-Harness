@@ -993,12 +993,43 @@ def _h_cmd_sail(
             if not _is_besieged(state, ol_id):
                 raise IllegalAction("dest_blocked", f"{dest} has Unbesieged enemy Lord")
 
-    # Move group.
+    # First sweep: validate group membership (location + side) before
+    # the Ship requirements check (which iterates the same group).
     for gid in group:
         if gid not in state.lords or state.lords[gid].side != sd:
             raise IllegalAction("bad_group", f"{gid} not on your side")
         if state.lords[gid].location != src:
             raise IllegalAction("bad_group", f"{gid} not co-located with {lord_id}")
+
+    # SMOKE-046 (Round 58): 4.7.3 Sail Ship requirements:
+    # 1 Ship / Teutonic horse unit, 2 Ships / Russian horse unit,
+    # 1 Ship / Provender, 2 Ships / Loot. Compute group totals and
+    # compare to group's effective Ship count (T18 Cogs doubles each
+    # Ship). Sleds, Carts, Boats are not Ship-loadable for Sail.
+    horse_unit_types = ("knights", "sergeants", "light_horse", "asiatic_horse")
+    horse_units = sum(
+        int(state.lords[gid].forces.get(u, 0))
+        for gid in group for u in horse_unit_types
+    )
+    provender_total = sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
+    loot_total = sum(int(state.lords[gid].assets.get("loot", 0)) for gid in group)
+    horse_ship_factor = 1 if sd == "teutonic" else 2
+    ships_needed = (
+        horse_units * horse_ship_factor
+        + provender_total
+        + loot_total * 2
+    )
+    ships_available = sum(effective_ship_count(state, gid) for gid in group)
+    if ships_needed > ships_available:
+        raise IllegalAction(
+            "insufficient_ships",
+            f"Sail needs {ships_needed} Ships (horse={horse_units}x{horse_ship_factor}, "
+            f"prov={provender_total}, loot={loot_total}x2); group has "
+            f"{ships_available} effective Ships (4.7.3)",
+        )
+
+    # Move group (location + moved_fought already validated above).
+    for gid in group:
         state.lords[gid].location = dest
         state.lords[gid].moved_fought = True
         # SMOKE-036 (Round 47): clear in_stronghold on any movement to a

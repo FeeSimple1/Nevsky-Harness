@@ -126,6 +126,8 @@ def test_legate_sail_ride_along():
     h.location = "reval"
     h.in_stronghold = False
     h.assets["provender"] = 0
+    # SMOKE-046 (R58): Sail validates Ship requirements; pad ships.
+    h.assets["ship"] = 8
     st.legate.william_of_modena_in_play = True
     st.legate.location = "locale"
     st.legate.locale_id = "reval"

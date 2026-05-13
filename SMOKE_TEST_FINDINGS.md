@@ -5340,3 +5340,60 @@ accounting is correct even on a re-Conquest. The result dict's
   - 4.9.4 Wastage: cards Discarded > 3 = Lord wastage (forces/assets).
     Does this fire correctly when capabilities discard happens?
   - VP cap at 17.5 — confirm scoring respects cap only at end.
+
+
+# Round 58 — Sail Ship validation (1 bug)
+
+## SMOKE-046 — Sail does not validate Ship requirements (4.7.3)
+
+**Rule.** Commands.txt 4.7.3 ship_requirements_per_unit_or_asset:
+  - 1 Ship per Teutonic horse unit
+  - 2 Ships per Russian horse unit
+  - 1 Ship per Provender
+  - 2 Ships per Loot
+
+A Sailing group must have enough Ships (counting T18 Cogs as 2 each)
+to carry their load. The harness's `_h_cmd_sail` docstring mentioned
+the `ships_used` argument but never actually validated it — Sails
+proceeded even with 0 Ships and a horse-heavy group.
+
+**Symptom.** Probe: hermann (Teutonic) with 2 horse units and 0 ships
+Sailed reval→narwia and got there safely, contrary to 4.7.3.
+
+**Fix.** `_h_cmd_sail` now computes group totals (horse units across
+all members, total Provender, total Loot) and required Ships (side-
+specific multiplier for horse), then compares to group's effective
+Ships via `effective_ship_count` (which applies the T18 Cogs x2).
+Insufficient ships raises `insufficient_ships` with a detailed
+breakdown.
+
+Group-pooling: Ships from all group members sum together for the
+capacity check (parallel to how transports work in Marshal-led
+March groups).
+
+## Tests
+
+`tests/test_round_58_sail_ships.py` — 6 regressions:
+  - 0 Ships with horse units → IllegalAction.
+  - Teutonic horse: exactly 1 Ship per unit suffices.
+  - Russian horse: 2 Ships per unit required.
+  - Provender: 1 Ship per Provender.
+  - Loot: 2 Ships per Loot.
+  - Ships pool across group members.
+
+Also patched 4 existing tests to provide Ships for previously-
+implicit Sail setups (test_campaign_simple_commands, test_round_33,
+test_round_54, test_round_55).
+
+727 → 733 passing.
+
+## Candidate surfaces for R59
+
+  - Plow & Reap edge: scenarios with `span_end_box` = 2 (Pleskau)
+    skip Plow & Reap on the final box; intended behavior since the
+    game ends, but worth a confirmation probe.
+  - Wastage 4.9.4: agent doesn't pick which Asset to discard; harness
+    auto-picks the highest count. Limitation, not strict bug.
+  - Cogs (T18) Sail x2 interaction — covered by effective_ship_count
+    but the test doesn't explicitly exercise it.
+  - Supply 4.6 source validation (Seat sources, ship sources, route).

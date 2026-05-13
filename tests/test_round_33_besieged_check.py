@@ -104,7 +104,8 @@ def test_sail_blocked_by_unbesieged_enemy_at_sieged_dest():
     T = teus[0]; R = russ[0]
     s.lords[T].location = "reval"
     s.lords[T].in_stronghold = False
-    s.lords[T].assets["ship"] = 2
+    # SMOKE-046 (R58): Sail validates Ship requirements; pad enough.
+    s.lords[T].assets["ship"] = 8
     s.lords[R].location = "narwia"
     s.lords[R].in_stronghold = False  # Unbesieged
     s.locales["narwia"].siege_markers = 3
@@ -134,7 +135,8 @@ def test_sail_allowed_when_only_besieged_enemy_at_dest():
     T = teus[0]; R = russ[0]
     s.lords[T].location = "reval"
     s.lords[T].in_stronghold = False
-    s.lords[T].assets["ship"] = 2
+    # SMOKE-046 (R58): Sail validates Ship requirements; pad enough.
+    s.lords[T].assets["ship"] = 8
     s.lords[R].location = "narwia"
     s.lords[R].in_stronghold = True  # Besieged
     s.locales["narwia"].siege_markers = 3
