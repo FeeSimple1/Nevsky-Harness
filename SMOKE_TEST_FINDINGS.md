@@ -5573,3 +5573,127 @@ inspection regressions:
   - Wastage 4.9.4 agent choice (currently auto-picks highest asset).
   - VP cap at 17.5 in scoring.
   - Battle Round 1 special positions / Q-005 Flanking interactions.
+
+
+# Round 62 — Vodian Treachery vs Castle marker (1 bug)
+
+## SMOKE-051 — Vodian Treachery (T3) doesn't reject Castle markers
+
+**Rule (AoW Reference T3 Tip).** "If Stonemasons converted both Forts
+to Castles, this Event cannot be played, because neither Locale has
+a Fort."
+
+**Symptom.** `_ev_vodian_treachery` rejected when `static["type"] !=
+"fort"`, but the static type stays `"fort"` after Stonemasons builds
+a Castle. The Castle is tracked dynamically via
+`state.locales[*].teutonic_castle / russian_castle`. The harness
+never consulted those bools, so Vodian Treachery would still
+"Conquer" a Locale whose Fort had been converted to a Castle.
+
+**Fix.** Add a check after the static-type Fort guard:
+```python
+if state.locales[target].teutonic_castle or state.locales[target].russian_castle:
+    raise IllegalAction("castle_marker", ...)
+```
+This fires before the Walls +1 check (Walls and Castle markers can
+coexist transiently per the static-data flow; both should reject).
+
+## Tests
+
+`tests/test_round_62_vodian_castle.py` — 4 regressions:
+  - Teutonic Castle marker rejects.
+  - Russian Castle marker rejects.
+  - No Castle marker → event proceeds (baseline).
+  - Castle check fires before Walls+1 check.
+
+745 → 749 passing.
+
+## Candidate surfaces for R63
+
+  - BFS distance bug in `_ev_vodian_treachery`: BFS doesn't register
+    Lords at the target locale itself (`visited[target]=0` skips the
+    Lord-at-target check). If a Teutonic Lord is AT the target Fort,
+    distance should be 0 but the harness sets `teu_dist=None` and
+    might raise `no_teutonic_lord`.
+  - Heinrich Curia (T13) edge cases: heinrich must be on map.
+  - Battle Aftermath: Lord at locale with siege_markers >0 and no
+    enemy Lord (orphan siege) — Lord state?
+
+
+## SMOKE-052 — Vodian Treachery BFS misses Lord at target locale
+
+**Symptom.** `_ev_vodian_treachery` builds `visited = {target: 0}`
+then BFSes outward, registering Lords as new locales are visited.
+But Lords AT the target locale itself are never checked — the BFS
+seeds with the target in `visited` and only inspects neighbors. A
+Teutonic Lord standing at the target Fort produced `teu_dist=None`
+(or the wrong farther value if another Teu Lord was somewhere) and
+either raised `no_teutonic_lord` or compared incorrectly.
+
+**Fix.** Before the BFS loop, scan all Mustered Lords whose
+`location == target` and seed `teu_dist=0` / `rus_dist=0`
+accordingly. The BFS then expands as before.
+
+## Tests (R62 extended)
+
+  - `test_vodian_lord_at_target_distance_zero`: Teu Lord AT target →
+    teu_dist=0 → event proceeds.
+  - `test_vodian_russian_at_target_blocks_event`: Rus Lord AT
+    target → rus_dist=0 → Teu can't be strictly less → `not_closer`.
+
+749 → 751 passing.
+
+## Candidate surfaces for R63
+
+  - Vodian Treachery doesn't deduct Lord forces / mark moved_fought.
+    Per AoW Reference: who does this Conquest? The Lord that plays
+    the Hold? The check is only on closeness, not on which Lord
+    actually performs it. Probably no_fix needed (Hold is just a card).
+  - Heinrich Curia (T13) Asset cap interaction (4 non-Loot Assets to
+    each of 2 Lords — should respect 8-cap per type).
+  - Castle marker scoring with side flip after Sack/Liberation —
+    already covered (SMOKE-040 R52).
+
+
+## SMOKE-053 — Heinrich Curia (T13) permanently removes Heinrich instead of Disbanding
+
+**Rule (AoW Reference T13 Tip).** "Teutons may play the Event to
+immediately Disband him regardless of Service or situation; other
+Disband rules apply. Permanent removal of Heinrich in Battle or
+Storm does not trigger or equate to play of the Event."
+
+**Symptom.** `_ev_heinrich_curia` called `_remove_lord_permanently`
+on Heinrich. Per rule, the Curia event Disbands him — his cylinder
+should return to the Calendar (at current Service-marker + Service
+rating boxes right) and re-enter play in future Levies. Permanent
+removal also broke Pleskau VP scoring (every Disband would count as
+a "removed Lord" bonus).
+
+**Fix.** Replace `_remove_lord_permanently` with `_disband_at_limit`
+at `current_service_marker_box + service_rating`, mirroring 3.3.2
+at-limit Disband. The result dict now reports
+`heinrich_new_box: <1..17>`.
+
+Also fixed the existing R26 test
+`test_t13_heinrich_curia_disbands_heinrich_and_distributes_assets`
+which had asserted `state == "removed"` — wrong per rule. Now
+asserts `state == "disbanded"`.
+
+## Tests (R62 extended)
+
+  - `test_t13_disbands_heinrich_not_removes`: state=disbanded,
+    heinrich_new_box in result dict.
+  - `test_t13_disbanded_heinrich_can_remuster`: documents the
+    expected SMOKE-044 R56 transition for future re-Muster.
+
+751 → 753 passing.
+
+## Candidate surfaces for R63
+
+  - Vodian Treachery doesn't deduct/mark the Conquesting Lord —
+    confirmed per rule, Hold cards don't consume Lord actions.
+  - R8 Black Sea Trade re-block-after-retake — `R8` capabilities
+    should "resume" if Russians retake Novgorod or Lovat. The harness
+    checks the dynamic state on play, so retake recovery is implicit.
+  - Crusade on Novgorod scenario special-case rules — keep_no_event_
+    cards flow.

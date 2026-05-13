@@ -194,7 +194,9 @@ def test_t13_heinrich_curia_disbands_heinrich_and_distributes_assets() -> None:
         "recipients": [r1, r2],
         "assets": {r1: {"coin": 4}, r2: {"coin": 2, "provender": 2}},
     })
-    assert s.lords["heinrich"].state == "removed"
+    # SMOKE-053 (R62): Heinrich is Disbanded, not removed — cylinder
+    # goes back to Calendar per "other Disband rules apply" (T13 Tip).
+    assert s.lords["heinrich"].state == "disbanded"
     assert s.lords[r1].assets.get("coin", 0) == min(8, pre_r1 + 4)
     assert s.lords[r2].assets.get("coin", 0) == min(8, pre_r2 + 2)
     assert s.lords[r2].assets.get("provender", 0) >= 2

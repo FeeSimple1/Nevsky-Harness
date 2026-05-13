@@ -686,6 +686,17 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     # Must still be a Fort (not converted to Castle).
     if static["type"] != "fort":
         raise IllegalAction("not_fort", f"{target} is no longer a Fort (Castle?)")
+    # SMOKE-051 (Round 62): dynamic Castle marker also disqualifies.
+    # T17 Stonemasons Tip: "Castles are permanent." Plus T3 Tip: "If
+    # Stonemasons converted both Forts to Castles, this Event cannot
+    # be played, because neither Locale has a Fort." The static type
+    # stays "fort" even after a Castle marker is placed; we must
+    # consult state.locales[*].teutonic_castle / russian_castle.
+    if state.locales[target].teutonic_castle or state.locales[target].russian_castle:
+        raise IllegalAction(
+            "castle_marker",
+            f"{target} has a Castle marker; Vodian Treachery requires a Fort (T3 Tip)",
+        )
     # Walls +1 from R18 blocks Vodian Treachery.
     if state.locales[target].walls_plus_one:
         raise IllegalAction("stone_kremlin", f"{target} has Walls +1; Vodian Treachery blocked")
@@ -700,6 +711,16 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     frontier = [target]
     teu_dist = None
     rus_dist = None
+    # SMOKE-052 (Round 62): check Lords AT the target locale (distance
+    # 0). Previously the BFS only registered Lords as it expanded
+    # outward; a Teutonic Lord standing at the target Fort itself was
+    # silently missed, producing wrong teu_dist or no_teutonic_lord.
+    for lid, l in state.lords.items():
+        if l.state == "mustered" and l.location == target:
+            if l.side == "teutonic" and teu_dist is None:
+                teu_dist = 0
+            elif l.side == "russian" and rus_dist is None:
+                rus_dist = 0
     while frontier and (teu_dist is None or rus_dist is None):
         nxt = []
         for n in frontier:
@@ -785,9 +806,29 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
         for k, v in grant.items():
             recip.assets[k] = min(8, recip.assets.get(k, 0) + int(v))  # type: ignore[index]
 
-    # Disband Heinrich.
-    _remove_lord_permanently(state, "heinrich", load_lords()["heinrich"])
+    # SMOKE-053 (Round 62): Disband (NOT permanent remove) Heinrich.
+    # Per AoW Reference T13 Tip: "play the Event to immediately
+    # Disband him regardless of Service or situation; other Disband
+    # rules apply." Permanent removal requires Battle/Storm losses,
+    # not the Curia event. Use _disband_at_limit with cylinder placed
+    # at his current Service-marker box (or current Levy box) +
+    # service_rating, mirroring 3.3.2 at-limit Disband.
+    from nevsky.actions import _disband_at_limit, _find_service_marker_box, _find_levy_marker_box
+    sl = load_lords()["heinrich"]
+    srating = int(sl["ratings"]["service"])
+    # Choose the base box: prefer current Service marker box, else
+    # fall back to the current Levy box (Heinrich must be on map per
+    # the earlier check, so Service marker should be on Calendar).
+    sm_box = _find_service_marker_box(state, "heinrich")
+    if sm_box is None:
+        try:
+            sm_box = _find_levy_marker_box(state)
+        except Exception:
+            sm_box = 1
+    new_box = sm_box + srating
+    _disband_at_limit(state, "heinrich", new_box)
     return {"event": "T13", "heinrich_disbanded": True,
+            "heinrich_new_box": min(new_box, 17),
             "recipients": recipients, "distributed": distributed}
 
 
