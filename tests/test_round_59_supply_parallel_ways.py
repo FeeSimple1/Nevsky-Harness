@@ -15,6 +15,7 @@ from nevsky.actions import apply_action
 
 def _setup_supply(st, lord_id, location):
     L = st.lords[lord_id]
+    L.state = "mustered"
     L.location = location
     L.in_stronghold = False
     L.assets = {"provender": 0, "cart": 5, "ship": 0, "boat": 0, "sled": 0}

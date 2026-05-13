@@ -5437,3 +5437,51 @@ type constraint:
   - Cogs (T18) explicit Sail test exercising the x2 multiplier.
   - Veliky Knyaz Transport restoration cap (already at 8 per type).
   - Plow & Reap on Pleskau-like short scenarios (game-end skips it).
+
+
+# Round 60 — Supply Transport count validation (1 bug)
+
+## SMOKE-048 — Supply doesn't enforce Transport units per Provender per Way
+
+**Rule (2E).** Commands.txt 4.6: "1 usable Transport required per
+Provender per Way of each Route. Transports cannot do double duty
+across multiple Sources or multiple Provender." Transport may be
+shared from co-located own-side Lords (1.5.2).
+
+**Symptom.** `_h_cmd_supply` validated transport TYPE compatibility
+(cart→trackway, boat→waterway) but never checked that the supplying
+group HAS enough Transport units. A Lord with 0 Carts could draw a
+Provender via Cart over a 1-Way Trackway route.
+
+**Fix.** After per-source validation, compute total Transport needed
+per type (sum of `len(route)-1` per non-ship source; ships = 1 per
+source), build a pool from the active Lord + co-located own-side
+Mustered Lords (boat/cart/sled/ship totals), and raise
+`insufficient_transport` if any type is short.
+
+## Tests
+
+`tests/test_round_60_supply_transport_count.py` — 5 regressions:
+  - 0 Carts + 1-Way Cart Supply → IllegalAction.
+  - 1 Cart + 1-Way Cart Supply → succeeds.
+  - 2-Way Cart Supply (or fallback path) → exhausts proportionally.
+  - Co-located own-side Lord's Carts pool with active Lord.
+  - Enemy Lord's Carts do NOT pool.
+
+Also patched the R59 supply tests to set `state="mustered"` on the
+acting Lord (so the new pool query finds their Transport units).
+
+735 → 740 passing.
+
+## Candidate surfaces for R61
+
+  - Supply Transport actual deduction on success (rule says "cannot
+    do double duty" — currently we just check pool, but don't
+    consume; check whether the same transport can be reused across
+    consecutive Supply actions on the same Lord/Card).
+  - Veliky Knyaz Transport restoration: does the +2 Transport stack
+    above 8 (cap) correctly?
+  - 4.0 capability discard threshold accounts for capabilities-in-
+    play of REMOVED lords correctly.
+  - Tax via R17 Veliky Knyaz at a Seat that's Conquered by enemy
+    (own-side cannot Tax there, presumably).

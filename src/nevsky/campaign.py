@@ -1209,6 +1209,40 @@ def _h_cmd_supply(
     if ship_count > 2:
         raise IllegalAction("too_many_ship_sources", "max 2 Ship sources")
 
+    # SMOKE-048 (Round 60): 4.6 Transport count validation per 2E:
+    # "1 usable Transport required per Provender per Way of each Route.
+    # Transports cannot do double duty across multiple Sources or
+    # multiple Provender." Pool counts from the active Lord and co-
+    # located own-side Lords (1.5.2 sharing). Ships always count for
+    # ship-sourced supply; non-ship sources use the matching
+    # ground/water transport.
+    transport_needed: dict[str, int] = {}
+    for src in sources:
+        ttype = src["transport"]
+        route_len = max(0, len(src["route"]) - 1)
+        if ttype == "ship":
+            # Ship sources: 1 ship per source (Sea route is direct).
+            transport_needed["ship"] = transport_needed.get("ship", 0) + 1
+        else:
+            transport_needed[ttype] = transport_needed.get(ttype, 0) + route_len
+    if transport_needed:
+        # Pool from active Lord + co-located own-side Lords.
+        pool: dict[str, int] = {}
+        for ol_id, ol in state.lords.items():
+            if ol.state != "mustered" or ol.side != sd:
+                continue
+            if ol.location != lord.location:
+                continue
+            for k in ("boat", "cart", "sled", "ship"):
+                pool[k] = pool.get(k, 0) + int(ol.assets.get(k, 0))
+        for k, need in transport_needed.items():
+            avail = pool.get(k, 0)
+            if avail < need:
+                raise IllegalAction(
+                    "insufficient_transport",
+                    f"Supply needs {need} {k}(s); shared pool has {avail} (4.6 2E)",
+                )
+
     # SMOKE-030: T16 Famine (against Russian) / R7 Famine (against
     # Teutonic) cap Seat-sourced Provender at 1 per Command card.
     # Ship-sourced Provender is NOT affected (Tip: "does not affect
