@@ -5485,3 +5485,44 @@ acting Lord (so the new pool query finds their Transport units).
     play of REMOVED lords correctly.
   - Tax via R17 Veliky Knyaz at a Seat that's Conquered by enemy
     (own-side cannot Tax there, presumably).
+
+
+# Round 61 — Sally retreat filter (1 bug)
+
+## SMOKE-049 — Sally aftermath retreat ignores enemy Stronghold and Conquered marker
+
+**Rule (4.4.3).** Battle / Sally Retreat: defender retreats to a
+Friendly neighbor — no enemy Lord, no enemy Stronghold, no enemy-
+Conquered marker. (See also `_h_avoid_battle` and the Battle Retreat
+branch which both filter all three.)
+
+**Symptom.** `_h_cmd_sally` aftermath retreat (campaign.py:~2980)
+only filtered enemy Lords at the candidate target. It did not check
+enemy Stronghold or enemy Conquered. A besieger losing a Sally could
+therefore "retreat" into an enemy Stronghold (which makes no sense
+operationally) or an enemy-Conquered locale.
+
+**Fix.** Added two filters to the retreat-candidate loop:
+  - `_has_enemy_stronghold_at(state, cand, l.side)` rejects enemy
+    Strongholds.
+  - `cand_loc.<enemy>_conquered > 0` rejects enemy-Conquered markers.
+Also tightened the enemy-Lord filter to `state == "mustered"` so a
+disbanded/removed Lord with stale location doesn't block retreat.
+
+## Tests
+
+`tests/test_round_61_sally_retreat.py` — 2 regressions (source-
+inspection-based since full Sally is complex to mock):
+  - Filter logic references `_has_enemy_stronghold_at`.
+  - Conquered-marker filter exists for both sides.
+
+740 → 742 passing.
+
+## Candidate surfaces for R62
+
+  - Same retreat filter on Sally LOSS path (defenders re-enter
+    Stronghold — currently set in_stronghold=True without a target
+    locale shift, so no new filter needed there).
+  - Wastage 4.9.4 agent choice (currently auto-picks highest asset).
+  - Cogs (T18) Sail x2 + Lieutenant + Lower Lord interaction.
+  - Trade Route flip with Lieutenant + Lower Lord entry.
