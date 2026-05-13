@@ -5763,3 +5763,55 @@ Two more tests in `test_round_63_castle_stats.py`:
   - `test_no_castle_keeps_fort_capacity`: bare Fort → 2 defenders rejected.
 
 758 → 760 passing.
+
+
+# Round 64 — Campaign Victory auto-end (1 bug)
+
+## SMOKE-055 — Rule 5.2 Campaign Victory doesn't end game immediately
+
+**Rule (5.2 Campaign Victory).** "If at any moment during a Campaign
+one side has zero Mustered Lords on the map, the game ends
+immediately and the OTHER side wins, regardless of VP."
+
+**Symptom.** `determine_scenario_winner` correctly reports the 5.2
+winner when the condition is met at the time of inspection. But the
+harness state continued mutating after a side reached 0 Mustered
+Lords mid-Campaign: more Lord removals could happen, more Conquered
+markers could be placed, more VP could accrue. The game only
+actually ended at `end_campaign_resolve` when `state.meta.box >=
+state.meta.span_end_box`.
+
+Worse, if both sides reached 0 Mustered at different moments, the
+single end-state check couldn't tell which was first. Per rule 5.2,
+the side that reached 0 FIRST loses; the OTHER side wins.
+
+**Fix.** `_remove_lord_permanently` now checks during the Campaign
+phase whether either side has 0 Mustered Lords. If so:
+  - `state.meta.campaign_step = "done"` (game over).
+  - `actions_remaining = 0`, active card/lord cleared,
+    in_feed_pay_disband=False.
+
+Levy-phase removals (3.3.1 Disband-permanent past Service) don't
+trigger the auto-end since 5.2 is Campaign-specific.
+
+## Tests
+
+`tests/test_round_64_campaign_victory.py` — 5 regressions:
+  - Remove all Teutonic during Campaign → step=done, Russian wins.
+  - Remove all Russian during Campaign → step=done, Teutonic wins.
+  - Partial Remove during Campaign → step unchanged.
+  - Remove all during Levy → game continues (5.2 is Campaign-only).
+  - Already-done state stays done.
+
+760 → 765 passing.
+
+## Candidate surfaces for R65
+
+  - Sortie/Sally aftermath: if Sally aftermath removes all defenders
+    of a side, does the 5.2 fire from _remove_lord_permanently?
+    (yes, same path.)
+  - Marshal flip in Q-005 Battle Array when active Marshal is
+    removed mid-Battle.
+  - Veche action consumed when 5.2 already triggered (game over).
+  - Pleskau 2-box scenario: Russian removes all 3 Teutonic Lords on
+    Box 1 Campaign — game ends, no Box 2.
