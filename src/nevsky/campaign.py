@@ -2937,12 +2937,21 @@ def _h_cmd_sally(
         if l.location == locale_id:
             l.moved_fought = True
 
+    # SMOKE-050 (Round 61): simple Sally — defenders (besiegers)
+    # receive Siegeworks as Walls per 4.5.3. Pass siegeworks_for_sally
+    # = siege_markers and simple_sally=True so resolve_battle applies
+    # the Walls protection to ALL attacker strikes (since in simple
+    # Sally the sallying Lords are the attackers at regular Front
+    # slots, not the sally_* row).
+    siege_markers_at_locale = state.locales[locale_id].siege_markers
     result = resolve_battle(
         state, attacker_side=sd,
         attacker_lords=attackers,
         defender_lords=defenders,
+        siegeworks_for_sally=siege_markers_at_locale,
+        simple_sally=True,
     )
-    aftermath: dict[str, Any] = {"battle": result}
+    aftermath: dict[str, Any] = {"battle": result, "siegeworks_walls": siege_markers_at_locale}
 
     if result["loser"] == sd:
         # Sallying side lost: Withdraw back inside (4.5.3).

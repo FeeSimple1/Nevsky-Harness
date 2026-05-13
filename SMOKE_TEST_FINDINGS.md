@@ -5526,3 +5526,50 @@ inspection-based since full Sally is complex to mock):
   - Wastage 4.9.4 agent choice (currently auto-picks highest asset).
   - Cogs (T18) Sail x2 + Lieutenant + Lower Lord interaction.
   - Trade Route flip with Lieutenant + Lower Lord entry.
+
+
+## SMOKE-050 — simple Sally besiegers don't get Siegeworks-as-Walls
+
+**Rule (4.5.3).** Sally procedure: "Defenders (Besiegers) receive
+Siegeworks as Walls." Walls absorb attacker Hits via per-Hit d6
+rolls against `siegeworks` (`<=` succeeds).
+
+**Symptom.** `_h_cmd_sally` called `resolve_battle` without
+`siegeworks_for_sally` or any flag indicating simple Sally. The
+existing Walls-vs-Sally logic only fires when `striker_slot in
+_SALLY_SLOTS` (Relief Sally's sally_* row). In a simple Sally the
+besieged Lords are the attackers, positioned at regular Front
+slots, so NO Walls absorption occurred. Defenders (besiegers)
+fought without their rule-mandated Walls protection.
+
+**Fix.**
+
+  - `resolve_battle` gains a `simple_sally: bool = False` parameter.
+    When True, the per-striker Sally-Hits tracker counts every
+    striker entry (not just sally_* row) as a Sally strike.
+  - `_h_cmd_sally` passes `siegeworks_for_sally=siege_markers,
+    simple_sally=True`. Aftermath now reports
+    `siegeworks_walls: <int>` for transparency.
+
+Relief Sally (existing) is unaffected: it does NOT set
+`simple_sally`, so its row-specific behavior remains.
+
+## Tests (R61 extended)
+
+`tests/test_round_61_simple_sally_siegeworks.py` — 3 source-
+inspection regressions:
+  - `_h_cmd_sally` passes both flags to `resolve_battle`.
+  - `resolve_battle` signature has `simple_sally` and its body
+    references `is_sally_strike`.
+  - Sally aftermath dict surfaces `siegeworks_walls`.
+
+742 → 745 passing.
+
+## Candidate surfaces for R62+
+
+  - **Walls value in simple Sally**: rule says Walls = Siegeworks,
+    but our siege_markers is also used for surrender rolls. Verify
+    this isn't double-counting in any path.
+  - Wastage 4.9.4 agent choice (currently auto-picks highest asset).
+  - VP cap at 17.5 in scoring.
+  - Battle Round 1 special positions / Q-005 Flanking interactions.
