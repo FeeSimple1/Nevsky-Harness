@@ -2359,6 +2359,17 @@ def _h_aow_play_hold(
     deck = _side_deck(state, sd)
     if cid not in deck.holds:
         raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    # SMOKE-056 (Round 65): verify card belongs to playing side.
+    # Holds drift into the wrong list only via state-edits / fixtures,
+    # but the play handler should never let a Teutonic player resolve
+    # a Russian Hold (or vice versa) per 1.9.1 eligibility.
+    from nevsky.static_data import load_cards
+    card_meta = load_cards().get(cid)
+    if card_meta is not None and card_meta.get("side") != sd:
+        raise IllegalAction(
+            "wrong_side",
+            f"{cid} belongs to {card_meta['side']}; {sd} cannot play it",
+        )
     result = resolve_hold_event(state, cid, args)
     deck.holds.remove(cid)
     deck.discard.append(cid)
@@ -2388,6 +2399,14 @@ def _h_aow_lordship_plus_2(
     deck = _side_deck(state, sd)
     if cid not in deck.holds:
         raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    # SMOKE-056 (Round 65) extension: side-validate the card here too.
+    from nevsky.static_data import load_cards
+    card_meta = load_cards().get(cid)
+    if card_meta is not None and card_meta.get("side") != sd:
+        raise IllegalAction(
+            "wrong_side",
+            f"{cid} belongs to {card_meta['side']}; {sd} cannot play it",
+        )
     if mode == "lordship":
         result = apply_lordship_plus_2(state, cid, lord_id)
     elif mode == "shift":

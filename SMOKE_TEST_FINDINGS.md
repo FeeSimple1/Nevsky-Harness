@@ -5815,3 +5815,83 @@ trigger the auto-end since 5.2 is Campaign-specific.
   - Veche action consumed when 5.2 already triggered (game over).
   - Pleskau 2-box scenario: Russian removes all 3 Teutonic Lords on
     Box 1 Campaign — game ends, no Box 2.
+
+
+# Round 65 — Hold card side validation (1 bug)
+
+## SMOKE-056 — Hold-event play handlers don't validate the card's side
+
+**Rule (1.9.1 + 3.4.4 + AoW Reference Eligibility).** Each AoW card
+has a `side` (teutonic | russian). Russians can never play Teutonic
+cards and vice versa.
+
+**Symptom.** `_h_aow_play_hold` and `_h_aow_lordship_plus_2` both
+checked `cid in deck.holds` (correct own-side hand membership) but
+never verified the card's static `side` field matched the playing
+side. If a Hold somehow ended up in the wrong side's holds list
+(e.g., via test fixture, state transcript replay, or a future bug
+that mis-routed a draw), the wrong side could resolve it. Probe
+confirmed: Teutonic player with R3 Pogost in `holds` could trigger
+the Russian-only Pogost event on a Russian Lord.
+
+**Fix.** Both handlers now load card meta and reject with
+`wrong_side` if `card_meta["side"] != sd`.
+
+## Tests
+
+`tests/test_round_65_hold_side.py` — 4 regressions:
+  - Teu cannot play Russian R3 Pogost.
+  - Rus cannot play Teutonic T3 Vodian Treachery.
+  - Own-side Hold still plays.
+  - Lordship +2 handler also rejects cross-side play.
+
+765 → 769 passing.
+
+## Candidate surfaces for R66
+
+  - `aow_play_battle_hold` / Tier-2 holds_arg path in stand_battle:
+    same side-validation likely needed.
+  - Phase guards on `aow_play_hold`: many Holds have specific timing
+    windows (Battle, Muster, Call to Arms) — currently the handler
+    doesn't check phase; resolvers do partial checks.
+  - Veche `sea_trade` action might also need a side guard (already
+    has `if sd != "russian"` early — confirmed).
+
+
+## SMOKE-057 — Retreat Service shift wrong off_right list
+
+**Symptom.** `apply_retreat_service_shift` (4.4.3) searches for the
+retreating Lord's Service marker in `cal.boxes[*].service_markers`
+and falls back to a "past the right edge" list when not found. The
+fallback consulted `cal.off_right` — the **CYLINDER** off-right list,
+not `cal.off_right_service` (the SERVICE MARKER off-right list).
+
+Consequence: a Lord whose Service marker has been pushed past box
+16 (via repeated Pays etc.) and who then Retreats from Battle
+silently skipped the Service shift entirely (`return 0`). Per 4.4.3,
+they should shift LEFT by `ceil(die/2)` boxes, bringing them back
+into the active Calendar.
+
+**Fix.** Replace the fallback list reference from `cal.off_right` →
+`cal.off_right_service`, and similarly on the placement side
+(`new_box >= 17` re-appends to `off_right_service` if applicable).
+
+## Tests (R65 extended)
+
+`tests/test_round_65_retreat_shift.py` — 3 regressions:
+  - Service at off_right_service shifts back onto Calendar.
+  - Cylinder at off_right doesn't interfere with Service shift.
+  - No Service marker → shift returns 0.
+
+769 → 772 passing.
+
+## Candidate surfaces for R66
+
+  - `_shift_service_right` (Pay-with-Coin / Pay-with-Loot helper):
+    similar off_right_service handling — already correct? Probe.
+  - Lord cylinder shift events (e.g., R14 Andreas to Riga shifts
+    cylinder 2 right): does the cylinder placement respect 16-box
+    limit correctly?
+  - Battle Aftermath when ALL attacker Lords have 0 forces and 0
+    retreat target: per code, they're permanently removed. Verify
+    Pleskau VP bonus fires for each.

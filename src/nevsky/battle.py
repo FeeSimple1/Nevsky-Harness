@@ -1555,14 +1555,18 @@ def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
             cur = cb.box
             cb.service_markers.remove(lord_id)
             break
-    if cur is None and lord_id in cal.off_right:
-        cal.off_right.remove(lord_id)
+    # SMOKE-057 (Round 65): Service markers off the right edge live in
+    # `off_right_service`, NOT `off_right` (which is the cylinder list).
+    # Previously this branch consulted the wrong list, so a Lord with
+    # Service marker past box 16 silently skipped the shift.
+    if cur is None and lord_id in cal.off_right_service:
+        cal.off_right_service.remove(lord_id)
         cur = 17
     if cur is None:
         return 0
     new_box = max(1, cur - boxes)
     if cur == 17 and new_box >= 17:
-        cal.off_right.append(lord_id)
+        cal.off_right_service.append(lord_id)
     else:
         cal.boxes[new_box - 1].service_markers.append(lord_id)
     return boxes
