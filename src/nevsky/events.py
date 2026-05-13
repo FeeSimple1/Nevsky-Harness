@@ -686,6 +686,17 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     # Must still be a Fort (not converted to Castle).
     if static["type"] != "fort":
         raise IllegalAction("not_fort", f"{target} is no longer a Fort (Castle?)")
+    # SMOKE-051 (Round 62): dynamic Castle marker also disqualifies.
+    # T17 Stonemasons Tip: "Castles are permanent." Plus T3 Tip: "If
+    # Stonemasons converted both Forts to Castles, this Event cannot
+    # be played, because neither Locale has a Fort." The static type
+    # stays "fort" even after a Castle marker is placed; we must
+    # consult state.locales[*].teutonic_castle / russian_castle.
+    if state.locales[target].teutonic_castle or state.locales[target].russian_castle:
+        raise IllegalAction(
+            "castle_marker",
+            f"{target} has a Castle marker; Vodian Treachery requires a Fort (T3 Tip)",
+        )
     # Walls +1 from R18 blocks Vodian Treachery.
     if state.locales[target].walls_plus_one:
         raise IllegalAction("stone_kremlin", f"{target} has Walls +1; Vodian Treachery blocked")

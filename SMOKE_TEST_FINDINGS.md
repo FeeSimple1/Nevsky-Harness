@@ -5573,3 +5573,48 @@ inspection regressions:
   - Wastage 4.9.4 agent choice (currently auto-picks highest asset).
   - VP cap at 17.5 in scoring.
   - Battle Round 1 special positions / Q-005 Flanking interactions.
+
+
+# Round 62 — Vodian Treachery vs Castle marker (1 bug)
+
+## SMOKE-051 — Vodian Treachery (T3) doesn't reject Castle markers
+
+**Rule (AoW Reference T3 Tip).** "If Stonemasons converted both Forts
+to Castles, this Event cannot be played, because neither Locale has
+a Fort."
+
+**Symptom.** `_ev_vodian_treachery` rejected when `static["type"] !=
+"fort"`, but the static type stays `"fort"` after Stonemasons builds
+a Castle. The Castle is tracked dynamically via
+`state.locales[*].teutonic_castle / russian_castle`. The harness
+never consulted those bools, so Vodian Treachery would still
+"Conquer" a Locale whose Fort had been converted to a Castle.
+
+**Fix.** Add a check after the static-type Fort guard:
+```python
+if state.locales[target].teutonic_castle or state.locales[target].russian_castle:
+    raise IllegalAction("castle_marker", ...)
+```
+This fires before the Walls +1 check (Walls and Castle markers can
+coexist transiently per the static-data flow; both should reject).
+
+## Tests
+
+`tests/test_round_62_vodian_castle.py` — 4 regressions:
+  - Teutonic Castle marker rejects.
+  - Russian Castle marker rejects.
+  - No Castle marker → event proceeds (baseline).
+  - Castle check fires before Walls+1 check.
+
+745 → 749 passing.
+
+## Candidate surfaces for R63
+
+  - BFS distance bug in `_ev_vodian_treachery`: BFS doesn't register
+    Lords at the target locale itself (`visited[target]=0` skips the
+    Lord-at-target check). If a Teutonic Lord is AT the target Fort,
+    distance should be 0 but the harness sets `teu_dist=None` and
+    might raise `no_teutonic_lord`.
+  - Heinrich Curia (T13) edge cases: heinrich must be on map.
+  - Battle Aftermath: Lord at locale with siege_markers >0 and no
+    enemy Lord (orphan siege) — Lord state?
