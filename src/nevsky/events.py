@@ -806,9 +806,29 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
         for k, v in grant.items():
             recip.assets[k] = min(8, recip.assets.get(k, 0) + int(v))  # type: ignore[index]
 
-    # Disband Heinrich.
-    _remove_lord_permanently(state, "heinrich", load_lords()["heinrich"])
+    # SMOKE-053 (Round 62): Disband (NOT permanent remove) Heinrich.
+    # Per AoW Reference T13 Tip: "play the Event to immediately
+    # Disband him regardless of Service or situation; other Disband
+    # rules apply." Permanent removal requires Battle/Storm losses,
+    # not the Curia event. Use _disband_at_limit with cylinder placed
+    # at his current Service-marker box (or current Levy box) +
+    # service_rating, mirroring 3.3.2 at-limit Disband.
+    from nevsky.actions import _disband_at_limit, _find_service_marker_box, _find_levy_marker_box
+    sl = load_lords()["heinrich"]
+    srating = int(sl["ratings"]["service"])
+    # Choose the base box: prefer current Service marker box, else
+    # fall back to the current Levy box (Heinrich must be on map per
+    # the earlier check, so Service marker should be on Calendar).
+    sm_box = _find_service_marker_box(state, "heinrich")
+    if sm_box is None:
+        try:
+            sm_box = _find_levy_marker_box(state)
+        except Exception:
+            sm_box = 1
+    new_box = sm_box + srating
+    _disband_at_limit(state, "heinrich", new_box)
     return {"event": "T13", "heinrich_disbanded": True,
+            "heinrich_new_box": min(new_box, 17),
             "recipients": recipients, "distributed": distributed}
 
 

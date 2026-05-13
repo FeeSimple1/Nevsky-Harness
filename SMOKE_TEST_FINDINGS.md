@@ -5653,3 +5653,47 @@ accordingly. The BFS then expands as before.
     each of 2 Lords — should respect 8-cap per type).
   - Castle marker scoring with side flip after Sack/Liberation —
     already covered (SMOKE-040 R52).
+
+
+## SMOKE-053 — Heinrich Curia (T13) permanently removes Heinrich instead of Disbanding
+
+**Rule (AoW Reference T13 Tip).** "Teutons may play the Event to
+immediately Disband him regardless of Service or situation; other
+Disband rules apply. Permanent removal of Heinrich in Battle or
+Storm does not trigger or equate to play of the Event."
+
+**Symptom.** `_ev_heinrich_curia` called `_remove_lord_permanently`
+on Heinrich. Per rule, the Curia event Disbands him — his cylinder
+should return to the Calendar (at current Service-marker + Service
+rating boxes right) and re-enter play in future Levies. Permanent
+removal also broke Pleskau VP scoring (every Disband would count as
+a "removed Lord" bonus).
+
+**Fix.** Replace `_remove_lord_permanently` with `_disband_at_limit`
+at `current_service_marker_box + service_rating`, mirroring 3.3.2
+at-limit Disband. The result dict now reports
+`heinrich_new_box: <1..17>`.
+
+Also fixed the existing R26 test
+`test_t13_heinrich_curia_disbands_heinrich_and_distributes_assets`
+which had asserted `state == "removed"` — wrong per rule. Now
+asserts `state == "disbanded"`.
+
+## Tests (R62 extended)
+
+  - `test_t13_disbands_heinrich_not_removes`: state=disbanded,
+    heinrich_new_box in result dict.
+  - `test_t13_disbanded_heinrich_can_remuster`: documents the
+    expected SMOKE-044 R56 transition for future re-Muster.
+
+751 → 753 passing.
+
+## Candidate surfaces for R63
+
+  - Vodian Treachery doesn't deduct/mark the Conquesting Lord —
+    confirmed per rule, Hold cards don't consume Lord actions.
+  - R8 Black Sea Trade re-block-after-retake — `R8` capabilities
+    should "resume" if Russians retake Novgorod or Lovat. The harness
+    checks the dynamic state on play, so retake recovery is implicit.
+  - Crusade on Novgorod scenario special-case rules — keep_no_event_
+    cards flow.
