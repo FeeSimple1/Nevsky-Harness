@@ -4999,3 +4999,46 @@ a valid box) before clearing the per-vassal flags / before clearing
     handle Marshal+Lower Lord correctly?
   - Trade Route 3.3.x: enemy-only entry vs Russian-only re-entry
     cases where conquered=2 or 3 (city/novgorod).
+
+
+# Round 51 — Auto-fire 3.5.3 on Levy → Campaign transition (1 bug)
+
+## SMOKE-039 — this_levy_events not auto-discarded if agent omits 3.5.3
+
+**Rule.** Rule 3.5.3: "Both sides discard their This-Levy events to
+the appropriate discard pile." This is mandatory at the end of every
+Levy's Call to Arms (3.5).
+
+**Symptom.** The harness exposes `aow_discard_this_levy` as an
+explicit action. If an agent forgets to call it before `advance_step`
+ends the Levy, `this_levy_events` retains stale ids. Those ids leak
+into the Campaign decks and the next Levy's `aow_shuffle` (which
+pools `deck + discard`) won't include them, effectively "duplicating"
+the persistence and skewing the deck.
+
+**Fix.** `_h_advance_step`, in the `next_step == "done"` block,
+auto-fires the 3.5.3 sweep for both sides: any non-empty
+`this_levy_events` list is flushed into `discard`. The explicit
+action remains available; calling it before `advance_step` leaves
+the list empty, making the auto-fire idempotent.
+
+## Tests
+
+`tests/test_round_51_auto_discard_levy_events.py` — 3 regressions:
+
+  - 3.5.3 fires automatically even when agent omits the explicit call.
+  - Explicit-then-advance is idempotent (no double discard).
+  - Empty this_levy_events transitions cleanly.
+
+698 → 701 passing.
+
+## Candidate surfaces for R52
+
+  - Conquered marker stacking: `+=` could over-stack if a locale is
+    Stormed while already Conquered by the same side. Practical risk
+    is low (no siege without enemy holder) but is a latent bug.
+  - Castle marker via Stonemasons after Storm.
+  - Hold-event reveal timing.
+  - AoW deck-exhaustion mid-Levy (no auto-reshuffle).
+  - 4.0 capability discard with No-Capability structurals in
+    capabilities_in_play (should they be excluded from the discard?).
