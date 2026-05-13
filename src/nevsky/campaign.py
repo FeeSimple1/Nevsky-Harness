@@ -1801,6 +1801,25 @@ def _h_cmd_march(
             f"Active Lieutenant {lord_id} must move with Lower Lord "
             f"{lord.has_lower_lord} (4.1.3)",
         )
+    # SMOKE-041 (Round 53): 4.3.1 "Marshal may take a group March."
+    # Non-Marshal non-Lieutenant active Lords cannot bring additional
+    # Lords. A Lieutenant may bring their Lower Lord (and only the
+    # Lower Lord) per 4.1.3. Other multi-Lord groups require a
+    # Marshal. The Marshal check uses Q-003's _is_currently_marshal
+    # so secondary Marshals (Hermann/Andrey) qualify only when their
+    # permanent counterpart is off the map.
+    if len(group) > 1:
+        is_marshal = _is_currently_marshal(state, lord_id)
+        is_lieutenant_with_only_pair = (
+            lord.has_lower_lord is not None
+            and set(group) == {lord_id, lord.has_lower_lord}
+        )
+        if not (is_marshal or is_lieutenant_with_only_pair):
+            raise IllegalAction(
+                "non_marshal_group",
+                f"{lord_id} is not a Marshal; only the Lieutenant + Lower Lord pair "
+                f"or a Marshal-led group may March together (4.3.1 / 4.1.3)",
+            )
 
     # Way check.
     ways = load_ways()

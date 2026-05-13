@@ -5093,3 +5093,51 @@ Handles all three flip vectors:
     back-and-forth across multiple campaigns.
   - Cumulative `+=` on Conquered count if same-side Storm fires
     twice (latent — guarded by no_siege check, but worth a probe).
+
+
+# Round 53 — Marshal-gated group March (1 bug)
+
+## SMOKE-041 — Non-Marshal Lord can take a group March (4.3.1 violated)
+
+**Rule.** Commands.txt 4.3.1: "Marshal may take a group March."
+Lieutenant takes Lower Lord (4.1.3) — and ONLY Lower Lord. Other
+Lords march alone.
+
+**Symptom.** `_h_cmd_march` accepted any caller-specified group as
+long as the members were co-located, friendly, and non-Besieged. A
+non-Marshal non-Lieutenant active Lord could legally drag another
+co-located own-side Lord along, which violates 4.3.1.
+
+**Fix.** After the Lieutenant guard, when `len(group) > 1`,
+`_h_cmd_march` now requires EITHER:
+  - `_is_currently_marshal(active_lord)` (Q-003 helper, covers
+    permanent + active secondary Marshals), OR
+  - active Lord is a Lieutenant (`has_lower_lord` set) AND `group`
+    contains exactly `{active, lower_lord}`.
+
+Solo marches (`group=[self]`) remain unrestricted.
+
+## Tests
+
+`tests/test_round_53_marshal_group.py` — 4 regressions:
+
+  - Non-Marshal Lord with co-located own-side group → IllegalAction
+    code `non_marshal_group`.
+  - Marshal (Andreas) can take co-located own-side Lord.
+  - Lieutenant + Lower Lord pair allowed; adding a third Lord
+    rejected.
+  - Solo non-Marshal March allowed.
+
+705 → 709 passing.
+
+## Candidate surfaces for R54
+
+  - Sail group restriction — same Marshal-gate question. Currently
+    Sail accepts arbitrary co-located group. Per 4.7.3, "Marshal may
+    take Sail group" or is it always whoever's at the seaport? Need
+    to check rule text.
+  - Legate "ride-along" 4.1.1: does the Legate auto-move with a
+    Teutonic Lord, or does the agent need an explicit action?
+  - Marshal change mid-Campaign: if Andreas is removed permanently,
+    Hermann becomes secondary-active. Does a previously-built
+    Lieutenant pairing involving Hermann revert correctly?
