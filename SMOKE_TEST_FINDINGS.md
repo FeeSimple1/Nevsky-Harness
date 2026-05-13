@@ -4652,3 +4652,305 @@ Candidate surfaces for R46+:
   - Plan-card validation (Sequence of Play 4.1.2: max 6 Cards,
     no duplicate Lords, no Lower-Lord-without-Lieutenant)
   - Save / Load roundtrip with all R41-R45 state fields
+
+
+# Round 46 — Lord-removal cascade & Lieutenant pairing (2 bugs)
+
+Date: continuation of R45 — fresh probes against `round-46-deep-smoke`
+from `main` at `fe2fc1f`. Baseline 675 passing → 687 passing.
+
+## Probe surfaces (continuation of R45's candidate list)
+
+1. **Save / Load roundtrip with R41-R45 state fields.** Confirmed
+   `model_dump_json()` / `model_validate_json()` is byte-identical for
+   a freshly loaded scenario including `CampaignTurn.seat_supply_this_card`
+   (R44 field). No bug.
+2. **Plan-card validation (`_h_plan_add_card`, campaign.py:56).**
+   Verified: side check, Mustered state check, target size, max 3/Lord.
+   No bug.
+3. **Lord permanent removal cascade (`_remove_lord_permanently`,
+   actions.py:836) and at-limit Disband (`_disband_at_limit`,
+   actions.py:990).** Bug found — SMOKE-033.
+4. **Lieutenant + Lower Lord move-together (4.1.3) in `_h_cmd_march`.**
+   Bug found — SMOKE-034.
+
+## SMOKE-033 — dangling Lieutenant/Lower-Lord pointers on Lord exit
+
+**Rule.** Sequence of Play 4.1.3: "if either is removed/Disbanded, the
+survivor reverts to a normal Lord."  4.9.5 End-Campaign reset
+unstacks all Lieutenants and Lower Lords on a side; that clears
+pointers at most once per Campaign, which is too late for mid-Campaign
+Lord exits.
+
+**Symptom.** Probe set up yaroslav (Lieutenant, `has_lower_lord =
+hermann`) over hermann (Lower Lord, `lieutenant_of = yaroslav`),
+then called `_remove_lord_permanently(state, "hermann", ...)`. After:
+
+  - `hermann.state = removed` ✓
+  - `hermann.lieutenant_of = yaroslav`  (dangling — points at active Lord)
+  - `yaroslav.has_lower_lord = hermann` (dangling — claims a removed Lord)
+
+Reverse direction (Marshal removed): same pattern with the partner
+left pointing at a removed Lord. Same dangling behavior on
+`_disband_at_limit` (3.3.2). Effect on play: a surviving Marshal still
+believes it has a Lower Lord, blocking new `place_lieutenant` calls and
+warping group-move membership assumptions until 4.9.5 cleanup.
+
+**Fix.** In both `_remove_lord_permanently` and `_disband_at_limit`,
+after the cylinder/service-marker/asset cleanup, clear both directions
+of the stack pointer. The clearing is defensive (only touches the
+partner if its back-pointer matches) so a stale single-direction
+pointer cannot accidentally clobber an unrelated valid stack.
+
+## SMOKE-034 — Lieutenant March can leave Lower Lord behind (4.1.3)
+
+**Rule.** Sequence of Play 4.1.3: "move together in March, Retreat,
+etc., as if Lieutenant were Marshal."
+
+**Symptom.** `_h_cmd_march` accepts a caller-specified `group`. With
+yaroslav active as a Lieutenant (`has_lower_lord = hermann`), calling
+`cmd_march` with `group = ["yaroslav"]` succeeded — yaroslav moved to
+the destination while hermann stayed at the origin. That violates
+4.1.3.
+
+**Fix.** Reject `cmd_march` when the active Lord has `has_lower_lord`
+set and the named Lower Lord is missing from `group`. Error code
+`lower_lord_required`. Existing Marshal-led group March remains
+optional — the constraint only fires when a Lieutenant pair exists.
+
+## Audit notes (not fixed in R46)
+
+- **Avoid Battle / Withdraw.** Both operate on `cp.defender_lords`,
+  which is populated by `_enemies_at` and naturally includes the
+  whole stack (both Marshal + Lower Lord since they're co-located).
+  No fix needed.
+- **Battle Retreat.** Each loser Lord retreats individually via its
+  own Way search. In practice they pick the same valid neighbor and
+  end up co-located, but the code does not explicitly enforce
+  "Lieutenant + Lower Lord retreat together." This may want a follow-
+  up probe under stress: contrived geometry where the Lieutenant has
+  one valid Way and the Lower Lord has a different one. Logged as a
+  candidate for R47.
+- **Sail (`_h_cmd_sail`).** Existing comment claims Q-003 does not
+  constrain Sail group membership beyond co-location. Q-003 is about
+  WHO may be a Lieutenant, not about how Lieutenants MOVE. Rule 4.1.3
+  uses "March, Retreat, etc." — whether "etc." covers Sail is a
+  Q-NNN-worthy question. Conservative R46 fix is March-only;
+  R47 should propose Q-009 to resolve.
+- **Active-Lord removed mid-card.** If the campaign's `active_lord` is
+  removed via Battle, `campaign_turn.active_lord` still references the
+  removed Lord id. Reveal cycle correctly routes around it via the
+  `state != "mustered"` Pass branch (4.2.3), so this is just a stale
+  string; no behavioral bug. Logged as cosmetic.
+
+## Tests
+
+`tests/test_round_46_lord_remove_unstack.py` — 12 regressions:
+
+  - Remove Lieutenant clears Marshal's `has_lower_lord` (and own).
+  - Remove Marshal clears Lieutenant's `lieutenant_of` (and own).
+  - Disband Lieutenant clears Marshal's pointer.
+  - Disband Marshal clears Lieutenant's pointer.
+  - Remove unstacked Lord: zero side effects on other Lords.
+  - Idempotent remove: second call doesn't restore partner pointer.
+  - Defensive: stale single-direction pointer at non-existent Lord
+    doesn't crash.
+  - Defensive: partner back-pointer mismatch doesn't clobber an
+    unrelated valid stack.
+  - SMOKE-034: Lieutenant March without Lower Lord → IllegalAction.
+  - SMOKE-034: Lieutenant March with Lower Lord in group → ok.
+  - SMOKE-034: Marshal-with-Lower-Lord must bring the Lower Lord too.
+  - SMOKE-034: Unstacked Lord may march alone.
+
+675 → 687 passing.
+
+## Candidate surfaces for R47
+
+  - Q-009 candidate: does 4.1.3 "etc." cover Sail? (logged)
+  - Battle Retreat — Lieutenant + Lower Lord retreating to different
+    neighbors under contrived geometry.
+  - just_arrived_this_levy flag on permanent removal (does it leak
+    across Lord re-Muster cycles?).
+  - lordship_used reset on disband at limit (1.7.3 implications).
+  - Vassal Service marker cleanup when Lord is permanently removed
+    in-Calendar (do markers stay orphaned on the calendar?).
+  - Plan-card "no Lower-Lord-without-Lieutenant" — does the harness
+    block adding a Lower Lord's card if their Lieutenant isn't also
+    in the Plan? (4.2.3 makes the card a Pass anyway, but the rule
+    text suggests it should be rejected at Plan time.)
+  - Multi-Lord Group March variant: Marshal carries forces — does the
+    Marshal's Lordship spend cover everyone, or does each Lord need
+    independent action accounting?
+
+
+# Round 47 — per-Levy and in-Stronghold flag resets (2 bugs)
+
+Date: continuation of R46. Branch piggybacks on `round-46-deep-smoke`
+(both rounds add to the same PR).
+
+## Probe surfaces
+
+1. **just_arrived_this_levy reset across Levies.** Bug — SMOKE-035.
+2. **in_stronghold reset across movement.** Bug — SMOKE-036.
+3. **lordship_used on Disband.** Already cleared by `_disband_at_limit`;
+   no bug.
+4. **combat_pending stale references after mid-Battle Lord removal.**
+   Stale-but-OK: the caller (Battle resolution) clears combat_pending
+   shortly after. Not fixed.
+
+## SMOKE-035 — just_arrived_this_levy persists across Levies (3.4)
+
+**Rule.** Rule 3.4 (Muster): a Lord newly Mustered THIS Levy may not
+act as a Lordship source in the same Muster step. The flag is per-
+Levy and should reset on each new Levy.
+
+**Symptom.** `_h_advance_step` resets `lordship_used = 0` at the start
+of each Muster step but does NOT reset `just_arrived_this_levy`. A
+Lord who Mustered in Levy N still has `just_arrived_this_levy = True`
+in Levy N+1's Muster step, and `_h_levy_capability` (and other
+Lordship-source checks) wrongly raise `just_arrived` errors.
+
+**Fix.** `_h_end_campaign_resolve`, in the Campaign → next-Levy
+transition block, loops all Lords and sets
+`lord.just_arrived_this_levy = False`. The flag is then re-set to
+True only when a Lord is Mustered in the new Levy via
+`_place_lord_on_map`.
+
+## SMOKE-036 — in_stronghold persists across movement
+
+**Symptom.** The `in_stronghold` flag (set when a Lord Withdraws into
+a Stronghold or a Sallying Lord Withdraws back) is never cleared by
+any movement handler. A Lord who:
+
+  1. Withdraws into a Stronghold at Locale A (siege_markers > 0),
+  2. Has the siege end (attackers depart, siege_markers → 0),
+  3. Marches out of A to Locale B,
+
+still carries `in_stronghold = True` at Locale B. This stale flag is
+read by `legal_moves.py` (Approach detection: `not l.in_stronghold`
+filter) and `previews.py` (Battle Array placement). It makes the
+Lord invisible to enemy Approach detection — an enemy March into B
+would not trigger the Approach decision, since legal_moves believes
+the only Lord at B is "inside a Stronghold."
+
+The double-check in `_h_battle_resolve` (`l.in_stronghold AND
+siege_markers > 0`) catches the case for Battle resolution proper,
+but legal_moves and previews use the single check.
+
+**Fix.** In `_h_cmd_march` (3 branches: enemy-Approach, no-enemy
+move, and Sail's `_h_cmd_sail`) and in Battle Retreat
+(`_h_battle_resolve` loser-Lord movement) and in `_h_avoid_battle`,
+set `lord.in_stronghold = False` immediately after the
+`lord.location = dest` assignment. The flag re-arms only when a Lord
+explicitly Withdraws into a Stronghold (`_h_withdraw`) or a Sally
+results in a Withdraw-back.
+
+## Tests
+
+`tests/test_round_47_levy_resets.py` — 5 regressions:
+
+  - just_arrived clears for all Lords on Campaign → Levy transition.
+  - just_arrived clears even for Disbanded Lords (covers re-Muster).
+  - just_arrived NOT cleared mid-transition (one side only).
+  - in_stronghold clears on cmd_march to a new Locale.
+  - in_stronghold clears on avoid_battle.
+
+687 → 692 passing.
+
+## Candidate surfaces for R48
+
+  - Q-009: does 4.1.3 "etc." cover Sail group? (still pending)
+  - Battle Retreat Lieutenant + Lower Lord to different neighbors.
+  - Sortie / Sally exit from Stronghold: does the Lord's
+    in_stronghold reset when they exit (not just when they're
+    permanently moved away)?
+  - Lord with in_stronghold=True at a Locale whose siege_markers go
+    from positive to zero via some path other than Storm — does
+    in_stronghold reset, or does the Lord stay "inside the
+    Stronghold" conceptually? (probably stays, but worth probing)
+  - Vassal Muster gating: do special-vassal vassal markers correctly
+    clear from the Calendar when their gating Capability is
+    discarded mid-game?
+  - Pleskau VP bonus per Q-NNN: when a Lord is "removed" due to
+    cylinder going past 0 in Calendar via Service-rating mechanics
+    (not Battle), does the bonus still fire correctly?
+
+
+# Round 48 — re-Muster cleanup (1 bug)
+
+## SMOKE-037 — _place_lord_on_map leaks stale in_stronghold and per-card flags
+
+**Symptom.** A Disbanded Lord with `in_stronghold = True` (e.g.,
+Disbanded from inside a Stronghold during FPD) retains that flag
+through Disband. When they Muster again the next Levy via
+`_place_lord_on_map`, they appear at a Seat but still flagged as
+"inside a Stronghold." Similarly `first_march_used_this_card` and
+`raiders_used_this_card` can persist if the Lord was Disbanded mid-
+card; on re-Muster they should be False until a new card fires.
+
+**Fix.** `_place_lord_on_map` now sets `in_stronghold = False`,
+`first_march_used_this_card = False`, `raiders_used_this_card =
+False` alongside the existing `state = "mustered"`, `lordship_used =
+0`, `just_arrived_this_levy = True` block.
+
+## Tests
+
+`tests/test_round_47_levy_resets.py` extended with:
+  - re-Muster clears in_stronghold.
+  - re-Muster clears first_march_used_this_card and
+    raiders_used_this_card.
+
+692 → 694 passing.
+
+## Candidate surfaces for R49
+
+  - off_right cylinder (Service ended at box 17): can the Lord still
+    be auto-Mustered via Veche option B? Should they be re-pulled
+    or remain off-map for the rest of the scenario?
+  - Pleskau VP bonus when Lord is removed via FPD (3.3.1 path) — the
+    bonus mirrors into calendar.<other_side>_vp regardless of removal
+    cause, but does it correctly fire for non-Battle removal?
+  - Trade-Route flip cascades — multiple flips in one March via
+    Cogs / multi-leg movement.
+  - Hold cards (R1/T1/R6/T6) face-down hand size and reveal timing.
+  - Plan-stack visibility: confirm an opponent's PLAYED cards are
+    visible but unplayed are hidden (1.9.2 + 4.1).
+
+
+# Round 49 — SMOKE-036 follow-up (mop-up paths)
+
+## SMOKE-036 follow-up
+
+Two additional movement paths were missed in R47's coverage:
+
+  - `events.py::_ev_andreas_to_riga` (R14 event): teleports Andreas's
+    cylinder to riga without clearing in_stronghold.
+  - `campaign.py::_h_cmd_sally` Sally aftermath retreat path
+    (campaign.py:2797): defenders retreat to a friendly neighbor
+    without clearing in_stronghold.
+
+**Fix.** Both paths now set `in_stronghold = False` immediately after
+the `location = target` assignment. Round-47 invariant (in_stronghold
+clears on any movement) is now consistently enforced across all
+location-change call sites.
+
+## Verified clean (no fix needed)
+
+  - Storm success: attackers occupy locale but are not in_stronghold
+    (they don't enter the Stronghold structure after Sack). Existing
+    behavior is correct.
+  - Veche option A (slide cylinder 2 left): correctly rejects
+    Mustered / off_left / off_right Lords.
+  - Forage / Ravage Provender + Loot caps use `min(8, ...)` pattern
+    correctly.
+
+694 → 694 passing (no test count change; mop-up patches).
+
+## Candidate surfaces for R50
+
+  - Veche option D edge: cyl_box == 0 (off_left) for Aleksandr/Andrey
+    is hypothetical (start state has them at boxes 5-9), but the
+    `cyl_box <= 16` branch would mis-index `boxes[-1]`. Latent.
+  - Multi-leg Sail with Trade Route flips at intermediate ports.
+  - Vassal markers on Calendar mid-Levy when host Lord disbands.
+  - Adjacent-enemy Ravage cost +1 when Lieutenant is the enemy.

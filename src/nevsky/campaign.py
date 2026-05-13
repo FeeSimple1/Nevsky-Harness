@@ -975,6 +975,12 @@ def _h_cmd_sail(
             raise IllegalAction("bad_group", f"{gid} not co-located with {lord_id}")
         state.lords[gid].location = dest
         state.lords[gid].moved_fought = True
+        # SMOKE-036 (Round 47): clear in_stronghold on any movement to a
+        # new Locale. The flag tracks "inside a Stronghold at the
+        # current Locale" and would otherwise leak across moves, causing
+        # legal_moves and Battle Array checks to mistake a Lord in the
+        # open at the new Locale for one inside a Stronghold.
+        state.lords[gid].in_stronghold = False
 
     # SMOKE-020 (Round 34): trade-route auto-flip on uncontested entry.
     trade_flip = _flip_trade_route_if_uncontested(state, dest, sd)
@@ -1449,6 +1455,17 @@ def _h_end_campaign_resolve(
             state.campaign_turn.in_feed_pay_disband = False
             state.campaign_turn.fpd_completed_t = False
             state.campaign_turn.fpd_completed_r = False
+            # SMOKE-035 (Round 47): reset per-Levy Lord flags when
+            # transitioning Campaign -> next Levy. just_arrived_this_levy
+            # marks a Lord that Mustered in the current Levy (3.4 blocks
+            # them from Lordship-spending in the same Muster step). The
+            # previous Levy is done; the new Levy has not yet Mustered
+            # anyone, so the flag must clear for all Lords. Without this
+            # reset, a Lord who Mustered in Levy N still counts as
+            # "just arrived" in Levy N+1's Muster step and is wrongly
+            # blocked from acting as a Lordship source.
+            for lord in state.lords.values():
+                lord.just_arrived_this_levy = False
             advanced = True
 
     return ({"side": sd, "grew": grew, "wastage": wastage_actions,
@@ -1770,6 +1787,20 @@ def _h_cmd_march(
     src = lord.location
     if src is None:
         raise IllegalAction("no_location", "Lord has no location")
+    # SMOKE-034 (Round 46): an active Lieutenant (Lord with a Lower
+    # Lord stacked on them via 4.1.3) MUST move together with the Lower
+    # Lord -- "move together in March, Retreat, etc., as if Lieutenant
+    # were Marshal" (Sequence of Play 4.1.3). Reject any March group
+    # that omits the Lower Lord. Likewise reject a Lower Lord
+    # appearing as active here (its card resolves as Pass via
+    # _h_command_reveal), but if a caller bypasses reveal we still
+    # guard the group.
+    if lord.has_lower_lord is not None and lord.has_lower_lord not in group:
+        raise IllegalAction(
+            "lower_lord_required",
+            f"Active Lieutenant {lord_id} must move with Lower Lord "
+            f"{lord.has_lower_lord} (4.1.3)",
+        )
 
     # Way check.
     ways = load_ways()
@@ -1851,6 +1882,8 @@ def _h_cmd_march(
         for gid in group:
             state.lords[gid].location = dest
             state.lords[gid].moved_fought = True
+            # SMOKE-036 (Round 47): clear in_stronghold on movement
+            state.lords[gid].in_stronghold = False
         _consume_actions(state, cost)
         state.lords[lord_id].first_march_used_this_card = True
         return (
@@ -1868,6 +1901,12 @@ def _h_cmd_march(
     for gid in group:
         state.lords[gid].location = dest
         state.lords[gid].moved_fought = True
+        # SMOKE-036 (Round 47): clear in_stronghold on any movement to a
+        # new Locale. The flag tracks "inside a Stronghold at the
+        # current Locale" and would otherwise leak across moves, causing
+        # legal_moves and Battle Array checks to mistake a Lord in the
+        # open at the new Locale for one inside a Stronghold.
+        state.lords[gid].in_stronghold = False
 
     # SMOKE-020 (Round 34): trade-route auto-flip on uncontested entry.
     trade_flip = _flip_trade_route_if_uncontested(state, dest, sd)
@@ -2002,6 +2041,8 @@ def _h_avoid_battle(
     for did in cp.defender_lords:
         state.lords[did].location = dest
         state.lords[did].moved_fought = True
+        # SMOKE-036: clear in_stronghold on movement.
+        state.lords[did].in_stronghold = False
 
     # 1.4.1 Legate trigger: if any Teutonic defender Avoided and the
     # Legate is at the Avoid origin (cp.to_locale, where the Lord just
@@ -2287,6 +2328,8 @@ def _h_stand_battle(
                 aftermath["removed"].append(lid)
                 continue
         lord.location = target
+        # SMOKE-036: clear in_stronghold on Retreat movement.
+        lord.in_stronghold = False
         shift = apply_retreat_service_shift(state, lid)
         # AUDIT-004 (4.4.3 2E): Conceded+Retreated losers transfer only
         # Loot and excess Provender beyond Unladen along the Retreat
@@ -2752,6 +2795,8 @@ def _h_cmd_sally(
                     aftermath.setdefault("spoils", []).append(spoil)
                 else:
                     l.location = target
+                    # SMOKE-036: clear in_stronghold on Sally retreat.
+                    l.in_stronghold = False
                     shift = apply_retreat_service_shift(state, lid)
                     spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
