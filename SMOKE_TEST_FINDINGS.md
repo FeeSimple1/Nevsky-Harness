@@ -5189,3 +5189,62 @@ to `_h_cmd_sail`, parallel to `_h_cmd_march`:
   - Cylinder placement edge: scenario_loader places cylinders at
     initial Calendar boxes — verify off_left/off_right handling for
     Andreas at scenario start.
+
+
+# Round 55 — Legate ride-along (1 bug)
+
+## SMOKE-043 — Legate cannot ride along Teutonic March / Sail
+
+**Rule.** Misc Rules Reference: "The Legate may March (4.3) or Sail
+(4.7.3) along with any Teutonic Lord he is co-located with — at the
+Lord's discretion." Commands.txt 4.1.1: "Lord may take Legate
+along."
+
+**Symptom.** `_h_cmd_march` and `_h_cmd_sail` had no path for the
+Lord to bring the Legate. A Teutonic Lord co-located with the
+Legate who marched away simply abandoned the pawn at the source
+locale. Per the rule, the option to bring the Legate should be
+available at the Lord's discretion.
+
+**Fix.** New helper `_take_legate_along(state, side, src, dest,
+take_flag)`:
+  - Validates Teutonic only (raises `not_teutonic`).
+  - Validates Legate in play and co-located at src (raises
+    `legate_not_in_play` / `legate_not_co_located`).
+  - Teleports the Legate pawn to dest; reports the carry via the
+    action's result `legate_carried` key.
+
+Both `_h_cmd_march` (Approach branch + no-enemy branch) and
+`_h_cmd_sail` now call the helper with `args.take_legate=True` to
+opt in. Default behavior (take_legate=False) preserves prior
+behavior: the Legate stays at the source.
+
+## Tests
+
+`tests/test_round_55_legate_ride.py` — 6 regressions:
+
+  - take_legate=True moves the Legate with the Lord.
+  - take_legate=False leaves the Legate behind.
+  - Russian Lord rejected.
+  - Legate at different locale rejected.
+  - Legate not in play rejected.
+  - Sail ride-along works identically.
+
+712 → 718 passing.
+
+## Candidate surfaces for R56
+
+  - Defender forced to abandon Legate via Avoid Battle — already
+    handled (Legate captured), but verify the helper isn't
+    accidentally double-firing the Legate-removal in nested paths.
+  - Battle Aftermath: if Teutonic Lord retreats away from a Locale
+    with the Legate present, what happens? Rule may capture the
+    Legate or move with the Lord. The harness probably leaves the
+    Legate at the locale (which makes it captured per 1.4.1 if
+    no Teutonic Lord remains).
+  - Sortie/exit: when sallying Lord exits Stronghold, what's their
+    in_stronghold during the battle resolution?
+  - Storm: defenders ALL removed but locale not Sacked (siege
+    continues because attacker lost?).
+  - Lord at Friendly Locale Tax: does the Tax helper correctly use
+    locale-level VP value vs. Veche Coin add?

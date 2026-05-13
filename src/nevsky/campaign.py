@@ -1027,6 +1027,11 @@ def _h_cmd_sail(
 
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
+    # SMOKE-043 (Round 55): Teutonic Lord may bring the Legate
+    # along on Sail (4.1.1). args.take_legate=True opts in.
+    legate_carried = _take_legate_along(
+        state, sd, src, dest, bool(args.get("take_legate", False)),
+    )
     result = {
         "lord_id": lord_id,
         "from": src,
@@ -1036,6 +1041,8 @@ def _h_cmd_sail(
     }
     if trade_flip is not None:
         result["trade_route_flip"] = trade_flip
+    if legate_carried:
+        result["legate_carried"] = legate_carried
     return (result, [])
 
 
@@ -1783,6 +1790,32 @@ def _has_enemy_stronghold_at(state: GameState, locale_id: str, side: Side) -> bo
     return False
 
 
+def _take_legate_along(
+    state: GameState, side: str, src: str, dest: str,
+    take_flag: bool,
+) -> dict[str, Any] | None:
+    """4.1.1: Teutonic Lord may bring the Legate along on March / Sail
+    if the Lord is co-located with the Legate. Returns a summary dict
+    when the Legate is taken, None otherwise. Validates side, the
+    Legate's in-play state, and co-location at src; teleports Legate
+    pawn to dest. The Lord does not consume Transport for the Legate.
+    """
+    if not take_flag:
+        return None
+    if side != "teutonic":
+        raise IllegalAction("not_teutonic", "Only Teutonic Lords may take the Legate (4.1.1)")
+    if not state.legate.william_of_modena_in_play:
+        raise IllegalAction("legate_not_in_play",
+                            "Legate not in play; nothing to take")
+    if state.legate.location != "locale" or state.legate.locale_id != src:
+        raise IllegalAction(
+            "legate_not_co_located",
+            f"Legate is at {state.legate.locale_id}, not at march source {src} (4.1.1)",
+        )
+    state.legate.locale_id = dest
+    return {"from": src, "to": dest, "took_legate": True}
+
+
 def _h_cmd_march(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1931,16 +1964,21 @@ def _h_cmd_march(
             state.lords[gid].in_stronghold = False
         _consume_actions(state, cost)
         state.lords[lord_id].first_march_used_this_card = True
-        return (
-            {
-                "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
-                "group": group, "laden": laden, "cost": cost,
-                "approach": True,
-                "defender_side": state.lords[enemies[0]].side,
-                "defender_lords": enemies,
-            },
-            [],
+        # SMOKE-043 (Round 55): Teutonic Lord may bring the Legate
+        # along on March (4.1.1). args.take_legate=True opts in.
+        legate_carried = _take_legate_along(
+            state, sd, src, dest, bool(args.get("take_legate", False)),
         )
+        out_approach = {
+            "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
+            "group": group, "laden": laden, "cost": cost,
+            "approach": True,
+            "defender_side": state.lords[enemies[0]].side,
+            "defender_lords": enemies,
+        }
+        if legate_carried:
+            out_approach["legate_carried"] = legate_carried
+        return (out_approach, [])
 
     # No enemy Lord: just move.
     for gid in group:
@@ -1970,6 +2008,12 @@ def _h_cmd_march(
         _consume_actions(state, cost)
     state.lords[lord_id].first_march_used_this_card = True
 
+    # SMOKE-043 (Round 55): Teutonic Lord may bring the Legate
+    # along on March (4.1.1). args.take_legate=True opts in.
+    legate_carried = _take_legate_along(
+        state, sd, src, dest, bool(args.get("take_legate", False)),
+    )
+
     result = {
         "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
         "group": group, "laden": laden, "cost": cost,
@@ -1977,6 +2021,8 @@ def _h_cmd_march(
     }
     if trade_flip is not None:
         result["trade_route_flip"] = trade_flip
+    if legate_carried:
+        result["legate_carried"] = legate_carried
     return (result, [])
 
 
