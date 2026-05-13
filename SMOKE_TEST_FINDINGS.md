@@ -4781,3 +4781,96 @@ optional — the constraint only fires when a Lieutenant pair exists.
   - Multi-Lord Group March variant: Marshal carries forces — does the
     Marshal's Lordship spend cover everyone, or does each Lord need
     independent action accounting?
+
+
+# Round 47 — per-Levy and in-Stronghold flag resets (2 bugs)
+
+Date: continuation of R46. Branch piggybacks on `round-46-deep-smoke`
+(both rounds add to the same PR).
+
+## Probe surfaces
+
+1. **just_arrived_this_levy reset across Levies.** Bug — SMOKE-035.
+2. **in_stronghold reset across movement.** Bug — SMOKE-036.
+3. **lordship_used on Disband.** Already cleared by `_disband_at_limit`;
+   no bug.
+4. **combat_pending stale references after mid-Battle Lord removal.**
+   Stale-but-OK: the caller (Battle resolution) clears combat_pending
+   shortly after. Not fixed.
+
+## SMOKE-035 — just_arrived_this_levy persists across Levies (3.4)
+
+**Rule.** Rule 3.4 (Muster): a Lord newly Mustered THIS Levy may not
+act as a Lordship source in the same Muster step. The flag is per-
+Levy and should reset on each new Levy.
+
+**Symptom.** `_h_advance_step` resets `lordship_used = 0` at the start
+of each Muster step but does NOT reset `just_arrived_this_levy`. A
+Lord who Mustered in Levy N still has `just_arrived_this_levy = True`
+in Levy N+1's Muster step, and `_h_levy_capability` (and other
+Lordship-source checks) wrongly raise `just_arrived` errors.
+
+**Fix.** `_h_end_campaign_resolve`, in the Campaign → next-Levy
+transition block, loops all Lords and sets
+`lord.just_arrived_this_levy = False`. The flag is then re-set to
+True only when a Lord is Mustered in the new Levy via
+`_place_lord_on_map`.
+
+## SMOKE-036 — in_stronghold persists across movement
+
+**Symptom.** The `in_stronghold` flag (set when a Lord Withdraws into
+a Stronghold or a Sallying Lord Withdraws back) is never cleared by
+any movement handler. A Lord who:
+
+  1. Withdraws into a Stronghold at Locale A (siege_markers > 0),
+  2. Has the siege end (attackers depart, siege_markers → 0),
+  3. Marches out of A to Locale B,
+
+still carries `in_stronghold = True` at Locale B. This stale flag is
+read by `legal_moves.py` (Approach detection: `not l.in_stronghold`
+filter) and `previews.py` (Battle Array placement). It makes the
+Lord invisible to enemy Approach detection — an enemy March into B
+would not trigger the Approach decision, since legal_moves believes
+the only Lord at B is "inside a Stronghold."
+
+The double-check in `_h_battle_resolve` (`l.in_stronghold AND
+siege_markers > 0`) catches the case for Battle resolution proper,
+but legal_moves and previews use the single check.
+
+**Fix.** In `_h_cmd_march` (3 branches: enemy-Approach, no-enemy
+move, and Sail's `_h_cmd_sail`) and in Battle Retreat
+(`_h_battle_resolve` loser-Lord movement) and in `_h_avoid_battle`,
+set `lord.in_stronghold = False` immediately after the
+`lord.location = dest` assignment. The flag re-arms only when a Lord
+explicitly Withdraws into a Stronghold (`_h_withdraw`) or a Sally
+results in a Withdraw-back.
+
+## Tests
+
+`tests/test_round_47_levy_resets.py` — 5 regressions:
+
+  - just_arrived clears for all Lords on Campaign → Levy transition.
+  - just_arrived clears even for Disbanded Lords (covers re-Muster).
+  - just_arrived NOT cleared mid-transition (one side only).
+  - in_stronghold clears on cmd_march to a new Locale.
+  - in_stronghold clears on avoid_battle.
+
+687 → 692 passing.
+
+## Candidate surfaces for R48
+
+  - Q-009: does 4.1.3 "etc." cover Sail group? (still pending)
+  - Battle Retreat Lieutenant + Lower Lord to different neighbors.
+  - Sortie / Sally exit from Stronghold: does the Lord's
+    in_stronghold reset when they exit (not just when they're
+    permanently moved away)?
+  - Lord with in_stronghold=True at a Locale whose siege_markers go
+    from positive to zero via some path other than Storm — does
+    in_stronghold reset, or does the Lord stay "inside the
+    Stronghold" conceptually? (probably stays, but worth probing)
+  - Vassal Muster gating: do special-vassal vassal markers correctly
+    clear from the Calendar when their gating Capability is
+    discarded mid-game?
+  - Pleskau VP bonus per Q-NNN: when a Lord is "removed" due to
+    cylinder going past 0 in Calendar via Service-rating mechanics
+    (not Battle), does the bonus still fire correctly?
