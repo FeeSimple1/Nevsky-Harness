@@ -1604,6 +1604,41 @@ def _way_type_between(from_locale: str, to_locale: str) -> str | None:
     return None
 
 
+def _award_assets_capped(state: "GameState", lord_id: str,
+                          assets: dict[str, int]) -> dict[str, Any]:
+    """SMOKE-032: Per-type 8-cap aware asset award (rule 1.7.3 Wastage
+    Per Lord: "AT MOST 8 of each Asset type. Any excess gained beyond 8
+    is lost immediately.").
+
+    Adds ``assets`` (a dict of asset_type -> count) to the target Lord's
+    mat, capping each type at 8. Returns ``{added: dict, lost_to_cap:
+    dict}`` so callers can surface what was actually transferred vs.
+    what overflowed.
+
+    Used by every Spoils path (Avoid Battle, Battle Aftermath via
+    transfer_spoils, Storm Sack inter-Lord transfer).
+    """
+    added: dict[str, int] = {}
+    lost: dict[str, int] = {}
+    if lord_id not in state.lords:
+        return {"added": added, "lost_to_cap": lost}
+    lord = state.lords[lord_id]
+    for k, v in assets.items():
+        give = int(v)
+        if give <= 0:
+            continue
+        current = int(lord.assets.get(k, 0))
+        room = max(0, 8 - current)
+        accepted = min(give, room)
+        if accepted > 0:
+            lord.assets[k] = current + accepted  # type: ignore[index]
+            added[k] = accepted
+        excess = give - accepted
+        if excess > 0:
+            lost[k] = excess
+    return {"added": added, "lost_to_cap": lost}
+
+
 def transfer_spoils(
     state: GameState, from_lord: str, to_lords: list[str], mode: str,
     retreat_way_type: str | None = None,
@@ -1667,10 +1702,18 @@ def transfer_spoils(
     if to_lords and transferred:
         winner = to_lords[0]
         if winner in state.lords:
-            for k, v in transferred.items():
-                state.lords[winner].assets[k] = state.lords[winner].assets.get(k, 0) + v  # type: ignore[index]
+            award = _award_assets_capped(state, winner, transferred)
+            # If the cap dropped any (1.7.3), reflect that in the
+            # returned transferred dict — the loser already had assets
+            # removed, but the winner kept only `award["added"]`. The
+            # "lost_to_cap" portion vanishes (per rule: "any excess
+            # gained beyond 8 is lost immediately").
+            transferred = dict(award["added"])
+            lost_to_cap = award["lost_to_cap"]
     return {"from": from_lord, "to": to_lords[0] if to_lords else None,
-            "transferred": transferred, "mode": mode,
+            "transferred": transferred,
+            "lost_to_cap": locals().get("lost_to_cap", {}),
+            "mode": mode,
             "retreat_way_type": retreat_way_type}
 
 
