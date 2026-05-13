@@ -151,3 +151,46 @@ def test_in_stronghold_cleared_on_avoid_battle():
     apply_action(st, {"type": "avoid_battle", "side": "russian", "args": {"to": dest}})
     assert g.location == dest
     assert g.in_stronghold is False
+
+
+# -----------------------------------------------------------------
+# SMOKE-037: re-Mustered Lord must clear stale in_stronghold and
+# per-card flags (3.4.1).
+# -----------------------------------------------------------------
+
+from nevsky.actions import _disband_at_limit, _place_lord_on_map
+from nevsky.static_data import load_lords as _load_lords
+
+
+def test_remuster_clears_in_stronghold():
+    """A Lord who Disbanded while in_stronghold=True must come back
+    in_stronghold=False on the next Muster (placed at a Seat in open)."""
+    st = load_scenario("pleskau", seed=1)
+    h = st.lords["hermann"]
+    h.in_stronghold = True
+    _disband_at_limit(st, "hermann", 4)
+    assert h.state == "disbanded"
+    # Re-Muster: _place_lord_on_map at a Seat
+    static = _load_lords()
+    sl = static["hermann"]
+    seat = sl.get("primary_seat", sl["seats"][0] if "seats" in sl else "reval")
+    _place_lord_on_map(st, "hermann", seat, levy_box=1)
+    assert h.state == "mustered"
+    assert h.in_stronghold is False
+
+
+def test_remuster_clears_per_card_flags():
+    """Per-card flags (first_march_used_this_card, raiders_used_this_card)
+    must reset on Muster — they're per-card and a fresh Mustered Lord
+    has not yet had any card revealed."""
+    st = load_scenario("pleskau", seed=1)
+    h = st.lords["hermann"]
+    h.first_march_used_this_card = True
+    h.raiders_used_this_card = True
+    _disband_at_limit(st, "hermann", 4)
+    static = _load_lords()
+    sl = static["hermann"]
+    seat = sl.get("primary_seat", sl["seats"][0] if "seats" in sl else "reval")
+    _place_lord_on_map(st, "hermann", seat, levy_box=1)
+    assert h.first_march_used_this_card is False
+    assert h.raiders_used_this_card is False

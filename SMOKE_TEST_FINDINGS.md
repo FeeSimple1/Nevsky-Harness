@@ -4874,3 +4874,44 @@ results in a Withdraw-back.
   - Pleskau VP bonus per Q-NNN: when a Lord is "removed" due to
     cylinder going past 0 in Calendar via Service-rating mechanics
     (not Battle), does the bonus still fire correctly?
+
+
+# Round 48 — re-Muster cleanup (1 bug)
+
+## SMOKE-037 — _place_lord_on_map leaks stale in_stronghold and per-card flags
+
+**Symptom.** A Disbanded Lord with `in_stronghold = True` (e.g.,
+Disbanded from inside a Stronghold during FPD) retains that flag
+through Disband. When they Muster again the next Levy via
+`_place_lord_on_map`, they appear at a Seat but still flagged as
+"inside a Stronghold." Similarly `first_march_used_this_card` and
+`raiders_used_this_card` can persist if the Lord was Disbanded mid-
+card; on re-Muster they should be False until a new card fires.
+
+**Fix.** `_place_lord_on_map` now sets `in_stronghold = False`,
+`first_march_used_this_card = False`, `raiders_used_this_card =
+False` alongside the existing `state = "mustered"`, `lordship_used =
+0`, `just_arrived_this_levy = True` block.
+
+## Tests
+
+`tests/test_round_47_levy_resets.py` extended with:
+  - re-Muster clears in_stronghold.
+  - re-Muster clears first_march_used_this_card and
+    raiders_used_this_card.
+
+692 → 694 passing.
+
+## Candidate surfaces for R49
+
+  - off_right cylinder (Service ended at box 17): can the Lord still
+    be auto-Mustered via Veche option B? Should they be re-pulled
+    or remain off-map for the rest of the scenario?
+  - Pleskau VP bonus when Lord is removed via FPD (3.3.1 path) — the
+    bonus mirrors into calendar.<other_side>_vp regardless of removal
+    cause, but does it correctly fire for non-Battle removal?
+  - Trade-Route flip cascades — multiple flips in one March via
+    Cogs / multi-leg movement.
+  - Hold cards (R1/T1/R6/T6) face-down hand size and reveal timing.
+  - Plan-stack visibility: confirm an opponent's PLAYED cards are
+    visible but unplayed are hidden (1.9.2 + 4.1).

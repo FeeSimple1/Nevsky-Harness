@@ -1369,6 +1369,12 @@ def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int)
     lord.state = "mustered"
     lord.just_arrived_this_levy = True
     lord.lordship_used = 0
+    # SMOKE-037 (Round 48): a fresh Muster places the Lord at a Seat in
+    # the open. Clear flags that could be stale from a prior Mustered
+    # life (Disbanded -> re-Mustered cycle).
+    lord.in_stronghold = False
+    lord.first_march_used_this_card = False
+    lord.raiders_used_this_card = False
     # Vassal Service markers face up where their Capability is in effect;
     # special vassals stay aside if their gating Capability is not in
     # effect (Steppe Warriors / Crusade).
