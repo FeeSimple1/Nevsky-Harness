@@ -5296,3 +5296,47 @@ defensive handling: missing levy marker → no-op; off_left cylinder
     "re-removed" via a contrived path, does the bonus fire twice?
   - Lord state="removed" can never come back, but does the harness
     correctly differentiate it from "disbanded"?
+
+
+# Round 57 — Conquered marker overflow (1 latent bug)
+
+## SMOKE-045 — Conquered count uses += and can overflow on same-side re-Conquest
+
+**Symptom.** `_apply_conquest_or_liberation` used `+=` to add the
+Stronghold's full sh_vp to `<side>_conquered` on every Conquest. If
+the same side Conquers the same locale twice without an intervening
+Liberation, the marker count exceeds the Stronghold's max
+(City=2, Novgorod=3, Fort=1). VP is also added twice.
+
+In practice the bug is hard to reach because Storm requires
+`siege_markers > 0`, and successful Storm clears siege_markers to 0
+and prevents enemy Withdraw into a now-friendly-Conquered Stronghold.
+But the harness's `+=` is brittle and the rule is "fully Conquered
+= sh_vp markers" (not "cumulative").
+
+**Fix.** Use `max(conquered, sh_vp)` instead of `+=`, and emit only
+the delta VP. This caps the marker at sh_vp and ensures VP
+accounting is correct even on a re-Conquest. The result dict's
+`"vp"` field now reports the delta added (0 on no-op re-Conquest).
+
+## Tests
+
+`tests/test_round_57_conquest_cap.py` — 3 regressions:
+
+  - City double-Conquest caps at 2 markers; delta VP=0 on second.
+  - Novgorod single Conquest places 3 markers, full VP=3.
+  - Partial → full Conquest emits delta=1.
+
+724 → 727 passing.
+
+## Candidate surfaces for R58
+
+  - Marshal change mid-Campaign (Andreas removed → Hermann becomes
+    secondary-active). Does an existing Lieutenant pairing involving
+    Hermann persist or revert?
+  - Conquered marker semantics on Storm rejection vs Sack: when
+    Storm fails, the besieging Lord(s) stay; what if they then
+    win on a later card?
+  - 4.9.4 Wastage: cards Discarded > 3 = Lord wastage (forces/assets).
+    Does this fire correctly when capabilities discard happens?
+  - VP cap at 17.5 — confirm scoring respects cap only at end.

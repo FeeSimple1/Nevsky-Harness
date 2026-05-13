@@ -2566,14 +2566,22 @@ def _apply_conquest_or_liberation(
         castle_flip = {"from": "teutonic", "to": "russian"}
     if attacker_side != native_side:
         # Conquest: attacker is conquering enemy-native locale.
+        # SMOKE-045 (Round 57): cap at sh_vp instead of cumulative +=.
+        # A locale is either fully Conquered (sh_vp markers) or not;
+        # re-Conquest by the same side should be a no-op for the marker
+        # but is reachable only via contrived flows (siege state
+        # gating normally prevents same-side re-Storm). Defensive: emit
+        # only the delta VP so calendar.<side>_vp tracks correctly.
         if attacker_side == "teutonic":
-            loc.teutonic_conquered += sh_vp
-            state.calendar.teutonic_vp += float(sh_vp)
+            delta = max(0, sh_vp - loc.teutonic_conquered)
+            loc.teutonic_conquered = max(loc.teutonic_conquered, sh_vp)
+            state.calendar.teutonic_vp += float(delta)
         else:
-            loc.russian_conquered += sh_vp
-            state.calendar.russian_vp += float(sh_vp)
+            delta = max(0, sh_vp - loc.russian_conquered)
+            loc.russian_conquered = max(loc.russian_conquered, sh_vp)
+            state.calendar.russian_vp += float(delta)
         _refresh_vp_markers(state)
-        out = {"type": "conquest", "side": attacker_side, "vp": sh_vp}
+        out = {"type": "conquest", "side": attacker_side, "vp": delta}
         if castle_flip:
             out["castle_flip"] = castle_flip
         return out
