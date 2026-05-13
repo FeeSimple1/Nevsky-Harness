@@ -5697,3 +5697,56 @@ asserts `state == "disbanded"`.
     checks the dynamic state on play, so retake recovery is implicit.
   - Crusade on Novgorod scenario special-case rules — keep_no_event_
     cards flow.
+
+
+# Round 63 — Castle marker doesn't upgrade Stronghold stats (1 bug)
+
+## SMOKE-054 — Castle-marked Fort uses Fort stats instead of Castle stats
+
+**Rule (AoW Reference T17 Tip).** "The Castle marker replaces the
+Fort or Town at its Locale." Castle stats: capacity 2, walls 1-4,
+garrison 1 MaA + 1 Knight, vp 1. Fort stats: capacity 1, walls 1-3,
+garrison 1 MaA + 0 Knight, vp 1.
+
+**Symptom.** `_stronghold_at` returned the Strongholds-table entry
+for the locale's STATIC type, ignoring the dynamic Castle markers
+(`teutonic_castle` / `russian_castle`). A Castle-marked Fort still
+used Fort stats throughout Siege, Storm, and Withdraw — including:
+
+  - Storm Walls roll (1-3 instead of 1-4): attackers had a third
+    less chance of having Hits absorbed by Walls.
+  - Garrison defense: 1 MaA vs 1 MaA + 1 Knight (missing Knight).
+  - Withdraw capacity: 1 vs 2 (a 2-Lord stack couldn't Withdraw into
+    a Castle that should fit them).
+  - VP if Conquered: same (1), no impact here.
+
+**Fix.** New helper `_effective_stronghold(state, locale_id)`:
+  - Calls `_stronghold_at` for the base entry.
+  - If the locale has `teutonic_castle` OR `russian_castle`,
+    overlays the Castle table's stats (capacity/walls/garrison/vp).
+  - Preserves the static `side` field (territory owner) since
+    Stonemasons doesn't transfer ownership.
+
+`_h_cmd_siege` and `_h_cmd_storm` now call `_effective_stronghold`.
+
+## Tests
+
+`tests/test_round_63_castle_stats.py` — 5 regressions:
+  - Static Fort with no Castle → Fort stats (baseline).
+  - Teutonic Castle marker upgrades to Castle stats.
+  - Russian Castle marker upgrades to Castle stats.
+  - Garrison: Castle has 1 MaA + 1 Knight.
+  - Non-Stronghold locale unchanged (None).
+
+753 → 758 passing.
+
+## Candidate surfaces for R64
+
+  - Withdraw capacity check should also use effective Stronghold
+    (currently uses static type via `static_locales[cp.to_locale]
+    .get("type")` in _h_withdraw). Probe whether Castle-marked Fort
+    correctly accepts 2-Lord Withdraw.
+  - Sail-to-Stronghold "place siege marker" check uses static type.
+    Stonemasons Castle at a Fort: same flow, Siege starts.
+  - R8 Black Sea Trade ship parity vs R9 — verify both check
+    Russian Cogs/Lodya symmetrically.
