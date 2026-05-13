@@ -5141,3 +5141,51 @@ Solo marches (`group=[self]`) remain unrestricted.
   - Marshal change mid-Campaign: if Andreas is removed permanently,
     Hermann becomes secondary-active. Does a previously-built
     Lieutenant pairing involving Hermann revert correctly?
+
+
+# Round 54 — Sail Marshal-gate + Lieutenant move (1 bug, parallel to R53)
+
+## SMOKE-042 — Sail group rules don't enforce Marshal/Lieutenant gate
+
+**Rule.** Commands.txt 4.7.3 Sail procedure: "Groups move together as
+per March (4.3.1); Marshals may take group, Lieutenants take Lower
+Lords." Identical to March 4.3.1.
+
+**Symptom.** `_h_cmd_sail` accepted any caller-specified group as
+long as members were co-located, friendly, and Unbesieged. Non-
+Marshal active Lords could Sail with arbitrary same-side
+passengers. Additionally, the existing comment in `_h_cmd_sail`
+claimed Q-003 freed Sail from Lieutenant constraint — Q-003 is
+about WHO can be a Lieutenant, not how Lieutenants MOVE. The
+Sail handler also did not require a Lieutenant to bring their
+Lower Lord.
+
+**Fix.** Apply both R46/R47 Lieutenant guards and R53 Marshal-gate
+to `_h_cmd_sail`, parallel to `_h_cmd_march`:
+
+  - If `lord.has_lower_lord is not None` and lower_lord not in
+    group → `lower_lord_required`.
+  - If `len(group) > 1` and not Marshal-led and not Lieutenant+pair
+    → `non_marshal_group`.
+
+## Tests
+
+`tests/test_round_54_sail_marshal_group.py` — 3 regressions:
+
+  - Non-Marshal Sail group rejected.
+  - Solo non-Marshal Sail allowed.
+  - Lieutenant must Sail with Lower Lord.
+
+709 → 712 passing.
+
+## Candidate surfaces for R55
+
+  - Avoid Battle group — does the rule allow only the Lieutenant +
+    Lower Lord pair, or all enemy defenders co-located? (Currently
+    moves entire cp.defender_lords; logically correct since each
+    defender chose to Avoid).
+  - 4.1.1 Legate ride-along during Sail — does the Legate teleport
+    with the Sailing Lord? Currently the harness doesn't handle this.
+  - Cylinder placement edge: scenario_loader places cylinders at
+    initial Calendar boxes — verify off_left/off_right handling for
+    Andreas at scenario start.
