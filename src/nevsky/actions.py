@@ -237,6 +237,27 @@ def _h_advance_step(
             # Reset per-Lord Lordship counters at start of Muster (3.4).
             for lord in state.lords.values():
                 lord.lordship_used = 0
+            # SMOKE-044 (Round 56): transition disbanded -> ready for
+            # Lords whose cylinder is on the Calendar at or before the
+            # Levy marker. Without this transition, a Lord Disbanded at
+            # limit (3.3.2) in a prior Levy stays state="disbanded"
+            # forever and _h_muster_lord rejects them. Per rules a
+            # Disbanded Lord re-Musters in future Levies when the Levy
+            # marker catches up to their cylinder.
+            try:
+                levy_box = _find_levy_marker_box(state)
+            except IllegalAction:
+                levy_box = None
+            if levy_box is not None:
+                for lord_id, lord in state.lords.items():
+                    if lord.state != "disbanded":
+                        continue
+                    cyl_box = _find_cylinder_box(state, lord_id)
+                    if cyl_box is None:
+                        continue
+                    # off_left (0) or boxes 1..levy_box: Ready
+                    if cyl_box <= levy_box:
+                        lord.state = "ready"  # type: ignore[assignment]
         if next_step == "call_to_arms":
             # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
             state.legate.acted_this_call_to_arms = False

@@ -5189,3 +5189,154 @@ to `_h_cmd_sail`, parallel to `_h_cmd_march`:
   - Cylinder placement edge: scenario_loader places cylinders at
     initial Calendar boxes — verify off_left/off_right handling for
     Andreas at scenario start.
+
+
+# Round 55 — Legate ride-along (1 bug)
+
+## SMOKE-043 — Legate cannot ride along Teutonic March / Sail
+
+**Rule.** Misc Rules Reference: "The Legate may March (4.3) or Sail
+(4.7.3) along with any Teutonic Lord he is co-located with — at the
+Lord's discretion." Commands.txt 4.1.1: "Lord may take Legate
+along."
+
+**Symptom.** `_h_cmd_march` and `_h_cmd_sail` had no path for the
+Lord to bring the Legate. A Teutonic Lord co-located with the
+Legate who marched away simply abandoned the pawn at the source
+locale. Per the rule, the option to bring the Legate should be
+available at the Lord's discretion.
+
+**Fix.** New helper `_take_legate_along(state, side, src, dest,
+take_flag)`:
+  - Validates Teutonic only (raises `not_teutonic`).
+  - Validates Legate in play and co-located at src (raises
+    `legate_not_in_play` / `legate_not_co_located`).
+  - Teleports the Legate pawn to dest; reports the carry via the
+    action's result `legate_carried` key.
+
+Both `_h_cmd_march` (Approach branch + no-enemy branch) and
+`_h_cmd_sail` now call the helper with `args.take_legate=True` to
+opt in. Default behavior (take_legate=False) preserves prior
+behavior: the Legate stays at the source.
+
+## Tests
+
+`tests/test_round_55_legate_ride.py` — 6 regressions:
+
+  - take_legate=True moves the Legate with the Lord.
+  - take_legate=False leaves the Legate behind.
+  - Russian Lord rejected.
+  - Legate at different locale rejected.
+  - Legate not in play rejected.
+  - Sail ride-along works identically.
+
+712 → 718 passing.
+
+## Candidate surfaces for R56
+
+  - Defender forced to abandon Legate via Avoid Battle — already
+    handled (Legate captured), but verify the helper isn't
+    accidentally double-firing the Legate-removal in nested paths.
+  - Battle Aftermath: if Teutonic Lord retreats away from a Locale
+    with the Legate present, what happens? Rule may capture the
+    Legate or move with the Lord. The harness probably leaves the
+    Legate at the locale (which makes it captured per 1.4.1 if
+    no Teutonic Lord remains).
+  - Sortie/exit: when sallying Lord exits Stronghold, what's their
+    in_stronghold during the battle resolution?
+  - Storm: defenders ALL removed but locale not Sacked (siege
+    continues because attacker lost?).
+  - Lord at Friendly Locale Tax: does the Tax helper correctly use
+    locale-level VP value vs. Veche Coin add?
+
+
+# Round 56 — Disbanded Lord re-Muster (1 bug)
+
+## SMOKE-044 — Disbanded Lord cannot re-Muster (state never transitions back to 'ready')
+
+**Rule.** 3.3.2 at-limit Disband places the Lord's cylinder at
+`current_box + service_rating`. In subsequent Levies, when the
+Levy/Campaign marker advances to or past that box, the Lord is
+"Ready" again for re-Muster (3.4.1).
+
+**Symptom.** `_disband_at_limit` sets `lord.state = "disbanded"`.
+`_h_muster_lord` checks `target.state != "ready"` and rejects with
+`bad_target`. No code path ever transitions `"disbanded"` → `"ready"`,
+so a Disbanded Lord stays out forever — never re-Mustering, even
+when the Levy marker catches up to their cylinder. The Lord is
+effectively removed from play, contrary to the rules.
+
+**Fix.** `_h_advance_step`, in the `next_step == "muster"` branch
+(start of new Muster step), now sweeps all Lords and transitions
+`state="disbanded"` → `"ready"` for any Lord whose cylinder is on
+the Calendar at or before the current Levy marker box. Includes
+defensive handling: missing levy marker → no-op; off_left cylinder
+(box 0) counts as ≤ levy_box and transitions.
+
+## Tests
+
+`tests/test_round_56_disband_remuster.py` — 6 regressions:
+
+  - Disbanded → Ready when Levy marker catches up (cyl <= levy box).
+  - Disbanded stays Disbanded when cylinder still in future.
+  - Off_left cylinder transitions to Ready (cyl 0 <= levy).
+  - Mustered Lords unchanged by transition.
+  - Ready Lords unchanged by transition.
+  - End-to-end: disband, advance Levy, successfully re-Muster.
+
+718 → 724 passing.
+
+## Candidate surfaces for R57
+
+  - Conquered marker double-stacking (`+=` overflow) — latent;
+    reachable only via contrived flows but worth a defensive cap.
+  - Tax with Lord at a Ravaged Seat: per rule does Tax still work
+    or is it blocked? Probe.
+  - Pleskau scenario VP bonus: when a Lord with `removed` state is
+    "re-removed" via a contrived path, does the bonus fire twice?
+  - Lord state="removed" can never come back, but does the harness
+    correctly differentiate it from "disbanded"?
+
+
+# Round 57 — Conquered marker overflow (1 latent bug)
+
+## SMOKE-045 — Conquered count uses += and can overflow on same-side re-Conquest
+
+**Symptom.** `_apply_conquest_or_liberation` used `+=` to add the
+Stronghold's full sh_vp to `<side>_conquered` on every Conquest. If
+the same side Conquers the same locale twice without an intervening
+Liberation, the marker count exceeds the Stronghold's max
+(City=2, Novgorod=3, Fort=1). VP is also added twice.
+
+In practice the bug is hard to reach because Storm requires
+`siege_markers > 0`, and successful Storm clears siege_markers to 0
+and prevents enemy Withdraw into a now-friendly-Conquered Stronghold.
+But the harness's `+=` is brittle and the rule is "fully Conquered
+= sh_vp markers" (not "cumulative").
+
+**Fix.** Use `max(conquered, sh_vp)` instead of `+=`, and emit only
+the delta VP. This caps the marker at sh_vp and ensures VP
+accounting is correct even on a re-Conquest. The result dict's
+`"vp"` field now reports the delta added (0 on no-op re-Conquest).
+
+## Tests
+
+`tests/test_round_57_conquest_cap.py` — 3 regressions:
+
+  - City double-Conquest caps at 2 markers; delta VP=0 on second.
+  - Novgorod single Conquest places 3 markers, full VP=3.
+  - Partial → full Conquest emits delta=1.
+
+724 → 727 passing.
+
+## Candidate surfaces for R58
+
+  - Marshal change mid-Campaign (Andreas removed → Hermann becomes
+    secondary-active). Does an existing Lieutenant pairing involving
+    Hermann persist or revert?
+  - Conquered marker semantics on Storm rejection vs Sack: when
+    Storm fails, the besieging Lord(s) stay; what if they then
+    win on a later card?
+  - 4.9.4 Wastage: cards Discarded > 3 = Lord wastage (forces/assets).
+    Does this fire correctly when capabilities discard happens?
+  - VP cap at 17.5 — confirm scoring respects cap only at end.
