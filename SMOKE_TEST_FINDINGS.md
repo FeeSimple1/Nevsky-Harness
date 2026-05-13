@@ -5895,3 +5895,48 @@ into the active Calendar.
   - Battle Aftermath when ALL attacker Lords have 0 forces and 0
     retreat target: per code, they're permanently removed. Verify
     Pleskau VP bonus fires for each.
+
+
+# Round 66 — Veche option D off_left handling (1 bug)
+
+## SMOKE-058 — Veche option D crashes when Aleksandr/Andrey cylinder is off_left
+
+**Symptom.** `_h_veche_action` option D (Decline) iterates the
+Aleksandr/Andrey cylinders to slide them 1 box right. The
+position-removal branch was:
+```python
+if cyl_box <= 16:
+    state.calendar.boxes[cyl_box - 1].cylinders.remove(lord_id)
+else:
+    state.calendar.off_right.remove(lord_id)
+```
+But `_find_cylinder_box` returns 0 for off_left, which the
+`cyl_box <= 16` branch accepts. Then `boxes[-1]` = boxes[15] (box 16),
+and `.cylinders.remove(lord_id)` fails with **ValueError** because the
+Lord is in `cal.off_left`, not box 16.
+
+`_is_ready(state, lord_id, levy_box)` accepts `cyl_box <= levy_box`,
+which includes 0 for early-Calendar scenarios — making this
+reachable in practice when Aleksandr/Andrey are pre-Calendar.
+
+**Fix.** Add an explicit `cyl_box == 0` branch that removes from
+`cal.off_left` before the box-list branch.
+
+## Tests
+
+`tests/test_round_66_veche_d_offleft.py` — 2 regressions:
+  - Aleksandr at off_left successfully slides to levy_box + 1.
+  - Andrey at a regular Calendar box still works (baseline).
+
+772 → 774 passing.
+
+## Candidate surfaces for R67
+
+  - Veche option A (slide left 2 boxes): same off_left handling
+    issue? The harness's option A explicitly rejects off_left
+    (`cyl_box == 0`) so this is already correct.
+  - `_shift_cylinder` in events.py — already handles off_left
+    correctly.
+  - `_h_levy_capability` removal cascade for T11/R10 mid-game.
+  - Locale-conquered marker mutual exclusion (both sides shouldn't
+    have conquered markers on the same locale at the same time).

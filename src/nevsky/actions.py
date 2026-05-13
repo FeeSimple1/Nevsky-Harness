@@ -2083,7 +2083,14 @@ def _h_veche_action(
             cyl_box = _find_cylinder_box(state, lord_id)
             if cyl_box is None:
                 continue
-            if cyl_box <= 16:
+            # SMOKE-058 (Round 66): handle cyl_box=0 (off_left). The
+            # previous `cyl_box <= 16` branch tried boxes[-1] which
+            # crashes with ValueError; the Lord was actually in
+            # cal.off_left. _is_ready accepts cyl_box <= levy_box,
+            # which includes 0 for early scenarios.
+            if cyl_box == 0:
+                state.calendar.off_left.remove(lord_id)
+            elif cyl_box <= 16:
                 state.calendar.boxes[cyl_box - 1].cylinders.remove(lord_id)
             else:
                 state.calendar.off_right.remove(lord_id)
