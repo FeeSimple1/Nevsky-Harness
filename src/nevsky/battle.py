@@ -1087,6 +1087,7 @@ def resolve_battle(
     defender_positions: dict[str, str] | None = None,
     sallying_lords: list[str] | None = None,
     siegeworks_for_sally: int = 0,
+    simple_sally: bool = False,
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
@@ -1404,7 +1405,15 @@ def resolve_battle(
             # Strikes by Sallying Attackers only (round separately)").
             per_target_sally_hits: dict[str, float] = {}
             for entry in per_striker_log:
-                if entry["striker_slot"] in _SALLY_SLOTS:
+                # SMOKE-050 (Round 61): in a simple Sally, the besieged
+                # Lords ARE all the attackers — their strikes count as
+                # Sallying Attacker strikes for Siegeworks-as-Walls
+                # absorption (4.5.3 "Defenders/Besiegers receive
+                # Siegeworks as Walls"). Without this, the Walls
+                # protection only fires on Relief Sally where the
+                # sallying Lords are positioned at sally_* slots.
+                is_sally_strike = entry["striker_slot"] in _SALLY_SLOTS or simple_sally
+                if is_sally_strike:
                     tlid = entry["target"]
                     per_target_sally_hits[tlid] = (
                         per_target_sally_hits.get(tlid, 0.0) + entry["raw"]
