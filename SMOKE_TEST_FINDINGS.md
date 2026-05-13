@@ -5618,3 +5618,38 @@ coexist transiently per the static-data flow; both should reject).
   - Heinrich Curia (T13) edge cases: heinrich must be on map.
   - Battle Aftermath: Lord at locale with siege_markers >0 and no
     enemy Lord (orphan siege) — Lord state?
+
+
+## SMOKE-052 — Vodian Treachery BFS misses Lord at target locale
+
+**Symptom.** `_ev_vodian_treachery` builds `visited = {target: 0}`
+then BFSes outward, registering Lords as new locales are visited.
+But Lords AT the target locale itself are never checked — the BFS
+seeds with the target in `visited` and only inspects neighbors. A
+Teutonic Lord standing at the target Fort produced `teu_dist=None`
+(or the wrong farther value if another Teu Lord was somewhere) and
+either raised `no_teutonic_lord` or compared incorrectly.
+
+**Fix.** Before the BFS loop, scan all Mustered Lords whose
+`location == target` and seed `teu_dist=0` / `rus_dist=0`
+accordingly. The BFS then expands as before.
+
+## Tests (R62 extended)
+
+  - `test_vodian_lord_at_target_distance_zero`: Teu Lord AT target →
+    teu_dist=0 → event proceeds.
+  - `test_vodian_russian_at_target_blocks_event`: Rus Lord AT
+    target → rus_dist=0 → Teu can't be strictly less → `not_closer`.
+
+749 → 751 passing.
+
+## Candidate surfaces for R63
+
+  - Vodian Treachery doesn't deduct Lord forces / mark moved_fought.
+    Per AoW Reference: who does this Conquest? The Lord that plays
+    the Hold? The check is only on closeness, not on which Lord
+    actually performs it. Probably no_fix needed (Hold is just a card).
+  - Heinrich Curia (T13) Asset cap interaction (4 non-Loot Assets to
+    each of 2 Lords — should respect 8-cap per type).
+  - Castle marker scoring with side flip after Sack/Liberation —
+    already covered (SMOKE-040 R52).

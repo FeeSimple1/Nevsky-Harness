@@ -711,6 +711,16 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     frontier = [target]
     teu_dist = None
     rus_dist = None
+    # SMOKE-052 (Round 62): check Lords AT the target locale (distance
+    # 0). Previously the BFS only registered Lords as it expanded
+    # outward; a Teutonic Lord standing at the target Fort itself was
+    # silently missed, producing wrong teu_dist or no_teutonic_lord.
+    for lid, l in state.lords.items():
+        if l.state == "mustered" and l.location == target:
+            if l.side == "teutonic" and teu_dist is None:
+                teu_dist = 0
+            elif l.side == "russian" and rus_dist is None:
+                rus_dist = 0
     while frontier and (teu_dist is None or rus_dist is None):
         nxt = []
         for n in frontier:

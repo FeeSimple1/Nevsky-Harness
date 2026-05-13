@@ -72,3 +72,36 @@ def test_vodian_blocked_castle_takes_precedence_over_walls_plus_one():
     with pytest.raises(IllegalAction) as exc:
         _ev_vodian_treachery(st, {"target": "kaibolovo"})
     assert exc.value.code == "castle_marker"
+
+
+# -----------------------------------------------------------------
+# SMOKE-052: BFS misses Lord at target locale (distance 0).
+# -----------------------------------------------------------------
+
+def test_vodian_lord_at_target_distance_zero():
+    """A Teutonic Lord standing at the target Fort itself should
+    register as distance 0 (closer than any Russian)."""
+    st = _setup("kaibolovo")
+    st.lords["hermann"].location = "kaibolovo"  # AT target
+    st.locales["kaibolovo"].teutonic_castle = False
+    st.locales["kaibolovo"].walls_plus_one = False
+    result = _ev_vodian_treachery(st, {"target": "kaibolovo"})
+    assert result["teu_dist"] == 0
+    assert result["conquered"] == "kaibolovo"
+
+
+def test_vodian_russian_at_target_blocks_event():
+    """If a Russian Lord is AT the target (distance 0), Teutonic
+    distance can't be strictly less — event should fail."""
+    st = _setup("kaibolovo")
+    # Place a Russian Lord at the target
+    st.lords["gavrilo"].location = "kaibolovo"
+    # Move all Teutons away
+    for lid, L in st.lords.items():
+        if L.side == "teutonic":
+            L.location = "reval"
+    st.locales["kaibolovo"].teutonic_castle = False
+    st.locales["kaibolovo"].walls_plus_one = False
+    with pytest.raises(IllegalAction) as exc:
+        _ev_vodian_treachery(st, {"target": "kaibolovo"})
+    assert exc.value.code == "not_closer"
