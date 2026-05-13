@@ -4954,3 +4954,48 @@ location-change call sites.
   - Multi-leg Sail with Trade Route flips at intermediate ports.
   - Vassal markers on Calendar mid-Levy when host Lord disbands.
   - Adjacent-enemy Ravage cost +1 when Lieutenant is the enemy.
+
+
+# Round 50 — Vassal Calendar marker leak (1 bug)
+
+## SMOKE-038 — vassal markers leak on Calendar after Lord disband / remove
+
+**Symptom.** Under Advanced Vassal Service (3.4.2 optional rule), a
+Lord's Vassal markers can live on the Calendar at boxes. When the
+host Lord is Disbanded (`_disband_at_limit`) or permanently removed
+(`_remove_lord_permanently`), the harness clears
+`VassalState.on_calendar / calendar_box` but leaves the vassal id in
+the Calendar's per-box `vassal_service_markers` list. The Calendar
+view becomes desynced from the per-lord state, and downstream
+Advanced-Vassal-Service code reading the Calendar list still sees
+the orphaned id.
+
+**Fix.** Both helpers now remove the vassal id from
+`cal.boxes[box-1].vassal_service_markers` (when on_calendar=True with
+a valid box) before clearing the per-vassal flags / before clearing
+`lord.vassals` entirely.
+
+## Tests
+
+`tests/test_round_50_vassal_calendar.py` — 4 regressions:
+
+  - Disband clears the vassal from the Calendar list and from
+    VassalState.
+  - Permanent remove clears the vassal from the Calendar list.
+  - Multiple vassals at different boxes all get cleaned up.
+  - Lord with no on-Calendar vassals disbands cleanly (no crash).
+
+694 → 698 passing.
+
+## Candidate surfaces for R51
+
+  - Trade Route flip with Lieutenant + Lower Lord entering (one entry
+    can flip; the second arrives at an already-flipped locale).
+  - Lord Sally win followed by March out — does the
+    SMOKE-036 sweep fully clear in_stronghold?
+  - AoW shuffle: does it correctly reseed the deck without leaking
+    state across Levies?
+  - Battle Round 2+ Reposition (Q-006) — does the Reposition decision
+    handle Marshal+Lower Lord correctly?
+  - Trade Route 3.3.x: enemy-only entry vs Russian-only re-entry
+    cases where conquered=2 or 3 (city/novgorod).
