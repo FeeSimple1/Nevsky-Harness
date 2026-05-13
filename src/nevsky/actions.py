@@ -251,6 +251,18 @@ def _h_advance_step(
                         if not vstate.ready and not vstate.mustered:
                             vstate.ready = True
         if next_step == "done":
+            # SMOKE-039 (Round 51): auto-fire 3.5.3 ("both sides discard
+            # This-Levy events") on the call_to_arms -> done transition.
+            # The explicit aow_discard_this_levy action stays available
+            # for tests/agents that prefer to call it manually; calling
+            # it before advance_step leaves the list empty, so this
+            # post-call_to_arms sweep is idempotent. Without this auto-
+            # fire, agents that skip the action leak events into the
+            # next Levy / Campaign decks (3.5.3 is mandatory per rules).
+            for _sd_deck in (state.decks.teutonic, state.decks.russian):
+                if _sd_deck.this_levy_events:
+                    _sd_deck.discard.extend(_sd_deck.this_levy_events)
+                    _sd_deck.this_levy_events = []
             # Levy complete -- transition to Campaign Plan (4.0).
             state.meta.phase = "campaign"
             state.meta.campaign_step = "plan"
@@ -869,10 +881,18 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     lord.this_lord_capabilities = []
     lord.forces = {}
     lord.assets = {}
+    cal = state.calendar
+    # SMOKE-038 (Round 50): remove Vassal Service markers from the
+    # Calendar before clearing the vassals dict, mirroring the
+    # _disband_at_limit treatment.
+    for vid, v in lord.vassals.items():
+        if v.on_calendar and v.calendar_box is not None:
+            if 1 <= v.calendar_box <= 16:
+                if vid in cal.boxes[v.calendar_box - 1].vassal_service_markers:
+                    cal.boxes[v.calendar_box - 1].vassal_service_markers.remove(vid)
     lord.vassals = {}
     lord.state = "removed"
     lord.location = None
-    cal = state.calendar
     for cb in cal.boxes:
         if lord_id in cb.cylinders:
             cb.cylinders.remove(lord_id)
@@ -1024,7 +1044,17 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     lord.this_lord_capabilities = []
     lord.forces = {}
     lord.assets = {}
-    for v in lord.vassals.values():
+    cal = state.calendar
+    # SMOKE-038 (Round 50): remove Vassal Service markers from the
+    # Calendar before clearing the per-vassal flags. Otherwise the
+    # marker stays on the Calendar even though VassalState says
+    # on_calendar=False, which breaks later Vassal-marker reads (3.4.2
+    # Advanced Vassal Service).
+    for vid, v in lord.vassals.items():
+        if v.on_calendar and v.calendar_box is not None:
+            if 1 <= v.calendar_box <= 16:
+                if vid in cal.boxes[v.calendar_box - 1].vassal_service_markers:
+                    cal.boxes[v.calendar_box - 1].vassal_service_markers.remove(vid)
         v.ready = True
         v.mustered = False
         v.on_calendar = False
@@ -1032,7 +1062,6 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     lord.state = "disbanded"
     lord.location = None
     lord.lordship_used = 0
-    cal = state.calendar
     # Remove service marker from Calendar (boxes + off_*_service).
     for cb in cal.boxes:
         if lord_id in cb.service_markers:

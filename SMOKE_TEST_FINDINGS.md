@@ -4954,3 +4954,238 @@ location-change call sites.
   - Multi-leg Sail with Trade Route flips at intermediate ports.
   - Vassal markers on Calendar mid-Levy when host Lord disbands.
   - Adjacent-enemy Ravage cost +1 when Lieutenant is the enemy.
+
+
+# Round 50 — Vassal Calendar marker leak (1 bug)
+
+## SMOKE-038 — vassal markers leak on Calendar after Lord disband / remove
+
+**Symptom.** Under Advanced Vassal Service (3.4.2 optional rule), a
+Lord's Vassal markers can live on the Calendar at boxes. When the
+host Lord is Disbanded (`_disband_at_limit`) or permanently removed
+(`_remove_lord_permanently`), the harness clears
+`VassalState.on_calendar / calendar_box` but leaves the vassal id in
+the Calendar's per-box `vassal_service_markers` list. The Calendar
+view becomes desynced from the per-lord state, and downstream
+Advanced-Vassal-Service code reading the Calendar list still sees
+the orphaned id.
+
+**Fix.** Both helpers now remove the vassal id from
+`cal.boxes[box-1].vassal_service_markers` (when on_calendar=True with
+a valid box) before clearing the per-vassal flags / before clearing
+`lord.vassals` entirely.
+
+## Tests
+
+`tests/test_round_50_vassal_calendar.py` — 4 regressions:
+
+  - Disband clears the vassal from the Calendar list and from
+    VassalState.
+  - Permanent remove clears the vassal from the Calendar list.
+  - Multiple vassals at different boxes all get cleaned up.
+  - Lord with no on-Calendar vassals disbands cleanly (no crash).
+
+694 → 698 passing.
+
+## Candidate surfaces for R51
+
+  - Trade Route flip with Lieutenant + Lower Lord entering (one entry
+    can flip; the second arrives at an already-flipped locale).
+  - Lord Sally win followed by March out — does the
+    SMOKE-036 sweep fully clear in_stronghold?
+  - AoW shuffle: does it correctly reseed the deck without leaking
+    state across Levies?
+  - Battle Round 2+ Reposition (Q-006) — does the Reposition decision
+    handle Marshal+Lower Lord correctly?
+  - Trade Route 3.3.x: enemy-only entry vs Russian-only re-entry
+    cases where conquered=2 or 3 (city/novgorod).
+
+
+# Round 51 — Auto-fire 3.5.3 on Levy → Campaign transition (1 bug)
+
+## SMOKE-039 — this_levy_events not auto-discarded if agent omits 3.5.3
+
+**Rule.** Rule 3.5.3: "Both sides discard their This-Levy events to
+the appropriate discard pile." This is mandatory at the end of every
+Levy's Call to Arms (3.5).
+
+**Symptom.** The harness exposes `aow_discard_this_levy` as an
+explicit action. If an agent forgets to call it before `advance_step`
+ends the Levy, `this_levy_events` retains stale ids. Those ids leak
+into the Campaign decks and the next Levy's `aow_shuffle` (which
+pools `deck + discard`) won't include them, effectively "duplicating"
+the persistence and skewing the deck.
+
+**Fix.** `_h_advance_step`, in the `next_step == "done"` block,
+auto-fires the 3.5.3 sweep for both sides: any non-empty
+`this_levy_events` list is flushed into `discard`. The explicit
+action remains available; calling it before `advance_step` leaves
+the list empty, making the auto-fire idempotent.
+
+## Tests
+
+`tests/test_round_51_auto_discard_levy_events.py` — 3 regressions:
+
+  - 3.5.3 fires automatically even when agent omits the explicit call.
+  - Explicit-then-advance is idempotent (no double discard).
+  - Empty this_levy_events transitions cleanly.
+
+698 → 701 passing.
+
+## Candidate surfaces for R52
+
+  - Conquered marker stacking: `+=` could over-stack if a locale is
+    Stormed while already Conquered by the same side. Practical risk
+    is low (no siege without enemy holder) but is a latent bug.
+  - Castle marker via Stonemasons after Storm.
+  - Hold-event reveal timing.
+  - AoW deck-exhaustion mid-Levy (no auto-reshuffle).
+  - 4.0 capability discard with No-Capability structurals in
+    capabilities_in_play (should they be excluded from the discard?).
+
+
+# Round 52 — Castle marker doesn't flip on Conquest (1 bug)
+
+## SMOKE-040 — Castle markers permanent but don't flip color on Conquest
+
+**Rule.** T17 Stonemasons Tips (Arts of War Reference): "The Castles
+are permanent. They flip when Conquered. Discard of the Capability
+does not affect Castle markers already on the map."
+
+**Symptom.** `_apply_conquest_or_liberation` placed/cleared
+Conquered markers correctly but never touched the Castle bools
+(`teutonic_castle` / `russian_castle`). When a Russian Castle was
+Conquered by Teutons (Storm Sack or Siege Surrender), the marker
+stayed as `russian_castle = True` instead of flipping to
+`teutonic_castle = True`. Since each Castle marker is worth 1 VP
+(`scenarios.py::_compute_vp`), the missed flip also leaked 2 VP
+(should be -1 from old color, +1 to new color).
+
+**Fix.** `_apply_conquest_or_liberation` detects the existing Castle
+marker color and, if the attacker is the opposite color, flips:
+clear old, set new, swing `calendar.<color>_vp` by ±1. The flip is
+reported as `result["castle_flip"]` for transparency.
+
+Handles all three flip vectors:
+  - Russian Castle → Teutonic (pre-placed Russian Castles +
+    Stonemasons-built then Conquered).
+  - Teutonic Castle → Russian (Stonemasons Castles or pre-placed
+    Crusader Castles Conquered or Liberated).
+  - Same-color attacker on existing castle: no-op (defensive guard).
+
+## Tests
+
+`tests/test_round_52_castle_flip.py` — 4 regressions:
+
+  - Russian Castle flips to Teutonic on Conquest with correct VP swing.
+  - Teutonic Castle flips to Russian on Liberation with correct VP swing.
+  - No Castle marker → no flip.
+  - Same-color "conquest" (degenerate edge) → no flip.
+
+701 → 705 passing.
+
+## Candidate surfaces for R53
+
+  - Surrender (Siege.Conquered branch) is the same call site so it's
+    fixed by the helper change. But verify the Storm + Surrender
+    test paths still pass with Castle markers in play.
+  - Multi-flip scenarios: same castle Conquered then Liberated
+    back-and-forth across multiple campaigns.
+  - Cumulative `+=` on Conquered count if same-side Storm fires
+    twice (latent — guarded by no_siege check, but worth a probe).
+
+
+# Round 53 — Marshal-gated group March (1 bug)
+
+## SMOKE-041 — Non-Marshal Lord can take a group March (4.3.1 violated)
+
+**Rule.** Commands.txt 4.3.1: "Marshal may take a group March."
+Lieutenant takes Lower Lord (4.1.3) — and ONLY Lower Lord. Other
+Lords march alone.
+
+**Symptom.** `_h_cmd_march` accepted any caller-specified group as
+long as the members were co-located, friendly, and non-Besieged. A
+non-Marshal non-Lieutenant active Lord could legally drag another
+co-located own-side Lord along, which violates 4.3.1.
+
+**Fix.** After the Lieutenant guard, when `len(group) > 1`,
+`_h_cmd_march` now requires EITHER:
+  - `_is_currently_marshal(active_lord)` (Q-003 helper, covers
+    permanent + active secondary Marshals), OR
+  - active Lord is a Lieutenant (`has_lower_lord` set) AND `group`
+    contains exactly `{active, lower_lord}`.
+
+Solo marches (`group=[self]`) remain unrestricted.
+
+## Tests
+
+`tests/test_round_53_marshal_group.py` — 4 regressions:
+
+  - Non-Marshal Lord with co-located own-side group → IllegalAction
+    code `non_marshal_group`.
+  - Marshal (Andreas) can take co-located own-side Lord.
+  - Lieutenant + Lower Lord pair allowed; adding a third Lord
+    rejected.
+  - Solo non-Marshal March allowed.
+
+705 → 709 passing.
+
+## Candidate surfaces for R54
+
+  - Sail group restriction — same Marshal-gate question. Currently
+    Sail accepts arbitrary co-located group. Per 4.7.3, "Marshal may
+    take Sail group" or is it always whoever's at the seaport? Need
+    to check rule text.
+  - Legate "ride-along" 4.1.1: does the Legate auto-move with a
+    Teutonic Lord, or does the agent need an explicit action?
+  - Marshal change mid-Campaign: if Andreas is removed permanently,
+    Hermann becomes secondary-active. Does a previously-built
+    Lieutenant pairing involving Hermann revert correctly?
+
+
+# Round 54 — Sail Marshal-gate + Lieutenant move (1 bug, parallel to R53)
+
+## SMOKE-042 — Sail group rules don't enforce Marshal/Lieutenant gate
+
+**Rule.** Commands.txt 4.7.3 Sail procedure: "Groups move together as
+per March (4.3.1); Marshals may take group, Lieutenants take Lower
+Lords." Identical to March 4.3.1.
+
+**Symptom.** `_h_cmd_sail` accepted any caller-specified group as
+long as members were co-located, friendly, and Unbesieged. Non-
+Marshal active Lords could Sail with arbitrary same-side
+passengers. Additionally, the existing comment in `_h_cmd_sail`
+claimed Q-003 freed Sail from Lieutenant constraint — Q-003 is
+about WHO can be a Lieutenant, not how Lieutenants MOVE. The
+Sail handler also did not require a Lieutenant to bring their
+Lower Lord.
+
+**Fix.** Apply both R46/R47 Lieutenant guards and R53 Marshal-gate
+to `_h_cmd_sail`, parallel to `_h_cmd_march`:
+
+  - If `lord.has_lower_lord is not None` and lower_lord not in
+    group → `lower_lord_required`.
+  - If `len(group) > 1` and not Marshal-led and not Lieutenant+pair
+    → `non_marshal_group`.
+
+## Tests
+
+`tests/test_round_54_sail_marshal_group.py` — 3 regressions:
+
+  - Non-Marshal Sail group rejected.
+  - Solo non-Marshal Sail allowed.
+  - Lieutenant must Sail with Lower Lord.
+
+709 → 712 passing.
+
+## Candidate surfaces for R55
+
+  - Avoid Battle group — does the rule allow only the Lieutenant +
+    Lower Lord pair, or all enemy defenders co-located? (Currently
+    moves entire cp.defender_lords; logically correct since each
+    defender chose to Avoid).
+  - 4.1.1 Legate ride-along during Sail — does the Legate teleport
+    with the Sailing Lord? Currently the harness doesn't handle this.
+  - Cylinder placement edge: scenario_loader places cylinders at
+    initial Calendar boxes — verify off_left/off_right handling for
+    Andreas at scenario start.
