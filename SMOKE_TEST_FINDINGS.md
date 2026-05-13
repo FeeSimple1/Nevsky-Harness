@@ -5856,3 +5856,42 @@ the Russian-only Pogost event on a Russian Lord.
     doesn't check phase; resolvers do partial checks.
   - Veche `sea_trade` action might also need a side guard (already
     has `if sd != "russian"` early — confirmed).
+
+
+## SMOKE-057 — Retreat Service shift wrong off_right list
+
+**Symptom.** `apply_retreat_service_shift` (4.4.3) searches for the
+retreating Lord's Service marker in `cal.boxes[*].service_markers`
+and falls back to a "past the right edge" list when not found. The
+fallback consulted `cal.off_right` — the **CYLINDER** off-right list,
+not `cal.off_right_service` (the SERVICE MARKER off-right list).
+
+Consequence: a Lord whose Service marker has been pushed past box
+16 (via repeated Pays etc.) and who then Retreats from Battle
+silently skipped the Service shift entirely (`return 0`). Per 4.4.3,
+they should shift LEFT by `ceil(die/2)` boxes, bringing them back
+into the active Calendar.
+
+**Fix.** Replace the fallback list reference from `cal.off_right` →
+`cal.off_right_service`, and similarly on the placement side
+(`new_box >= 17` re-appends to `off_right_service` if applicable).
+
+## Tests (R65 extended)
+
+`tests/test_round_65_retreat_shift.py` — 3 regressions:
+  - Service at off_right_service shifts back onto Calendar.
+  - Cylinder at off_right doesn't interfere with Service shift.
+  - No Service marker → shift returns 0.
+
+769 → 772 passing.
+
+## Candidate surfaces for R66
+
+  - `_shift_service_right` (Pay-with-Coin / Pay-with-Loot helper):
+    similar off_right_service handling — already correct? Probe.
+  - Lord cylinder shift events (e.g., R14 Andreas to Riga shifts
+    cylinder 2 right): does the cylinder placement respect 16-box
+    limit correctly?
+  - Battle Aftermath when ALL attacker Lords have 0 forces and 0
+    retreat target: per code, they're permanently removed. Verify
+    Pleskau VP bonus fires for each.
