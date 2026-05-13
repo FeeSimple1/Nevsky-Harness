@@ -2278,11 +2278,11 @@ def _h_withdraw(
         if not own_terr or enemy_conq:
             raise IllegalAction("not_friendly", f"{cp.to_locale} not Friendly to defender")
 
-    # Capacity per Strongholds table (strongholds.json). Trade Routes
-    # have no Stronghold to Withdraw into; commanderies are not in the
-    # Strongholds table. Both reject Withdraw.
-    from nevsky.static_data import load_strongholds
-    sh_data = load_strongholds().get(stype)
+    # SMOKE-054 (Round 63 follow-up): Withdraw capacity also respects
+    # Castle markers (Castle replaces Fort/Town per T17). Use
+    # _effective_stronghold so a Castle-marked Fort accepts 2-Lord
+    # Withdraw (capacity 2 instead of Fort's 1).
+    sh_data = _effective_stronghold(state, cp.to_locale)
     if sh_data is None or sh_data.get("no_storm"):
         raise IllegalAction("no_stronghold", f"{cp.to_locale} type {stype} has no Stronghold to Withdraw into")
     capacity = int(sh_data.get("capacity", 1))
@@ -2779,6 +2779,7 @@ def _h_cmd_siege(
         lid for lid in _besieging_lords_at(state, locale_id, sd)
         if lid not in besieged
     ]
+    # SMOKE-054 (R63): sh is from _effective_stronghold; capacity reflects Castle if marker present.
     if len(besiegers) >= sh["capacity"] and state.locales[locale_id].siege_markers < 4:
         state.locales[locale_id].siege_markers += 1
         siege_added = True

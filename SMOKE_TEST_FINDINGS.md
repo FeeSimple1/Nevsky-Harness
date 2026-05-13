@@ -5750,3 +5750,16 @@ used Fort stats throughout Siege, Storm, and Withdraw — including:
     Stonemasons Castle at a Fort: same flow, Siege starts.
   - R8 Black Sea Trade ship parity vs R9 — verify both check
     Russian Cogs/Lodya symmetrically.
+
+### SMOKE-054 follow-up — Withdraw capacity respects Castle marker
+
+`_h_withdraw` was also using `static_locales[cp.to_locale]["type"]`
+to derive Stronghold stats. Now uses `_effective_stronghold(state,
+cp.to_locale)`, so a Castle-marked Fort accepts 2-Lord Withdraw
+(Castle capacity 2) instead of being limited to Fort capacity 1.
+
+Two more tests in `test_round_63_castle_stats.py`:
+  - `test_castle_marker_doubles_withdraw_capacity`: Castle → 2 defenders fit.
+  - `test_no_castle_keeps_fort_capacity`: bare Fort → 2 defenders rejected.
+
+758 → 760 passing.

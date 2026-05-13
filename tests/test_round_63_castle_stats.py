@@ -64,3 +64,59 @@ def test_locale_without_stronghold_unchanged():
             eff = _effective_stronghold(st, lid)
             assert eff is None
             return
+
+
+# -----------------------------------------------------------------
+# SMOKE-054 follow-up: Withdraw capacity respects Castle marker.
+# -----------------------------------------------------------------
+
+import pytest
+from nevsky.actions import IllegalAction, apply_action
+from nevsky.state import CombatPending
+
+
+def _setup_withdraw(target_locale):
+    st = load_scenario("pleskau", seed=1)
+    # Russian Lord at target Stronghold; Teutonic attacker arrived from
+    # neighbor.
+    g = st.lords["gavrilo"]
+    g.location = target_locale
+    h = st.lords["hermann"]
+    h.location = target_locale  # arrived at the locale
+    st.combat_pending = CombatPending(
+        attacker_side="teutonic", attacker_group=["hermann"],
+        from_locale="pskov",
+        to_locale=target_locale,
+        way_type="trackway",
+        defender_side="russian",
+        defender_lords=["gavrilo"],
+        pending_response_by="russian",
+        laden=False,
+    )
+    return st
+
+
+def test_castle_marker_doubles_withdraw_capacity():
+    """A Castle-marked Russian Fort should accept a 2-Lord Withdraw
+    (capacity 2 from Castle, not Fort's capacity 1)."""
+    st = _setup_withdraw("kaibolovo")
+    st.locales["kaibolovo"].teutonic_castle = True
+    # Add a 2nd defender
+    v = st.lords["vladislav"]
+    v.location = "kaibolovo"
+    st.combat_pending.defender_lords = ["gavrilo", "vladislav"]
+    # 2 defenders, Castle capacity 2 → should succeed
+    res = apply_action(st, {"type": "withdraw", "side": "russian", "args": {}})
+    assert res["capacity"] == 2
+
+
+def test_no_castle_keeps_fort_capacity():
+    """Without Castle marker, Fort capacity 1 limits Withdraw."""
+    st = _setup_withdraw("kaibolovo")
+    # 2 defenders, Fort capacity 1 → should fail
+    v = st.lords["vladislav"]
+    v.location = "kaibolovo"
+    st.combat_pending.defender_lords = ["gavrilo", "vladislav"]
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(st, {"type": "withdraw", "side": "russian", "args": {}})
+    assert exc.value.code == "over_capacity"
