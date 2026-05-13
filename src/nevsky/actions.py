@@ -945,6 +945,23 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
         if partner is not None and partner.lieutenant_of == lord_id:
             partner.lieutenant_of = None
         lord.has_lower_lord = None
+    # SMOKE-055 (Round 64): Rule 5.2 Campaign Victory — "If at any
+    # moment during a Campaign one side has zero Mustered Lords on
+    # the map, the game ends immediately." Check after each
+    # permanent removal during Campaign and short-circuit the game
+    # state. Skip during Levy (Disband at 3.3.1 also calls this
+    # helper; the rule specifies Campaign-only).
+    if state.meta.phase == "campaign":
+        teu = sum(1 for L in state.lords.values()
+                  if L.side == "teutonic" and L.state == "mustered")
+        rus = sum(1 for L in state.lords.values()
+                  if L.side == "russian" and L.state == "mustered")
+        if teu == 0 or rus == 0:
+            state.meta.campaign_step = "done"
+            state.campaign_turn.actions_remaining = 0
+            state.campaign_turn.active_card = None
+            state.campaign_turn.active_lord = None
+            state.campaign_turn.in_feed_pay_disband = False
 
 
 def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]:
