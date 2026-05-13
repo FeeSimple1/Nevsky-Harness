@@ -2278,11 +2278,11 @@ def _h_withdraw(
         if not own_terr or enemy_conq:
             raise IllegalAction("not_friendly", f"{cp.to_locale} not Friendly to defender")
 
-    # Capacity per Strongholds table (strongholds.json). Trade Routes
-    # have no Stronghold to Withdraw into; commanderies are not in the
-    # Strongholds table. Both reject Withdraw.
-    from nevsky.static_data import load_strongholds
-    sh_data = load_strongholds().get(stype)
+    # SMOKE-054 (Round 63 follow-up): Withdraw capacity also respects
+    # Castle markers (Castle replaces Fort/Town per T17). Use
+    # _effective_stronghold so a Castle-marked Fort accepts 2-Lord
+    # Withdraw (capacity 2 instead of Fort's 1).
+    sh_data = _effective_stronghold(state, cp.to_locale)
     if sh_data is None or sh_data.get("no_storm"):
         raise IllegalAction("no_stronghold", f"{cp.to_locale} type {stype} has no Stronghold to Withdraw into")
     capacity = int(sh_data.get("capacity", 1))
@@ -2573,6 +2573,34 @@ def _stronghold_at(locale_id: str) -> dict[str, Any] | None:
     return load_strongholds().get(static["type"])
 
 
+def _effective_stronghold(state: GameState, locale_id: str) -> dict[str, Any] | None:
+    """SMOKE-054 (Round 63): Stronghold entry accounting for dynamic
+    Castle markers. T17 Stonemasons Tip: "The Castle marker REPLACES
+    the Fort or Town at its Locale." So a Locale with teutonic_castle
+    or russian_castle uses Castle stats (capacity 2, walls 1-4,
+    garrison 1 MaA + 1 Knight, vp 1) regardless of its static type.
+
+    The 'side' field of the returned entry remains the static
+    territory's defender (Stonemasons doesn't transfer ownership; only
+    Conquest does that, via Conquered markers + Castle flip).
+    """
+    from nevsky.static_data import load_strongholds
+    base = _stronghold_at(locale_id)
+    if base is None:
+        return None
+    loc = state.locales.get(locale_id)
+    if loc is None:
+        return base
+    if loc.teutonic_castle or loc.russian_castle:
+        castle = load_strongholds().get("castle")
+        if castle is not None:
+            # Preserve the static side (territory owner); overlay Castle stats.
+            out = dict(castle)
+            out["side"] = base.get("side", castle.get("side"))
+            return out
+    return base
+
+
 def _besieging_lords_at(state: GameState, locale_id: str, side: Side) -> list[str]:
     """Lords of `side` at `locale_id` who are NOT inside the Stronghold."""
     return [
@@ -2704,7 +2732,7 @@ def _h_cmd_siege(
     locale_id = lord.location
     if locale_id is None:
         raise IllegalAction("no_location", "Lord has no location")
-    sh = _stronghold_at(locale_id)
+    sh = _effective_stronghold(state, locale_id)
     if sh is None:
         raise IllegalAction("no_stronghold", f"{locale_id} has no Stronghold for Siege/Storm")
     if state.locales[locale_id].siege_markers == 0:
@@ -2751,6 +2779,7 @@ def _h_cmd_siege(
         lid for lid in _besieging_lords_at(state, locale_id, sd)
         if lid not in besieged
     ]
+    # SMOKE-054 (R63): sh is from _effective_stronghold; capacity reflects Castle if marker present.
     if len(besiegers) >= sh["capacity"] and state.locales[locale_id].siege_markers < 4:
         state.locales[locale_id].siege_markers += 1
         siege_added = True
@@ -2789,7 +2818,7 @@ def _h_cmd_storm(
     locale_id = lord.location
     if locale_id is None:
         raise IllegalAction("no_location", "Lord has no location")
-    sh = _stronghold_at(locale_id)
+    sh = _effective_stronghold(state, locale_id)
     if sh is None:
         raise IllegalAction("no_stronghold", f"{locale_id} has no Stronghold")
     if sh.get("no_storm"):
