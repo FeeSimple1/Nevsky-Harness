@@ -5984,3 +5984,118 @@ if _season_of_box(state.meta.box) != "summer":
   - Steppe Warriors / Mongols / Kipchaqs: similar "auto-muster" rules
     if any.
   - Andreas / Rudolf Lord-side restriction on Summer Crusaders Muster.
+
+## Round 68 — SMOKE-060, SMOKE-061, SMOKE-062
+
+### SMOKE-060: T11 Crusade Summer auto-free-Muster + Knight restoration
+
+**Rule:** AoW Reference T11 Crusade — "Each Summer Levy, free Muster all
+Unbesieged Crusaders... automatically Musters all Summer Crusader Knights
+to Andreas and Rudolf at no cost in Lordship actions, even in enemy
+territory, provided that the Lord is himself Mustered and is Unbesieged.
+If already Mustered and any Knights have been lost from the Lord's Forces,
+restore Knight units up those shown on the Vassal marker."
+
+**Bug:** The harness only supported standard `muster_vassal` (which
+charges Lordship). The "Each Summer Levy" auto-fire never ran. Knight
+restoration on subsequent Summer Levies likewise never happened — a
+Summer Crusader Vassal Mustered in turn 1 stayed missing Knights even
+after Andreas/Rudolf reached the next Summer Levy.
+
+**Fix:** New helper `_t11_summer_auto_muster(state)` in
+`src/nevsky/actions.py`. Fires on entry to the Muster step of a Summer
+Levy (in `_h_advance_step` after the existing `next_step == "muster"`
+disbanded-cylinder transitions). For each Teutonic Lord with a
+`summer_crusaders` Vassal:
+  - Skip if Lord not Mustered, off-map, or Besieged.
+  - If the Vassal is not yet Mustered: add the Vassal's forces to the
+    Lord, set `vassal.mustered = True` and `vassal.ready = True`, no
+    Lordship spent.
+  - If the Vassal is already Mustered: compute the Lord's "expected"
+    knights total (starting_forces + sum of all mustered vassals'
+    knights). If actual knights are below expected, restore up to
+    `sc_vassal.knights` Knight units.
+
+`tests/test_round_68_t11_auto_muster.py` — 6 regressions:
+  - Andreas Mustered Unbesieged in Summer Levy → SC vassal auto-mustered,
+    knights += 3, lordship_used == 0.
+  - Rudolf already mustered with SC, knights lost → restored up to
+    SC marker knight count on Summer-Levy muster-step entry.
+  - Besieged Lord → no auto-muster (Unbesieged requirement).
+  - Lord not Mustered → no auto-muster.
+  - Non-Summer Levy (Watland early_winter) → no auto-fire.
+  - T11 not in play (Summer Levy) → no auto-fire.
+
+### SMOKE-061: R15 Death of the Pope block_william_of_modena_this_levy flag set but never enforced
+
+**Rule:** R15 Death of the Pope discards William of Modena (T13) and
+blocks Levy of it for the rest of the Levy in which R15 fired. The Tip
+("William of Modena and the pawn may return in a later 40 Days") makes
+explicit that re-Levy is blocked *this* Levy.
+
+**Bug:** `_ev_death_of_pope` (events.py:401-402) set
+`state.meta.special_rules["block_william_of_modena_this_levy"] = True`,
+and `_h_advance_step` cleared the flag on Levy → Campaign transition
+(actions.py:306) — but `_h_levy_capability` never consulted the flag.
+Teutons could call `levy_capability` with `card_id="T13"` immediately
+after R15 fired, undoing the event's primary effect.
+
+**Fix:** `src/nevsky/actions.py:_h_levy_capability`. After eligibility
+checks but before `_spend_lordship`, reject T13 Teutonic Levy when the
+flag is set: error code `capability_blocked`.
+
+`tests/test_round_68_r15_block_william.py` — 3 regressions:
+  - R15 fires → T13 in discard, flag True; subsequent Levy of T13 raises
+    `capability_blocked`; T13 stays out of capabilities_in_play.
+  - Flag clears on Levy → Campaign transition (existing reset path).
+  - Other T-capabilities (e.g., T8) Levy normally — flag is T13-specific.
+
+### SMOKE-062: `_shift_service` clamps left at box 1, denies legal off_left_service
+
+**Rule:** AoW Reference R10 Batu Khan, T12 Khan Baty, T18 Swedish
+Crusade Tips: "Shifting just one box off the Calendar from box 1 or
+box 16 is allowed." Service markers can occupy `off_left_service`
+(also reached via the unfed penalty in 4.8.1), so left-shifts that
+would land at or past box 0 should put the marker in
+`off_left_service` (capped at one box off).
+
+**Bug:** `_shift_service` (events.py:75) used
+`new = max(1, cur - boxes)` on left shifts. From box 2 with a 2-box
+shift, the marker silently stuck at box 1 instead of going to
+`off_left_service`. The function also didn't recognize markers that
+were already in `off_left_service` (raises `no_service_marker` on
+subsequent shifts).
+
+**Fix:** `src/nevsky/events.py:_shift_service`. Find the marker also
+in `cal.off_left_service` (cur=0). On left shifts, compute
+`new = cur - boxes`; if `new < 1`, place in `off_left_service` and
+return 0. The 1-box-off cap is naturally enforced — once at
+`off_left_service`, further left shifts stay there.
+
+`tests/test_round_68_shift_service_off_left.py` — 6 regressions:
+  - Box 2, shift 2 left → off_left_service (returns 0).
+  - Box 1, shift 1 left → off_left_service.
+  - Box 1, shift 3 left → off_left_service (clamps at 1 box off max).
+  - Box 3, shift 2 left → box 1 (no change in old normal path).
+  - Box 15, shift 3 right → off_right_service (unchanged behavior).
+  - off_left_service start, shift 2 right → box 2 (round-trip support).
+
+779 → 794 passing.
+
+## Candidate surfaces for R69
+
+  - T13 Heinrich Sees the Curia Tip — "If Heinrich is not on map, drawing
+    the Event card will delay Levy of the William of Modena Capability
+    until discarded or Heinrich Musters." The harness does not currently
+    set/check a delay flag analogous to SMOKE-061's block_william flag.
+  - R9 Osilian Revolt Tip — "as long as neither marker is yet in box 1
+    or off the left end of the Calendar." Eligibility precondition not
+    enforced in `_ev_osilian_revolt`; target with marker at box 1
+    silently no-ops (now: silently lands at off_left_service under
+    SMOKE-062). Add explicit `ineligible_target` check?
+  - T18 Cogs vs. R16 Tempest interpretation — "remove all Ships ...
+    half rounded up if he has Cogs" is implemented as "keep half rounded
+    up", which differs from a literal "remove half rounded up" reading
+    for odd Ship counts. Worth a rule-text clarification.
+  - Service marker off_left_service → 3.3.1 permanent-removal path
+    (handled in Disband but worth a regression for the new path).
