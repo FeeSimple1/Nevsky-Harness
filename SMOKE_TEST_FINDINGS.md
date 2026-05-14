@@ -5940,3 +5940,47 @@ reachable in practice when Aleksandr/Andrey are pre-Calendar.
   - `_h_levy_capability` removal cascade for T11/R10 mid-game.
   - Locale-conquered marker mutual exclusion (both sides shouldn't
     have conquered markers on the same locale at the same time).
+
+
+# Round 67 — Summer Crusaders season gate (1 bug)
+
+## SMOKE-059 — Summer Crusaders may Muster in non-Summer with T11 in play
+
+**Rule (AoW Reference T11 Crusade Tip).** "Teutons may Levy the
+Crusade Capability card in any Season, but Crusader Forces still
+would Muster only in Summer."
+
+**Symptom.** `_h_muster_vassal` gated Summer Crusader Vassal Muster
+on `T11 in capabilities_in_play` but did NOT check current season.
+With T11 Levied during Late Winter / Early Winter / Rasputitsa, the
+harness would allow Summer Crusaders to Muster, adding 3 Knights to
+Andreas / Rudolf at wrong season.
+
+**Fix.** Add a season-Summer check after the T11 gate:
+```python
+if _season_of_box(state.meta.box) != "summer":
+    raise IllegalAction("vassal_season", ...)
+```
+
+## Tests
+
+`tests/test_round_67_summer_crusaders_season.py` — 5 regressions:
+  - Reject in Early Winter (box 4).
+  - Reject in Late Winter (box 6).
+  - Reject in Rasputitsa (box 7).
+  - Accept in Summer (box 1).
+  - Sanity: T11-not-in-play still produces `vassal_gated`.
+
+774 → 779 passing.
+
+## Candidate surfaces for R68
+
+  - T11 "auto-muster all Summer Crusader Knights at no cost in
+    Lordship actions" — the harness uses standard Lordship-cost
+    `muster_vassal`; the auto-free behavior isn't modeled.
+  - T11 Knights restoration when Lord is already Mustered with Knight
+    losses (T11 Tip says "restore Knight units up those shown on the
+    Vassal marker").
+  - Steppe Warriors / Mongols / Kipchaqs: similar "auto-muster" rules
+    if any.
+  - Andreas / Rudolf Lord-side restriction on Summer Crusaders Muster.

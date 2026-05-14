@@ -1574,6 +1574,16 @@ def _h_muster_vassal(
                 "vassal_gated",
                 "Summer Crusaders require T11 Crusade in play (3.4.2)",
             )
+        # SMOKE-059 (Round 67): AoW Reference T11 Tip — "Teutons may
+        # Levy the Crusade Capability card in any Season, but Crusader
+        # Forces still would Muster only in Summer." Reject Muster in
+        # non-Summer seasons even when T11 is in play.
+        from nevsky.campaign import _season_of_box
+        if _season_of_box(state.meta.box) != "summer":
+            raise IllegalAction(
+                "vassal_season",
+                "Summer Crusaders may Muster only in Summer (T11 Tip)",
+            )
     elif special == "steppe_warriors":
         # Mongols/Kipchaqs (SMOKE-013 fix: was checking
         # "mongols"/"kipchaqs" which never matched).
