@@ -1545,6 +1545,13 @@ _SERVICE_SHIFT_TABLE = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
 def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
     """4.4.3 Service: roll 1d6 per Retreating Lord; shift Service marker
     LEFT by the table value. Returns the shift amount.
+
+    SMOKE-070 (Round 74): when the shift would carry the marker past
+    box 1, the marker lands on off_left_service (one box off the
+    Calendar), matching SMOKE-062's _shift_service semantics. Off-left
+    Service markers trigger 3.3.1 permanent removal at the next
+    Disband. Previously the function clamped at box 1, silently
+    denying the legal off-Calendar landing.
     """
     roll = roll_d6(state)
     boxes = _SERVICE_SHIFT_TABLE[roll]
@@ -1562,10 +1569,18 @@ def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
     if cur is None and lord_id in cal.off_right_service:
         cal.off_right_service.remove(lord_id)
         cur = 17
+    # SMOKE-070 (Round 74): also handle marker already at off_left_service.
+    if cur is None and lord_id in cal.off_left_service:
+        cal.off_left_service.remove(lord_id)
+        cur = 0
     if cur is None:
         return 0
-    new_box = max(1, cur - boxes)
-    if cur == 17 and new_box >= 17:
+    new_box = cur - boxes
+    if new_box < 1:
+        # Land on off_left_service (one box off Calendar; further
+        # shifts are absorbed there).
+        cal.off_left_service.append(lord_id)
+    elif cur == 17 and new_box >= 17:
         cal.off_right_service.append(lord_id)
     else:
         cal.boxes[new_box - 1].service_markers.append(lord_id)
