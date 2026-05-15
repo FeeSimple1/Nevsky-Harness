@@ -6221,3 +6221,55 @@ Castle-marked Town before `_effective_stronghold` could even run.
     (pending since R68).
   - Pursuit Spoils caps (similar to SMOKE-032 Spoils-asset-cap regression).
   - T18 Cogs vs. R16 Tempest "half rounded up" reading.
+
+## Round 71 — SMOKE-066 + off_left_service permanent-removal regressions
+
+### SMOKE-066: Forage at friendly Castle-overlay-on-Town rejected in non-Summer
+
+**Rule:** 4.7.1 Forage — "Friendly Stronghold OR Summer". T17 Stonemasons
+converts an Unbesieged Town in Rus into a Castle Stronghold. A Castle
+on a Town is a Stronghold for all rules purposes (capacity 2, walls 4,
+garrison 1+1, vp 1).
+
+**Bug:** `_h_cmd_forage` (campaign.py:768-774) used a static-type list
+to detect Strongholds:
+  `static_locales[lord.location].get("type") in (..., "castle")`
+which checked the BASE type — never matching Castle markers overlaid
+on Town locales (base type "town" never in the list). So Forage at a
+friendly Stonemasons Castle on a Town in non-Summer was rejected with
+`forage_seasonal`.
+
+**Fix:** Route the Stronghold detection through `_effective_stronghold`
+(SMOKE-065's Castle-overlay-aware helper). Forage now accepts Castle
+overlays on Towns identically to native Strongholds.
+
+`tests/test_round_71_forage_castle_overlay.py` — 4 regressions:
+  - Friendly teutonic_castle on Town in early_winter → Forage works.
+  - Enemy russian_castle on Town (with russian_conquered) → rejected.
+  - Bare Town (no Castle) in non-Summer → still rejected (Stronghold-
+    less Locale).
+  - Native Fort in non-Summer → unchanged (regression guard).
+
+### Regression coverage: 3.3.1 permanent removal from off_left_service
+
+SMOKE-062 (Round 68) made `off_left_service` reachable via the
+`_shift_service` left-shift path. Per rule 3.3.1, a Lord whose Service
+marker is left of the Levy box (or off the left edge) is permanently
+removed at the next Disband. Verified end-to-end with the Levy 3.3.1
+Disband step plus a contrast case (marker AT Levy box → 3.3.2 at-limit
+Disband, not permanent remove).
+
+`tests/test_round_71_off_left_service_removal.py` — 2 regressions.
+
+810 → 816 passing.
+
+## Candidate surfaces for R72
+
+  - Similar static-type-list patterns elsewhere (besides Sail, Withdraw,
+    Forage already fixed) — Tax, Ravage friendly-Stronghold checks,
+    Supply Source seat checks, etc.
+  - `_effective_stronghold` "side" semantics for Castle-on-Stronghold
+    base (T17 says Castles flip on Conquest; marker color should be
+    authoritative defender).
+  - T13 Heinrich-not-on-map Tip (pending since R69).
+  - Pursuit Spoils caps (pending since R70).
