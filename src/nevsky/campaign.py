@@ -1969,14 +1969,27 @@ def _h_cmd_march(
             )
 
     # Way check.
+    # SMOKE-067 (Round 72): when the src<->dest pair has parallel Ways
+    # (e.g. dorpat<->odenpah has both trackway and waterway), the agent
+    # may pick which Way via args.way_type. Without explicit selection,
+    # default to the first matching Way (legacy behavior).
     ways = load_ways()
-    way_type = None
+    requested_way = args.get("way_type")
+    candidate_types: list[str] = []
     for w in ways:
         if (w["a"] == src and w["b"] == dest) or (w["b"] == src and w["a"] == dest):
-            way_type = w["type"]
-            break
-    if way_type is None:
+            candidate_types.append(w["type"])
+    if not candidate_types:
         raise IllegalAction("no_way", f"no Way between {src} and {dest}")
+    if isinstance(requested_way, str):
+        if requested_way not in candidate_types:
+            raise IllegalAction(
+                "bad_way_type",
+                f"requested way_type {requested_way!r} not among {candidate_types} between {src} and {dest}",
+            )
+        way_type = requested_way
+    else:
+        way_type = candidate_types[0]
 
     # Validate group: all Lords must be at src and on the active side.
     for gid in group:
