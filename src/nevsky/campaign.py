@@ -2508,8 +2508,16 @@ def _h_stand_battle(
         # or stays at to_locale (defenders auto-retreat to a random friendly
         # neighbor). For attackers, retreat back to from_locale. For
         # defenders, retreat to an adjacent neighbor with no enemy Lord.
+        #
+        # SMOKE-069 (Round 74): capture the actual retreat Way's type
+        # so the Conceded+Retreated Spoils path can compute Unladen
+        # Transport correctly along that Way (matters for parallel
+        # Ways pairs, e.g. dorpat<->odenpah trackway + waterway).
+        retreat_way_type_actual: str | None = None
         if result["loser"] == cp.attacker_side:
             target = cp.from_locale
+            # Attackers retreat back via the same Way they approached.
+            retreat_way_type_actual = cp.way_type
         else:
             # AUDIT-005 (4.4.3 2E): "Defenders may not Retreat along any
             # part of the Way that Attackers used to Approach the
@@ -2530,6 +2538,7 @@ def _h_stand_battle(
                     continue
                 if not _enemies_at(state, cand, lord.side) and not _has_enemy_stronghold_at(state, cand, lord.side):
                     target = cand
+                    retreat_way_type_actual = w["type"]
                     break
             if target is None:
                 # No retreat possible -> permanently removed.
@@ -2558,11 +2567,14 @@ def _h_stand_battle(
         else:
             this_lord_conceded = False
         if this_lord_conceded:
-            # The Lord just moved to `target`. The Way used to retreat
-            # is the one connecting cp.to_locale (the combat Locale) to
-            # `target`. Defenders retreated FROM cp.to_locale TO target;
-            # Attackers retreated FROM cp.to_locale TO cp.from_locale.
-            way_type = _way_type_between(cp.to_locale, target)
+            # The Lord just moved to `target`. SMOKE-069 (Round 74):
+            # use the captured retreat_way_type_actual (set above when
+            # picking the destination) rather than _way_type_between,
+            # which returns the FIRST Way and can be wrong for the
+            # parallel-Ways pair (dorpat<->odenpah).
+            way_type = retreat_way_type_actual
+            if way_type is None:  # defensive fallback (should not happen)
+                way_type = _way_type_between(cp.to_locale, target)
             spoil = transfer_spoils(
                 state, lid, winner_lords, "loot_and_excess",
                 retreat_way_type=way_type,

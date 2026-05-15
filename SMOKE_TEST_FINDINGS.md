@@ -6361,3 +6361,69 @@ behavior preserved for non-parallel pairs).
   - Castle marker authoritative defender — pending since R70 notes.
   - Sail and other movement helpers with the same first-match Way pattern.
   - T13 Heinrich-not-on-map Tip — pending since R69.
+
+## Round 74 — SMOKE-069, SMOKE-070
+
+### SMOKE-069: Battle aftermath uses wrong way_type for Conceded+Retreat Spoils on parallel Ways
+
+**Rule:** 4.4.3 2E — "Concede the Field AND Retreat: transfer all Loot
+and any Provender beyond that which they could take along the Retreat
+Way without being Laden." The Unladen Transport count depends on the
+ACTUAL Retreat Way's type (Boats only count on Waterways, Carts on
+Trackways).
+
+**Bug:** After the defender auto-retreat loop selected a target Locale
+(skipping the attacker's approach Way per AUDIT-005), the aftermath
+code looked up the retreat Way via
+`_way_type_between(cp.to_locale, target)` — which returns the FIRST
+Way found in ways.json. For the parallel-Ways pair dorpat<->odenpah,
+this could return the wrong Way's type (the one excluded by AUDIT-005,
+or simply the wrong member of the parallel pair). Attackers
+retreating back to from_locale likewise relied on `_way_type_between`
+instead of using cp.way_type (the approach Way they came on).
+
+**Fix:** Capture `retreat_way_type_actual` directly:
+  - Attacker retreat: `retreat_way_type_actual = cp.way_type` (came in,
+    goes back the same Way).
+  - Defender retreat: capture `w["type"]` from the for-loop when the
+    target is selected.
+The Conceded-Retreat branch uses the captured value (defensive
+fallback to `_way_type_between` only if None).
+
+`tests/test_round_74_retreat_way_type.py` — 3 regressions (source
+inspection — the end-to-end Spoils transfer is exercised by adjacent
+SMOKE-032 regressions, this round documents the way_type tracking).
+
+### SMOKE-070: apply_retreat_service_shift clamps at box 1, denying off_left_service
+
+**Rule:** 4.4.3 Service — "shift Service marker LEFT by [d6 table
+value]." Service markers can occupy off_left_service (already
+reachable via the Unfed penalty 4.8.1 and via shift events post
+SMOKE-062).
+
+**Bug:** `apply_retreat_service_shift` (battle.py:1545) used
+`new_box = max(1, cur - boxes)`, clamping at box 1. A Retreating Lord
+with Service marker at box 1 and any d6 shift >= 1 silently stayed at
+box 1 instead of landing on off_left_service (which would trigger
+3.3.1 permanent removal at the next Disband).
+
+**Fix:** Allow `new_box < 1` to land on off_left_service (capped one
+box off). Also handle markers that start at off_left_service (cur=0).
+
+`tests/test_round_74_retreat_shift_off_left.py` — 4 regressions:
+  - Shift from box 1 lands on off_left_service.
+  - Shift from box 2 lands on off_left when shift >= 2.
+  - Shift from off_left_service stays off_left.
+  - Shift from off_right_service still handled (SMOKE-057 path).
+
+824 → 831 passing.
+
+## Candidate surfaces for R75
+
+  - Sail spoils path: does it correctly use sea Way type vs. Lord's
+    Ships for any Conceded/Retreat aftermath calculations?
+  - Castle marker authoritative defender — pending since R70 notes.
+  - T13 Heinrich-not-on-map Tip — pending since R69.
+  - apply_retreat_service_shift on Storm aftermath (vs. Battle
+    aftermath) — does Storm-Sack permanently remove without ever
+    shifting service?
