@@ -2276,7 +2276,11 @@ def _h_withdraw(
     static = load_locales()
     sloc = static[cp.to_locale]
     stype = sloc["type"]
-    if stype not in ("commandery", "fort", "city", "novgorod", "bishopric", "castle"):
+    # SMOKE-065 (Round 70): use _effective_stronghold to recognize Castle
+    # overlays on non-stronghold base types (Town with russian_castle /
+    # teutonic_castle). The original static-type list excluded "town".
+    eff = _effective_stronghold(state, cp.to_locale)
+    if eff is None or eff.get("no_storm"):
         raise IllegalAction("no_stronghold", f"{cp.to_locale} has no Stronghold to Withdraw into")
     # Friendly to defender side?
     if not _is_friendly_locale(state, cp.to_locale, sd):
@@ -2290,12 +2294,10 @@ def _h_withdraw(
             raise IllegalAction("not_friendly", f"{cp.to_locale} not Friendly to defender")
 
     # SMOKE-054 (Round 63 follow-up): Withdraw capacity also respects
-    # Castle markers (Castle replaces Fort/Town per T17). Use
-    # _effective_stronghold so a Castle-marked Fort accepts 2-Lord
-    # Withdraw (capacity 2 instead of Fort's 1).
-    sh_data = _effective_stronghold(state, cp.to_locale)
-    if sh_data is None or sh_data.get("no_storm"):
-        raise IllegalAction("no_stronghold", f"{cp.to_locale} type {stype} has no Stronghold to Withdraw into")
+    # Castle markers (Castle replaces Fort/Town per T17). The
+    # _effective_stronghold lookup above already accounts for Castle
+    # markers; reuse `eff` for capacity.
+    sh_data = eff
     capacity = int(sh_data.get("capacity", 1))
     if len(cp.defender_lords) > capacity:
         raise IllegalAction("over_capacity",
@@ -2585,31 +2587,46 @@ def _stronghold_at(locale_id: str) -> dict[str, Any] | None:
 
 
 def _effective_stronghold(state: GameState, locale_id: str) -> dict[str, Any] | None:
-    """SMOKE-054 (Round 63): Stronghold entry accounting for dynamic
-    Castle markers. T17 Stonemasons Tip: "The Castle marker REPLACES
-    the Fort or Town at its Locale." So a Locale with teutonic_castle
-    or russian_castle uses Castle stats (capacity 2, walls 1-4,
-    garrison 1 MaA + 1 Knight, vp 1) regardless of its static type.
+    """SMOKE-054 (Round 63) + SMOKE-065 (Round 70): Stronghold entry
+    accounting for dynamic Castle markers. T17 Stonemasons Tip: "The
+    Castle marker REPLACES the Fort or Town at its Locale." So a
+    Locale with teutonic_castle or russian_castle uses Castle stats
+    (capacity 2, walls 1-4, garrison 1 MaA + 1 Knight, vp 1) regardless
+    of its static type — including Towns, whose base type "town" has
+    no entry in strongholds.json.
 
-    The 'side' field of the returned entry remains the static
-    territory's defender (Stonemasons doesn't transfer ownership; only
-    Conquest does that, via Conquered markers + Castle flip).
+    SMOKE-065 (Round 70): the prior `if base is None: return None`
+    short-circuit silently broke Castle-overlay-on-Town. The function
+    now returns the Castle entry whenever any Castle marker is present,
+    falling back to locale territory for the 'side' field when the
+    base type has no Stronghold (Town locales).
+
+    The 'side' field continues to track the static territory's
+    defender (consistent with the SMOKE-054 design; Conquered markers
+    + Castle flip on Conquest jointly track ownership transitions).
     """
-    from nevsky.static_data import load_strongholds
+    from nevsky.static_data import load_locales, load_strongholds
     base = _stronghold_at(locale_id)
-    if base is None:
-        return None
     loc = state.locales.get(locale_id)
-    if loc is None:
+    has_overlay = bool(loc and (loc.teutonic_castle or loc.russian_castle))
+    if not has_overlay:
         return base
-    if loc.teutonic_castle or loc.russian_castle:
-        castle = load_strongholds().get("castle")
-        if castle is not None:
-            # Preserve the static side (territory owner); overlay Castle stats.
-            out = dict(castle)
-            out["side"] = base.get("side", castle.get("side"))
-            return out
-    return base
+    castle = load_strongholds().get("castle")
+    if castle is None:
+        return base
+    out = dict(castle)
+    if base is not None:
+        # Preserve existing SMOKE-054 semantics on Castle-on-Stronghold
+        # overlays (defender side = base territory's defender).
+        out["side"] = base.get("side", castle.get("side"))
+    else:
+        # Castle-on-non-Stronghold base (Town): there is no underlying
+        # Stronghold defender, so the marker color IS the defender.
+        if loc.teutonic_castle:
+            out["side"] = "teutonic"
+        else:
+            out["side"] = "russian"
+    return out
 
 
 def _besieging_lords_at(state: GameState, locale_id: str, side: Side) -> list[str]:

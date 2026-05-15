@@ -6167,3 +6167,57 @@ helper for DRY consistency with March.
     uses `_effective_stronghold` correctly when base type is "town".
   - Service marker `off_left_service` → 3.3.1 permanent-removal path
     (still pending from R68 candidates list).
+
+## Round 70 — SMOKE-065
+
+### SMOKE-065: _effective_stronghold returns None for Castle-overlay on Town
+
+**Rule:** T17 Stonemasons Tip: "The Castle marker REPLACES the Fort or
+Town at its Locale." A Castle on a Town is a Stronghold — capacity 2,
+walls 1-4, garrison 1 MaA + 1 Knight, vp 1.
+
+**Bug:** `_effective_stronghold` (campaign.py:2576) opened with
+`if base is None: return None`. Town base type has no entry in
+`strongholds.json` (only fort, city, novgorod, trade_route, bishopric,
+castle are listed). So `_stronghold_at("narwia")` returns None, and
+`_effective_stronghold` short-circuited to None — silently dropping a
+Castle marker overlay on a Town locale. Downstream consumers
+(Siege, Storm, Withdraw, Sally) couldn't recognize the Stronghold.
+
+`_h_withdraw` (campaign.py:2279) further compounded the issue with its
+own static-type list `("commandery", "fort", "city", "novgorod",
+"bishopric", "castle")` that omitted "town", rejecting Withdraw into a
+Castle-marked Town before `_effective_stronghold` could even run.
+
+**Fix:**
+- `_effective_stronghold`: remove the `base is None` short-circuit when
+  a Castle overlay is present. When base is None (Town), use the
+  Castle marker color as the defender 'side' (no underlying Stronghold
+  to inherit from). When base exists (Fort/etc.), preserve SMOKE-054
+  semantics (side = base territory's defender).
+- `_h_withdraw`: replace inline static-type list with the canonical
+  `_effective_stronghold` check, which is Castle-overlay aware.
+
+`tests/test_round_70_effective_stronghold_town.py` — 4 regressions:
+  - Castle-on-Town returns Castle stats (cap 2, walls 4, garrison
+    1+1, vp 1).
+  - Castle-on-Town side matches marker color (russian_castle → russian;
+    teutonic_castle → teutonic).
+  - Castle-on-Fort preserves SMOKE-054 side semantics (base territory).
+  - No-Castle-marker baseline unchanged.
+
+806 → 810 passing.
+
+## Candidate surfaces for R71
+
+  - `_effective_stronghold` "side" semantics for Castle-on-Stronghold
+    base — current behavior preserves base territory's defender per
+    SMOKE-054, but T17 ("Castles flip when Conquered") suggests the
+    marker color should be the authoritative defender. Likely a real
+    bug only exercised by a Siege/Storm against a Stonemasons Castle.
+  - T13 Heinrich-not-on-map Tip: drawing the Event delays William of
+    Modena Levy. Still pending from R69.
+  - Service marker `off_left_service` → 3.3.1 permanent-removal path
+    (pending since R68).
+  - Pursuit Spoils caps (similar to SMOKE-032 Spoils-asset-cap regression).
+  - T18 Cogs vs. R16 Tempest "half rounded up" reading.
