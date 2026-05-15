@@ -2165,9 +2165,27 @@ def _h_avoid_battle(
         raise IllegalAction("missing_arg", "args.to required")
 
     src = cp.to_locale  # defender currently at to_locale
-    dest_way_type = _way_type_between(src, dest)
-    if dest_way_type is None:
+    # SMOKE-068 (Round 73): for parallel-Ways pairs (dorpat<->odenpah
+    # has both trackway and waterway), the defender may pick which Way
+    # to Avoid via through args.way_type. Without explicit selection,
+    # _way_type_between returns the first match (legacy behavior).
+    from nevsky.static_data import load_ways
+    candidate_types: list[str] = []
+    for w in load_ways():
+        if (w["a"] == src and w["b"] == dest) or (w["a"] == dest and w["b"] == src):
+            candidate_types.append(w["type"])
+    if not candidate_types:
         raise IllegalAction("not_adjacent", f"{dest} not adjacent to {src}")
+    requested_way = args.get("way_type")
+    if isinstance(requested_way, str):
+        if requested_way not in candidate_types:
+            raise IllegalAction(
+                "bad_way_type",
+                f"requested way_type {requested_way!r} not among {candidate_types} between {src} and {dest}",
+            )
+        dest_way_type = requested_way
+    else:
+        dest_way_type = candidate_types[0]
 
     # 4.3.4: may not Avoid Battle across the Way the enemy used to
     # Approach. We identify the approach Way by (from_locale, way_type);
