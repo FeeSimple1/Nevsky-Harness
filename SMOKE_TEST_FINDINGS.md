@@ -6099,3 +6099,71 @@ return 0. The 1-box-off cap is naturally enforced — once at
     for odd Ship counts. Worth a rule-text clarification.
   - Service marker off_left_service → 3.3.1 permanent-removal path
     (handled in Disband but worth a regression for the new path).
+
+## Round 69 — SMOKE-063, SMOKE-064
+
+### SMOKE-063: R9 Osilian Revolt accepts ineligible targets, shifts off Calendar
+
+**Rule:** AoW Reference R9 — "shift the Service marker ... by 2 boxes
+to the degree able... as long as neither marker is yet in box 1 or off
+the left end of the Calendar." R9 omits the "one box off Calendar
+allowed" allowance that R10/T12/T18 Tips carry.
+
+**Bug:** `_ev_osilian_revolt` (events.py:339) called `_shift_service`
+unconditionally. After SMOKE-062 added off_left_service support, R9
+silently dumped Andreas/Heinrich Service markers off the left end
+even when starting at box 1 (which R9's Tip forbids).
+
+**Fix:** Add precondition `sm_box >= 2` (rejects box 1 / off_left as
+`ineligible_target`) and clamp the shift to `min(2, sm_box - 1)` so
+the marker lands at box >= 1 (R9 has no off-Calendar allowance).
+
+`tests/test_round_69_r9_osilian_eligibility.py` — 7 regressions:
+  - Reject box-1 / off_left_service / no-marker targets.
+  - Box 2 with 2-box shift clamps at box 1 (no off-Calendar).
+  - Box 3, box 5 full-shift parity.
+  - Invalid target id (`hermann`) rejected via `missing_arg`.
+
+### SMOKE-064: Sail to enemy Castle (native or marker overlay) misses Siege placement
+
+**Rule:** 4.7.3 Sail — "Sailing to Unbesieged enemy Stronghold places
+a Siege marker." T17 Stonemasons Tip — "The Castle marker REPLACES
+the Fort or Town at its Locale." So a Castle marker overlaid on a
+Town (or natively a Castle) is a Stronghold.
+
+**Bug:** `_h_cmd_sail` (campaign.py:1049) used an inline check
+`dest_static["type"] in ("commandery", "fort", "city", "novgorod", "bishopric")`
+that omitted both "castle" (Sailing to wesenberg / fellin / adsel /
+wenden when enemy-Castle-overlaid silently skipped Siege) and "town"
+(a russian_castle overlay on a Town locale was unrecognized).
+`_has_enemy_stronghold_at` similarly used a static-type test that
+never returned True for Castle-on-Town overlays.
+
+**Fix:** `_has_enemy_stronghold_at` now short-circuits on Castle
+overlay markers: a teutonic_castle marker means Teutonic ownership,
+russian_castle means Russian, regardless of base type. Sail's inline
+check is replaced with the canonical `_has_enemy_stronghold_at`
+helper for DRY consistency with March.
+
+`tests/test_round_69_sail_castle_siege.py` — 5 regressions:
+  - Sail to russian_castle overlay on Town (narwia) → siege placed.
+  - Sail to russian_castle overlay on Fort (koporye) → siege placed.
+  - Sail to friendly teutonic_castle overlay → no siege.
+  - `_has_enemy_stronghold_at` recognizes overlay on non-stronghold base.
+  - Overlay color flips ownership (teutonic_castle vs russian_castle).
+
+794 → 806 passing.
+
+## Candidate surfaces for R70
+
+  - T13 Heinrich-not-on-map Tip: drawing the Event delays William of
+    Modena Levy until Heinrich Musters or hold discarded — implicit
+    blocking via deck-vs-holds; worth an explicit Tip-aligned flag.
+  - R10 Batu Khan / T12 Khan Baty / T18 Swedish Crusade: now correctly
+    allow off_left_service via SMOKE-062 — confirm no other handler
+    requires the marker stay on-Calendar.
+  - `_h_cmd_storm` / `_h_cmd_sally` against Castle-overlay-on-Town
+    Strongholds (downstream of SMOKE-064) — verify the Storm path
+    uses `_effective_stronghold` correctly when base type is "town".
+  - Service marker `off_left_service` → 3.3.1 permanent-removal path
+    (still pending from R68 candidates list).
