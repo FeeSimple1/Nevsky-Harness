@@ -73,11 +73,24 @@ def _shift_cylinder(state: GameState, lord_id: str, boxes: int, direction: str) 
 
 
 def _shift_service(state: GameState, lord_id: str, boxes: int, direction: str) -> int:
+    """Shift a Service marker by `boxes` in `direction`. Returns the
+    resulting box (1..16, or 0/17 for off-edges).
+
+    SMOKE-062 (Round 68): per AoW Reference R10/T12/T18 Tips —
+    "Shifting just one box off the Calendar from box 1 or box 16 is
+    allowed" — the function supports landing on off_left_service
+    (0) and off_right_service (17). Prior code clamped at box 1 on
+    left-shifts via max(1, cur - boxes), which silently disallowed
+    legal off-Calendar service shifts.
+    """
     cal = state.calendar
     cur = None
     if lord_id in cal.off_right_service:
         cur = 17
         cal.off_right_service.remove(lord_id)
+    elif lord_id in cal.off_left_service:
+        cur = 0
+        cal.off_left_service.remove(lord_id)
     else:
         for cb in cal.boxes:
             if lord_id in cb.service_markers:
@@ -87,7 +100,11 @@ def _shift_service(state: GameState, lord_id: str, boxes: int, direction: str) -
     if cur is None:
         raise IllegalAction("no_service_marker", f"{lord_id} has no Service marker")
     if direction == "left":
-        new = max(1, cur - boxes)
+        new = cur - boxes
+        if new < 1:
+            # Clamp at off_left_service (one box off Calendar max).
+            cal.off_left_service.append(lord_id)
+            return 0
     else:
         new = cur + boxes
         if new > 16:

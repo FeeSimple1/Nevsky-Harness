@@ -258,6 +258,15 @@ def _h_advance_step(
                     # off_left (0) or boxes 1..levy_box: Ready
                     if cyl_box <= levy_box:
                         lord.state = "ready"  # type: ignore[assignment]
+            # SMOKE-060 (Round 68): AoW Reference T11 Crusade —
+            # "Each Summer Levy, free Muster all Unbesieged Crusaders;
+            # ... automatically Musters all Summer Crusader Knights to
+            # Andreas and Rudolf at no cost in Lordship actions, even
+            # in enemy territory, provided that the Lord is himself
+            # Mustered and is Unbesieged. If already Mustered and any
+            # Knights have been lost from the Lord's Forces, restore
+            # Knight units up those shown on the Vassal marker."
+            _t11_summer_auto_muster(state)
         if next_step == "call_to_arms":
             # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
             state.legate.acted_this_call_to_arms = False
@@ -853,6 +862,84 @@ def _find_levy_marker_box(state: GameState) -> int:
         if cb.has_levy_campaign_marker:
             return cb.box
     raise IllegalAction("no_levy_marker", "Levy/Campaign marker not on Calendar")
+
+
+def _t11_summer_auto_muster(state: GameState) -> list[dict[str, Any]]:
+    """SMOKE-060 (Round 68): T11 Crusade auto-fire on Summer Levy.
+
+    AoW Reference T11 Tip: "automatically Musters all Summer Crusader
+    Knights to Andreas and Rudolf at no cost in Lordship actions, even
+    in enemy territory, provided that the Lord is himself Mustered and
+    is Unbesieged. If already Mustered and any Knights have been lost
+    from the Lord's Forces, restore Knight units up those shown on the
+    Vassal marker."
+
+    Fires on entry to the Muster step of a Summer Levy when T11 is in
+    play. Returns a list of {lord_id, vassal_id, action, ...} events.
+    """
+    if _season_of_box(state.meta.box) != "summer":
+        return []
+    if "T11" not in state.decks.teutonic.capabilities_in_play:
+        return []
+    from nevsky.campaign import _is_besieged
+    from nevsky.static_data import load_lords
+    lords_data = load_lords()
+    events: list[dict[str, Any]] = []
+    for lord_id, lord in state.lords.items():
+        if lord.side != "teutonic":
+            continue
+        if lord.state != "mustered":
+            continue
+        if lord.location is None:
+            continue
+        if _is_besieged(state, lord_id):
+            continue
+        sl = lords_data.get(lord_id)
+        if not sl:
+            continue
+        for vdata in sl.get("vassals", []):
+            if vdata.get("special") != "summer_crusaders":
+                continue
+            vid = vdata["vassal_id"]
+            vstate = lord.vassals.get(vid)
+            if vstate is None:
+                continue
+            v_forces = vdata.get("forces", {})
+            if not vstate.mustered:
+                # Free Muster: add Vassal forces to Lord, no Lordship.
+                for k, val in v_forces.items():
+                    lord.forces[k] = lord.forces.get(k, 0) + int(val)  # type: ignore[index]
+                vstate.ready = True
+                vstate.mustered = True
+                events.append({
+                    "lord_id": lord_id,
+                    "vassal_id": vid,
+                    "action": "t11_auto_muster",
+                    "added_forces": dict(v_forces),
+                })
+            else:
+                # Already Mustered: restore lost Knights up to the
+                # Vassal marker's Knight count.
+                sc_knights = int(v_forces.get("knights", 0))
+                if sc_knights <= 0:
+                    continue
+                expected = int(sl.get("starting_forces", {}).get("knights", 0))
+                for v2 in sl.get("vassals", []):
+                    vs2 = lord.vassals.get(v2["vassal_id"])
+                    if vs2 and vs2.mustered:
+                        expected += int(v2.get("forces", {}).get("knights", 0))
+                actual = int(lord.forces.get("knights", 0))
+                missing = expected - actual
+                if missing > 0:
+                    restore = min(missing, sc_knights)
+                    lord.forces["knights"] = actual + restore  # type: ignore[index]
+                    events.append({
+                        "lord_id": lord_id,
+                        "vassal_id": vid,
+                        "action": "t11_restore_knights",
+                        "restored": restore,
+                    })
+    return events
 
 
 def _find_service_marker_box(state: GameState, lord_id: str) -> int | None:
@@ -1756,6 +1843,22 @@ def _h_levy_capability(
     _check_capability_eligibility(card, by_id, role="levyer")
     if card["capability_scope"] == "this_lord" and isinstance(target_lord_id, str):
         _check_capability_eligibility(card, target_lord_id, role="target")
+
+    # SMOKE-061 (Round 68): R15 Death of the Pope blocks Levy of T13
+    # (William of Modena) for the rest of the Levy in which R15 fired.
+    # Flag is set in _ev_death_of_pope and cleared on Levy -> Campaign
+    # transition in _h_advance_step. Without enforcement here the
+    # Teutons can re-Levy T13 immediately after R15 discards it, which
+    # nullifies the event.
+    if (
+        cid == "T13"
+        and sd == "teutonic"
+        and state.meta.special_rules.get("block_william_of_modena_this_levy")
+    ):
+        raise IllegalAction(
+            "capability_blocked",
+            "T13 William of Modena Levy blocked this Levy by R15 Death of the Pope",
+        )
 
     _spend_lordship(state, by_id)
 
