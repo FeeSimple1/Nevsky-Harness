@@ -6319,3 +6319,45 @@ behavior).
   - Avoid Battle Way restriction (defender may not retreat along the
     attacker's approach Way).
   - Castle marker side authoritative — still pending from R70 notes.
+
+## Round 73 — SMOKE-068
+
+### SMOKE-068: Avoid Battle ignores way_type for parallel-Ways pair
+
+**Rule:** 4.3.4 Avoid Battle restriction: "may not Avoid Battle across
+the Way the enemy used to Approach." The existing code comment notes
+"Parallel Ways of a different type between the same Locales remain
+available", but the implementation didn't make those parallel Ways
+selectable.
+
+**Bug:** `_h_avoid_battle` (campaign.py:2168-2171) called
+`_way_type_between(src, dest)` which returns the FIRST Way found in
+ways.json. For the only parallel-Ways pair in Nevsky (dorpat<->odenpah
+has both trackway and waterway), the defender couldn't choose the
+non-approach Way — `_way_type_between` returned "trackway" and the
+approach-Way restriction blocked the Avoid even when "waterway" would
+have been legitimate.
+
+**Fix:** Collect all candidate Way types between src and dest. If
+`args.way_type` is provided, validate it's a real Way (else
+`bad_way_type`). Otherwise fall back to the first match (legacy
+behavior preserved for non-parallel pairs).
+
+`tests/test_round_73_avoid_way_type.py` — 4 regressions:
+  - No arg + Avoid back via approach Way → `approach_way_blocked` (legacy).
+  - way_type=waterway parallel to attacker's trackway → Avoid allowed.
+  - way_type=sea (non-existent) → `bad_way_type`.
+  - way_type=trackway explicitly matching approach Way → still blocked.
+
+820 → 824 passing.
+
+## Candidate surfaces for R74
+
+  - Retreat path: defender auto-retreat after losing Battle also uses
+    `_way_type_between(src, neighbor)` for each candidate neighbor and
+    excludes the (from_locale, way_type) combination. With parallel
+    Ways, the alternate Way back to from_locale should still be a
+    valid Retreat destination. Probe whether this works.
+  - Castle marker authoritative defender — pending since R70 notes.
+  - Sail and other movement helpers with the same first-match Way pattern.
+  - T13 Heinrich-not-on-map Tip — pending since R69.
