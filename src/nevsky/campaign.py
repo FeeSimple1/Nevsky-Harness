@@ -765,11 +765,16 @@ def _h_cmd_forage(
         raise IllegalAction("ravaged", f"{lord.location} is Ravaged; Forage forbidden (4.7.1)")
 
     season = _season_of_box(state.meta.box)
-    static_locales = load_locales()
+    # SMOKE-066 (Round 71): use _effective_stronghold so Castle marker
+    # overlays on Town locales (Stonemasons-built) count as Strongholds
+    # for the "Forage at Friendly Stronghold or Summer" check. The
+    # prior static-type list excluded "town", so Forage at a friendly
+    # Castle-on-Town in non-Summer was wrongly rejected.
+    eff_sh = _effective_stronghold(state, lord.location)  # type: ignore[arg-type]
     is_friendly_stronghold = (
-        _is_friendly_locale(state, lord.location, sd)  # type: ignore[arg-type]
-        and static_locales[lord.location].get("type")  # type: ignore[index]
-        in ("commandery", "fort", "city", "novgorod", "bishopric", "castle")
+        eff_sh is not None
+        and not eff_sh.get("no_storm")
+        and _is_friendly_locale(state, lord.location, sd)  # type: ignore[arg-type]
     )
     if not (is_friendly_stronghold or season == "summer"):
         raise IllegalAction(
