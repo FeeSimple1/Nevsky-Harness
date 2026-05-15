@@ -1042,19 +1042,17 @@ def _h_cmd_sail(
     # SMOKE-020 (Round 34): trade-route auto-flip on uncontested entry.
     trade_flip = _flip_trade_route_if_uncontested(state, dest, sd)
 
-    # Sailing to Unbesieged enemy Stronghold places a Siege marker.
+    # SMOKE-064 (Round 69): Sailing to Unbesieged enemy Stronghold
+    # places a Siege marker. Previously the inline type list omitted
+    # "castle" (so Sail to wesenberg / Russian-castle overlay missed
+    # the siege placement) and "town" (Castle marker overlaid on a
+    # Town via T17 Stonemasons did not register). Use the canonical
+    # _has_enemy_stronghold_at helper (now Castle-overlay aware).
     placed_siege = False
     dest_loc = state.locales[dest]
-    dest_static = static_locales[dest]
-    if dest_static["type"] in ("commandery", "fort", "city", "novgorod", "bishopric") and dest_loc.siege_markers == 0:
-        # Enemy stronghold? -- check enemy Conquered marker or own-side absence
-        enemy_owns_stronghold = (
-            (sd == "teutonic" and (dest_static["territory"] == "russian" or dest_loc.russian_conquered > 0))
-            or (sd == "russian" and (dest_static["territory"] in ("teutonic", "crusader") or dest_loc.teutonic_conquered > 0))
-        )
-        if enemy_owns_stronghold:
-            dest_loc.siege_markers = 1
-            placed_siege = True
+    if _has_enemy_stronghold_at(state, dest, sd) and dest_loc.siege_markers == 0:
+        dest_loc.siege_markers = 1
+        placed_siege = True
 
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
@@ -1837,17 +1835,30 @@ def _flip_trade_route_if_uncontested(
 
 def _has_enemy_stronghold_at(state: GameState, locale_id: str, side: Side) -> bool:
     """Enemy Stronghold present if locale is enemy-territory stronghold
-    not Conquered by us, OR own-territory stronghold Conquered by enemy.
+    not Conquered by us, OR own-territory stronghold Conquered by enemy,
+    OR a Castle marker overlays the locale (T17 Stonemasons — Castle
+    replaces Fort/Town) and the overlay color is the enemy side.
 
     Trade Routes are NOT Strongholds (SMOKE-020, Round 34): they have no
     Walls, Capacity, or Garrison per Strongholds reference, so they
     cannot be Sieged or Stormed. Trade-Route flip on enemy presence is
     handled by `_flip_trade_route_if_uncontested`, NOT by this function.
+
+    SMOKE-064 (Round 69): Castle markers can be overlaid on Town locales
+    via T17 Stonemasons. A Castle-on-Town must be treated as a Stronghold
+    even though the base type is "town" (not in the stronghold-types
+    list). Likewise a Russian Castle marker on a Teutonic Castle (after
+    flip on Conquest) means Russian ownership regardless of base type.
     """
     static = load_locales()[locale_id]
+    loc = state.locales[locale_id]
+    # Castle overlay short-circuit: marker color determines owner.
+    if loc.teutonic_castle:
+        return side == "russian"
+    if loc.russian_castle:
+        return side == "teutonic"
     if static["type"] not in ("commandery", "fort", "city", "novgorod", "bishopric", "castle"):
         return False
-    loc = state.locales[locale_id]
     if side == "teutonic":
         # Russian-territory stronghold not Conquered by us OR our stronghold Conquered by Russians.
         if static["territory"] == "russian" and loc.teutonic_conquered == 0:

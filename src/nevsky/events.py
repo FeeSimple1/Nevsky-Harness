@@ -339,11 +339,34 @@ def _ev_mindaugas_r(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 def _ev_osilian_revolt(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """R9 Osilian Revolt (immediate). Teutons choose to shift Service of Andreas
     OR Heinrich 2 boxes left.
+
+    SMOKE-063 (Round 69): per AoW Reference R9 Tip — "shift the Service
+    marker ... by 2 boxes to the degree able. ... as long as neither
+    marker is yet in box 1 or off the left end of the Calendar." The
+    target's Service marker must be at box >= 2; the shift is clamped
+    so the marker does NOT go off the left end (R9's Tip omits the
+    "1 box off Calendar allowed" allowance that R10/T12/T18 carry).
     """
     target = args.get("target")
     if target not in ("andreas", "heinrich"):
         raise IllegalAction("missing_arg", "args.target must be 'andreas' or 'heinrich'")
-    new = _shift_service(state, target, 2, "left")
+    from nevsky.actions import _find_service_marker_box
+    sm_box = _find_service_marker_box(state, target)
+    if sm_box is None:
+        raise IllegalAction(
+            "ineligible_target",
+            f"R9: {target} has no Service marker on Calendar",
+        )
+    if sm_box <= 1:
+        # Box 1 (cur=1) or off_left_service (cur=0) — illegal per Tip.
+        raise IllegalAction(
+            "ineligible_target",
+            f"R9: {target} Service marker at box {sm_box} (must be >=2 per R9 Tip)",
+        )
+    # "Shift 2 boxes to the degree able" with no off-Calendar allowance:
+    # clamp effective shift so the marker stays in box >=1.
+    effective = min(2, sm_box - 1)
+    new = _shift_service(state, target, effective, "left")
     return {"event": "R9", "target": target, "new_box": new}
 
 
