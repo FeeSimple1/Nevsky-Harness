@@ -6273,3 +6273,49 @@ Disband, not permanent remove).
     authoritative defender).
   - T13 Heinrich-not-on-map Tip (pending since R69).
   - Pursuit Spoils caps (pending since R70).
+
+## Round 72 — SMOKE-067
+
+### SMOKE-067: March ignores agent-specified way_type for parallel Ways
+
+**Rule:** 4.3 March — "March one Locale via a Way." Where src<->dest is
+connected by multiple Ways (Nevsky has exactly one such pair:
+dorpat<->odenpah has both a trackway and a waterway), the active Lord
+picks which Way to use. Transport seasonality (1.7.4) requires the
+appropriate Way-compatible Transport (Boats only on Waterways, Carts
+only on Trackways), so the choice matters for excess-Provender gating
+and for Laden-cost calculations.
+
+**Bug:** `_h_cmd_march` (campaign.py:1972-1980) iterated the loaded
+ways list and broke on the FIRST matching pair, ignoring any agent
+intent. For dorpat<->odenpah the trackway entry came first in
+`ways.json`, so a Hermann with Boats but no Carts was rejected for
+"excess provender" (no usable Transport on a Trackway) even though
+the Waterway path would have been legal.
+
+**Fix:** Collect all Way types between src and dest. If args.way_type
+is provided, validate it's in the candidate list (else
+`bad_way_type`). Otherwise fall back to the first candidate (legacy
+behavior).
+
+`tests/test_round_72_march_way_type.py` — 4 regressions:
+  - Default (no way_type): picks first Way (legacy parity).
+  - Explicit `waterway`: Lord with Boats only marches dorpat -> odenpah.
+  - Explicit `trackway`: Lord with Carts only marches the alternate Way.
+  - Unknown way_type (e.g. `sea`) rejected as `bad_way_type`.
+
+816 → 820 passing.
+
+## Candidate surfaces for R73
+
+  - Sail multi-Way selection: only one Sea Way exists between any two
+    Seaports per ways.json (I believe), so likely a non-issue, but
+    worth verifying.
+  - Sally and Storm aftermath checks: defenders in_stronghold reset,
+    siege_markers cleanup on Surrender vs. Sack vs. Sally.
+  - Ravage adjacent-enemy-Lord cost when the enemy is inside a
+    Stronghold but at the SAME locale (a besieged enemy vs an
+    Unbesieged enemy in the open at the same locale).
+  - Avoid Battle Way restriction (defender may not retreat along the
+    attacker's approach Way).
+  - Castle marker side authoritative — still pending from R70 notes.
