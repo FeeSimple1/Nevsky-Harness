@@ -1860,6 +1860,28 @@ def _h_levy_capability(
             "T13 William of Modena Levy blocked this Levy by R15 Death of the Pope",
         )
 
+    # SMOKE-072 (Round 75): per AoW Reference T13 Event Tip,
+    # "If Heinrich is not on map, drawing the Event card will delay
+    # Levy of the William of Modena Capability until discarded or
+    # Heinrich Musters." Block T13 (William of Modena) Levy whenever
+    # Heinrich is not Mustered on the map (state != "mustered" or
+    # location is None). The block lifts naturally when Heinrich
+    # Musters or when T13 is discarded.
+    if (
+        cid == "T13"
+        and sd == "teutonic"
+        and (
+            "heinrich" not in state.lords
+            or state.lords["heinrich"].state != "mustered"
+            or state.lords["heinrich"].location is None
+        )
+    ):
+        raise IllegalAction(
+            "heinrich_off_map",
+            "T13 William of Modena Levy delayed: Heinrich is not on map "
+            "(AoW Reference T13 Event Tip)",
+        )
+
     _spend_lordship(state, by_id)
 
     if card["capability_scope"] == "this_lord":
