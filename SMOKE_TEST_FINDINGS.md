@@ -6427,3 +6427,77 @@ box off). Also handle markers that start at off_left_service (cur=0).
   - apply_retreat_service_shift on Storm aftermath (vs. Battle
     aftermath) — does Storm-Sack permanently remove without ever
     shifting service?
+
+## Round 75 — SMOKE-071, SMOKE-072
+
+### SMOKE-071: Sally aftermath retreat ignores Conceded flag and way_type
+
+**Rule:** 4.4.3 Battle Aftermath — "Concede the Field AND Retreat:
+transfer all Loot and any Provender beyond that which they could take
+along the Retreat Way without being Laden." (loot_and_excess Spoils
+mode). And 4.5.3 Sally is conducted "as 4.4. The Sallying Lord uses
+no Walls or Garrison," so the Battle aftermath rules — including
+Concede+Retreat Spoils — apply to Sally too.
+
+**Bug:** `_h_cmd_sally` (campaign.py:3082+) defender-loss branch always
+called `transfer_spoils(state, lid, attackers, "all_except_ships")`
+regardless of whether the besieger Conceded the Field. The retreat
+target-selection loop also did not capture `w["type"]`, so even if
+the Conceded path were reached the Unladen Transport calculation
+along the Retreat Way would be impossible (parallel-Ways pairs like
+dorpat<->odenpah). This is the same family as SMOKE-069 in the
+regular Battle aftermath but in the Sally code path.
+
+**Fix:** Capture `retreat_way_type_actual` in the for-w-in-load_ways
+loop. Consult `result.get("conceded")`; if `conceded_side ==
+"defender"` and this Lord is on the loser side (besieger), use
+`loot_and_excess` mode with `retreat_way_type=retreat_way_type_actual`.
+Otherwise fall through to `all_except_ships` (Retreat-without-Concede,
+default 4.4.3 path).
+
+`tests/test_round_75_sally_way_type.py` — 4 source-inspection
+regressions (matches SMOKE-069 style; the end-to-end Spoils transfer
+is exercised by adjacent siege suite tests).
+
+### SMOKE-072: T13 William of Modena Levy not blocked when Heinrich is off map
+
+**Rule:** AoW Reference T13 Event Tip — "If Heinrich is not on map,
+drawing the Event card will delay Levy of the William of Modena
+Capability until discarded or Heinrich Musters."
+
+**Bug:** `_h_levy_capability` (actions.py) enforced the R15 Death of
+the Pope block (SMOKE-061) but had no Heinrich-on-map gate. Teutons
+could Levy T13 as William of Modena (side-wide capability) while
+Heinrich was still in the ready pool (un-Mustered), or after he was
+Disbanded or permanently Removed — directly contradicting the Tip.
+
+**Fix:** After the SMOKE-061 check, add a Heinrich state gate. If
+`cid == "T13"` and `sd == "teutonic"`, reject with code
+`heinrich_off_map` when Heinrich is missing, not Mustered, or has no
+location. The block lifts naturally when Heinrich Musters (state →
+"mustered" with a location) or when T13 is discarded (end of Levy /
+Campaign).
+
+`tests/test_round_75_t13_heinrich_not_on_map.py` — 5 regressions:
+  - Heinrich in ready pool → reject.
+  - Heinrich disbanded → reject.
+  - Heinrich permanently removed → reject.
+  - Heinrich Mustered on map → succeeds (self-Levy).
+  - Error code is `heinrich_off_map`.
+
+831 → 840 passing.
+
+## Candidate surfaces for R76
+
+  - Storm aftermath Service shift — Storm Sack permanently removes
+    Besieged Lords (3.3.1 path) without separately calling
+    apply_retreat_service_shift. Confirm 3.3.1 permanent-removal
+    correctly handles the Service marker (should land on off_left or
+    off_right_service per existing _remove_lord_permanently).
+  - Relief Sally aftermath retreat — does the relief case mirror
+    Sally Conceded+Retreat semantics or is it Withdraw-only?
+  - Other `load_ways()` first-match patterns in non-combat helpers
+    (forage routes, supply BFS that have not yet been audited for
+    parallel-Ways correctness).
+  - Plan-phase deferred-target validations (Lieutenant + Lower Lord
+    that fail at action time should be caught at Plan time).

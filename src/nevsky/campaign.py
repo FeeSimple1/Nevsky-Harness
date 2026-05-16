@@ -3092,10 +3092,13 @@ def _h_cmd_sally(
                 # SMOKE-049 (Round 61): per 4.4.3 Battle Retreat, the
                 # target must be a Friendly neighbor — no enemy Lord,
                 # no enemy Stronghold, no enemy-Conquered marker.
-                # Previously only enemy Lords were checked, allowing
-                # retreat into enemy-Conquered or enemy-Stronghold
-                # locales.
+                # SMOKE-071 (Round 75): capture the actual retreat
+                # Way's type so the Conceded+Retreated Spoils path can
+                # compute Unladen Transport correctly along that Way
+                # (matters for parallel-Ways pairs e.g.
+                # dorpat<->odenpah trackway + waterway).
                 target = None
+                retreat_way_type_actual: str | None = None
                 for w in load_ways():
                     cand = w["b"] if w["a"] == locale_id else (w["a"] if w["b"] == locale_id else None)
                     if cand is None:
@@ -3110,6 +3113,7 @@ def _h_cmd_sally(
                     if l.side == "russian" and cand_loc.teutonic_conquered > 0:
                         continue
                     target = cand
+                    retreat_way_type_actual = w["type"]
                     break
                 if target is None:
                     spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
@@ -3121,7 +3125,23 @@ def _h_cmd_sally(
                     # SMOKE-036: clear in_stronghold on Sally retreat.
                     l.in_stronghold = False
                     shift = apply_retreat_service_shift(state, lid)
-                    spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                    # SMOKE-071 (Round 75): honor 4.4.3 Concede-the-Field
+                    # Spoils. If the defender (besieger) Conceded the
+                    # Field and Retreated, only Loot and excess
+                    # Provender transfer. Without Concede, all assets
+                    # except Ships transfer (Retreat-without-Concede).
+                    conceded_side = result.get("conceded")
+                    this_lord_conceded = (
+                        conceded_side == "defender"
+                        and result["loser"] != sd
+                    )
+                    if this_lord_conceded:
+                        spoil = transfer_spoils(
+                            state, lid, attackers, "loot_and_excess",
+                            retreat_way_type=retreat_way_type_actual,
+                        )
+                    else:
+                        spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
         # Siege lifted.
