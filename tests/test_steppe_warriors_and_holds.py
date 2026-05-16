@@ -73,17 +73,19 @@ def test_marsh_blocks_horse_strike_rounds_1_and_2() -> None:
     s.meta.box = 1
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian" and l.state == "mustered")
-    s.lords[teu].forces = {"knights": 4, "men_at_arms": 2}
-    s.lords[rus].forces = {"knights": 2, "men_at_arms": 2}
-    res = resolve_battle(s, "teutonic", [teu], [rus],
+    # SMOKE-080: T5 Marsh requires Teutonic to be Defending.
+    # Swap: Russian attacker, Teutonic defender.
+    s.lords[rus].forces = {"knights": 4, "men_at_arms": 2}
+    s.lords[teu].forces = {"knights": 2, "men_at_arms": 2}
+    res = resolve_battle(s, "russian", [rus], [teu],
                           holds={"marsh": "T5"})
-    # Round 1 attacker melee_horse step should have 0 hits (T Knights blocked).
+    # Round 1 attacker melee_horse step should have 0 hits (Rus Knights blocked).
     r1 = res["log"][0]
     horse_steps = [step for step in r1["steps"] if step["step"] == "melee_horse_attacker"]
     if horse_steps:
         # Horse step recorded but should have no hits if Marsh works.
         for st in horse_steps:
-            assert st["raw_hits"] == 0, f"Marsh should block T Horse Round 1; got {st}"
+            assert st["raw_hits"] == 0, f"Marsh should block Rus Horse Round 1; got {st}"
 
 
 def test_marsh_consumed_from_holds() -> None:
@@ -93,24 +95,25 @@ def test_marsh_consumed_from_holds() -> None:
     s.meta.box = 1
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian" and l.state == "mustered")
-    s.lords[teu].location = "izborsk"
-    s.lords[rus].location = "pskov"
-    s.lords[rus].assets.pop("loot", None)
-    s.lords[rus].assets.pop("provender", None)
+    # SMOKE-080: T5 Marsh requires Teutonic to be Defending.
+    s.lords[rus].location = "izborsk"
+    s.lords[teu].location = "pskov"
+    s.lords[teu].assets.pop("loot", None)
+    s.lords[teu].assets.pop("provender", None)
     s.decks.teutonic.holds = ["T5"]
     s.combat_pending = CombatPending(
-        attacker_side="teutonic", attacker_group=[teu],
+        attacker_side="russian", attacker_group=[rus],
         from_locale="izborsk", to_locale="pskov", way_type="trackway",
-        defender_side="russian", defender_lords=[rus],
-        pending_response_by="russian", laden=False,
+        defender_side="teutonic", defender_lords=[teu],
+        pending_response_by="teutonic", laden=False,
     )
     s.meta.phase = "campaign"
     s.meta.campaign_step = "command"
-    s.meta.active_player = "russian"
+    s.meta.active_player = "teutonic"
     s.campaign_turn.active_lord = None
     s.campaign_turn.actions_remaining = 0
     s.campaign_turn.in_feed_pay_disband = False
-    res = apply_action(s, {"type": "stand_battle", "side": "russian",
+    res = apply_action(s, {"type": "stand_battle", "side": "teutonic",
                             "args": {"holds": {"marsh": "T5"}}})
     assert "T5" not in s.decks.teutonic.holds
     assert "T5" in s.decks.teutonic.discard

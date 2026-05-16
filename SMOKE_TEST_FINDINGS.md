@@ -6874,3 +6874,47 @@ check confirming no false rejection.
   - Storm-aftermath Service shift behavior for Sacked Lords.
   - Wastage args.wastage_choice support for player-driven discard
     selection.
+
+## Round 84 — SMOKE-080
+
+### SMOKE-080: Tier 2 Battle Holds ignore "if Defending" role restriction
+
+**Rule:** AoW Reference card texts —
+  T5/R2 Marsh:  "May play if Defending in non-Winter Battle..."
+  T9/R5 Hill:   "May play if Defending in Battle..."
+
+**Bug:** `_consume_battle_holds` enforced the card-side ownership
+(T5 must be in Teutonic holds) but not the role restriction (Teutonic
+must be Defending). An attacker could pass `holds={"marsh": "T5"}`
+and the function moved T5 to discard. The effect handler in
+battle.py normalizes Marsh to block "attacker" Horse — so playing
+T5 while attacking would block the attacker's own (Teutonic) Horse,
+a self-inflicted loss but a rules violation.
+
+Probe: Teutonic attacker passed `{"marsh": "T5"}` with Russian
+defender. T5 consumed (BUG). Same for T9 Hill.
+
+**Fix:** Add `_DEFENDING_ONLY_HOLDS` table in
+`_consume_battle_holds`. For each restricted card, require
+`cp.defender_side == card.side` or raise `role_blocked`. Updated
+prior R83 + steppe_warriors_and_holds tests to ensure Teutonic
+defends when playing T5 / T9.
+
+`tests/test_round_84_battle_hold_role.py` — 7 regressions:
+T5/R2/T9/R5 each rejected when card-side is attacker; T5/R5
+accepted when card-side is defender; unrestricted holds
+(T4/T6/T10) remain role-agnostic.
+
+875 → 882 passing. Clean-round counter remains RESET to 0/5
+(another SMOKE found).
+
+## Candidate surfaces for R85
+
+  - Ambush (T6/R6) role check — card text "Play to block Avoid
+    Battle OR ignore enemy left/right" suggests attacker-only role.
+  - Field Organ (T10) role/target — "any Teutonic Lord" probably
+    means own-side Lord; verify target validation.
+  - Raven's Rock (R4) — implicit "Russian Defending" since the
+    effect benefits Russian Walls; check if attacker-side Russian
+    playing R4 should be rejected.
+  - Storm Sack Service-shift handling (still on the list).

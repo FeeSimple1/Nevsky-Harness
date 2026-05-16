@@ -721,6 +721,19 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
         # Raven's Rock: "non-Summer Battle" -> reject in Summer.
         "R4": ("non_summer", ("summer",)),
     }
+    # SMOKE-080 (Round 84): per AoW Reference, Marsh (T5/R2) and Hill
+    # (T9/R5) explicitly say "May play if Defending." The card's side
+    # must equal cp.defender_side; otherwise the rule is violated.
+    # Without this gate, an attacker could "play" the Defending-only
+    # Hold (silently consume the card from their own holds list and
+    # apply its effect, which then penalises the wrong side's units
+    # because the harness keys the effect by attacker/defender role).
+    _DEFENDING_ONLY_HOLDS = {
+        "T5": "teutonic",
+        "R2": "russian",
+        "T9": "teutonic",
+        "R5": "russian",
+    }
     for key, cid in holds_arg.items():
         if not isinstance(cid, str):
             continue
@@ -741,6 +754,14 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
                         "season_blocked",
                         f"{cid} restricted to {label} Battle; current season is {season}",
                     )
+            # SMOKE-080 (Round 84) "Defending" role gate.
+            required_defender = _DEFENDING_ONLY_HOLDS.get(cid)
+            if required_defender is not None and cp.defender_side != required_defender:
+                raise IllegalAction(
+                    "role_blocked",
+                    f"{cid} restricted to Defending side ({required_defender}); "
+                    f"current defender is {cp.defender_side}",
+                )
             deck.holds.remove(cid)
             deck.discard.append(cid)
             consumed.append({"card": cid, "key": key})

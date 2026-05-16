@@ -58,7 +58,9 @@ def test_marsh_t5_accepted_in_summer():
     s = load_scenario("crusade_on_novgorod", seed=1)
     s.meta.box = 1  # Summer
     s.decks.teutonic.holds.append("T5")
-    consumed = _consume_battle_holds(s, _mk_cp(), {"marsh": "T5"})
+    # SMOKE-080: T5 requires Teutonic as defender.
+    cp = _mk_cp(attacker="russian", defender="teutonic")
+    consumed = _consume_battle_holds(s, cp, {"marsh": "T5"})
     assert consumed == [{"card": "T5", "key": "marsh"}]
     assert "T5" in s.decks.teutonic.discard
 
@@ -68,7 +70,8 @@ def test_marsh_t5_accepted_in_rasputitsa():
     s = load_scenario("crusade_on_novgorod", seed=1)
     s.meta.box = 7  # Rasputitsa
     s.decks.teutonic.holds.append("T5")
-    consumed = _consume_battle_holds(s, _mk_cp(), {"marsh": "T5"})
+    cp = _mk_cp(attacker="russian", defender="teutonic")
+    consumed = _consume_battle_holds(s, cp, {"marsh": "T5"})
     assert consumed == [{"card": "T5", "key": "marsh"}]
 
 
@@ -99,13 +102,18 @@ def test_ravens_rock_r4_accepted_in_rasputitsa():
 
 
 def test_unrestricted_holds_unaffected_by_season():
-    """T9/R5 Hill, T6/R6 Ambush, T10 Field Organ have no season restriction."""
+    """T9/R5 Hill, T6/R6 Ambush, T10 Field Organ have no season restriction.
+    T9 Hill requires Teu defending (SMOKE-080), others are unrestricted."""
     s = load_scenario("crusade_on_novgorod", seed=1)
     s.meta.box = 3  # Winter - should not affect Hill / Ambush / Field Organ
     s.decks.teutonic.holds.extend(["T9", "T6", "T10"])
-    consumed = _consume_battle_holds(s, _mk_cp(), {"hill": "T9"})
+    # T9 Hill: Teu defending.
+    cp_teu_def = _mk_cp(attacker="russian", defender="teutonic")
+    consumed = _consume_battle_holds(s, cp_teu_def, {"hill": "T9"})
     assert consumed == [{"card": "T9", "key": "hill"}]
+    # T6 Ambush: no role restriction.
     consumed = _consume_battle_holds(s, _mk_cp(), {"ambush": "T6"})
     assert consumed == [{"card": "T6", "key": "ambush"}]
+    # T10 Field Organ: no role restriction.
     consumed = _consume_battle_holds(s, _mk_cp(), {"field_organ": "T10"})
     assert consumed == [{"card": "T10", "key": "field_organ"}]
