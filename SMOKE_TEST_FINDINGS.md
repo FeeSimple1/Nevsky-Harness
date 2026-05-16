@@ -6501,3 +6501,53 @@ Campaign).
     parallel-Ways correctness).
   - Plan-phase deferred-target validations (Lieutenant + Lower Lord
     that fail at action time should be caught at Plan time).
+
+## Round 76 — SMOKE-073
+
+### SMOKE-073: T15 / R12 Mindaugas Stronghold detection misses Castle-on-Town overlays
+
+**Rule:** AoW Reference T15 / R12 events — Place Ravaged in a Locale,
+"not at Russian/Teutonic Lord or Stronghold."
+
+**Bug:** `_ev_mindaugas_t` (T15) used `static[locale]["type"] in
+("fort", "city", "novgorod")` and `_ev_mindaugas_r` (R12) used
+`static[locale]["type"] in ("bishopric", "castle")` to detect enemy
+Strongholds. Both static-type lists missed Town locales overlaid
+with Castle markers (russian_castle / teutonic_castle via T17
+Stonemasons). T15 additionally missed the trade_route base type
+(a Russian Stronghold per strongholds.json).
+
+A probe placing a Russian Castle marker on ostrov (Town, in Rus,
+within 2 of ostrov) and invoking T15 succeeded — placing a Ravaged
+½VP marker on a Russian Stronghold. Likewise for R12 at rositten
+(Town in Crusader Livonia) with a Teutonic Castle marker.
+
+**Fix:** Replace static-type checks with `_effective_stronghold` +
+side comparison + non-Conquered guard. `_effective_stronghold`
+already handles Castle marker overlays (SMOKE-054) and recognizes
+trade_route as a Russian Stronghold.
+
+`tests/test_round_76_ravage_events_castle.py` — 6 regressions:
+  - T15 rejects Russian Castle-on-Town overlay.
+  - T15 allows ravage at plain Town (no Castle marker).
+  - R12 rejects Teutonic Castle-on-Town overlay.
+  - R12 allows ravage at plain Livonia Town.
+  - T15 still rejects base Russian Stronghold types (fort/city/novgorod).
+  - R12 still rejects base Teutonic Stronghold types (bishopric/castle).
+
+840 → 846 passing.
+
+## Candidate surfaces for R77
+
+  - More static-type lists in legal_moves.py and events.py that may
+    miss Castle-overlay-on-Town for Stronghold detection.
+  - Avoid Battle / Retreat into enemy trade_route: per rule 4.3.4
+    Strongholds forbidden but `_has_enemy_stronghold_at` explicitly
+    omits trade_route by design choice (SMOKE-020 comment). Worth
+    reviewing whether the design choice contradicts rule 4.3.4.
+  - apply_lordship_plus_2 doesn't check whether target Lord is
+    Mustered (state ∈ {mustered, ready depending on phase}); a Lord
+    being un-Mustered when the bonus applies means the bonus
+    silently sits in meta.lordship_bonus.
+  - Storm aftermath Service shift — verify Sacked-Lord
+    _remove_lord_permanently handles all Service marker positions.

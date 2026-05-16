@@ -286,8 +286,19 @@ def _ev_mindaugas_t(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     if any(l.location == locale and l.side == "russian" for l in state.lords.values()):
         raise IllegalAction("russian_lord_present", f"Russian Lord at {locale}")
     # No Russian Stronghold (not Conquered by Teutons).
+    # SMOKE-073 (Round 76): use _effective_stronghold so trade_route
+    # base type AND Russian Castle markers on Town overlays count as
+    # Russian Strongholds. The prior static-type list (fort, city,
+    # novgorod) missed trade_route and Castle-on-Town overlays.
     sloc = state.locales[locale]
-    if static[locale]["type"] in ("fort", "city", "novgorod") and sloc.teutonic_conquered == 0:
+    from nevsky.campaign import _effective_stronghold
+    eff_sh = _effective_stronghold(state, locale)
+    has_russian_stronghold = (
+        eff_sh is not None
+        and eff_sh.get("side") == "russian"
+        and sloc.teutonic_conquered == 0
+    )
+    if has_russian_stronghold:
         raise IllegalAction("russian_stronghold", f"{locale} has Russian Stronghold")
     if sloc.teutonic_ravaged or sloc.russian_ravaged:
         raise IllegalAction("already_ravaged", f"{locale} already Ravaged")
@@ -327,7 +338,18 @@ def _ev_mindaugas_r(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     if any(l.location == locale and l.side == "teutonic" for l in state.lords.values()):
         raise IllegalAction("teutonic_lord_present", f"Teutonic Lord at {locale}")
     sloc = state.locales[locale]
-    if static[locale]["type"] in ("bishopric", "castle") and sloc.russian_conquered == 0:
+    # SMOKE-073 (Round 76): use _effective_stronghold so Teutonic Castle
+    # markers on Town overlays count as Teutonic Strongholds. The prior
+    # static-type list (bishopric, castle) missed Castle-on-Town
+    # overlays placed via T17 Stonemasons.
+    from nevsky.campaign import _effective_stronghold
+    eff_sh = _effective_stronghold(state, locale)
+    has_teutonic_stronghold = (
+        eff_sh is not None
+        and eff_sh.get("side") == "teutonic"
+        and sloc.russian_conquered == 0
+    )
+    if has_teutonic_stronghold:
         raise IllegalAction("teutonic_stronghold", f"{locale} has Teutonic Stronghold")
     if sloc.teutonic_ravaged or sloc.russian_ravaged:
         raise IllegalAction("already_ravaged", f"{locale} already Ravaged")
