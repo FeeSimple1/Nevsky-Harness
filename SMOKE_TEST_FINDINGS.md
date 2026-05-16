@@ -6797,3 +6797,35 @@ Probed surfaces and found no actionable bugs:
     null (everyone else) per Q-003 decision.
 
 Clean-round counter: 1 / 5.
+
+## Round 82 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - `apply_ransom` — T16 / R7 Ransom symmetric, uses Service rating
+    for Coin award, picks first co-located friendly Lord, caps at 8.
+  - `effective_ship_count` / `effective_boat_count` — Cogs doubles
+    Ships, Lodya doubles Boats; Tempest event halves Cogs holder's
+    Ships rounded up (matches rule).
+  - Bridge cap (T4 / R1) — front-center Melee cap of 2*round_number
+    matches "up to twice Round number" rule text.
+  - `_award_assets_capped` — per-type 8-cap enforced correctly with
+    excess lost (1.7.3 Wastage Per Lord).
+  - Avoid Battle — moves all `cp.defender_lords` together (Lieutenant
+    pairs verified by `_h_place_lieutenant` co-location check).
+  - Levy → Campaign transition — clears
+    block_lords_this_levy_t/r, lordship_bonus,
+    block_william_of_modena_this_levy flag.
+  - `_h_avoid_battle` per-Lord excess-Provender accounting uses
+    `_usable_transport_count_for_way`, which correctly excludes
+    sleds in Rasputitsa (post-SMOKE-078).
+  - Sail/March Lieutenant + Lower Lord required-together checks at
+    lord_obj.has_lower_lord (SMOKE-034 family).
+
+Open question (not a bug — partial implementation):
+  - R16 Lodya capability has TWO sub-options per card text: "use his
+    Boats as 2 Boats each OR use up to 2 Ships or Boats as the
+    other." Harness implements option 1 (boat doubling) only;
+    option 2 (swap up to 2 Ships<->Boats) is not wired. Deferred
+    feature, documented for tracking.
+
+Clean-round counter: 2 / 5.
