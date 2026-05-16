@@ -6681,3 +6681,38 @@ plain City succeeds.
     "non-Stronghold", a Castle-on-Town should NOT grant Loot. The
     current code grants Loot because type is "town" not "region".
     Worth a closer rule read.
+
+## Round 79 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - apply_lordship_plus_2 / apply_calendar_shift_hold target-state
+    validation — _shift_cylinder already raises 'no_cylinder' for
+    removed/disbanded Lords. apply_lordship_plus_2 lets the bonus
+    sit unused on a removed Lord (soft UX, not a rule violation).
+  - vp_forecast Castle-overlay — uses storm_preview internally
+    (already SMOKE-074 fixed in R77); no separate blindspot.
+  - battle_preview — operates on Lord forces only, no Stronghold
+    metadata lookup; no Castle-overlay relevance.
+  - End-Campaign Reset (4.9.5) — clears Lieutenants/Lower-Lord
+    pointers, discards this-Campaign events, processes Wastage.
+    Wastage discards the most-numerous asset (a valid choice per
+    rule even though rule allows player choice).
+  - _consume_battle_holds — labeling oddity (T4/T5 both labeled
+    'marsh_holder' in side_decks dict though T4 is Bridge) is
+    cosmetic; the label is discarded (`side, _ = spec`).
+  - T1/T11/T18/R10/R11/R14/R17 event handlers — all validate
+    targets and propagate `_shift_cylinder` / `_shift_service`
+    rejections correctly.
+  - _h_place_lieutenant, _h_muster_lord, _h_muster_vassal — solid
+    state-machine guards.
+  - _h_plan_add_card / _h_finalize_plan — enforce Mustered Lord
+    requirement and 3-cards-per-Lord cap.
+  - Raiders Ravage parallel-Ways pattern — unreachable in practice
+    (only dorpat↔odenpah is parallel, both Teutonic-territory; no
+    Teuton can Raid own territory).
+  - apply_retreat_service_shift — properly handles cur=0 / cur=17
+    / box positions post SMOKE-057/070.
+  - Veche Option A / D — Option D handles off_left (SMOKE-058);
+    Option A clamps at box 1 reasonably.
+
+Clean-round counter: 1 / 5.
