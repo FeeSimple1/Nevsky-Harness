@@ -6551,3 +6551,58 @@ trade_route as a Russian Stronghold.
     silently sits in meta.lordship_bonus.
   - Storm aftermath Service shift — verify Sacked-Lord
     _remove_lord_permanently handles all Service marker positions.
+
+## Round 77 — SMOKE-074, SMOKE-075
+
+### SMOKE-074: storm_preview misses Castle-on-Town overlays
+
+**Bug:** `storm_preview` (previews.py) used
+`load_strongholds().get(static_loc["type"])` to fetch Stronghold
+metadata, keying off the locale's base type. A Town locale overlaid
+with a Castle marker (T17 Stonemasons) returned None, so
+storm_preview reported `"not a stormable Stronghold"` — even though
+a Castle on a Town IS stormable.
+
+A probe placing `teutonic_castle=True` on ostrov and calling
+storm_preview returned `error: ostrov (town) is not a stormable
+Stronghold`. The actual Storm against the Castle would succeed; the
+preview lied.
+
+**Fix:** Use `_effective_stronghold(state, locale_id)` which accounts
+for Castle overlays (SMOKE-054 / SMOKE-065).
+
+`tests/test_round_77_storm_preview_castle.py` — 4 regressions:
+  - Teutonic Castle-on-Town stormable from Russian side.
+  - Russian Castle-on-Town stormable from Teutonic side.
+  - Plain Town (no Castle) still rejected.
+  - Trade_route still rejected with no_storm flag.
+
+### SMOKE-075: legal_moves Siege/Storm gate misses Castle-on-Town
+
+**Bug:** `legal_moves._campaign_moves` used
+`_stronghold_at(active.location)` to gate the cmd_siege /
+cmd_storm legal-move options. `_stronghold_at` returns None for
+Town base type, so a besieger Lord at a Castle-on-Town locale (with
+siege markers placed) never saw Siege/Storm offered in legal_moves
+— even though both are legal commands at that Locale.
+
+**Fix:** Use `_effective_stronghold(state, active.location)`.
+
+`tests/test_round_77_legal_moves_castle.py` — 3 source-inspection
+regressions verifying the helper switch and that the legacy
+`_stronghold_at(active.location)` call site was removed from the
+Siege/Storm branch.
+
+846 → 853 passing.
+
+## Candidate surfaces for R78
+
+  - `_stronghold_at` is used in other code paths; audit them too
+    (legal_moves disband moves, scenario VP computation, etc.).
+  - vp_forecast may share the same Castle-overlay blindspot for
+    storm/sally-type previews.
+  - Bishopric-as-Stronghold may have similar Castle-overlay
+    interactions (T17 Tip: "The Castle marker REPLACES the Fort or
+    Town"; bishoprics are not in the replacement set).
+  - apply_lordship_plus_2 + apply_calendar_shift_hold target-state
+    validation (the bonus applies to non-Mustered Lords silently).

@@ -185,7 +185,14 @@ def storm_preview(
     static_loc = load_locales().get(locale_id)
     if static_loc is None:
         return {"trials": 0, "error": f"no static data for {locale_id}"}
-    sh = load_strongholds().get(static_loc["type"])
+    # SMOKE-074 (Round 77): use _effective_stronghold so Castle marker
+    # overlays on Town (T17 Stonemasons) are recognized as stormable
+    # Strongholds. The prior load_strongholds().get(static_loc["type"])
+    # lookup keyed off the base type and missed "town" entirely, so
+    # storm_preview of a Castle-on-Town reported "not a stormable
+    # Stronghold" even though the Castle is stormable.
+    from nevsky.campaign import _effective_stronghold
+    sh = _effective_stronghold(state, locale_id)
     if sh is None:
         return {"trials": 0, "error": f"{locale_id} ({static_loc['type']}) is not a stormable Stronghold"}
     if sh.get("no_storm"):
