@@ -6764,3 +6764,36 @@ counter RESET to 0 / 5).
     deterministically; consider adding args.wastage_choice.
   - Veche Option B auto-Muster: does it pick a free Seat correctly
     and roll d6 against Fealty?
+
+## Round 81 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - `_h_pay_with_loot` — _is_friendly_locale check correct; Castle
+    overlays inherently covered (own-territory + non-conquered
+    suffices).
+  - `_plow_and_reap` (4.9.3) — end-of-Summer boxes (2, 10) and
+    end-of-Late-Winter boxes (6, 14) match Calendar reference.
+    Cart/Sled flip + half-rounded-up keep matches the example
+    ("5 Carts -> 5 Sleds -> 3 Sleds").
+  - Veche Option B auto-Muster — checks Ready state, cylinder
+    position, free Seat, VP cost.
+  - Veche Option C extra Muster — checks Mustered, Unbesieged,
+    Friendly Locale, not-just-arrived.
+  - R8/R9 Sea Trade — R8 blocked by Novgorod/Lovat Conquered;
+    R9 blocked by Novgorod/Neva Conquered, Winter season, or
+    Teu-ships > Rus-ships.
+  - `_place_lord_on_map` — clears cylinder + service marker
+    positions, resets per-card / per-Levy flags, deploys starting
+    forces/assets.
+  - `_h_command_reveal` resets first_march_used_this_card +
+    raiders_used_this_card per new card reveal.
+  - Lordship_used reset on entry to Muster step.
+  - Disbanded -> Ready transition at start of Muster (SMOKE-044
+    fix). Just_arrived_this_levy reset on Levy boundary (SMOKE-035).
+  - Sail Ship requirements (1/Teu Horse, 2/Rus Horse, 1/Provender,
+    2/Loot) match rule 4.7.3.
+  - _is_currently_marshal — handles permanent (Andreas/Aleksandr),
+    secondary (Hermann/Andrey active when permanent absent),
+    null (everyone else) per Q-003 decision.
+
+Clean-round counter: 1 / 5.
