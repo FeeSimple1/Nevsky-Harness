@@ -1153,8 +1153,14 @@ def _h_cmd_supply(
             if season != "summer":
                 raise IllegalAction("cart_non_summer", "Carts usable in Summer only")
         elif ttype == "sled":
-            if season not in ("early_winter", "late_winter", "rasputitsa"):
-                raise IllegalAction("sled_summer", "Sleds usable in Winter/Rasputitsa only")
+            # SMOKE-078 (Round 80): per rulebook 1.7.4 / Calendar
+            # reference, "Sleds: Early Winter, Late Winter (any Way)."
+            # Rasputitsa is NOT a Sled season — the rule says "Only
+            # Sleds are usable in Winter, and Sleds are usable only in
+            # Winter." The harness previously accepted sleds in
+            # Rasputitsa for Supply, contradicting the rule.
+            if season not in ("early_winter", "late_winter"):
+                raise IllegalAction("sled_non_winter", "Sleds usable in Winter only (1.7.4)")
 
         # Source eligibility.
         if ttype == "ship":
@@ -1725,7 +1731,10 @@ def _usable_transport_count_for_lord(
                 n += count
             elif t == "cart" and season == "summer":
                 n += count
-            elif t == "sled" and season in ("early_winter", "late_winter", "rasputitsa"):
+            elif t == "sled" and season in ("early_winter", "late_winter"):
+                # SMOKE-078 (Round 80): sleds usable only in Winter per
+                # 1.7.4. Rasputitsa was incorrectly included in the
+                # general Laden-status query branch.
                 n += count
             elif t == "ship" and season in ("summer", "rasputitsa"):
                 n += count

@@ -6716,3 +6716,51 @@ Probed surfaces and found no actionable bugs:
     Option A clamps at box 1 reasonably.
 
 Clean-round counter: 1 / 5.
+
+## Round 80 — SMOKE-078
+
+### SMOKE-078: Supply accepts Sled in Rasputitsa, contradicting 1.7.4
+
+**Rule:** Rulebook 1.7.4 — "Only Sleds are usable in Winter, and Sleds
+are usable only in Winter. They can be used on all Ways." Calendar
+reference — "Sleds: Early Winter, Late Winter (any Way)."
+
+Rasputitsa is NOT a Sled season.
+
+**Bug:** Two callsites accepted sleds in Rasputitsa:
+  1. `_h_cmd_supply` seasonal check (campaign.py:1157) rejected only
+     when season was not in (early_winter, late_winter, **rasputitsa**).
+  2. `_usable_transport_count_for_lord` no-way-type branch
+     (campaign.py:1728) counted sleds when season was in
+     (early_winter, late_winter, **rasputitsa**).
+
+Probe: Hermann at dorpat with 4 sleds, box=7 (Rasputitsa). Supply
+with `transport=sled` succeeded — a Lord in mud-season should not
+be able to move sleds at all.
+
+**Fix:** Remove "rasputitsa" from both season sets. Supply now
+rejects sled with code `sled_non_winter`; the Laden-status query
+counts 0 transport in Rasputitsa for a Lord holding only sleds.
+
+`tests/test_round_80_sled_rasputitsa.py` — 6 regressions covering
+Rasputitsa rejection, Winter acceptance (Early + Late), Summer
+rejection, and the Laden-status counter behavior.
+
+861 → 867 passing.
+
+Clean-round counter: 1 / 5 (R79 was clean; R80 found SMOKE-078, so
+counter RESET to 0 / 5).
+
+## Candidate surfaces for R81
+
+  - Pay action: Loot-at-Friendly-Locale check vs Castle overlays
+    (does _is_friendly_locale + Loot Pay match the rule?).
+  - 4.9.3 Plow & Reap (sled/cart flipping at end of Summer / Late
+    Winter) — check Box-6/14/2/10 transitions correctly fire.
+  - Pursuit / Battle aftermath: when a side wins but the loser has
+    a Way back that's blocked (no valid retreat target), do all
+    losers get permanently removed correctly with assets capped?
+  - Wastage player choice — currently picks most-numerous asset
+    deterministically; consider adding args.wastage_choice.
+  - Veche Option B auto-Muster: does it pick a free Seat correctly
+    and roll d6 against Fealty?
