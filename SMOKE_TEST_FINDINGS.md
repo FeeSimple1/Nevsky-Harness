@@ -6829,3 +6829,48 @@ Open question (not a bug — partial implementation):
     feature, documented for tracking.
 
 Clean-round counter: 2 / 5.
+
+## Round 83 — SMOKE-079
+
+### SMOKE-079: Tier 2 Battle Holds ignore printed season restrictions
+
+**Rule:** AoW Reference card texts —
+  T5 Marsh: "Hold: May play if Defending in non-Winter Battle..."
+  R2 Marsh: "Hold: May play if Defending in non-Winter Battle..."
+  R4 Raven's Rock: "Hold: May play in non-Summer Battle..."
+
+**Bug:** `_consume_battle_holds` (events.py) moved any of these
+cards from holds to discard without checking the printed season
+restriction. The Bridge season check was wired in battle.py (via
+`bridge_target_lord = None` when Winter detected), but Marsh and
+Raven's Rock had no gate at the consumption stage.
+
+Probe results:
+  - T5 Marsh consumed in Early Winter — succeeded (BUG).
+  - R4 Raven's Rock consumed in Summer — succeeded (BUG).
+
+**Fix:** Add a `_SEASON_RESTRICTIONS` table inside
+`_consume_battle_holds` keyed by card id and raise `season_blocked`
+when the current season is in the forbidden set. Updated 2
+pre-existing Marsh tests in test_steppe_warriors_and_holds.py to
+explicitly set `s.meta.box = 1` (Summer) since the watland scenario
+starts in Winter and would now correctly reject the Marsh play.
+
+`tests/test_round_83_battle_hold_season.py` — 8 regressions:
+T5 rejected in EW, R2 rejected in LW, T5 accepted in Summer + Rasp,
+R4 rejected in Summer, R4 accepted in EW + Rasp, plus an
+unrestricted-holds (T9 Hill, T6 Ambush, T10 Field Organ) sanity
+check confirming no false rejection.
+
+867 → 875 passing. Clean-round counter RESET to 0/5.
+
+## Candidate surfaces for R84
+
+  - Tier 2 Battle Hold side-correctness — does the harness verify
+    that the playing side IS the defender for Marsh / Hill / Raven's
+    Rock (cards explicitly say "if Defending")?
+  - Tier 2 Battle Hold "this Battle" restrictions vs Storm/Sally —
+    do these cards correctly only apply in Battle, not Storm/Sally?
+  - Storm-aftermath Service shift behavior for Sacked Lords.
+  - Wastage args.wastage_choice support for player-driven discard
+    selection.

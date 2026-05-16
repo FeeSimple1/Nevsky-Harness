@@ -68,6 +68,9 @@ def test_marsh_blocks_horse_strike_rounds_1_and_2() -> None:
     Statistical: with Marsh played by defender, attacker Horse Hits in
     rounds 1-2 should be 0. Compare battle log."""
     s = load_scenario("watland", seed=99)
+    # SMOKE-079: Marsh card requires non-Winter Battle per AoW Reference.
+    # Set season to Summer for the Marsh effect test.
+    s.meta.box = 1
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian" and l.state == "mustered")
     s.lords[teu].forces = {"knights": 4, "men_at_arms": 2}
@@ -86,6 +89,8 @@ def test_marsh_blocks_horse_strike_rounds_1_and_2() -> None:
 def test_marsh_consumed_from_holds() -> None:
     """Marsh card moves from holds to discard when used in stand_battle."""
     s = load_scenario("watland", seed=11)
+    # SMOKE-079: Marsh card requires non-Winter Battle per AoW Reference.
+    s.meta.box = 1
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian" and l.state == "mustered")
     s.lords[teu].location = "izborsk"

@@ -703,6 +703,24 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
         "R5": ("russian", "hill"),
         "R6": ("russian", "ambush"),
     }
+    # SMOKE-079 (Round 83): per AoW Reference card texts, several Tier 2
+    # Battle Holds have explicit season restrictions printed on the
+    # card. The Bridge season check is enforced in battle.py via the
+    # `bridge_target_lord = None` reset when Winter is detected, but
+    # other holds (Marsh, Raven's Rock) had no season gate at the
+    # consumption stage. Without these gates the harness silently
+    # consumed the card in the wrong season, discarding it AND
+    # applying its effect — directly contradicting the printed card
+    # text.
+    from nevsky.actions import _season_of_box
+    season = _season_of_box(state.meta.box)
+    _SEASON_RESTRICTIONS = {
+        # Marsh: "non-Winter Battle" -> reject in Winter.
+        "T5": ("non_winter", ("early_winter", "late_winter")),
+        "R2": ("non_winter", ("early_winter", "late_winter")),
+        # Raven's Rock: "non-Summer Battle" -> reject in Summer.
+        "R4": ("non_summer", ("summer",)),
+    }
     for key, cid in holds_arg.items():
         if not isinstance(cid, str):
             continue
@@ -714,6 +732,15 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
             deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
             if cid not in deck.holds:
                 raise IllegalAction("not_in_holds", f"{cid} not in {side} holds")
+            # SMOKE-079 season gate.
+            restriction = _SEASON_RESTRICTIONS.get(cid)
+            if restriction is not None:
+                label, forbidden_seasons = restriction
+                if season in forbidden_seasons:
+                    raise IllegalAction(
+                        "season_blocked",
+                        f"{cid} restricted to {label} Battle; current season is {season}",
+                    )
             deck.holds.remove(cid)
             deck.discard.append(cid)
             consumed.append({"card": cid, "key": key})
