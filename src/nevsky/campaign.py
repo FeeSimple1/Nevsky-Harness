@@ -3200,6 +3200,19 @@ def _h_cmd_stone_kremlin(
         raise IllegalAction("not_russian_locale", f"{loc} is not a Russian Stronghold")
     if static_loc["type"] not in ("fort", "city", "novgorod"):
         raise IllegalAction("not_eligible_type", f"{loc} type {static_loc['type']} is not Fort/City/Novgorod")
+    # SMOKE-077 (Round 78): a Castle marker overlaying this locale means
+    # the base Fort/City has been REPLACED by a Castle (T17 Tip). R18
+    # Stone Kremlin builds Walls +1 at "Russian Fort, City, or
+    # Novgorod" — once a Castle is on the locale, the original base
+    # Stronghold no longer functions as a Fort, so Walls +1 is not
+    # eligible. T17 Tip explicitly notes: "removes any Walls +1 marker
+    # there (see Russian Capability R18 Stone Kremlin)" — Castle and
+    # Walls +1 are mutually exclusive.
+    if state.locales[loc].teutonic_castle or state.locales[loc].russian_castle:
+        raise IllegalAction(
+            "castle_overlay",
+            f"{loc} has a Castle marker; Stone Kremlin (R18) applies to Fort/City/Novgorod only (T17 Tip)",
+        )
     if state.locales[loc].walls_plus_one:
         raise IllegalAction("already_marked", f"{loc} already has Walls +1")
     # Cap: up to four markers on map.
@@ -3256,6 +3269,19 @@ def _h_cmd_stonemasons(
         raise IllegalAction("not_in_rus", "Stonemasons builds Castle in Rus only")
     if static_loc["type"] not in ("fort", "town"):
         raise IllegalAction("not_eligible_type", f"{loc} type {static_loc['type']} is not Fort/Town")
+    # SMOKE-076 (Round 78): refuse to build a Castle if any Castle marker
+    # already overlays this Locale. T17 Tip: "The Castle marker REPLACES
+    # the Fort or Town at its Locale" — the replacement is of the base
+    # Stronghold, not an existing Castle. Without this guard,
+    # Stonemasons could overlay teutonic_castle on a locale with
+    # russian_castle (e.g. liberated Russian Castle on a Fort that
+    # Russians re-Conquered) resulting in BOTH markers True
+    # simultaneously, which is invalid game state.
+    if state.locales[loc].teutonic_castle or state.locales[loc].russian_castle:
+        raise IllegalAction(
+            "castle_exists",
+            f"{loc} already has a Castle marker; cannot build another (T17)",
+        )
     if state.locales[loc].siege_markers > 0:
         raise IllegalAction("under_siege", f"{loc} is Besieged")
     # Full card untouched.

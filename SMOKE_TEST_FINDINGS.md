@@ -6606,3 +6606,78 @@ Siege/Storm branch.
     Town"; bishoprics are not in the replacement set).
   - apply_lordship_plus_2 + apply_calendar_shift_hold target-state
     validation (the bonus applies to non-Mustered Lords silently).
+
+## Round 78 — SMOKE-076, SMOKE-077
+
+### SMOKE-076: T17 Stonemasons doesn't reject locales with existing Castle markers
+
+**Rule:** AoW Reference T17 Tip — "The Castle marker REPLACES the
+Fort or Town at its Locale." The replacement is of the base
+Stronghold; building another Castle on top of an existing Castle is
+not a valid game action.
+
+**Bug:** `_h_cmd_stonemasons` (campaign.py:3257) gated on
+`static_loc["type"] not in ("fort", "town")` and the 2-Castle cap but
+never inspected the locale's current Castle markers. A locale that
+already had `russian_castle=True` (e.g., from initial scenario setup
+or after a Russian re-Conquest flip per SMOKE-040) would accept a
+Stonemasons build, leaving BOTH `russian_castle` and
+`teutonic_castle` True simultaneously — invalid state.
+
+Probe: Hermann at velikiye_luki (Russian Fort) with russian_castle
+pre-set, builds Stonemasons → both markers True. Same locale with
+teutonic_castle already True → silently re-built, wasted 6 Provender
+and incremented the 2-Castle cap.
+
+**Fix:** Reject with code `castle_exists` when the target Locale
+already has either Castle marker.
+
+`tests/test_round_78_stonemasons_existing_castle.py` — 4 regressions:
+russian Castle blocks, teutonic Castle blocks, plain Fort succeeds,
+plain Town succeeds.
+
+### SMOKE-077: R18 Stone Kremlin Walls +1 allowed on Castle-overlay locales
+
+**Rule:** R18 card text — "Walls +1 at Russian Fort, City, or
+Novgorod." T17 Stonemasons Tip — "Castle marker REPLACES the Fort or
+Town at its Locale and removes any 'Walls +1' marker there (see
+Russian Capability R18 Stone Kremlin)." Castle and Walls +1 are
+mutually exclusive.
+
+**Bug:** `_h_cmd_stone_kremlin` (campaign.py:3201) keyed off
+`static_loc["type"]` only. A Russian Fort overlaid with a Castle
+marker (russian_castle or teutonic_castle) still passed the
+base-type check, so Walls +1 could be applied on top of a Castle —
+directly contradicting T17 Tip.
+
+Probe: Aleksandr at velikiye_luki with russian_castle=True; Stone
+Kremlin succeeded and set both `russian_castle=True` and
+`walls_plus_one=True`.
+
+**Fix:** Reject with code `castle_overlay` when any Castle marker is
+present at the locale.
+
+`tests/test_round_78_stone_kremlin_castle.py` — 4 regressions:
+russian Castle blocks, teutonic Castle blocks, plain Fort succeeds,
+plain City succeeds.
+
+853 → 861 passing.
+
+## Candidate surfaces for R79
+
+  - apply_lordship_plus_2 doesn't reject Removed/Disbanded target
+    Lords (bonus sits unused in meta.lordship_bonus); soft UX issue.
+  - vp_forecast / battle_preview might share Castle-overlay
+    blindspot (storm_preview fixed in R77; sibling helpers
+    unaudited).
+  - 1.5.1 Lord-removal cascades: do all paths properly clean up
+    Plan-phase deferred Lieutenant + Lower-Lord pointers? SMOKE-033
+    covered some but not necessarily all entry points.
+  - 4.9.5 End-Campaign Reset: are all Capability-related
+    persistent flags cleared correctly? Periodic re-audit.
+  - Static-type "if type == 'region'" checks for Loot exclusion in
+    Ravage / Conquest — Town with Castle overlay should still grant
+    Loot on Ravage (since Town != Region), but if the rule meant
+    "non-Stronghold", a Castle-on-Town should NOT grant Loot. The
+    current code grants Loot because type is "town" not "region".
+    Worth a closer rule read.
