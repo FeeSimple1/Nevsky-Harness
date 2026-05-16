@@ -575,9 +575,13 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                         "note": f"March 1 Locale (preview unavailable: {type(e).__name__})"})
         # Siege/Storm if Lord is at a Stronghold with siege markers,
         # is not Besieged inside, and is besieging.
-        from nevsky.campaign import _stronghold_at, _is_besieged as _ib
+        # SMOKE-075 (Round 77): use _effective_stronghold so Castle
+        # overlays on Town are recognized (T17 Stonemasons); the
+        # earlier _stronghold_at keyed off the base type and returned
+        # None for Town, hiding the cmd_siege / cmd_storm legal moves.
+        from nevsky.campaign import _effective_stronghold, _is_besieged as _ib
         if active.location is not None:
-            sh = _stronghold_at(active.location)
+            sh = _effective_stronghold(state, active.location)
             sm = state.locales[active.location].siege_markers
             if sh is not None and sm > 0 and not _ib(state, active_lord) and sh.get("side") != side:
                 out.append({"type": "cmd_siege", "side": side,
