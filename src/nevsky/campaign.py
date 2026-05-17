@@ -2593,6 +2593,31 @@ def _h_stand_battle(
         aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
         aftermath["spoils"].append(spoil)
 
+    # SMOKE-084 (Round 88): per AoW Reference 1.4.1 Legate —
+    # "Whenever a Teutonic Lord ... Retreats ... remove the pawn and
+    # discard the William of Modena card." The Battle Aftermath
+    # Retreat path was missing this trigger (Avoid Battle / Withdraw
+    # already wired in via SMOKE-043). If any Teutonic loser
+    # retreated (or was removed) AND the Legate is at cp.to_locale,
+    # remove the pawn and discard William of Modena.
+    if (state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == cp.to_locale):
+        # Check whether any Teutonic Lord was in loser_lords (they
+        # retreated or were removed from cp.to_locale).
+        teu_lost = any(
+            lid in state.lords and state.lords[lid].side == "teutonic"
+            for lid in loser_lords
+        )
+        if teu_lost:
+            if "T13" in state.decks.teutonic.capabilities_in_play:
+                state.decks.teutonic.capabilities_in_play.remove("T13")
+                state.decks.teutonic.discard.append("T13")
+            state.legate.william_of_modena_in_play = False
+            state.legate.location = "card"
+            state.legate.locale_id = None
+            aftermath["legate_removed"] = True
+
     # 4.4.4: Winner side -- no Losses rolls per rules. Phase 7
     # implementation returns all routed units to forces (so the winner
     # doesn't arbitrarily lose units after winning a Battle).

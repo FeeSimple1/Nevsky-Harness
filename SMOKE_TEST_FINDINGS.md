@@ -7047,3 +7047,38 @@ accept Karelians (or skip-if-not-on-calendar), default targets pass.
   - R3 Pogost — target Russian Lord, in Rus (verified earlier).
   - T2 Torzhok — does Domash target work when state.lords lacks
     "domash"? Verified earlier.
+
+## Round 88 — SMOKE-084
+
+### SMOKE-084: Legate not removed on Battle Aftermath Retreat
+
+**Rule:** AoW Reference 1.4.1 Legate — "Whenever a Teutonic Lord
+Avoids Battle, Withdraws, or Retreats (4.3.4, 4.4.3) ... remove the
+pawn and discard the William of Modena card."
+
+**Bug:** SMOKE-043 wired Avoid Battle and Withdraw paths but missed
+the Retreat path in Battle aftermath. A Teutonic Lord could March to
+a Battle Locale with the Legate via take_legate=True, lose the
+Battle, and Retreat — leaving the Legate at the Battle Locale (now
+held by Russian winners). Per rule the Legate should be removed.
+
+**Fix:** After the retreat loop in `_h_stand_battle`, check if the
+Legate is at cp.to_locale and any Teutonic Lord was in loser_lords;
+if so, remove the pawn and discard T13 William of Modena (same
+cascade as the Avoid Battle and Withdraw paths).
+
+`tests/test_round_88_legate_retreat.py` — 5 source-inspection
+regressions covering the SMOKE-084 marker, Teutonic-side filter,
+T13 discard, william_of_modena_in_play=False, and cp.to_locale gate.
+
+902 → 907 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R89
+
+  - Sally aftermath Legate removal (analogous to Battle retreat).
+  - Storm aftermath Legate — when Storm-Sack permanently removes
+    Besieged Teutonic Lords (the only ones potentially carrying
+    Legate context), is the Legate removed?
+  - "Locale with Russian Lord(s) and no Teutonic Lord" Legate auto-
+    removal — when last Teutonic Lord leaves the Legate's locale
+    via any movement, is the Legate removed?
