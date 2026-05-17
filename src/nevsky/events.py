@@ -787,6 +787,36 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
                         "bad_target",
                         f"T10 Field Organ target {fo_target} must be in the current Battle/Storm",
                     )
+            # SMOKE-082 (Round 86): T4 / R1 Bridge target validation —
+            # the card text "May play on front center [enemy] Lord"
+            # implies the target must be on the ENEMY side and in the
+            # current combat. Front-center position is set later in
+            # resolve_battle's Array; we validate side + combat-presence
+            # at the consumption stage.
+            if cid in ("T4", "R1"):
+                br_target = holds_arg.get("bridge_target_lord")
+                if not isinstance(br_target, str):
+                    raise IllegalAction(
+                        "missing_target",
+                        f"{cid} Bridge requires args.holds.bridge_target_lord "
+                        f"(target enemy front-center Lord)",
+                    )
+                if br_target not in state.lords:
+                    raise IllegalAction("bad_target", f"{br_target} not a Lord")
+                # T4 is Teutonic, targets Russian; R1 is Russian, targets Teutonic.
+                expected_side = "russian" if cid == "T4" else "teutonic"
+                if state.lords[br_target].side != expected_side:
+                    raise IllegalAction(
+                        "bad_target",
+                        f"{cid} Bridge targets {expected_side} Lords only; "
+                        f"{br_target} is {state.lords[br_target].side}",
+                    )
+                combat_lords = set(cp.attacker_group) | set(cp.defender_lords)
+                if br_target not in combat_lords:
+                    raise IllegalAction(
+                        "bad_target",
+                        f"{cid} Bridge target {br_target} must be in the current Battle/Storm",
+                    )
             deck.holds.remove(cid)
             deck.discard.append(cid)
             consumed.append({"card": cid, "key": key})

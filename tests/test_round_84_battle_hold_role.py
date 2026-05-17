@@ -99,7 +99,10 @@ def test_unrestricted_holds_still_role_agnostic():
     s.decks.teutonic.holds.extend(["T4", "T6", "T10"])
     s.decks.russian.holds.append("R4")
     # T4 Bridge played by Teu attacker on Rus defender's center.
-    consumed = _consume_battle_holds(s, _mk_cp(), {"bridge": "T4"})
+    # SMOKE-082: T4 Bridge requires a Russian target in current combat.
+    cp_with_br = _mk_cp()
+    cp_with_br.defender_lords = ["aleksandr"]
+    consumed = _consume_battle_holds(s, cp_with_br, {"bridge": "T4", "bridge_target_lord": "aleksandr"})
     assert consumed == [{"card": "T4", "key": "bridge"}]
     # T6 Ambush.
     consumed = _consume_battle_holds(s, _mk_cp(), {"ambush": "T6"})

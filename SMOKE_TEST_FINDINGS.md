@@ -6970,3 +6970,44 @@ source-inspection regressions for the dual-key fallback.
   - Pursuit (4.4.4) — does the harness model the conceder's
     half-Hits-rounded-up rule consistently?
   - Combat aftermath when both sides Concede (4.4.2 NEW ROUND).
+
+## Round 86 — SMOKE-082
+
+### SMOKE-082: T4/R1 Bridge target validation missing
+
+**Rule:** AoW Reference card texts —
+  T4 Bridge: "May play on front center Russian Lord..."
+  R1 Bridge: "May play on front center Teutonic Lord..."
+
+**Bug:** `_consume_battle_holds` did not validate the
+`bridge_target_lord` arg. An agent could pass any value (missing,
+own-side Lord, unknown id, or a Lord not in the combat) and the
+card would discard. Combined with SMOKE-081's lookup change, the
+effect targets the named Lord directly — so a self-handicap
+(targeting own side) would silently apply the Melee cap to a
+friendly Lord, mirroring the Marsh / Hill self-handicap pattern.
+
+**Fix:** Mirror SMOKE-081's Field Organ validation for T4/R1:
+require `bridge_target_lord` to be set, name a Lord on the opposite
+side from the card (T4 → Russian, R1 → Teutonic), and be in
+`cp.attacker_group | cp.defender_lords`. Front-center positioning
+isn't checked at consume time (positions aren't computed until
+resolve_battle's Array step).
+
+`tests/test_round_86_bridge_target.py` — 7 regressions covering
+missing target, own-side target, unknown lord, lord-not-in-combat,
+and accept cases for both T4 (Russian defender target) and R1
+(Teutonic defender target).
+
+890 → 897 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R87
+
+  - Storm-aftermath Service shift — Storm Sack permanently removes
+    defenders (3.3.1); confirm `_remove_lord_permanently` clears
+    the Service marker correctly.
+  - Pursuit (4.4.4): conceder takes half-Hits-rounded-up — does
+    the harness compute the per-Round half-hit-cap correctly?
+  - Combat aftermath when both sides Concede (4.4.2 NEW ROUND).
+  - R4 Raven's Rock — implicit "Russian Defending" not yet
+    enforced (effect only benefits Russian Walls vs Melee).
