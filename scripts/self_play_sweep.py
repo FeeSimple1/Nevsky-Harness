@@ -25,7 +25,7 @@ SCENARIOS = [
 
 
 def main():
-    seeds = list(range(1, 11))  # 10 seeds per scenario
+    seeds = list(range(1, 51))  # 50 seeds per scenario
     rows = []
     real_errors = []
     for sc in SCENARIOS:
@@ -40,10 +40,12 @@ def main():
             rows.append(r)
             status = "OK" if r.get("terminal") else "STUCK"
             err = r.get("error")
-            print(f"  {sc:32s} seed={seed} steps={r.get('steps_taken', 0):5d} "
-                  f"box={r.get('box', '?'):>3} "
-                  f"T_vp={r.get('teutonic_vp', 0):4.1f} R_vp={r.get('russian_vp', 0):4.1f} "
-                  f"{status}")
+            # Print only failed/STUCK runs to keep output manageable.
+            if not r.get("terminal") or err:
+                print(f"  {sc:32s} seed={seed} steps={r.get('steps_taken', 0):5d} "
+                      f"box={r.get('box', '?'):>3} "
+                      f"T_vp={r.get('teutonic_vp', 0):4.1f} R_vp={r.get('russian_vp', 0):4.1f} "
+                      f"{status}")
             if err:
                 reason = err.get("reason")
                 # Real bugs: exceptions or unexpected illegal_action

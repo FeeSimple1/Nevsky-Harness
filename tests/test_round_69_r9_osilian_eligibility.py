@@ -36,8 +36,12 @@ def _put_service(state, lord_id, box):
 
 
 def test_r9_rejects_box_1_target():
+    """Andreas at box 1; heinrich at box >= 2 (so the no-op pre-flight
+    doesn't fire). Agent picks andreas — should raise ineligible_target
+    because andreas's marker is at box 1."""
     s = load_scenario("crusade_on_novgorod", seed=1)
     _put_service(s, "andreas", 1)
+    _put_service(s, "heinrich", 5)  # eligible alternative
     with pytest.raises(IllegalAction) as e:
         _ev_osilian_revolt(s, {"target": "andreas"})
     assert e.value.code == "ineligible_target"
@@ -46,6 +50,7 @@ def test_r9_rejects_box_1_target():
 def test_r9_rejects_off_left_target():
     s = load_scenario("crusade_on_novgorod", seed=1)
     _put_service(s, "andreas", 0)
+    _put_service(s, "heinrich", 5)
     with pytest.raises(IllegalAction) as e:
         _ev_osilian_revolt(s, {"target": "andreas"})
     assert e.value.code == "ineligible_target"
@@ -62,6 +67,7 @@ def test_r9_rejects_no_marker_target():
         cal.off_left_service.remove("andreas")
     if "andreas" in cal.off_right_service:
         cal.off_right_service.remove("andreas")
+    _put_service(s, "heinrich", 5)  # eligible alternative
     with pytest.raises(IllegalAction) as e:
         _ev_osilian_revolt(s, {"target": "andreas"})
     assert e.value.code == "ineligible_target"
@@ -93,6 +99,8 @@ def test_r9_full_shift_from_box_5():
 
 def test_r9_rejects_invalid_target_id():
     s = load_scenario("crusade_on_novgorod", seed=1)
+    _put_service(s, "andreas", 5)
+    _put_service(s, "heinrich", 5)
     with pytest.raises(IllegalAction) as e:
         _ev_osilian_revolt(s, {"target": "hermann"})
     assert e.value.code == "missing_arg"

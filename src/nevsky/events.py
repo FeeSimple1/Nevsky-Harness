@@ -443,11 +443,26 @@ def _ev_osilian_revolt(state: GameState, args: dict[str, Any]) -> dict[str, Any]
     target's Service marker must be at box >= 2; the shift is clamped
     so the marker does NOT go off the left end (R9's Tip omits the
     "1 box off Calendar allowed" allowance that R10/T12/T18 carry).
+
+    SMOKE-114 (Round 177): if NEITHER Andreas's nor Heinrich's
+    Service marker is at box >= 2 (both removed, off-edge, or at
+    box 1), the event has no valid target → no-op. Same family as
+    SMOKE-112/113.
     """
+    from nevsky.actions import _find_service_marker_box
+    # Pre-flight: if no eligible target exists (Service marker at
+    # box >= 2 for either Andreas or Heinrich), no-op.
+    eligible_targets = []
+    for lid in ("andreas", "heinrich"):
+        b = _find_service_marker_box(state, lid)
+        if b is not None and b >= 2:
+            eligible_targets.append(lid)
+    if not eligible_targets:
+        return {"event": "R9", "no_op": True,
+                "reason": "no_eligible_service_at_box_ge_2"}
     target = args.get("target")
     if target not in ("andreas", "heinrich"):
         raise IllegalAction("missing_arg", "args.target must be 'andreas' or 'heinrich'")
-    from nevsky.actions import _find_service_marker_box
     sm_box = _find_service_marker_box(state, target)
     if sm_box is None:
         raise IllegalAction(
@@ -455,7 +470,6 @@ def _ev_osilian_revolt(state: GameState, args: dict[str, Any]) -> dict[str, Any]
             f"R9: {target} has no Service marker on Calendar",
         )
     if sm_box <= 1:
-        # Box 1 (cur=1) or off_left_service (cur=0) — illegal per Tip.
         raise IllegalAction(
             "ineligible_target",
             f"R9: {target} Service marker at box {sm_box} (must be >=2 per R9 Tip)",

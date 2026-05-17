@@ -9243,3 +9243,35 @@ end. This includes the full 16-turn Crusade on Novgorod scenario
 in 10/10 seeds.
 
 Test count: 1047 → 1052 (+5 regressions). SMOKE total: 113.
+
+## Round 177 — SMOKE-114 (R9 Osilian Revolt raised when no eligible target)
+
+R9 Osilian Revolt requires either Andreas's or Heinrich's Service
+marker at box >= 2 (per SMOKE-063 + AoW Reference Tip). Pre-fix
+the resolver only validated the specific args.target. If neither
+Lord had a Service at box >= 2 (both removed, both at box 1, or
+both off-edge), R9 was unresolvable.
+
+Found via scripts/self_play.py (10 stuck sessions across multiple
+scenarios x seeds): mid-game permanent removal of Andreas combined
+with Heinrich's Service drifting to box 1 or off-Calendar produced
+no eligible target.
+
+Same audit pattern as SMOKE-112/113.
+
+Fix: pre-flight check — iterate (Andreas, Heinrich) for Service at
+box >= 2. If empty, return `{"event": "R9", "no_op": True,
+"reason": "no_eligible_service_at_box_ge_2"}`.
+
+Also updated R69 (SMOKE-063) tests to make Heinrich eligible in
+the per-Lord rejection tests (otherwise the no-op pre-flight masks
+the per-target rejection check the test was trying to exercise).
+
+Regressions: tests/test_round_177_r9_no_op.py (6 tests). Existing
+SMOKE-063 tests updated (4 tests).
+
+Self-play sweep: 298/300 terminal (was 288/300), 0 harness
+exceptions. The remaining 2 stalls are agent gaps (`cap_limit` —
+agent trying to give a Lord a third capability).
+
+Test count: 1052 → 1058 (+6 regressions). SMOKE total: 114.
