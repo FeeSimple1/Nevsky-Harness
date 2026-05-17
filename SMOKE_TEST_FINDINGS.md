@@ -7761,3 +7761,40 @@ the routed_units gate.
 (SMOKE-093/094/095/096)** — the audit pattern of "function or
 branch defined but never invoked" is producing a steady stream of
 gap fixes. Verification batch RESET 0/10 again. Continuing...
+
+## Round 117 — SMOKE-097
+
+### SMOKE-097: Simple-Sally "withdrew" path doesn't resolve routed_units via 4.4.4 Losses
+
+**Rule:** 4.5.3 (RAID): when the sallying side loses a simple
+Sally, they Withdraw back into the Stronghold and siege markers
+reduce to 1. Per 4.4.4 Losses, sallying Lords with Routed units
+roll 1d6 each — the "withdrew" loss_state uses unmodified
+Protection range (most generous threshold).
+
+**Bug:** `apply_losses_rolls` defines a `"withdrew"` loss_state
+but it had no caller. The simple-Sally lost-side branch:
+  - set siege_markers = 1,
+  - set `aftermath["sally_outcome"] = "withdrew"`,
+  - and ran the SMOKE-007 zero-force removal sweep,
+but never resolved routed_units. Lords with surviving forces
+carried routed units silently back into the Stronghold;
+SMOKE-007 swept Lords with empty forces, removing them
+permanently before any Losses-roll chance to restore forces.
+
+**Fix:** Call `apply_losses_rolls(state, alid, "withdrew")` for
+each attacker with non-empty routed_units BEFORE the SMOKE-007
+removal sweep. Order is important — successful rolls restore
+forces and can save a Lord from removal.
+
+`tests/test_round_117_sally_withdrew_losses.py` — 3 source-
+inspection regressions: SMOKE-097 marker, "withdrew" loss_state,
+and ordering check (SMOKE-097 before SMOKE-007).
+
+956 → 959 passing. **Fifth consecutive "dead code surfaces" bug
+(SMOKE-093/094/095/096/097).** The 4.4.4 Losses rolls were
+defined for all five loss_states ("retreated_no_concede",
+"conceded_then_retreated", "storm_attacker", "withdrew",
+"removed") but only three paths called it; the other paths each
+contained a distinct gap. The audit pattern is converging.
+Verification batch RESET 0/10 again. Continuing...

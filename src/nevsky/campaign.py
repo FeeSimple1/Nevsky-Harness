@@ -3180,6 +3180,17 @@ def _h_cmd_sally(
         state.locales[locale_id].siege_markers = 1
         aftermath["raid_siege_to_1"] = True
         aftermath["sally_outcome"] = "withdrew"
+        # SMOKE-097 (Round 117): sallying-side-lost path withdraws
+        # back into the Stronghold per 4.5.3 RAID. apply_losses_rolls
+        # has a 'withdrew' loss_state (unmodified Protection range)
+        # but had no caller for this specific path. Resolve 4.4.4
+        # Losses for every sallying Lord that still has routed_units
+        # before the SMOKE-007 zero-force removal sweep below — the
+        # rolls may restore some forces and save the Lord.
+        from nevsky.battle import apply_losses_rolls
+        for alid in attackers:
+            if alid in state.lords and state.lords[alid].routed_units:
+                apply_losses_rolls(state, alid, "withdrew")
         # SMOKE-007 fix: any sallying Lord with 0 forces is permanently
         # removed per 1.5.1 (Lord with no units leaves the game).
         from nevsky.actions import _remove_lord_permanently as _rem
