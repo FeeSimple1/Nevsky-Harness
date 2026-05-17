@@ -8843,3 +8843,16 @@ priority, custom order still respected.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-108 reset the count).
 Test count: 1020 → 1025 (+5 regressions). SMOKE total: 108.
+
+## Round 160 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - R3 Pogost (Hold): target=Russian Mustered Lord, location in
+    Rus (territory=="russian"). Adds 4 Provender, 8-cap.
+  - Lord-must-be-Russian gate per the Russian-event convention
+    (card from Russian side targets Russian Lord); card text
+    "a Lord in Rus" interpreted strictly per convention.
+  - 4-provender increment correctly clamped against 8-cap with
+    pre/new delta reported.
+
+Pass 2, 1 / 10 clean (post-SMOKE-108 reset).
