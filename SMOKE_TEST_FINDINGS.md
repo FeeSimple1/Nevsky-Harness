@@ -8856,3 +8856,20 @@ Probed (no bugs found):
     pre/new delta reported.
 
 Pass 2, 1 / 10 clean (post-SMOKE-108 reset).
+
+## Round 161 — CLEAN (Pass 2: verification 2/10)
+
+Probed (no bugs found):
+  - T15 Mindaugas: BFS-2 distance from ostrov, Russian-territory
+    gate, no-Russian-Lord gate, SMOKE-073 _effective_stronghold
+    (covers trade_route + Castle-on-Town overlays).
+  - R12 Mindaugas (Russian variant): BFS-2 from Rositten in
+    Livonia, same eligibility logic mirrored.
+  - R18 Bountiful Harvest (Russian): removes Teutonic Ravaged
+    in Russian territory; teutonic_vp -= 0.5 with 0-floor.
+  - T14 Bountiful Harvest (Teutonic): removes Russian Ravaged
+    in crusader/teutonic territory; russian_vp -= 0.5 with 0-floor.
+  - Ravaged-marker placement events all verify "not already
+    Ravaged" precondition.
+
+Pass 2, 2 / 10 clean.
