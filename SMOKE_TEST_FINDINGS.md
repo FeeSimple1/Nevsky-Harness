@@ -7487,3 +7487,16 @@ Probed surfaces and found no actionable bugs:
   - cmd_sail group movement Legate ride-along consistency.
 
 Clean-round counter: 2 / 5.
+
+## Round 103 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - `_h_cmd_tax_veliky_knyaz_aware` — Coin cap, Transport +2 cap,
+    Mustered Forces restoration all correct.
+  - cmd_storm no-attackers rejection.
+  - cmd_sally Besieged-Lord-only gating.
+  - legal_moves levy_capability over-suggestive (no client-side
+    filter for eligibility); handler enforces at action time —
+    UX-soft, not a strict bug.
+
+Clean-round counter: 3 / 5.
