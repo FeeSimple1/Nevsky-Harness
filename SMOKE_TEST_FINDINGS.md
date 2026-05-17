@@ -7948,3 +7948,15 @@ Probed (no bugs found):
     default omits but doesn't block.
 
 Pass 1, 4 / 10 clean.
+
+## Round 125 — CLEAN (Pass 1: verification 5/10)
+
+Probed (no bugs found):
+  - T15 Mindaugas (Russian-Stronghold check uses
+    _effective_stronghold per SMOKE-073; BFS-2 from ostrov).
+  - R12 Mindaugas (Russian variant): Livonia within 2 of Rositten.
+  - R16 Tempest: Cogs halving — keep=(n+1)//2 rounded up.
+  - R11 Valdemar / R17 Dietrich: this-levy block_lords_this_levy_t
+    list correctly tracked.
+
+Pass 1, 5 / 10 clean.
