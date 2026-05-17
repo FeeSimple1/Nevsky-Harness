@@ -8347,3 +8347,23 @@ vassal-not-on-Calendar branch skipped.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-103 reset the count).
 Test count: 984 → 989 (+5 regressions). SMOKE total: 103.
+
+## Round 140 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - 4.4.2 Pursuit: conceder's hits halved Round 1 if conceder side
+    Strikes. Floats kept as fractions; final round-up happens in
+    _resolve_hits. Both Crossbow and Normal raw buckets halved.
+  - apply_retreat_service_shift table: ceil(d6/2) per Battle and
+    Storm reference (1,2→1; 3,4→2; 5,6→3). Vassal cascade added
+    in SMOKE-103 (Round 139).
+  - Avoid Battle (4.3.4) destination gates: enemy Lord, enemy
+    Stronghold, enemy Conquered marker all enforced.
+  - SMOKE-068 parallel-Ways way_type arg + approach-Way-blocked
+    enforcement.
+  - 4.3.4 Avoid spoils transfer: Loot + excess Provender → first
+    attacker with 8-cap (SMOKE-032).
+  - Bidding-for-sides optional rule: Russian Veche markers +bid
+    capped at 8.
+
+Pass 2, 1 / 10 clean (post-SMOKE-103 reset).
