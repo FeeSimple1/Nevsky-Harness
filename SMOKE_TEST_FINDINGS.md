@@ -8873,3 +8873,21 @@ Probed (no bugs found):
     Ravaged" precondition.
 
 Pass 2, 2 / 10 clean.
+
+## Round 162 — CLEAN (Pass 2: verification 3/10)
+
+Probed (no bugs found):
+  - 4.4.2 Pursuit: conceder's per-striker Hits halved (raw buckets
+    `/2.0`) in Round 1 if striker_role matches concede side.
+    Final round-up happens in _resolve_hits (`ceil(total)`) which
+    is mathematically equivalent to "round up by step" since
+    halving-then-summing-then-ceil equals summing-then-halving-
+    then-ceil for non-negative reals.
+  - Pursuit gate only in Round 1; concede must be passed in
+    args at battle start. Multi-round concede declaration is a
+    feature gap (not silently wrong, just not implemented; agents
+    must declare concede up-front).
+  - Pursuit applies symmetrically to both Crossbow and Normal
+    raw buckets per striker.
+
+Pass 2, 3 / 10 clean.
