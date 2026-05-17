@@ -8012,3 +8012,34 @@ Probed (no bugs found):
   - was_in_play return flag for caller diagnostics.
 
 Pass 1, 9 / 10 clean.
+
+## Round 130 — CLEAN (Pass 1: verification 10/10) ✓ PASS 1 COMPLETE
+
+Probed (no bugs found):
+  - apply_lordship_plus_2 (T7/T8/T17 Teutonic, R8/R13 Russian
+    hold cards): target validation, lordship_bonus mapping.
+  - apply_calendar_shift_hold: alternate hold use, shift_boxes
+    per card spec, target validation.
+  - _IMMEDIATE_RESOLVERS dispatch table: all 16 immediate
+    events registered (T1/T2/T11/T12/T14/T15/T18, R9-R18).
+
+**Pass 1, 10 / 10 CLEAN.**
+
+## Pass 1 Summary
+
+Final Pass 1 batch:
+  - R111-R112: clean (2 rounds before R113)
+  - R113: SMOKE-093 (Battle aftermath Losses)
+  - R114: SMOKE-094 (Sally aftermath Losses)
+  - R115: SMOKE-095 (Lord removal routed_units leak)
+  - R116: SMOKE-096 (Failed-Storm routed_units)
+  - R117: SMOKE-097 (Sally-withdrew routed_units)
+  - R118: SMOKE-098+099 (Storm/Sally winner restore)
+  - R119: clean
+  - R120: SMOKE-100 (Sail voluntary discard)
+  - R121-R130: 10 consecutive clean rounds
+
+8 SMOKEs found+fixed across R113-R120. SMOKE total: 100.
+Test count: 944 → 968 (+24 regressions).
+
+Pass 1 complete. Holding for instruction before Pass 2.
