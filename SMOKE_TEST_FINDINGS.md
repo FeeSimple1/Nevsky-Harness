@@ -8983,3 +8983,21 @@ Probed (no bugs found):
     assigned) cross-checked from R141.
 
 Pass 2, 8 / 10 clean.
+
+## Round 168 — CLEAN (Pass 2: verification 9/10)
+
+Probed (no bugs found):
+  - Lord static data: 12 Lords (6 per side).
+  - Aleksandr's fealty=None matches the "Veche-only Muster"
+    exception (3.4.1) — `_h_muster_lord` explicit raise covers
+    any non-Veche attempt.
+  - Ratings within expected ranges:
+    - command 1-3, lordship 1-4, fealty 2-5 (Aleks None),
+      service 2-6.
+  - Ships authorized: 3 Teu (Andreas, Heinrich, Knud&Abel) + 6
+    Rus (all). Domash ships_authorized fixed by SMOKE-108
+    coverage.
+  - Primary seats: 1-2 per Lord; align with Sea/Tax/Forage
+    eligibility lookups.
+
+Pass 2, 9 / 10 clean.
