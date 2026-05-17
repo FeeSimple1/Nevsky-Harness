@@ -7118,3 +7118,40 @@ T13 discard, locale_id gate, william_of_modena_in_play clear.
   - Permanent-removal cascade — if all Teutonic Lords at the
     Legate's locale are permanently Disbanded/Removed (Wastage,
     Pay/Disband, Veche), is the Legate removed?
+
+## Round 90 — SMOKE-086
+
+### SMOKE-086: Legate not removed on Storm Sack of Teutonic Stronghold
+
+**Rule:** AoW Reference 1.4.1 Legate — "Whenever a Teutonic Lord ...
+is in a Locale with any Russian Lord(s) and no Teutonic Lord, remove
+the pawn and discard the William of Modena card."
+
+**Bug:** When Russians Storm a Teutonic Stronghold (Bishopric/etc.)
+and Sack the Besieged Teutonic Lords, the post-Sack state is
+Russian-only at the Legate's Locale. The Storm handler permanently
+removed the Teutonic Besieged Lords but did not remove the Legate;
+the pawn would silently stay with the Russian conquerors.
+
+**Fix:** After Storm Sack, if attackers were Russian AND any
+Teutonic Lord(s) were in `aftermath["besieged_removed"]` AND the
+Legate was at the Storm Locale, remove the pawn and discard T13.
+
+`tests/test_round_90_storm_legate.py` — 6 source-inspection
+regressions covering the SMOKE-086 marker, Russian-attacker check,
+attacker-won check, locale_id gate, T13 discard, and
+william_of_modena_in_play clear.
+
+912 → 918 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R91
+
+  - Surrender-conquest Legate — Siege roll succeeds (no Besieged
+    Lords inside); place Conquered marker. If the Legate is at the
+    Surrender Locale, same "no Teutonic Lord left with Russians"
+    rule applies. Check `_h_cmd_siege` surrender path.
+  - Permanent-removal cascade in non-Battle contexts — Wastage,
+    Pay/Disband, Veche-D shift. When a Teutonic Lord at the
+    Legate's Locale is removed, is the auto-removal triggered?
+  - End-Campaign Reset Legate state — does the Legate persist
+    correctly across campaigns?

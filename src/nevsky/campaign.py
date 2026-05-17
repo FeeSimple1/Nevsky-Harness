@@ -3029,6 +3029,30 @@ def _h_cmd_storm(
         # Attacker lost: Storm ends; Siege continues.
         aftermath["storm_failed"] = True
 
+    # SMOKE-086 (Round 90): per AoW Reference 1.4.1 Legate, when a
+    # Teutonic Stronghold is Stormed and Sacked by Russians, the
+    # Besieged Teutonic Lords are permanently removed. If the Legate
+    # was at the Storm Locale (the Teutonic Bishopric, etc.), the
+    # post-Sack state is "Russian Lord(s) and no Teutonic Lord at the
+    # Legate's Locale" — remove the pawn and discard William of
+    # Modena. The trigger is gated on Russian attackers winning AND
+    # any Teutonic Lord(s) being sacked at the Legate's Locale.
+    if (sd == "russian"
+            and result["winner"] == "attacker"
+            and state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == locale_id):
+        # The Besieged were Teutonic (defending the Teutonic
+        # Stronghold). All were sacked above (besieged_removed list).
+        if aftermath.get("besieged_removed"):
+            if "T13" in state.decks.teutonic.capabilities_in_play:
+                state.decks.teutonic.capabilities_in_play.remove("T13")
+                state.decks.teutonic.discard.append("T13")
+            state.legate.william_of_modena_in_play = False
+            state.legate.location = "card"
+            state.legate.locale_id = None
+            aftermath["legate_removed"] = True
+
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
     return (aftermath, [])
