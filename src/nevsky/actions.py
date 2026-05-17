@@ -1198,6 +1198,11 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     """
     lord = state.lords[lord_id]
     side: Side = lord.side
+    # SMOKE-088 (Round 92): capture pre-disband location for the
+    # Legate auto-removal check (1.4.1 "Russian Lord(s) and no
+    # Teutonic Lord at Legate's Locale").
+    _smoke088_disband_location = lord.location
+    _smoke088_disband_side = side
     deck = _side_deck(state, side)
     for cid in lord.this_lord_capabilities:
         deck.deck.append(cid)
@@ -1267,6 +1272,34 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
         if partner is not None and partner.lieutenant_of == lord_id:
             partner.lieutenant_of = None
         lord.has_lower_lord = None
+    # SMOKE-088 (Round 92): Legate auto-removal mirrors SMOKE-087 in
+    # _remove_lord_permanently — if the disbanded Lord was Teutonic
+    # at the Legate's Locale AND a Russian Lord is at that Locale
+    # AND no Teutonic Lord remains, remove the pawn and discard
+    # William of Modena.
+    if (_smoke088_disband_side == "teutonic"
+            and _smoke088_disband_location is not None
+            and state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == _smoke088_disband_location):
+        loc_id = _smoke088_disband_location
+        teu_left = any(
+            L.side == "teutonic" and L.state == "mustered"
+            and L.location == loc_id
+            for L in state.lords.values()
+        )
+        rus_present = any(
+            L.side == "russian" and L.state == "mustered"
+            and L.location == loc_id
+            for L in state.lords.values()
+        )
+        if rus_present and not teu_left:
+            if "T13" in state.decks.teutonic.capabilities_in_play:
+                state.decks.teutonic.capabilities_in_play.remove("T13")
+                state.decks.teutonic.discard.append("T13")
+            state.legate.william_of_modena_in_play = False
+            state.legate.location = "card"
+            state.legate.locale_id = None
 
 
 # ---------------------------------------------------------------------------

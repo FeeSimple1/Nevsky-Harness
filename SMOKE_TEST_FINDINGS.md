@@ -7197,3 +7197,46 @@ present check, no-Teutonic-left check, T13 discard, locale gate.
     "no Teutonic" state should already have removed the pawn.
   - Veche Option D shift — Russian-only Lord movement; no Legate
     implication on the source/destination sides.
+
+## Round 92 — SMOKE-088
+
+### SMOKE-088: `_disband_at_limit` didn't trigger Legate auto-removal
+
+**Rule:** AoW Reference 1.4.1 Legate — same as SMOKE-087.
+
+**Bug:** R91 wired the check into `_remove_lord_permanently` (3.3.1
+permanent removal). The analogous `_disband_at_limit` (3.3.2
+at-limit Disband — the FPD-cycle Disband path that returns the
+cylinder to the calendar at service_rating boxes right of current)
+also clears `lord.location = None` but didn't trigger the check.
+
+A Teutonic Lord at the Legate's Locale with Service marker at the
+limit who Disbands during the Feed/Pay/Disband sub-step (with a
+Russian Lord present at the same Locale) would leave the pawn
+behind. Same rule, different code path.
+
+**Fix:** Mirror SMOKE-087 in `_disband_at_limit`. Capture
+pre-disband location at function entry; near the end, if the
+disbanded Lord was Teutonic at the Legate's Locale with Russian
+present and no Teutonic remaining, remove the pawn and discard T13.
+
+`tests/test_round_92_disband_legate.py` — 6 source-inspection
+regressions mirroring the SMOKE-087 test set.
+
+924 → 930 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R93
+
+  - Ravage / Forage / Tax handlers — passive Lord actions don't
+    move Lords but they don't trigger Legate moves either; should
+    be fine.
+  - End-Campaign Reset Legate persistence — does the Legate stay
+    on map across campaigns when it should?
+  - "Teutonic Lord starts Activation at Legate's Locale" — the
+    +1 Command Rating bonus. Is it correctly conditional on the
+    Legate being at the Lord's Locale?
+  - cmd_stand_battle Withdraw vs Avoid timing — the Withdraw trigger
+    fires when a Lord enters the Stronghold. Sally aftermath when
+    Sallying Lords WIN and "Withdraw back inside" — does that
+    trigger the Legate-with-Russians check if the locale is now
+    Russian-Sallying-Lord-only and the Legate is there?
