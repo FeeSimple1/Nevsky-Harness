@@ -8967,3 +8967,19 @@ Probed (no bugs found):
     (no Evade).
 
 Pass 2, 7 / 10 clean.
+
+## Round 167 — CLEAN (Pass 2: verification 8/10)
+
+Probed (no bugs found):
+  - Map static data integrity:
+    - All Way endpoints reference valid locale IDs.
+    - Way types: trackway, waterway only.
+    - Parallel-Ways pairs: exactly 1 (dorpat ↔ odenpah with both
+      trackway AND waterway) — covered by SMOKE-047 / 067 / 068
+      / 069 / 071.
+  - No "sea" Way type in current data set (Sail uses seaport
+    locales directly, not Ways).
+  - Locale subregion partition (3 subregions; all locales
+    assigned) cross-checked from R141.
+
+Pass 2, 8 / 10 clean.
