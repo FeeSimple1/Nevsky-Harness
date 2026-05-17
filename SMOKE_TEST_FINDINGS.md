@@ -7931,3 +7931,20 @@ Probed (no bugs found):
   - Russian Raiders Loot exclusion (T2 gets Loot, R12/R14 don't).
 
 Pass 1, 3 / 10 clean.
+
+## Round 124 — CLEAN (Pass 1: verification 4/10)
+
+Probed (no bugs found):
+  - T1 Grand Prince / T11 Pope Gregory / T12 Khan Baty /
+    T18 Swedish Crusade — event_eligibility validated.
+  - _shift_cylinder / _shift_service: off_left/off_right
+    handling matches the SMOKE-062 + SMOKE-070 codebase
+    convention (absorb at one-box-off bucket; no overflow
+    error). T12 Tip "shifting just one box off ... is allowed"
+    is honored by landing at off_left even when the shift
+    "should" overflow further — consistent with how Retreat
+    service shifts behave.
+  - T2 Torzhok asset_order: caller can pass "ship" if needed;
+    default omits but doesn't block.
+
+Pass 1, 4 / 10 clean.
