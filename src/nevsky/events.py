@@ -126,6 +126,15 @@ def _ev_grand_prince(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
       target: "aleksandr" | "andrey" | "service:aleksandr" | "service:andrey"
       direction: "left" | "right"
     Shift 2 boxes.
+
+    Per AoW Reference T1 card text: "shift Aleksandr OR Andrey OR
+    **furthest right Service** of either 2 boxes". Disambiguation
+    Tips: "If both Service are [on the Calendar], the one in the
+    highest Calendar box shifts. If both Service are in the same box,
+    or if one cylinder and one Service is on the Calendar, Teutons
+    choose." SMOKE-102 (Round 137) enforces the furthest-right rule
+    at the service-target check; T12 Khan Baty does NOT have this
+    constraint ("Service of either", no "furthest right" qualifier).
     """
     target = args.get("target")
     direction = args.get("direction", "left")
@@ -135,6 +144,27 @@ def _ev_grand_prince(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
         raise IllegalAction("bad_direction", "direction must be left or right")
     if target.startswith("service:"):
         lid = target.split(":", 1)[1]
+        # SMOKE-102 (Round 137): "furthest right Service" enforcement.
+        # If BOTH service markers are on Calendar (boxes 1..16) and
+        # in DIFFERENT boxes, the chosen target must be the one in
+        # the higher (rightmost) box. Same-box -> Teuton chooses;
+        # only one service on Calendar -> Teuton chooses (forced).
+        other = "andrey" if lid == "aleksandr" else "aleksandr"
+        def _on_calendar_box(state, slid):
+            for cb in state.calendar.boxes:
+                if slid in cb.service_markers:
+                    return cb.box
+            return None
+        own_box = _on_calendar_box(state, lid)
+        other_box = _on_calendar_box(state, other)
+        if (own_box is not None and other_box is not None
+                and own_box != other_box and own_box < other_box):
+            raise IllegalAction(
+                "not_furthest_right",
+                f"T1 'furthest right Service' rule: {other} service is at "
+                f"box {other_box} (higher than {lid} at {own_box}); only the "
+                f"higher-box Service may be shifted",
+            )
         new = _shift_service(state, lid, 2, direction)
         return {"event": "T1", "target": target, "new_box": new}
     new = _shift_cylinder(state, target, 2, direction)

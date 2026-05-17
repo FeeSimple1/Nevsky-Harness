@@ -8255,3 +8255,39 @@ Probed (no bugs found):
   - Veche-coin cap at 8 (`added = min(amount, 8 - state.veche.coin)`).
 
 Pass 2, 5 / 10 clean.
+
+## Round 137 — SMOKE-102 (T1 Grand Prince "furthest right Service")
+
+Per AoW Reference T1 card text:
+  "On Calendar, shift Aleksandr OR Andrey OR **furthest right Service**
+   of either 2 boxes"
+Tips: "If both Service are [on the Calendar], the one in the highest
+Calendar box shifts. If both Service are in the same box, or if one
+cylinder and one Service is on the Calendar, Teutons choose."
+
+Pre-fix the harness let the agent pick `service:aleksandr` or
+`service:andrey` freely regardless of relative box position when both
+service markers were on the Calendar. Same audit pattern as SMOKE-046
+(Marshal gate), SMOKE-048 (Transport count), SMOKE-067 (Way type arg):
+"rule-cite-but-no-enforce."
+
+Scope note: T12 Khan Baty has similar shift mechanics but its card
+text is "shift Aleksandr OR Andrey OR Service of either" with NO
+"furthest right" qualifier — so T12 keeps free Teuton choice on the
+Service target. Fix is T1-only.
+
+Fix raises IllegalAction("not_furthest_right") when both service
+markers are on the Calendar in DIFFERENT boxes and the agent picks
+the lower-box service. Same-box case retains Teuton choice;
+single-service case retains free choice; off-Calendar service
+positions (off_left_service/off_right_service) don't count for the
+"on the Calendar" condition.
+
+Regressions: tests/test_round_137_t1_furthest_right.py (8 tests):
+marker presence, rejection of lower-box service, acceptance of
+higher-box service, same-box acceptance, lone-service acceptance,
+off-Calendar non-counting, cylinder target unaffected, T12 NOT
+affected.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-102 reset the count).
+Test count: 976 → 984 (+8 regressions). SMOKE total: 102.
