@@ -8771,3 +8771,27 @@ Probed (no bugs found):
     ="russian". has_side_capability lookup correct.
 
 Pass 2, 3 / 10 clean.
+
+## Round 157 — CLEAN (Pass 2: verification 4/10)
+
+Probed (no bugs found):
+  - Multi-VP Locales: 4 Teutonic Bishoprics (Reval/Leal/Dorpat/Riga)
+    @ 2VP each; 3 Russian Cities (Ladoga/Rusa/Pskov) @ 2VP each;
+    Novgorod @ 3VP.
+  - `_apply_conquest_or_liberation`:
+    - Conquest: caps at sh_vp (SMOKE-045 delta = sh_vp - current);
+      re-conquest is a no-op; calendar.*_vp tracks correct delta.
+    - Liberation: clears full enemy marker; subtracts cleared_vp.
+    - Castle flip on Conquest (SMOKE-040): -1 from old color +1
+      to new color (Castle markers worth 1 VP each per
+      scenarios._compute_vp).
+  - Trade-route flip path: same sh_vp accounting via
+    `_flip_trade_route_if_uncontested`.
+  - Storm Sack of 2VP+ Stronghold places `sh_vp` markers in one
+    shot (not cumulative +=). Spoils = loot/provender/coin = vp
+    each.
+  - Novgorod (3VP) Storm Sack: Veche Coin transferred to attackers
+    (4.5.2 + 1.3.3); Surrender path removes Veche Coin (not
+    transferred).
+
+Pass 2, 4 / 10 clean.
