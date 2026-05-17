@@ -7621,3 +7621,12 @@ pending the future-projects report.
   - SMOKEs found in this run: SMOKE-060 through SMOKE-092 (33 new).
   - Test count progression: 779 → 944 (+165 regression tests).
   - Cumulative SMOKE count: 92.
+
+## Round 111 — CLEAN (verification round 1/10)
+
+  - cmd_supply Provender cap math (min(added, 8 - current)).
+  - Levy Disband 3.3.2 (cylinder from CURRENT box) vs Campaign FPD
+    Disband (NEXT box) — both correct.
+  - Pay/Disband interaction — Pay doesn't fire Disband.
+
+Clean: 1 / 10 of verification batch.
