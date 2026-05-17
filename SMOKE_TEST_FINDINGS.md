@@ -8387,3 +8387,24 @@ Probed (no bugs found):
   - moved_fought set in _h_cmd_tax_veliky_knyaz_aware.
 
 Pass 2, 2 / 10 clean.
+
+## Round 142 — CLEAN (Pass 2: verification 3/10)
+
+Probed (no bugs found):
+  - 3.4 Muster actor eligibility (`_h_muster_lord`): Mustered,
+    Friendly Locale, not Besieged (redundantly enforced — siege
+    locales are non-friendly per _is_friendly_locale), Lordship
+    budget remaining, not just_arrived_this_levy.
+  - 3.4.1 Aleksandr exception: explicit raise in `_h_muster_lord`
+    ("aleksandr_veche_only"). Veche Option B reaches him via
+    `_place_lord_on_map` directly, bypassing the gate.
+  - legal_moves `_muster_moves`: filters by_lord candidates by
+    same constraints; Ready targets by state + cyl_box <= levy_box
+    + free seats.
+  - 3.4.2 Vassal Muster: `_h_muster_vassal` (checked separately
+    in earlier rounds); special vassal gating via _place_lord_on_
+    map (SMOKE-012 / SMOKE-060).
+  - 3.4.3 Levy Transport: "ship" constraint requires Lord's mat
+    to state "Ships" (per starting_assets or capability).
+
+Pass 2, 3 / 10 clean.
