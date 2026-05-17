@@ -968,6 +968,11 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     # Skip double-counting if already removed.
     if lord.state == "removed":
         return
+    # SMOKE-087 (Round 91): capture pre-removal location so we can
+    # check the Legate's "no Teutonic, Russian present" auto-removal
+    # rule after the Lord is gone.
+    _smoke087_removed_location = lord.location
+    _smoke087_removed_side = side
     # Pleskau bonus: increment counter for the OTHER side.
     # SMOKE-024 (Round 36): also mirror the bonus into the
     # calendar.<other_side>_vp incremental float, since
@@ -1032,6 +1037,36 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
         if partner is not None and partner.lieutenant_of == lord_id:
             partner.lieutenant_of = None
         lord.has_lower_lord = None
+    # SMOKE-087 (Round 91): Legate auto-removal per 1.4.1 — "a
+    # Teutonic Lord ... in a Locale with any Russian Lord(s) and no
+    # Teutonic Lord, remove the pawn." When the removed Lord was
+    # Teutonic AND was at the Legate's Locale AND no Teutonic Lord
+    # remains there AND at least one Russian Lord is at that Locale,
+    # remove the pawn and discard William of Modena.
+    if (_smoke087_removed_side == "teutonic"
+            and _smoke087_removed_location is not None
+            and state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == _smoke087_removed_location):
+        loc_id = _smoke087_removed_location
+        teu_left = any(
+            L.side == "teutonic" and L.state == "mustered"
+            and L.location == loc_id
+            for L in state.lords.values()
+        )
+        rus_present = any(
+            L.side == "russian" and L.state == "mustered"
+            and L.location == loc_id
+            for L in state.lords.values()
+        )
+        if rus_present and not teu_left:
+            if "T13" in state.decks.teutonic.capabilities_in_play:
+                state.decks.teutonic.capabilities_in_play.remove("T13")
+                state.decks.teutonic.discard.append("T13")
+            state.legate.william_of_modena_in_play = False
+            state.legate.location = "card"
+            state.legate.locale_id = None
+
     # SMOKE-055 (Round 64): Rule 5.2 Campaign Victory — "If at any
     # moment during a Campaign one side has zero Mustered Lords on
     # the map, the game ends immediately." Check after each

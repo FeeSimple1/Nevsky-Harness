@@ -7155,3 +7155,45 @@ william_of_modena_in_play clear.
     Legate's Locale is removed, is the auto-removal triggered?
   - End-Campaign Reset Legate state — does the Legate persist
     correctly across campaigns?
+
+## Round 91 — SMOKE-087
+
+### SMOKE-087: Permanent Lord removal didn't trigger Legate auto-removal
+
+**Rule:** AoW Reference 1.4.1 Legate — "a Teutonic Lord ... is in a
+Locale with any Russian Lord(s) and no Teutonic Lord, remove the
+pawn and discard the William of Modena card."
+
+**Bug:** R88-90 wired the action-specific Legate triggers (Avoid,
+Withdraw, Battle Retreat, Sally Retreat, Storm Sack). But
+`_remove_lord_permanently` itself — invoked from many non-Battle
+paths (Wastage cascade, 3.3.1 limit-Disband, scenarios test fixtures,
+etc.) — didn't check the "Russian-only-at-Legate-locale" rule. A
+Teutonic Lord disbanded/removed at the Legate's Locale with a
+Russian Lord present would leave the pawn behind.
+
+**Fix:** At the top of `_remove_lord_permanently`, capture the
+pre-removal location and side. Near the end, if the removed Lord
+was Teutonic at the Legate's Locale, check whether any Teutonic
+Lord remains and any Russian is present; if Russian-only, remove
+the pawn and discard T13.
+
+`tests/test_round_91_remove_lord_legate.py` — 6 source-inspection
+regressions: pre-removal capture, Teutonic-side check, Russian-
+present check, no-Teutonic-left check, T13 discard, locale gate.
+
+918 → 924 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R92
+
+  - `_disband_at_limit` — similar to `_remove_lord_permanently` but
+    for the 3.3.2 at-limit Disband path; Lord state goes to
+    "disbanded" with cylinder repositioned but the Lord is OFF the
+    map (location=None). If the Disbanded Lord was at the Legate's
+    Locale, same trigger applies.
+  - Surrender-conquest (Siege handler) Legate handling — Russian
+    surrender-conquers a Teutonic Stronghold; if the Legate's there
+    but the Surrender happens at empty Stronghold, the pre-existing
+    "no Teutonic" state should already have removed the pawn.
+  - Veche Option D shift — Russian-only Lord movement; no Legate
+    implication on the source/destination sides.
