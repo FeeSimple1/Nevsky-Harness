@@ -7500,3 +7500,16 @@ Probed surfaces and found no actionable bugs:
     UX-soft, not a strict bug.
 
 Clean-round counter: 3 / 5.
+
+## Round 104 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - `_h_aow_implement_card` for this_levy events — resolves
+    immediately, adds to this_levy_events tracking list.
+  - cmd_supply has no Loot interaction (Loot is Spoils-only).
+  - T1 Grand Prince hardcoded whitelist matches cards.json
+    event_eligibility lords list.
+  - legal_moves Avoid Battle suggests dests for each defender Lord
+    (Lieutenant + Lower Lord move together via cp.defender_lords).
+
+Clean-round counter: 4 / 5.
