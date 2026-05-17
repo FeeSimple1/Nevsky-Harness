@@ -8129,3 +8129,37 @@ Probed (no bugs found):
     cover the four removal paths.
 
 Pass 2, 1 / 10 clean.
+
+## Round 133 — CLEAN (Pass 2: verification 2/10)
+
+Probed (no bugs found):
+  - AoW deck cycle: shuffle (3.1.1), draw 2 → pending_draw (3.1),
+    implement next (3.1.2 / 3.1.3), discard this-Levy events
+    (3.5.3). pending_draw popped only on successful resolution
+    per SMOKE-010.
+  - No-Event/No-Capability card handling: cards.json has 6 cards
+    (3 per side) flagged with both `no_event=True` AND
+    `no_capability=True` (no asymmetric cards). The
+    `card["no_event"]` short-circuit at start of implement is
+    correct for both halves. Pleskau pre-removal vs Crusade-on-
+    Novgorod retention both honored.
+  - `first_levy_done` flag flip: set at Campaign→next-Levy
+    transition (campaign.py:1633). Only read at AoW implement
+    time. Correct timing.
+  - VP scoring path: `_compute_vp` called once at scenario load
+    to seed `calendar.*_vp`. Game play mutates `calendar.*_vp`
+    incrementally; `determine_scenario_winner` reads the
+    incrementally-mutated float. Pleskau lord-removed bonus
+    written to both the counter AND the incremental float per
+    SMOKE-024. No double-counting.
+  - `_set_victory_markers` is idempotent (SMOKE-022); clears all
+    flags before placing.
+  - 17.5 VP cap + 0 VP floor enforced as defense-in-depth in
+    `determine_scenario_winner` (SMOKE-025/027).
+  - Scenario victory overrides: Watland (T≥7 AND T≥2R) honored;
+    other scenarios fall through to standard 5.3 (higher VP, tie
+    is draw).
+  - Campaign Victory 5.2 (0 Mustered Lords) checked before VP
+    comparison.
+
+Pass 2, 2 / 10 clean.
