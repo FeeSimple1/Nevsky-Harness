@@ -8564,3 +8564,23 @@ Probed (no bugs found):
     castle overlay) for siege-marker placement.
 
 Pass 2, 3 / 10 clean.
+
+## Round 149 — CLEAN (Pass 2: verification 4/10)
+
+Probed (no bugs found):
+  - 4.5.1 Siege command: Active Lord at locale with siege_markers
+    > 0, not Besieged himself.
+  - Surrender check fires when besieged=[] (no Lords inside).
+    Roll 1d6 vs siege_markers; success conquers via
+    _apply_conquest_or_liberation (SMOKE-021 path).
+  - Castle marker flip on Stonemasons-built Castle (covered by
+    _apply_conquest_or_liberation).
+  - Novgorod special: Veche Coin removed on Surrender conquest
+    (1.3.3) — not transferred as Spoils.
+  - Siegeworks check: besiegers >= Stronghold capacity → +1 siege
+    marker, cap 4. SMOKE-054 uses _effective_stronghold so Castle
+    overlay capacity is honored.
+  - Card-ends after Siege (entire card per 4.5.1).
+  - All Lords at locale marked moved_fought.
+
+Pass 2, 4 / 10 clean.
