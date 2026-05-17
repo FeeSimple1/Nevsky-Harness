@@ -7396,3 +7396,50 @@ Probed surfaces and found no actionable bugs:
   - cmd_tax / cmd_forage / cmd_supply Friendly-Locale gating.
 
 Clean-round counter: 2 / 5.
+
+## Round 99 — SMOKE-091
+
+### SMOKE-091: Trade-Route auto-flip missing from Avoid/Retreat paths
+
+**Rule:** Strongholds reference — "Trade Routes ... flip simply by
+an enemy Lord's presence with no friendly Lord contesting."
+
+**Bug:** SMOKE-020 (Round 34) wired `_flip_trade_route_if_uncontested`
+for `cmd_march` and `cmd_sail`. But three other movement paths
+that set `lord.location = X` were missed:
+
+  - `_h_avoid_battle` (defender Avoids to a new locale).
+  - Battle aftermath Retreat (loser Lord moves to `target`).
+  - Sally aftermath Retreat (besieger moves to clear neighbor).
+
+Avoid Battle permits `trade_route` as a destination (because
+`_has_enemy_stronghold_at` returns False for trade_route per the
+SMOKE-020 design). So Teutonic defender Avoiding to a Russian
+trade_route enters but the flip never fires — the Russian trade
+route remains Russian-Conquered.
+
+Probe: Teutonic Hermann at kaibolovo, Russian attacker arrives,
+Hermann Avoids to luga (Russian trade_route, via waterway).
+Result: `luga.teutonic_conquered = 0` (BUG; should be 1).
+
+**Fix:** Add `_flip_trade_route_if_uncontested(state, dest, side)`
+calls after each Lord-location-change in the three paths. End-to-end
+test confirms the Avoid Battle case now flips.
+
+`tests/test_round_99_trade_route_flip_paths.py` — 4 regressions
+(3 source-inspection + 1 end-to-end Avoid Battle Russian trade-route
+flip).
+
+937 → 941 passing. Clean-round counter RESET to 0/5.
+
+## Candidate surfaces for R100
+
+  - Other lord.location = X sites that don't go through the
+    movement helpers (e.g., R14 Andreas-to-Riga, R3 Pogost target,
+    legate-related movements).
+  - cmd_march group movement — only the active Lord triggers
+    trade-route flip per current code; group members all arrive at
+    dest. Group members entering uncontested trade_route should
+    also flip (but it should fire ONCE per locale, not per group
+    member; current implementation calls once per cmd_march which
+    is correct).

@@ -2291,6 +2291,13 @@ def _h_avoid_battle(
         # SMOKE-036: clear in_stronghold on movement.
         state.lords[did].in_stronghold = False
 
+    # SMOKE-091 (Round 99): trade-route auto-flip on uncontested entry
+    # (per Strongholds reference; SMOKE-020 wired this for cmd_march and
+    # cmd_sail). Avoid Battle also moves a Lord onto a destination —
+    # if that's a Russian trade_route and no native (Russian) Lord
+    # contests, the flip should fire on the defender's arrival.
+    _trade_flip_avoid = _flip_trade_route_if_uncontested(state, dest, cp.defender_side)
+
     # 1.4.1 Legate trigger: if any Teutonic defender Avoided and the
     # Legate is at the Avoid origin (cp.to_locale, where the Lord just
     # left from), remove the pawn and discard William of Modena.
@@ -2588,6 +2595,8 @@ def _h_stand_battle(
         lord.location = target
         # SMOKE-036: clear in_stronghold on Retreat movement.
         lord.in_stronghold = False
+        # SMOKE-091 (Round 99): trade-route auto-flip on Retreat entry.
+        _flip_trade_route_if_uncontested(state, target, lord.side)
         shift = apply_retreat_service_shift(state, lid)
         # AUDIT-004 (4.4.3 2E): Conceded+Retreated losers transfer only
         # Loot and excess Provender beyond Unladen along the Retreat
@@ -3210,6 +3219,8 @@ def _h_cmd_sally(
                     l.location = target
                     # SMOKE-036: clear in_stronghold on Sally retreat.
                     l.in_stronghold = False
+                    # SMOKE-091 (Round 99): trade-route auto-flip on Sally retreat.
+                    _flip_trade_route_if_uncontested(state, target, l.side)
                     shift = apply_retreat_service_shift(state, lid)
                     # SMOKE-071 (Round 75): honor 4.4.3 Concede-the-Field
                     # Spoils. If the defender (besieger) Conceded the
