@@ -8163,3 +8163,36 @@ Probed (no bugs found):
     comparison.
 
 Pass 2, 2 / 10 clean.
+
+## Round 134 — CLEAN (Pass 2: verification 3/10)
+
+Probed (no bugs found):
+  - Q-003 secondary Marshal: `_is_currently_marshal` correctly
+    returns True for permanent (Andreas/Aleksandr) when on map;
+    returns True for secondary (Hermann/Andrey) only when
+    permanent counterpart is OFF the map (state != "mustered"
+    OR location is None). marshal_role data in lords.json is
+    consistent.
+  - 3.2.1 Pay with Coin: own/co-located/Veche source; Besieged
+    target requires own-coin or co-besieged-payer; Veche cannot
+    reach Besieged Russian.
+  - 3.2.2 Pay with Loot: Friendly-Locale-only constraint via
+    `_is_friendly_locale` (which rejects siege_markers > 0).
+  - `_shift_service_right`: handles off_right_service (box 17)
+    correctly; SMOKE-038-style vassal marker shift when
+    Advanced Vassal Service is on.
+  - 4.9.4 Wastage: trigger fires when most-count Asset > 1 OR
+    this-lord-capabilities > 1; harness uses deterministic
+    "most-count Asset first, else capability" — a documented
+    design choice (player choice replaced with default).
+  - `_disband_special_vassals` (SMOKE-031): returns Forces to
+    parent Lord (capped at available), removes vassal Service
+    marker from Calendar, resets mustered/ready flags.
+    Iterates all side Lords' vassal dicts; removed Lords'
+    vassals already cleaned by `_remove_lord_permanently`.
+  - 4.1.3 Lieutenant placement: same-locale, same-side, both
+    Mustered, neither Besieged, neither current Marshal, no
+    duplicate Lower Lord, no chains (Lieutenant-of cycles
+    blocked), self-target rejected.
+
+Pass 2, 3 / 10 clean.
