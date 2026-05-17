@@ -8522,3 +8522,25 @@ Probed (no bugs found):
     attacker/defender Russian roles.
 
 Pass 2, 1 / 10 clean (post-SMOKE-105 reset).
+
+## Round 147 — CLEAN (Pass 2: verification 2/10)
+
+Probed (no bugs found):
+  - 4.7.2 Ravage: own-territory rejection, conquered rejection,
+    friendly-locale rejection (covers besieged-enemy-at-locale
+    via _is_friendly_locale's enemy-Lord-at-locale clause),
+    already-ravaged rejection.
+  - Ravage 1-action default; 2-actions if Unbesieged enemy
+    adjacent (SMOKE-019 Lord-level besieged check).
+  - +1 Provender (8-cap), +1 Loot if type != region (Bishopric/
+    Town/Fort/Castle/City qualify; Region does not).
+  - VP increment 0.5 per Ravaged marker; `_refresh_vp_markers`
+    re-places markers.
+  - T2 Raiders trackway-only + once-per-card; R12/R14 Raiders
+    any-Way + multi-use per card (SMOKE-052 already covered).
+  - Force composition: T2 needs Knight/Sergeant/Light Horse;
+    Russian needs Light Horse/Asiatic Horse.
+  - Raiders standard Ravage gate cross-checked (same own-terr/
+    conquered/ravaged/enemy-at-target gates).
+
+Pass 2, 2 / 10 clean.
