@@ -8317,3 +8317,33 @@ Probed (no bugs found):
     no-loot enforcement; total=4 per recipient validation.
 
 Pass 2, 1 / 10 clean (post SMOKE-102 reset).
+
+## Round 139 — SMOKE-103 (Retreat Service shift didn't cascade to Vassal markers)
+
+Per Battle and Storm reference service_shift_on_retreat block:
+  "vassals_shift": "only under advanced Vassal Service rule (3.4.2)"
+  "shift each Vassal's marker the same number, ONLY under advanced
+   Vassal Service rule"
+
+Pre-fix the Pay-step shift (`actions._shift_service_right`) already
+cascaded the same direction+magnitude onto on-Calendar Vassal markers
+when `state.meta.optional_rules["advanced_vassal_service"]` was on,
+but the Retreat-shift (`battle.apply_retreat_service_shift`) was
+missing this cascade.
+
+Same audit pattern as SMOKE-098/099/101: mirror gap between sibling
+service-shift paths. Pay-side did it; Retreat-side forgot.
+
+Fix copies the same vassal-shift block: iterates each vassal of the
+retreating Lord, removes the vassal marker from its old Calendar box,
+computes target = old_box - boxes, places at the new box. Off-left
+landing uses calendar_box=0 sentinel (matching the Pay convention);
+off-right uses 17.
+
+Regressions: tests/test_round_139_retreat_vassal_shift.py (5 tests):
+marker presence, optional rule OFF preserves position, optional rule
+ON shifts by same amount, off-left sentinel reachable when shift > box,
+vassal-not-on-Calendar branch skipped.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-103 reset the count).
+Test count: 984 → 989 (+5 regressions). SMOKE total: 103.

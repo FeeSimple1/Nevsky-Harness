@@ -1602,6 +1602,34 @@ def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
         cal.off_right_service.append(lord_id)
     else:
         cal.boxes[new_box - 1].service_markers.append(lord_id)
+
+    # SMOKE-103 (Round 139): Advanced Vassal Service rule (3.4.2)
+    # — per Battle and Storm reference service_shift_on_retreat:
+    # "shift each Vassal's marker the same number, ONLY under
+    # advanced Vassal Service rule." The Pay-step shift
+    # (`_shift_service_right` in actions.py) already had this
+    # cascade; Retreat-shift was missing it. Same audit pattern as
+    # SMOKE-098/099/101 (mirror-gap between sibling shift paths).
+    if state.meta.optional_rules.get("advanced_vassal_service", False):
+        if lord_id in state.lords:
+            for vid, vstate in state.lords[lord_id].vassals.items():
+                if not vstate.on_calendar or vstate.calendar_box is None:
+                    continue
+                old_v_box = vstate.calendar_box
+                if 1 <= old_v_box <= 16:
+                    vcb = cal.boxes[old_v_box - 1]
+                    if vid in vcb.vassal_service_markers:
+                        vcb.vassal_service_markers.remove(vid)
+                target_v = old_v_box - boxes
+                if target_v < 1:
+                    # Sentinel for off-left vassal position (matches
+                    # actions._shift_service_right convention).
+                    vstate.calendar_box = 0
+                elif target_v > 16:
+                    vstate.calendar_box = 17
+                else:
+                    cal.boxes[target_v - 1].vassal_service_markers.append(vid)
+                    vstate.calendar_box = target_v
     return boxes
 
 
