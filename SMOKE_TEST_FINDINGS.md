@@ -7459,3 +7459,19 @@ Probed surfaces and found no actionable bugs:
   - cmd_storm Sack Castle marker flip via SMOKE-040.
 
 Clean-round counter: 1 / 5.
+
+## Round 101 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - `_seats_of` conditional seats — T12 Ordensburgen (commandery),
+    R15 Archbishopric (novgorod), Pskov-via-conquest all correctly
+    activated by capabilities_in_play check.
+  - `_is_friendly_locale` Castle-marker interaction — own_terr and
+    own_conquered cover the typical scenarios; russian_castle on
+    Teutonic-territory without russian_conquered marker shouldn't
+    arise from gameplay (SMOKE-040 ties Castle flip to Conquest).
+  - cmd_storm with empty besieged — resolve_storm handles
+    garrison-only Storm correctly.
+  - cmd_sail Unbesieged-enemy check at dest.
+
+Clean-round counter: 1 / 5.
