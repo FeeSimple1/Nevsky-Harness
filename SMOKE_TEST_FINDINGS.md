@@ -7332,3 +7332,35 @@ Probed surfaces and found no actionable bugs:
     take_legate independent of group composition.
 
 Clean-round counter: 1 / 5.
+
+## Round 96 — SMOKE-090
+
+### SMOKE-090: _h_legate_arrives didn't consume once-per-CtA slot
+
+**Rule:** Rulebook 3.5.1 — "the Teutonic player may use the Legate
+pawn once" during Call to Arms. The four options (Option 1 Place
+or Move, Option 2a/2b/2c USE) are mutually exclusive.
+
+**Bug:** `_h_legate_arrives` placed the pawn at a Bishopric but
+didn't gate on `state.legate.acted_this_call_to_arms` or set the
+flag after placement. The Teutons could Arrive (place pawn) AND
+then USE the Legate (sub-options 2a/2b/2c) in the same Call to
+Arms, violating the once-per-CtA rule. `_h_legate_move` and
+`_h_legate_use` already gate on and set the flag — Arrives was
+the missing path.
+
+**Fix:** Add `acted_this_call_to_arms` gate at the start of
+`_h_legate_arrives`; set the flag after the successful placement.
+
+`tests/test_round_96_legate_arrives_slot.py` — 3 regressions:
+flag set on success, already-acted rejection, placement still
+works on first action.
+
+934 → 937 passing. Clean-round counter RESET to 0/5.
+
+## Candidate surfaces for R97
+
+  - Other once-per-segment slot checks across actions.
+  - Veche options' acted_this_call_to_arms — already verified.
+  - cmd_supply Provender cap at 8 — verify the loop respects cap
+    when multiple sources are listed.

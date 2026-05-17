@@ -2018,11 +2018,22 @@ def _h_legate_arrives(
         raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
     if state.legate.location != "card":
         raise IllegalAction("legate_already_on_map", "Legate is already on the map (3.5.1)")
+    # SMOKE-090 (Round 96): per rule 3.5.1, the Teutonic player may
+    # use the Legate ONCE per Call to Arms. Placing (Arrives) is one
+    # of the four mutually-exclusive options (Option 1 Place/Move,
+    # Option 2a/2b/2c USE). Without consuming the once-per-CtA slot,
+    # the Teuton could Arrive AND then USE in the same CtA.
+    if state.legate.acted_this_call_to_arms:
+        raise IllegalAction(
+            "already_acted",
+            "Legate has already acted this Call to Arms (3.5.1)",
+        )
     bishopric = args.get("bishopric")
     if bishopric not in _BISHOPRICS:
         raise IllegalAction("bad_bishopric", f"bishopric must be one of {sorted(_BISHOPRICS)}")
     state.legate.location = "locale"
     state.legate.locale_id = bishopric
+    state.legate.acted_this_call_to_arms = True
     return ({"placed_at": bishopric}, [])
 
 
