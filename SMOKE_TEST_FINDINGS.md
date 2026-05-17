@@ -8752,3 +8752,22 @@ Probed (no bugs found):
     provender arg.
 
 Pass 2, 2 / 10 clean.
+
+## Round 156 — CLEAN (Pass 2: verification 3/10)
+
+Probed (no bugs found):
+  - T16 / R7 are dual cards: Event=Famine + Capability=Ransom.
+    Event persistence=this_campaign; cleared at end of campaign
+    via `deck.this_campaign_events` discard.
+  - SMOKE-030 Famine (against own side): Forage adds 0;
+    seat-Supply capped at 1 Provender per Command card; Ship-
+    Supply not affected (correct per Tip "does not affect
+    Provender via Supply from Ships, Ravage, or Spoils").
+  - Famine "against us" predicate: check enemy side's
+    this_campaign_events for T16/R7 — by attacker symmetry,
+    Teutonic-T16 affects Russian; Russian-R7 affects Teutonic.
+  - apply_ransom side parity: T16 is teutonic side → ransom
+    fires when killer_side="teutonic"; R7 russian → killer_side
+    ="russian". has_side_capability lookup correct.
+
+Pass 2, 3 / 10 clean.
