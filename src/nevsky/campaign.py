@@ -2627,6 +2627,17 @@ def _h_stand_battle(
             )
         else:
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+        # SMOKE-093 (Round 113): per rule 4.4.4 Losses — the LOSER
+        # rolls 1d6 per Routed unit; some return to Forces, others
+        # are permanently lost. The harness Winner code restores
+        # routed → forces unconditionally (post-Battle "winner
+        # doesn't suffer Losses"). The Loser code path did not call
+        # apply_losses_rolls, leaving the loser's routed_units pile
+        # stuck (never resolved). Roll Losses now per the rule.
+        from nevsky.battle import apply_losses_rolls
+        loss_state = "conceded_then_retreated" if this_lord_conceded else "retreated_no_concede"
+        if lord.routed_units:
+            apply_losses_rolls(state, lid, loss_state)
         aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
         aftermath["spoils"].append(spoil)
 

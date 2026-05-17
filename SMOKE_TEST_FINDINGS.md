@@ -7638,3 +7638,38 @@ Clean: 1 / 10 of verification batch.
   - Storm/Surrender Conquered marker overflow (SMOKE-045 fix).
 
 Clean: 2 / 10.
+
+## Round 113 — SMOKE-093
+
+### SMOKE-093: Battle aftermath Loser routed_units never resolved via 4.4.4 Losses rolls
+
+**Rule:** Rulebook 4.4.4 Losses — the LOSER rolls 1d6 per Routed
+unit; some return to Forces, others are permanently lost. The
+Winner's Routed units automatically return.
+
+**Bug:** The harness restored Winner.routed_units → forces
+unconditionally (post-Battle "winner doesn't suffer Losses").
+The Loser code path never called `apply_losses_rolls`; the
+function existed in battle.py:2145 but had no callers (dead code).
+The loser's routed_units pile silently persisted across Battles
+— the Lord could carry routed units indefinitely without
+resolution, contradicting the per-Battle Losses resolution rule.
+
+**Fix:** Call `apply_losses_rolls(state, lid, loss_state)` in the
+Battle aftermath retreat loop, using `"conceded_then_retreated"`
+if `this_lord_conceded` else `"retreated_no_concede"`. The
+already-extant function handles the d6 rolls and routed→forces
+restoration per protection-range rules.
+
+`tests/test_round_113_losses_rolls.py` — 3 source-inspection
+regressions: SMOKE-093 marker, both loss_state strings present,
+routed_units gate.
+
+944 → 947 passing. Clean-streak verification batch RESET 0/10
+(was 2/10 after R111-R112; SMOKE-093 in R113 resets).
+
+## Verification batch status
+
+The user requested 10 verification rounds. Found SMOKE-093 at R113
+(the 3rd round of the batch). Counter reset to 0/10. Continuing
+the batch...
