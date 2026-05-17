@@ -1131,6 +1131,15 @@ def _h_cmd_supply(
     seat_count = 0
     ship_count = 0
     added = 0
+    # SMOKE-089 (Round 94): per rule 4.6 each Source contributes 1
+    # Provender per Supply action. Listing the same locale twice
+    # double-counts the Source against the printed "1 Provender per
+    # Source" rule. Track unique sources to reject duplicates. For
+    # Russian Ship sources, Novgorod can provide up to 2 Provender
+    # in a single action (per the play note), so it counts as a
+    # special exception — Novgorod-Ship can appear up to 2 times.
+    _smoke089_seen_sources: set[tuple[str, str]] = set()
+    _smoke089_novgorod_ship_count = 0
 
     for src in sources:
         sid = src.get("locale_id")
@@ -1140,6 +1149,25 @@ def _h_cmd_supply(
             raise IllegalAction("bad_source", "each source: {locale_id, route[], transport}")
         if ttype not in ("boat", "cart", "sled", "ship"):
             raise IllegalAction("bad_source", f"unknown transport {ttype}")
+
+        # SMOKE-089 (Round 94): dedupe Source against printed rule.
+        _smoke089_key = (sid, "ship" if ttype == "ship" else "seat")
+        if _smoke089_key in _smoke089_seen_sources:
+            # Exception: Russian Novgorod ship can be listed up to 2x
+            # (matches "Novgorod up to 2 Provender via Ships" play note).
+            if (sd == "russian" and sid == "novgorod" and ttype == "ship"
+                    and _smoke089_novgorod_ship_count < 2):
+                _smoke089_novgorod_ship_count += 1
+            else:
+                raise IllegalAction(
+                    "duplicate_source",
+                    f"Source {sid} (transport={ttype}) already listed; each Source "
+                    f"contributes 1 Provender per Supply action (4.6)",
+                )
+        else:
+            _smoke089_seen_sources.add(_smoke089_key)
+            if sd == "russian" and sid == "novgorod" and ttype == "ship":
+                _smoke089_novgorod_ship_count = 1
 
         # Validate transport seasonality (1.7.4).
         if ttype == "ship":

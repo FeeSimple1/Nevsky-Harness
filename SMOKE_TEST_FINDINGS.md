@@ -7273,3 +7273,45 @@ Probed surfaces and found no actionable bugs:
     SMOKE-085).
 
 Clean-round counter: 1 / 5.
+
+## Round 94 — SMOKE-089
+
+### SMOKE-089: Supply allows duplicate Sources
+
+**Rule:** Rulebook 4.6 — "+1 Provender per Source." Each Source
+contributes one Provender per Supply action. The play note for
+Russians clarifies the only multi-Provender Source: "Novgorod via
+Ships up to 2 Provender."
+
+**Bug:** `_h_cmd_supply` iterated the `sources` list without
+deduplication. Listing the same Seat twice (or any non-Novgorod
+locale twice via Ship) double-counted the Source, yielding 2
+Provender from one Source — directly violating the printed rule.
+The existing `seat_count > 2` / `ship_count > 2` checks limited
+the total entry count but didn't prevent repeating the same
+Source within the cap.
+
+Probe: Hermann at dorpat with 8 boats, supplied via
+`[{dorpat, boat}, {dorpat, boat}]` and got 2 Provender — illegal.
+
+**Fix:** Track unique sources by `(locale_id, ttype-category)`
+key. Reject duplicate listings with code `duplicate_source`.
+Preserve the Novgorod-Russian-Ship exception by allowing the
+Novgorod ship-source pair to be listed up to 2 times.
+
+`tests/test_round_94_supply_dup_source.py` — 4 regressions:
+duplicate-seat rejected, distinct seats accepted, Novgorod-ship
+twice accepted, third Novgorod-ship listing rejected.
+
+930 → 934 passing. Clean-round counter RESET to 0/5.
+
+## Candidate surfaces for R95
+
+  - Withdraw partial-subset support (rule says "some or all Lords
+    up to Siege Capacity"; harness rejects if len > capacity).
+  - Wastage args.wastage_choice support (player picks discard).
+  - Save/Load roundtrip via pydantic — does any state field fail
+    to serialize?
+  - Levy Vassal recursive cleanup — when a parent Lord's Vassal
+    is Mustered then parent is Disbanded, does the Vassal cleanup
+    correctly?
