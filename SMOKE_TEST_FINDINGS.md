@@ -7443,3 +7443,19 @@ flip).
     also flip (but it should fire ONCE per locale, not per group
     member; current implementation calls once per cmd_march which
     is correct).
+
+## Round 100 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Other `lord.location = X` assignments — R14 Andreas-to-Riga
+    places at Bishopric (no trade-route concern); other sites
+    already covered.
+  - `_check_capability_eligibility` scope handling — "lords"
+    enforces list, "any_except" excludes list, "any"/"all" defer
+    to caller's side check.
+  - VP recalculation in `_apply_conquest_or_liberation` — delta
+    math avoids double-counting on re-Conquest.
+  - Sail to Bishopric with own-Castle marker — no spurious siege.
+  - cmd_storm Sack Castle marker flip via SMOKE-040.
+
+Clean-round counter: 1 / 5.
