@@ -279,11 +279,23 @@ def _ev_swedish_crusade(state: GameState, args: dict[str, Any]) -> dict[str, Any
 def _ev_bountiful_harvest_t(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """T14 Bountiful Harvest (Teutonic). Remove 1 Russian (white) Ravaged marker
     from Livonia or Estonia. Russian VP -0.5.
+
+    SMOKE-112 (Round 175): if NO Russian Ravaged marker exists in
+    Teutonic/Crusader territory, the event has no effect (per rule
+    convention: "events with no valid target have no effect; discard").
+    Pre-fix the harness raised missing_arg, which made the event
+    unresolvable when no valid target existed.
     """
     locale = args.get("locale")
     static = load_locales()
     if not isinstance(locale, str) or locale not in state.locales:
-        raise IllegalAction("missing_arg", "args.locale required")
+        # SMOKE-112 no-target no-op: check if any valid target exists.
+        for lid, loc in state.locales.items():
+            if loc.russian_ravaged and static[lid].get("territory") in ("teutonic", "crusader"):
+                raise IllegalAction("missing_arg", "args.locale required")
+        # No eligible Ravaged marker anywhere — discard with no effect.
+        return {"event": "T14", "no_op": True,
+                "reason": "no_eligible_ravaged_marker"}
     info = static[locale]
     if info.get("territory") not in ("teutonic", "crusader"):
         raise IllegalAction("not_eligible_locale", "T14 removes Ravaged in Livonia/Estonia")
@@ -299,7 +311,13 @@ def _ev_bountiful_harvest_r(state: GameState, args: dict[str, Any]) -> dict[str,
     locale = args.get("locale")
     static = load_locales()
     if not isinstance(locale, str) or locale not in state.locales:
-        raise IllegalAction("missing_arg", "args.locale required")
+        # SMOKE-112 mirror: no eligible Teutonic Ravaged marker in Rus
+        # → discard with no effect.
+        for lid, loc in state.locales.items():
+            if loc.teutonic_ravaged and static[lid].get("territory") == "russian":
+                raise IllegalAction("missing_arg", "args.locale required")
+        return {"event": "R18", "no_op": True,
+                "reason": "no_eligible_ravaged_marker"}
     if static[locale].get("territory") != "russian":
         raise IllegalAction("not_eligible_locale", "R18 removes Ravaged in Rus")
     if not state.locales[locale].teutonic_ravaged:

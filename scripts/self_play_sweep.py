@@ -25,7 +25,7 @@ SCENARIOS = [
 
 
 def main():
-    seeds = [1, 2, 3, 4, 5]
+    seeds = list(range(1, 11))  # 10 seeds per scenario
     rows = []
     real_errors = []
     for sc in SCENARIOS:

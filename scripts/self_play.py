@@ -276,6 +276,92 @@ def _populate_event_args(state, cid, args):
     return new
 
 
+def _expand_event_variants(state, move):
+    """For an aow_implement_card move, return a list of variant
+    actions trying different valid targets. Used as a fallback when
+    the primary target is unreachable."""
+    cid = move.get("args", {}).get("card_id")
+    if cid is None:
+        return [move]
+    cal = state.calendar
+    base = {k: v for k, v in move.items() if k in ("type", "side", "args")}
+    variants = []
+    def variant(extra_args):
+        new_action = {**base, "args": {**base["args"], **extra_args}}
+        variants.append(new_action)
+    # Multi-target events: produce one variant per possible target.
+    if cid in ("T1", "T12"):
+        # Try all four target options.
+        for tgt in ("andrey", "aleksandr", "service:andrey", "service:aleksandr"):
+            for direction in ("left", "right"):
+                variant({"target": tgt, "direction": direction})
+    elif cid == "T11":
+        for lid, l in state.lords.items():
+            if l.side == "teutonic":
+                variant({"target": lid})
+    elif cid in ("R10",):
+        for tgt in ("andreas", "service:andreas"):
+            for d in ("left", "right"):
+                for boxes in (2, 1):
+                    variant({"target": tgt, "direction": d, "boxes": boxes})
+    elif cid in ("R17",):
+        for tgt in ("andreas", "rudolf", "service:andreas", "service:rudolf"):
+            for d in ("left", "right"):
+                variant({"target": tgt, "direction": d})
+    elif cid in ("R9",):
+        for tgt in ("andreas", "heinrich"):
+            variant({"target": tgt})
+    elif cid in ("R16",):
+        for lid, l in state.lords.items():
+            if l.side == "teutonic" and l.state == "mustered":
+                variant({"target": lid})
+    elif cid in ("T2",):
+        variant({"target": "veche"})
+        variant({"target": "domash"})
+    elif cid in ("T14", "R18"):
+        # Try each locale that has the relevant ravaged marker.
+        for lid, loc in state.locales.items():
+            if cid == "T14" and loc.russian_ravaged:
+                variant({"locale": lid})
+            elif cid == "R18" and loc.teutonic_ravaged:
+                variant({"locale": lid})
+    elif cid in ("T15", "R12"):
+        # Try each candidate locale within 2 of ostrov/rositten.
+        from nevsky.static_data import load_ways, load_locales
+        center = "ostrov" if cid == "T15" else "rositten"
+        ways = load_ways()
+        adj = {}
+        for w in ways:
+            adj.setdefault(w["a"], []).append(w["b"])
+            adj.setdefault(w["b"], []).append(w["a"])
+        visited = {center: 0}
+        frontier = [center]
+        for d in range(1, 3):
+            nxt = []
+            for n in frontier:
+                for m in adj.get(n, []):
+                    if m not in visited:
+                        visited[m] = d
+                        nxt.append(m)
+            frontier = nxt
+        for lid in sorted(visited):
+            variant({"locale": lid})
+    elif cid in ("R11",):
+        for d in ("left", "right"):
+            for b in (1, 0):
+                variant({"target": "knud_and_abel", "direction": d, "boxes": b})
+    elif cid in ("T18",):
+        for d in ("left", "right"):
+            variant({"targets": {"vladislav": "cylinder", "karelians": "cylinder"},
+                     "direction": d})
+            variant({"targets": {"vladislav": "service", "karelians": "service"},
+                     "direction": d})
+    # Always include the original as a fallback (with populate_event_args).
+    populated_args = _populate_event_args(state, cid, move.get("args", {}))
+    variants.insert(0, {**base, "args": populated_args})
+    return variants if variants else [move]
+
+
 def _instantiate_templated_move(state, move):
     """Convert a templated move (args_template + candidates) into one
     or more concrete moves with `args` dict. Returns a list of
@@ -420,9 +506,16 @@ def step_self_play(scenario, seed=0, max_steps=10000, verbose=False):
                 break
         except IllegalAction as e:
             recovered = False
-            for cand in prioritized[1:20]:
+            # Try variants of the SAME action first (e.g., different
+            # event targets) before moving on to alternates.
+            same_action_variants = []
+            if pick.get("type") == "aow_implement_card":
+                same_action_variants = _expand_event_variants(s, pick)
+            fallback_pool = same_action_variants + list(prioritized[1:])
+            for cand in fallback_pool:
                 act = {k: v for k, v in cand.items() if k in ("type", "side", "args")}
-                if act["type"] == "aow_implement_card":
+                if (act["type"] == "aow_implement_card"
+                        and cand not in same_action_variants):
                     cid = act["args"].get("card_id")
                     act["args"] = _populate_event_args(s, cid, act["args"])
                 try:

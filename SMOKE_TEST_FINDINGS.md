@@ -9167,3 +9167,46 @@ unexpected harness exceptions.
 
 Pass 2+self-play counter: SMOKE total 110 → 111.
 Test count: 1037 → 1040 (+3 regressions).
+
+## Round 174 — Self-play agent improvements (no SMOKE)
+
+Improved scripts/self_play.py:
+  - Smart event arg population that reads current state (e.g., R10
+    picks "andreas" if cylinder on Calendar, else "service:andreas").
+  - Multi-payer / multi-target expansion for pay_with_coin and
+    pay_with_loot templated moves; prioritize self-pay.
+  - `_expand_event_variants` generates multiple aow_implement_card
+    variants for the fallback chain (different targets/directions).
+  - Sweep seeds expanded 5 → 10 per scenario.
+
+Result: 47/60 → 51/60 terminal sessions.
+
+## Round 175 — SMOKE-112 (Bountiful Harvest raised when no target existed)
+
+T14 / R18 Bountiful Harvest are immediate events that remove a
+Ravaged marker. Per AoW Reference convention, immediate events with
+no valid target discard with no effect.
+
+Pre-fix, when no eligible Ravaged marker existed (after a Levy that
+drew T14/R18 in a clean-board state), the resolver raised
+`missing_arg("args.locale required")`. The agent's variant
+exhaustion would loop through every locale and all fail
+"not_ravaged" — effectively unresolvable.
+
+Found via scripts/self_play.py (Crusade on Novgorod seeds 7+8).
+
+Same audit pattern as SMOKE-109/110/111 (state-set-but-unreachable):
+the event was drawn but had no rule-legal resolution path.
+
+Fix: when no eligible Ravaged marker exists in the relevant
+territory, return `{"event": cid, "no_op": True, "reason": "no_
+eligible_ravaged_marker"}` instead of raising. If a valid target
+exists but args.locale was omitted, still raise `missing_arg`
+(no auto-pick).
+
+Regressions: tests/test_round_175_bountiful_harvest_no_op.py (7
+tests).
+
+Self-play sweep: 51/60 → 53/60 terminal. Zero harness exceptions.
+
+Test count: 1040 → 1047 (+7 regressions). SMOKE total: 112.
