@@ -7901,3 +7901,19 @@ Probed (no bugs found):
   - Wastage (4.9.4): per-Lord most-count asset OR capability.
 
 Pass 1, 1 / 10 clean.
+
+## Round 122 — CLEAN (Pass 1: verification 2/10)
+
+Probed (no bugs found):
+  - T17 Stonemasons (cmd_stonemasons): full-card check,
+    6-Provender requirement, Russian-territory gate, no double
+    Castle marker, walls_plus_one cleared (R18 interaction).
+  - Castle marker flip on Conquest (SMOKE-040 fix holds for
+    both Teutonic Conquering and Russian Liberation).
+  - _apply_conquest_or_liberation Liberation branch: clears
+    enemy marker, refreshes VP, preserves Castle flip.
+  - Smerdi (R4) Serf pool: max 6 in play. Serfs have "none"
+    protection so they don't accumulate in routed_units —
+    forces-only count is correct.
+
+Pass 1, 2 / 10 clean.
