@@ -7315,3 +7315,20 @@ twice accepted, third Novgorod-ship listing rejected.
   - Levy Vassal recursive cleanup — when a parent Lord's Vassal
     is Mustered then parent is Disbanded, does the Vassal cleanup
     correctly?
+
+## Round 95 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Save/Load roundtrip via pydantic — model_dump_json /
+    model_validate_json correctly preserves locale Castle markers,
+    Conquered counters, Lord lieutenant_of pointers, meta state.
+  - _h_aow_play_hold side-validation (SMOKE-056 still holding).
+  - R14 Prussian Revolt no-op when Andreas already at Riga.
+  - cmd_sail Legate take_legate behavior (no Teutons-alone-with-
+    Russians trigger needed at src — Sail src has no enemy Lords).
+  - Veche Option B / cmd_muster_lord Aleksandr eligibility — Veche
+    can Muster Aleksandr; cmd_muster_lord rejects (Veche-only rule).
+  - cmd_sail Lieutenant pair takes Legate — Sail flow allows
+    take_legate independent of group composition.
+
+Clean-round counter: 1 / 5.
