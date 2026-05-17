@@ -8226,3 +8226,32 @@ Probed (no bugs found):
     Muster step entry. Covers the lifecycle re-entry.
 
 Pass 2, 4 / 10 clean.
+
+## Round 136 — CLEAN (Pass 2: verification 5/10)
+
+Probed (no bugs found):
+  - 3.5.2 Veche Options A/B/C/D: VP-cost checks (>=1 marker),
+    target-side checks, Aleksandr-Veche-only exception (Option B
+    rejects aleksandr explicitly — actually no, _h_muster_lord
+    rejects it; Veche B uses _place_lord_on_map directly which
+    is the correct path for Aleksandr per 3.4.1 + 3.5.2).
+  - Option A: max(1, cyl_box-2) clamp; SMOKE-058 off_left.
+  - Option B: bypasses Fealty roll; Free-Seat enforced.
+  - Option C: just_arrived_this_levy gate (cannot get Extra
+    Muster on a Lord that just arrived this Levy).
+  - Option D: both Aleks+Andrey-if-Ready slid; SMOKE-058 off_left
+    handling; 8-VP cap on Veche markers.
+  - Sea Trade R8/R9: SMOKE-092 per-CtA flag enforcement; R8
+    blocked if Novgorod/Lovat Conquered; R9 blocked if
+    Novgorod/Neva Conquered, blocked in Winter seasons, blocked
+    if Teutonic Ships > Russian Ships(+Lodya-bonus).
+  - effective_ship_count: Cogs (T18) doubles. effective_boat_
+    count: Lodya (R16) doubles. R9 ship comparison adds
+    Lodya-bonus (= base_boats when R16 in play) to the Russian
+    side ship total; harness interpretation matches the Sea
+    Trade rule "Lodya may double a Russian Lord's Boats for
+    purposes of this comparison".
+  - R9 winter-season block uses _season_of_box.
+  - Veche-coin cap at 8 (`added = min(amount, 8 - state.veche.coin)`).
+
+Pass 2, 5 / 10 clean.
