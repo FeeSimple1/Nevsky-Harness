@@ -470,7 +470,23 @@ def _ev_osilian_revolt(state: GameState, args: dict[str, Any]) -> dict[str, Any]
 def _ev_batu_khan(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """R10 Batu Khan. Shift Andreas cylinder OR Service up to 2 boxes
     (Russian choice direction).
+
+    SMOKE-113 (Round 176): per rule convention, if Andreas has
+    neither cylinder nor service marker anywhere on the Calendar
+    (including off-edges), the event has no effect (target
+    unreachable). Same family as SMOKE-112.
     """
+    cal = state.calendar
+    # Check if Andreas is reachable on Calendar (cyl or service, on-box or off-edge).
+    cyl_anywhere = ("andreas" in cal.off_left
+                    or "andreas" in cal.off_right
+                    or any("andreas" in cb.cylinders for cb in cal.boxes))
+    svc_anywhere = ("andreas" in cal.off_left_service
+                    or "andreas" in cal.off_right_service
+                    or any("andreas" in cb.service_markers for cb in cal.boxes))
+    if not cyl_anywhere and not svc_anywhere:
+        return {"event": "R10", "no_op": True,
+                "reason": "andreas_unreachable_on_calendar"}
     target = args.get("target")  # "andreas" | "service:andreas"
     direction = args.get("direction", "left")
     boxes = int(args.get("boxes", 2))

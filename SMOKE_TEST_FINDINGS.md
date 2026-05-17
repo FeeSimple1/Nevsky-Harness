@@ -9210,3 +9210,36 @@ tests).
 Self-play sweep: 51/60 → 53/60 terminal. Zero harness exceptions.
 
 Test count: 1040 → 1047 (+7 regressions). SMOKE total: 112.
+
+## Round 176 — SMOKE-113 (R10 Batu Khan raised when Andreas off-Calendar)
+
+R10 Batu Khan card text: "On Calendar, shift Andreas cylinder OR
+Service up to 2 boxes" — implicitly requires Andreas's marker to BE
+on the Calendar. Pre-fix the resolver raised `no_cylinder` /
+`no_service_marker` when Andreas had been permanently removed (e.g.,
+killed in a Battle/Storm) and his cylinder + service marker were
+both gone.
+
+Found via scripts/self_play.py (7 stuck sessions: peipus seeds
+2,3,4,5,10 and return_of_the_prince seeds 4,9). Andreas was killed
+in mid-game battles; subsequent Levies drew R10 with no reachable
+target — the agent's variant fallback exhausted.
+
+Same audit pattern as SMOKE-112 (immediate event with no valid
+target should discard with no effect).
+
+Fix: pre-flight check — if neither Andreas's cylinder nor service
+marker is anywhere on the Calendar (in boxes 1-16 or off-edges
+off_left/right/off_*_service), return
+`{"event": "R10", "no_op": True, "reason": "andreas_unreachable_on_
+calendar"}` instead of raising.
+
+Regressions: tests/test_round_176_r10_no_op_when_andreas_gone.py
+(5 tests).
+
+**Self-play sweep: 60/60 terminal**, 0 harness exceptions. Every
+self-play session across 6 scenarios × 10 seeds now reaches game
+end. This includes the full 16-turn Crusade on Novgorod scenario
+in 10/10 seeds.
+
+Test count: 1047 → 1052 (+5 regressions). SMOKE total: 113.
