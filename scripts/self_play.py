@@ -67,6 +67,92 @@ def _move_priority(move, recent_action_counts):
     return p
 
 
+def _populate_event_args(state, cid, args):
+    """Populate event-specific args for aow_implement_card when the
+    card is being implemented as an event (subsequent Levy). Returns
+    a new args dict with defaults filled in for known events.
+
+    Conservative defaults that satisfy the event resolver's input
+    validation. If the resolver still raises (e.g., 'too_far' for
+    Mindaugas), the agent's IllegalAction fallback kicks in.
+    """
+    new = dict(args)
+    # T1, T12: shift Aleksandr or Andrey cylinder (default andrey)
+    if cid in ("T1", "T12"):
+        new.setdefault("target", "andrey")
+        new.setdefault("direction", "left")
+    # T2 Torzhok: pick Veche (safer fallback than empty Domash)
+    elif cid == "T2":
+        new.setdefault("target", "veche")
+    # T11 Pope Gregory: first mustered T Lord on Calendar
+    elif cid == "T11":
+        for lid, l in state.lords.items():
+            if l.side == "teutonic" and l.state in ("mustered", "ready"):
+                new.setdefault("target", lid)
+                break
+        else:
+            new.setdefault("target", "andreas")
+    # T14 / R18 Bountiful Harvest: locale with appropriate ravaged
+    elif cid == "T14":
+        for lid, loc in state.locales.items():
+            if loc.russian_ravaged:
+                new.setdefault("locale", lid)
+                break
+        else:
+            new.setdefault("locale", "warbola")  # bishopric/town fallback
+    elif cid == "R18":
+        for lid, loc in state.locales.items():
+            if loc.teutonic_ravaged:
+                new.setdefault("locale", lid)
+                break
+        else:
+            new.setdefault("locale", "novgorod")
+    # T15 Mindaugas T: a Russian-territory locale near ostrov
+    elif cid == "T15":
+        new.setdefault("locale", "ostrov")
+    # R12 Mindaugas R: a Livonian locale near rositten
+    elif cid == "R12":
+        new.setdefault("locale", "rositten")
+    # T18 Swedish Crusade: shift vladislav AND karelians
+    elif cid == "T18":
+        new.setdefault("targets", {"vladislav": "cylinder", "karelians": "cylinder"})
+        new.setdefault("direction", "right")
+    # R9 Osilian Revolt: pick andreas
+    elif cid == "R9":
+        new.setdefault("target", "andreas")
+    # R10 Batu Khan — target andreas cylinder if on Calendar, else service
+    elif cid == "R10":
+        cyl_on_cal = any("andreas" in cb.cylinders for cb in state.calendar.boxes) \
+                     or "andreas" in state.calendar.off_left \
+                     or "andreas" in state.calendar.off_right
+        new.setdefault("target", "andreas" if cyl_on_cal else "service:andreas")
+        new.setdefault("direction", "left")
+    # R11 Valdemar
+    elif cid == "R11":
+        new.setdefault("target", "knud_and_abel")
+        new.setdefault("direction", "left")
+        new.setdefault("boxes", 1)
+    # R14 Prussian Revolt
+    elif cid == "R14":
+        pass  # no required args
+    # R15 Death of Pope - no required args
+    elif cid == "R15":
+        pass
+    # R16 Tempest: first teutonic mustered Lord
+    elif cid == "R16":
+        for lid, l in state.lords.items():
+            if l.side == "teutonic" and l.state == "mustered":
+                new.setdefault("target", lid)
+                break
+        else:
+            new.setdefault("target", "andreas")
+    # R17 Dietrich R
+    elif cid == "R17":
+        new.setdefault("target", "andreas")
+        new.setdefault("direction", "left")
+    return new
+
+
 def _is_terminal(s):
     return s.meta.phase == "campaign" and s.meta.campaign_step == "done"
 
@@ -101,6 +187,11 @@ def step_self_play(scenario, seed=0, max_steps=10000, verbose=False):
         prioritized = sorted(moves, key=lambda m: -_move_priority(m, recent_action_counts))
         pick = prioritized[step_n % min(3, len(prioritized))]
         action = {k: v for k, v in pick.items() if k in ("type", "side", "args")}
+        # Populate event args for aow_implement_card (legal_moves only
+        # supplies card_id; event resolvers need event-specific args).
+        if action["type"] == "aow_implement_card":
+            cid = action["args"].get("card_id")
+            action["args"] = _populate_event_args(s, cid, action["args"])
         sig = (action["type"], action.get("side"),
                json.dumps(action.get("args", {}), default=str, sort_keys=True))
         recent_action_counts[sig] += 1

@@ -694,6 +694,24 @@ def _consume_actions(state: GameState, n: int) -> None:
     state.campaign_turn.actions_remaining -= n
     if state.campaign_turn.actions_remaining < 0:
         state.campaign_turn.actions_remaining = 0
+    # SMOKE-110 (Round 172): per rule 4.8, Feed/Pay/Disband fires after
+    # every Command card. Pre-fix the harness only fired FPD when an
+    # action explicitly called _enter_feed_pay_disband (Pass, entire-
+    # card commands like Tax/Sail/Storm/Sally/Siege, March-into-siege).
+    # Non-entire-card commands that exhaust actions naturally
+    # (Forage/Ravage/Supply/March/Raiders Ravage) left actions=0
+    # without running FPD; the next command_reveal then popped a
+    # fresh card and FPD was skipped silently. Found via self-play.
+    # Auto-fire FPD when actions hit 0 in normal command flow.
+    # Skip when combat_pending is set (the response handler will
+    # call _enter_feed_pay_disband after combat resolves).
+    if (state.campaign_turn.actions_remaining == 0
+            and state.meta.phase == "campaign"
+            and state.meta.campaign_step == "command"
+            and not state.campaign_turn.in_feed_pay_disband
+            and state.combat_pending is None
+            and state.campaign_turn.active_lord is not None):
+        _enter_feed_pay_disband(state)
 
 
 def _is_besieged(state: GameState, lord_id: str) -> bool:

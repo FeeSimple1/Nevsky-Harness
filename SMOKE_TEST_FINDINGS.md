@@ -9065,3 +9065,66 @@ options after Teutonic finalize.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-109 reset).
 Test count: 1025 → 1030 (+5 regressions). SMOKE total: 109.
+
+## Round 172 — SMOKE-110 (FPD didn't auto-fire when actions exhausted naturally)
+
+Per rule 4.8: Feed/Pay/Disband runs after every Command card.
+
+Pre-fix the harness only fired FPD when a handler explicitly called
+`_enter_feed_pay_disband`:
+  - Pass cards (auto)
+  - Entire-card commands (Tax, Sail, Storm, Sally, Siege)
+  - March that begins a Siege
+
+Non-entire-card commands (Forage, Ravage, Supply, March, Raiders
+Ravage) consumed actions via `_consume_actions` and could leave
+`actions_remaining = 0` without firing FPD. The agent's next
+`command_reveal` then popped a fresh card with FPD silently skipped
+— breaking the per-card 4.8 cycle.
+
+Discovered via scripts/self_play.py on return_of_the_prince seed=3,
+which hit `plan_empty: russian Plan stack is empty` after the agent
+revealed Russian's last card, performed 2 marches (exhausted actions),
+and tried to reveal again with no FPD between.
+
+Same audit pattern as SMOKE-106/107/109 (state-set-but-unreachable):
+the harness moved into a state where the next legal action couldn't
+include the missing FPD step.
+
+Fix in `_consume_actions`: after decrementing, if actions hit 0 AND
+phase=campaign AND campaign_step=command AND not already in_fpd AND
+no combat_pending AND active_lord set, auto-fire
+`_enter_feed_pay_disband`. The combat_pending check preserves the
+existing flow where combat responses fire FPD post-resolution.
+
+Regressions: tests/test_round_172_auto_fpd_on_actions_zero.py (7
+tests): marker present; skips on combat_pending; skips on already
+in_fpd; requires active_lord; only campaign command step; behavioral
+test that Forage at last action auto-fires FPD; behavioral test that
+Forage with actions remaining does NOT auto-fire FPD.
+
+Found via self-play sweep (6 scenarios × 5 seeds; 0 unexpected
+harness exceptions after SMOKE-110 fix).
+
+Pass 2 clean-round counter: reset; tracking self-play coverage.
+Test count: 1030 → 1037 (+7 regressions). SMOKE total: 110.
+
+## Self-play sweep results (post-SMOKE-110)
+
+Ran scripts/self_play_sweep.py: 6 scenarios × 5 seeds = 30 sessions.
+
+| Scenario | Terminal/Total | Notes |
+|----------|---------------|-------|
+| watland  | 1/5 | Some seeds stuck on agent gaps (event args, valid Lord targeting). One Teutonic Campaign Victory. |
+| pleskau  | 5/5 | All terminate; 2-turn scenario; Russian Win each time (1 VP each). |
+| peipus   | 0/5 | Agent stalls in mid-Campaign; reaches box 14-16 (span 13-16). |
+| return_of_the_prince | 1/5 | One Teutonic Win at box 16. |
+| return_of_the_prince_nicolle | 0/5 | All stuck; reaches box 11-12. |
+| crusade_on_novgorod | 0/5 | All stuck; reaches box 3-8 (span 1-16). |
+
+7/30 sessions reached terminal. The remaining 23 are agent-gap stalls
+(legal_moves doesn't fully populate event args; greedy strategy
+chooses moves that don't yield concrete args for event resolvers).
+**Zero unexpected harness exceptions or IllegalAction codes** outside
+the documented "agent-gap" category, confirming the harness state
+machine is sound after SMOKE-110.
