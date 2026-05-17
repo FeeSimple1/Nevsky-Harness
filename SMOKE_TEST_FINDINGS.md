@@ -7988,3 +7988,15 @@ Probed (no bugs found):
   - cards.json capability_scope is the single source of truth.
 
 Pass 1, 7 / 10 clean.
+
+## Round 128 — CLEAN (Pass 1: verification 8/10)
+
+Probed (no bugs found):
+  - Mongols/Kipchaqs Vassal Muster: SMOKE-013 fix holds —
+    requires R10 Steppe Warriors in play (looking for the
+    capability NAME, not lord_id substring).
+  - _disband_special_vassals: T11 disband cascade → Summer
+    Crusaders; R10 disband cascade → Mongols/Kipchaqs.
+  - End-Campaign Crusade discard (4.9.5 Late Winter T11 path).
+
+Pass 1, 8 / 10 clean.
