@@ -8408,3 +8408,34 @@ Probed (no bugs found):
     to state "Ships" (per starting_assets or capability).
 
 Pass 2, 3 / 10 clean.
+
+## Round 143 — SMOKE-104 (R17 Veliky Knyaz mixed Transport types)
+
+Per AoW Reference R17 Tip: "any two Transport (up to the maximum of
+eight per type) plus returning any unit pieces they have lost from
+their starting forces and Mustered Vassals."
+
+Pre-fix `_h_cmd_tax_veliky_knyaz_aware` accepted only
+`transport_type` (a single string) and added 2 of that type. Mixed
+picks (e.g. 1 Cart + 1 Boat) were not expressible. Same audit
+pattern as SMOKE-046 / SMOKE-048 / SMOKE-067 / SMOKE-102:
+"rule-cite-but-no-enforce" / over-restrictive default.
+
+Fix is backward-compatible:
+  - Legacy: `args.transport_type = "cart"` -> still adds 2 of cart.
+  - New: `args.transport_choices = {"cart": 1, "boat": 1}` -> adds
+    1 of each. Dict must sum to exactly 2; types must be one of
+    boat/cart/sled/ship; per-type 8-cap honored; ship still
+    requires ships_authorized.
+
+The aftermath summary `veliky_knyaz_transport_added` preserves the
+legacy `{type, count}` shape when a single type is chosen, and
+switches to `{by_type, count}` when mixed.
+
+Regressions: tests/test_round_143_veliky_knyaz_mixed_transport.py
+(8 tests + 1 ships-authorized skip): marker, legacy compat, mixed
+acceptance, total-must-be-2, total-zero rejection, invalid-type
+rejection, ship authorization, per-type cap, no-R17 no-op.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-104 reset the count).
+Test count: 989 → 997 (+8 regressions). SMOKE total: 104.

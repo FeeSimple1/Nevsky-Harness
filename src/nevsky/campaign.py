@@ -3881,15 +3881,59 @@ def _h_cmd_tax_veliky_knyaz_aware(
 
     # Veliky Knyaz add-on.
     if has_lord_capability(state, lord_id, "Veliky Knyaz"):
-        ttype = args.get("transport_type", "cart")
-        if ttype not in ("boat", "cart", "sled", "ship"):
-            raise IllegalAction("bad_transport", f"transport_type {ttype!r} invalid")
+        # SMOKE-104 (Round 143): per AoW Reference R17 Tip — "any two
+        # Transport (up to the maximum of eight per type)". The rule
+        # allows mixed types (e.g. 1 Cart + 1 Boat). Backward-compatible:
+        # legacy `transport_type` (single str) still works → 2 of that
+        # type. New `transport_choices` (dict {type: count}) totals 2
+        # and may mix types. Same audit pattern as SMOKE-046/048/067/
+        # 102 (rule-cite-but-no-enforce → relax).
         sl = load_lords()[lord_id]
-        if ttype == "ship" and not sl.get("ships_authorized", False):
+        choices = args.get("transport_choices")
+        if choices is None:
+            ttype = args.get("transport_type", "cart")
+            choices = {ttype: 2}
+        if not isinstance(choices, dict):
+            raise IllegalAction(
+                "bad_transport",
+                "transport_choices must be a dict {type: count} summing to 2",
+            )
+        # Validate types + count sum.
+        total_requested = 0
+        for k, n in choices.items():
+            if k not in ("boat", "cart", "sled", "ship"):
+                raise IllegalAction("bad_transport", f"transport type {k!r} invalid")
+            if not isinstance(n, int) or n < 0:
+                raise IllegalAction("bad_transport", f"transport count {n!r} invalid for {k}")
+            total_requested += n
+        if total_requested != 2:
+            raise IllegalAction(
+                "bad_transport",
+                f"transport_choices must total 2 (got {total_requested})",
+            )
+        if "ship" in choices and choices["ship"] > 0 and not sl.get("ships_authorized", False):
             raise IllegalAction("ship_unauthorized", f"{lord_id} not Ship-authorized")
-        added = min(2, 8 - lord.assets.get(ttype, 0))
-        lord.assets[ttype] = lord.assets.get(ttype, 0) + added
-        extra["veliky_knyaz_transport_added"] = {"type": ttype, "count": added}
+        # Apply per-type with 8-cap.
+        added_per_type: dict[str, int] = {}
+        for k, n in choices.items():
+            if n == 0:
+                continue
+            cap_room = 8 - lord.assets.get(k, 0)
+            actually = min(n, cap_room)
+            if actually > 0:
+                lord.assets[k] = lord.assets.get(k, 0) + actually
+                added_per_type[k] = actually
+        if len(added_per_type) == 1:
+            # Legacy summary shape for backward-compat readers.
+            only_type = next(iter(added_per_type))
+            extra["veliky_knyaz_transport_added"] = {
+                "type": only_type, "count": added_per_type[only_type],
+            }
+        else:
+            extra["veliky_knyaz_transport_added"] = {
+                "by_type": added_per_type,
+                "count": sum(added_per_type.values()),
+            }
         # Restore Mustered Forces: bring forces back up to starting +
         # Mustered Vassals. Phase 4b approximates "Mustered Vassal
         # totals" by checking Vassal.mustered=True and adding their
