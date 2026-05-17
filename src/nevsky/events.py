@@ -762,6 +762,31 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
                     f"{cid} restricted to Defending side ({required_defender}); "
                     f"current defender is {cp.defender_side}",
                 )
+            # SMOKE-081 (Round 85): T10 Field Organ requires a target
+            # Teutonic Lord (event_eligibility "any Teuton") who is in
+            # the current combat. The lord_id is passed via
+            # "field_organ_lord" arg (per the holds-arg docstring).
+            if cid == "T10":
+                fo_target = holds_arg.get("field_organ_lord")
+                if not isinstance(fo_target, str):
+                    raise IllegalAction(
+                        "missing_target",
+                        "T10 Field Organ requires args.holds.field_organ_lord (target Teutonic Lord)",
+                    )
+                if fo_target not in state.lords:
+                    raise IllegalAction("bad_target", f"{fo_target} not a Lord")
+                if state.lords[fo_target].side != "teutonic":
+                    raise IllegalAction(
+                        "bad_target",
+                        f"T10 Field Organ targets Teutonic Lords only; {fo_target} is "
+                        f"{state.lords[fo_target].side}",
+                    )
+                combat_lords = set(cp.attacker_group) | set(cp.defender_lords)
+                if fo_target not in combat_lords:
+                    raise IllegalAction(
+                        "bad_target",
+                        f"T10 Field Organ target {fo_target} must be in the current Battle/Storm",
+                    )
             deck.holds.remove(cid)
             deck.discard.append(cid)
             consumed.append({"card": cid, "key": key})

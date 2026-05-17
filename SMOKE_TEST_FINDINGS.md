@@ -6918,3 +6918,55 @@ accepted when card-side is defender; unrestricted holds
     effect benefits Russian Walls; check if attacker-side Russian
     playing R4 should be rejected.
   - Storm Sack Service-shift handling (still on the list).
+
+## Round 85 — SMOKE-081
+
+### SMOKE-081: T10 Field Organ + Bridge holds_arg API inconsistency
+
+**Issue:** `_consume_battle_holds` and `resolve_battle` read the
+same `holds_arg["field_organ"]` (and `["bridge"]`) value with
+different expected types:
+
+  - `_consume_battle_holds` expects card_id "T10" (or "T4"/"R1")
+    for consumption — checks `side_decks.get(cid)`.
+  - `resolve_battle` (battle.py:1217, 1222) read the value as a
+    lord_id directly — for the Round-1 Knights+Sergeants bonus
+    target (Field Organ) and the Melee cap target (Bridge).
+
+The same `holds_arg` dict is passed to both via stand_battle, so
+the player can't simultaneously consume the card AND have the
+effect target a Lord. Tests in test_round_18 worked by calling
+resolve_battle directly with `holds={"field_organ": teu_lord_id}`,
+bypassing consumption; the stand_battle path was effectively broken
+for these two cards.
+
+Additionally, T10's event_eligibility "any Teuton" was not
+enforced — `_consume_battle_holds` accepted any string value
+(Russian Lord, invalid id) silently and the effect simply didn't
+fire downstream.
+
+**Fix:**
+  - `resolve_battle` reads `H.get("field_organ_lord")` /
+    `H.get("bridge_target_lord")` as the agent-facing keys (per
+    the holds-arg docstring), falling back to the legacy plain
+    `H.get("field_organ")` / `H.get("bridge")` when it's a valid
+    lord_id (preserves the test_round_18 direct-resolve_battle path).
+  - `_consume_battle_holds` for T10 validates that
+    `holds_arg["field_organ_lord"]` is set, names a Teutonic Lord,
+    and is in cp.attacker_group | cp.defender_lords.
+
+`tests/test_round_85_field_organ_target.py` — 8 regressions
+covering missing target, Russian target, unknown lord, lord-not-in-
+combat rejection plus accept-attacker / accept-defender +
+source-inspection regressions for the dual-key fallback.
+
+882 → 890 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R86
+
+  - Bridge target validation (mirror of Field Organ — should reject
+    non-front-center, wrong-side targets).
+  - Storm-aftermath Service shift behavior (still on the list).
+  - Pursuit (4.4.4) — does the harness model the conceder's
+    half-Hits-rounded-up rule consistently?
+  - Combat aftermath when both sides Concede (4.4.2 NEW ROUND).

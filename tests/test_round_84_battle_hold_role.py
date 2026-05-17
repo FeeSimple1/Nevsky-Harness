@@ -105,5 +105,7 @@ def test_unrestricted_holds_still_role_agnostic():
     consumed = _consume_battle_holds(s, _mk_cp(), {"ambush": "T6"})
     assert consumed == [{"card": "T6", "key": "ambush"}]
     # T10 Field Organ.
-    consumed = _consume_battle_holds(s, _mk_cp(), {"field_organ": "T10"})
+    cp_with_fo = _mk_cp()
+    cp_with_fo.attacker_group = ["hermann"]
+    consumed = _consume_battle_holds(s, cp_with_fo, {"field_organ": "T10", "field_organ_lord": "hermann"})
     assert consumed == [{"card": "T10", "key": "field_organ"}]

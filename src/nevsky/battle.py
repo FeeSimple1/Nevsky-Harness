@@ -1214,12 +1214,30 @@ def resolve_battle(
             return None
         marsh_blocks_horse_for = _norm_marsh(H.get("marsh"))
         hill_archery_full_for = _norm_hill(H.get("hill"))
-        field_organ_lord = H.get("field_organ")
+        # SMOKE-081 (Round 85): accept field_organ_lord key when present
+        # (agent-facing per docstring), fall back to legacy "field_organ"
+        # holding a lord_id directly (test_round_18 path).
+        _fo_lord = H.get("field_organ_lord")
+        _fo_legacy = H.get("field_organ")
+        if _fo_lord is not None:
+            field_organ_lord = _fo_lord
+        elif _fo_legacy is not None and _fo_legacy in state.lords:
+            field_organ_lord = _fo_legacy
+        else:
+            field_organ_lord = None
         raven_rock_walls = bool(H.get("raven_rock", False))
         # Q-008 Bridge: front-center Lord of the targeted side capped to
         # 2*round_number Melee strike units. holds["bridge"] = lord_id
         # of the targeted Lord (front-center), or None.
-        bridge_target_lord = H.get("bridge")
+        # SMOKE-081 (Round 85): same dual-key pattern as field_organ.
+        _br_lord = H.get("bridge_target_lord")
+        _br_legacy = H.get("bridge")
+        if _br_lord is not None:
+            bridge_target_lord = _br_lord
+        elif _br_legacy is not None and _br_legacy in state.lords:
+            bridge_target_lord = _br_legacy
+        else:
+            bridge_target_lord = None
         # Winter check: per the card, Bridge applies non-Winter only.
         from nevsky.scenarios import _season_for_box
         if bridge_target_lord and _season_for_box(state.meta.box) in (
