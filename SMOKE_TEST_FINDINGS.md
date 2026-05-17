@@ -7630,3 +7630,11 @@ pending the future-projects report.
   - Pay/Disband interaction — Pay doesn't fire Disband.
 
 Clean: 1 / 10 of verification batch.
+
+## Round 112 — CLEAN (verification 2/10)
+
+  - Bishopric Conquest VP delta math (sh_vp=2 for Riga/Dorpat/etc.).
+  - Withdraw capacity for Bishopric (3 Lords).
+  - Storm/Surrender Conquered marker overflow (SMOKE-045 fix).
+
+Clean: 2 / 10.
