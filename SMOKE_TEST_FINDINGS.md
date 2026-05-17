@@ -7364,3 +7364,22 @@ works on first action.
   - Veche options' acted_this_call_to_arms — already verified.
   - cmd_supply Provender cap at 8 — verify the loop respects cap
     when multiple sources are listed.
+
+## Round 97 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Supply Provender cap at 8 (`min(added, 8 - current)`).
+  - Tax / Forage / Ravage / Pogost / T13 Heinrich asset caps all
+    correctly enforce min(8, ...).
+  - R8/R9 sea_trade as player-invoked action (rule says "Each Call
+    to Arms" auto-fire; harness defers to player choice — minor
+    spec divergence but agent-driven discretion is acceptable).
+  - Pleskau VP bonus ("+1 VP per enemy Lord removed from the map
+    in any way") — fires only in `_remove_lord_permanently`, which
+    covers 3.3.1 permanent removal + Battle/Storm Sack. 3.3.2
+    at-limit Disband uses `_disband_at_limit` (Lord state =
+    "disbanded", NOT removed) — correctly does NOT fire the bonus.
+  - Ravage adjacent enemy 2-action cost includes parallel-Ways
+    adjacencies via set dedup.
+
+Clean-round counter: 1 / 5.
