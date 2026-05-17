@@ -8928,3 +8928,23 @@ Probed (no bugs found):
     in both cases.
 
 Pass 2, 5 / 10 clean.
+
+## Round 165 — CLEAN (Pass 2: verification 6/10)
+
+Probed (no bugs found):
+  - Scenario span:
+    - Pleskau: 1-2 (smallest)
+    - Watland: 4-8 (Crusade tutorial)
+    - Peipus: 13-16
+    - Return of the Prince (and Nicolle): 9-16
+    - Crusade on Novgorod: 1-16 (full game)
+  - `_h_end_campaign_resolve` game-end check:
+    - When both sides complete end_campaign AND state.meta.box >=
+      span_end_box: meta.phase=campaign, campaign_step=done,
+      game_over=True returned to caller.
+    - Otherwise advance box marker + transition to Levy.
+  - Game-end check uses `>=` (defensive against box overshoots).
+  - `determine_scenario_winner` is invoked manually by agent on
+    game_over; harness exposes the trigger via the return dict.
+
+Pass 2, 6 / 10 clean.
