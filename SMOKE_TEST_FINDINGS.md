@@ -7011,3 +7011,39 @@ and accept cases for both T4 (Russian defender target) and R1
   - Combat aftermath when both sides Concede (4.4.2 NEW ROUND).
   - R4 Raven's Rock — implicit "Russian Defending" not yet
     enforced (effect only benefits Russian Walls vs Melee).
+
+## Round 87 — SMOKE-083
+
+### SMOKE-083: T18 Swedish Crusade ignores event_eligibility target list
+
+**Rule:** AoW Reference T18 event_eligibility: "Vladislav, Karelians".
+event_text: "On Calendar, shift cylinder or Service of Vladislav AND
+Karelians each 1 box."
+
+**Bug:** `_ev_swedish_crusade` accepted any target dict and shifted
+whatever lord_ids the agent passed — no eligibility check. Probe
+passed `{"aleksandr": "cylinder"}` and T18 shifted Aleksandr,
+contradicting the printed eligibility list.
+
+**Fix:** Validate target lord_ids against the printed eligibility
+list `{vladislav, karelians}`; raise `ineligible_target` for any
+other lord_id.
+
+`tests/test_round_87_t18_eligibility.py` — 5 regressions covering
+ineligible-lord rejection, mixed-list rejection, accept Vladislav,
+accept Karelians (or skip-if-not-on-calendar), default targets pass.
+
+897 → 902 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R88
+
+  - Other immediate events with eligibility lists: T1 Grand Prince
+    (Aleksandr/Andrey only), T11 Pope Gregory (any Teuton), T12
+    Khan Baty (Aleksandr/Andrey only), R10 Batu Khan (Andreas
+    only — verified earlier), R11 Valdemar (Knud_and_abel only —
+    verified), R17 Dietrich (Andreas/Rudolf — verified).
+  - Reposition rule application — does the harness suppress
+    Reposition when only a Rearguard row exists?
+  - R3 Pogost — target Russian Lord, in Rus (verified earlier).
+  - T2 Torzhok — does Domash target work when state.lords lacks
+    "domash"? Verified earlier.

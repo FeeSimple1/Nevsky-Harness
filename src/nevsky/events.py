@@ -207,9 +207,23 @@ def _ev_khan_baty(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 def _ev_swedish_crusade(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """T18 Swedish Crusade. Shift Vladislav AND Karelians cylinder/Service each 1 box.
     Teuton choice direction.
+
+    Per AoW Reference T18 event_eligibility: 'Vladislav, Karelians'. The
+    targets dict must use only these lord_ids.
     """
     direction = args.get("direction", "left")
     targets = args.get("targets", {"vladislav": "cylinder", "karelians": "cylinder"})
+    # SMOKE-083 (Round 87): validate event_eligibility targets per
+    # AoW Reference. T18 only affects Vladislav and Karelians; any
+    # other target is an illegal action per the printed event
+    # eligibility list.
+    _ELIGIBLE = {"vladislav", "karelians"}
+    for lid in targets:
+        if lid not in _ELIGIBLE:
+            raise IllegalAction(
+                "ineligible_target",
+                f"T18 Swedish Crusade targets only {sorted(_ELIGIBLE)}; got {lid!r}",
+            )
     out: dict[str, int] = {}
     for lid, kind in targets.items():
         if kind == "service":
