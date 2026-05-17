@@ -998,6 +998,13 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     lord.this_lord_capabilities = []
     lord.forces = {}
     lord.assets = {}
+    # SMOKE-095 (Round 115): clear routed_units pile on permanent
+    # removal. clear_routed_pile in battle.py was previously dead
+    # code (no callers); routed_units silently leaked across the
+    # Lord lifecycle and reappeared as ghost units on any state
+    # inspection or re-Muster (disbanded variant).
+    from nevsky.battle import clear_routed_pile
+    clear_routed_pile(state, lord_id)
     cal = state.calendar
     # SMOKE-038 (Round 50): remove Vassal Service markers from the
     # Calendar before clearing the vassals dict, mirroring the
@@ -1213,6 +1220,13 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     lord.this_lord_capabilities = []
     lord.forces = {}
     lord.assets = {}
+    # SMOKE-095 (Round 115): same gap as the permanent-removal
+    # path — clear routed_units pile on Disband-at-limit. A
+    # disbanded Lord can re-Muster (SMOKE-044 fix), and without
+    # this clear, the re-Mustered Lord would carry stale routed
+    # units from the previous lifecycle.
+    from nevsky.battle import clear_routed_pile
+    clear_routed_pile(state, lord_id)
     cal = state.calendar
     # SMOKE-038 (Round 50): remove Vassal Service markers from the
     # Calendar before clearing the per-vassal flags. Otherwise the

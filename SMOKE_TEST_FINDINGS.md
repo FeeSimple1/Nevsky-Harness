@@ -7701,3 +7701,34 @@ routed_units gate.
 again (SMOKE-094 surfaced in R114; same family as SMOKE-093 —
 "dead code surfaces" pattern: function defined but no callers).
 Continuing the batch...
+
+## Round 115 — SMOKE-095
+
+### SMOKE-095: Lord removal/disband doesn't clear routed_units pile
+
+**Rule:** State-consistency: per the rulebook lifecycle, a removed
+or disbanded Lord retains no military assets. Forces and assets
+ARE cleared by the harness. The Routed pile (Routed units from
+prior Battles awaiting 4.4.4 Losses) should clear too.
+
+**Bug:** Both `_remove_lord_permanently` and `_disband_at_limit`
+in actions.py cleared `lord.forces = {}` and `lord.assets = {}`
+but never touched `lord.routed_units`. Worse: per SMOKE-044, a
+disbanded Lord can re-Muster, so on re-Muster the Lord would
+carry stale Routed units from a previous incarnation as ghost
+forces. The `clear_routed_pile` helper in `battle.py:2221` was
+previously dead code (no callers).
+
+**Fix:** Call `clear_routed_pile(state, lord_id)` in both
+removal/disband paths immediately after `forces = {}; assets = {}`.
+This gives the previously-dead helper its intended use site and
+plugs the lifecycle leak.
+
+`tests/test_round_115_routed_units_leak.py` — 3 regressions:
+both paths empty `routed_units`, plus a source-inspection check
+that `clear_routed_pile` now has callers in actions.py.
+
+950 → 953 passing. Verification batch RESET 0/10 again (same
+"dead code surfaces" family as SMOKE-093 and SMOKE-094 — third
+hit in a row of "function defined but never called" gaps).
+Continuing the batch...
