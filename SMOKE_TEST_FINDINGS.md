@@ -8795,3 +8795,24 @@ Probed (no bugs found):
     transferred).
 
 Pass 2, 4 / 10 clean.
+
+## Round 158 — CLEAN (Pass 2: verification 5/10)
+
+Probed (no bugs found):
+  - `_place_lord_on_map` Vassal-marker reset:
+    - General vassal: ready=True, mustered=False
+    - Summer Crusaders: ready iff T11 in play
+    - Steppe Warriors: ready iff R10 in play
+    - SMOKE-012/060 enforce the gating consistently
+  - 4.9.5 End-of-Campaign unstack: each side clears its own
+    Lords' lieutenant_of + has_lower_lord. T runs first, R
+    second; cumulative effect clears both ends of every pair on
+    each side since pairs are within-side.
+  - 4.9.5 Reset cascade order: Grow (rasputitsa box 8/16) →
+    Wastage → unstack → This-Campaign discard → Serfs return
+    (SMOKE-028a) → Plow & Reap → advance box → Crusade auto-
+    discard at box 5/13 (SMOKE-028b/c via SMOKE-031 cascade) →
+    transition to next Levy → first_levy_done=True → reset
+    just_arrived_this_levy + per-Levy flags.
+
+Pass 2, 5 / 10 clean.
