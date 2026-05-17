@@ -7240,3 +7240,36 @@ regressions mirroring the SMOKE-087 test set.
     Sallying Lords WIN and "Withdraw back inside" — does that
     trigger the Legate-with-Russians check if the locale is now
     Russian-Sallying-Lord-only and the Legate is there?
+
+## Round 93 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Surrender Conquest Walls +1 marker — per 1.3.1, marker is
+    "removed if Sacked" (Storm), NOT on Surrender. Harness behavior
+    matches the rule.
+  - Pursuit half-Hits-rounded-up math — `this_cb_raw /= 2.0` and
+    `this_norm_raw /= 2.0` followed by `_round_up = math.ceil`. The
+    conceder's HITS are halved per rulebook 4.4.2 ("The Conceding
+    side halves its total Hits against the Pursuing side").
+  - Hill effect (T9/R5) — `*=2` doubles the 0.5-per-unit archery
+    contribution to 1.0 (x1 not x½), matching the card text.
+  - cmd_pass — available to any Lord including Besieged (per 4.7.5).
+  - _h_command_reveal — auto-passes for pass-cards, off-map Lords,
+    and Lower Lords (4.2.3 + 4.1.3).
+  - Feed/Pay/Disband 4.8 — Feed cost (1 for 1-6 units, 2 for 7+),
+    unfed Service shift, at-limit Disband counted from NEXT box
+    (4.8.2 2E), permanent-removal on Service < Levy box. All paths
+    now route through _disband_at_limit / _remove_lord_permanently
+    which carry the SMOKE-087/088 Legate triggers.
+  - apply_lordship_plus_2 / apply_calendar_shift_hold — target
+    lord_id whitelist matches cards.json event_eligibility for
+    T7/T8/T17/R8/R13.
+  - Veche box VP markers max 8 cap enforced (actions.py:2305).
+  - _take_legate_along + March/Sail src→dest movement — Teutons
+    don't typically leave Legate's locale alone with Russians via
+    March/Sail (combat-only paths already wired).
+  - _h_cmd_sally Sallying-side-wins withdraw path — no Legate
+    trigger needed (besiegers retreated, Legate triggers via
+    SMOKE-085).
+
+Clean-round counter: 1 / 5.
