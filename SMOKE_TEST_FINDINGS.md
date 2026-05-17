@@ -7917,3 +7917,17 @@ Probed (no bugs found):
     forces-only count is correct.
 
 Pass 1, 2 / 10 clean.
+
+## Round 123 — CLEAN (Pass 1: verification 3/10)
+
+Probed (no bugs found):
+  - R18 Stone Kremlin (cmd_stone_kremlin): full-card check,
+    Castle-overlay mutual exclusion (SMOKE-077 fix holds), max
+    4 in play, Russian Fort/City/Novgorod gating.
+  - T2 / R12 / R14 Raiders Ravage: trackway gate (T2 only),
+    horse-unit force composition, target-Ravaged exclusion,
+    raiders_used_this_card flag (T2 only).
+  - Action cost / Lord location preserved (Raider stays put).
+  - Russian Raiders Loot exclusion (T2 gets Loot, R12/R14 don't).
+
+Pass 1, 3 / 10 clean.
