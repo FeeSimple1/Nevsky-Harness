@@ -7513,3 +7513,40 @@ Probed surfaces and found no actionable bugs:
     (Lieutenant + Lower Lord move together via cp.defender_lords).
 
 Clean-round counter: 4 / 5.
+
+## Round 105 — SMOKE-092
+
+### SMOKE-092: R8/R9 sea_trade fires multiple times per Call to Arms
+
+**Rule:** AoW Reference —
+  R8 Black Sea Trade: "Each Call to Arms, add 1 Coin to Veche..."
+  R9 Baltic Sea Trade: "Each non-Winter Call to Arms, add 2 Coin..."
+
+"Each Call to Arms" means once per CtA — a periodic income.
+
+**Bug:** `_veche_sea_trade` did not track per-card usage. An agent
+could invoke `sea_trade R8` twice in the same Call to Arms and
+collect 2 Coin (or any number of repeated invocations). Per the
+rule, only one fire per CtA per card.
+
+Probe: R8 in play, sea_trade invoked twice → veche.coin = 2 (BUG;
+should be 1 with second rejected).
+
+**Fix:** Track `state.meta.special_rules["sea_trade_r8_used_this_cta"]`
+and `_r9_..._this_cta` flags. Reject repeat invocations with code
+`sea_trade_already_used`. Clear the flags at the CtA boundary in
+`_h_advance_step` (alongside the Legate/Veche acted_this_call_to_arms
+resets).
+
+`tests/test_round_105_sea_trade_once_per_cta.py` — 3 regressions:
+R8 second-invocation rejected, R9 second-invocation rejected, R8
+and R9 fire independently per CtA.
+
+941 → 944 passing. Clean-round counter RESET to 0/5 (was 4/5; this
+was the round that would have hit 5).
+
+## Candidate surfaces for R106
+
+  - Other "Each Call to Arms" / "Each Campaign" auto-fire rules
+    that might lack per-CtA tracking.
+  - T16 / R7 Famine event tracking — fires each Campaign per text.

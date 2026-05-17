@@ -271,6 +271,10 @@ def _h_advance_step(
             # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
             state.legate.acted_this_call_to_arms = False
             state.veche.acted_this_call_to_arms = False
+            # SMOKE-092 (Round 105): clear per-card sea_trade usage
+            # flags at CtA entry so "Each Call to Arms" auto-fires.
+            for _flag in ("sea_trade_r8_used_this_cta", "sea_trade_r9_used_this_cta"):
+                state.meta.special_rules.pop(_flag, None)
             # Advanced Vassal Service (3.4.2): "After a side finishes
             # all Vassal Muster for this Levy, flip up all Service
             # markers that are Coat-of-Arms side down (3.3.2), making
@@ -2400,6 +2404,17 @@ def _veche_sea_trade(
             )
         amount = 2
 
+    # SMOKE-092 (Round 105): R8/R9 sea trade fires ONCE per Call to
+    # Arms ("Each Call to Arms" rule). Track per-card usage via
+    # meta.special_rules so a second invocation in the same CtA is
+    # rejected. Flags clear at the CtA boundary in _h_advance_step.
+    sea_trade_flag = f"sea_trade_{cid.lower()}_used_this_cta"
+    if state.meta.special_rules.get(sea_trade_flag):
+        raise IllegalAction(
+            "sea_trade_already_used",
+            f"{cid} sea trade already fired this Call to Arms ('Each CtA' rule)",
+        )
+    state.meta.special_rules[sea_trade_flag] = True
     added = min(amount, 8 - state.veche.coin)
     state.veche.coin += added
     return ({"card": cid, "added": added, "lost_to_cap": amount - added}, [])
