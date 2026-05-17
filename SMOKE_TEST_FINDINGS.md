@@ -8948,3 +8948,22 @@ Probed (no bugs found):
     game_over; harness exposes the trigger via the return dict.
 
 Pass 2, 6 / 10 clean.
+
+## Round 166 — CLEAN (Pass 2: verification 7/10)
+
+Probed (no bugs found):
+  - Forces data: 7 unit types (knights, sergeants, light_horse,
+    asiatic_horse, men_at_arms, militia, serfs).
+  - Protection spec lookup `_protection_spec`:
+    - in_storm: uses protection_storm
+    - kind=archery: uses protection_battle_archery
+    - else (melee): uses protection_battle_melee
+  - Asiatic Horse special: evade:1-3 vs Battle Melee, unarmored
+    vs Archery (per Forces Reference).
+  - archery_default_active: only asiatic_horse fires archery
+    without an enabling Capability.
+  - protection_storm for knights/sergeants matches battle melee
+    (armor:1-N); asiatic_horse degrades to unarmored in Storm
+    (no Evade).
+
+Pass 2, 7 / 10 clean.
