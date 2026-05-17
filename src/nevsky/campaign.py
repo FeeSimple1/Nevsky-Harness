@@ -2155,17 +2155,26 @@ def _h_cmd_march(
     if enemies:
         # Approach: pause and request defender response.
         from nevsky.state import CombatPending
+        defender_side: Side = state.lords[enemies[0]].side
         state.combat_pending = CombatPending(
             attacker_side=sd,
             attacker_group=list(group),
             from_locale=src,
             to_locale=dest,
             way_type=way_type,
-            defender_side=state.lords[enemies[0]].side,
+            defender_side=defender_side,
             defender_lords=enemies,
-            pending_response_by=state.lords[enemies[0]].side,
+            pending_response_by=defender_side,
             laden=laden,
         )
+        # SMOKE-111 (Round 173): switch active_player to the defender
+        # side so legal_moves enumerates their response options
+        # (stand_battle / avoid_battle / withdraw). Without this swap,
+        # `side = state.meta.active_player` in legal_moves keeps
+        # returning the marching side, which has zero legal moves
+        # while combat_pending is owed by the defender — a deadlock
+        # surfaced by self-play (Watland seed=3, RotP-Nicolle seed=1).
+        state.meta.active_player = defender_side
         # Move attacking Lord(s) tentatively (we model: attackers enter the
         # locale at Approach; if defender Avoids / Withdraws into Stronghold,
         # outcome resolves below). For simplicity Phase 3b records attackers

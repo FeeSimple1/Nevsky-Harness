@@ -9128,3 +9128,42 @@ chooses moves that don't yield concrete args for event resolvers).
 **Zero unexpected harness exceptions or IllegalAction codes** outside
 the documented "agent-gap" category, confirming the harness state
 machine is sound after SMOKE-110.
+
+## Round 173 — SMOKE-111 (cmd_march didn't swap active_player to defender on combat_pending)
+
+When cmd_march encounters enemy Lord(s) at the destination Locale,
+it sets `state.combat_pending` with `pending_response_by =
+defender_side`. Pre-fix the harness did NOT also update
+`state.meta.active_player` to the defender side, so legal_moves —
+which keys off `state.meta.active_player` — kept enumerating the
+marching side's options. While `combat_pending` is set, the
+marching side has nothing legal to do (commands are blocked); only
+the defender can respond. Result: zero legal moves → deadlock.
+
+Found via scripts/self_play.py:
+  - watland seed=3: Russian Andrey marched into pskov with Teutonic
+    Lord present; combat_pending owed by Teutonic but active_player
+    stayed Russian; agent stalled at step 258.
+  - return_of_the_prince_nicolle seed=1: same shape, Teutonic
+    Hermann marching into a Russian-defended Locale; agent stalled
+    at step 182.
+
+Same audit pattern as SMOKE-106/107/109/110 (state-set-but-
+unreachable): combat_pending state is set but the legal-moves
+enumerator can't reach the defender's response options because of
+the active_player mismatch.
+
+Fix: after building the CombatPending object, swap
+`state.meta.active_player = defender_side` so legal_moves
+enumerates the defender's response (stand_battle / avoid_battle /
+withdraw / concede).
+
+Regressions: tests/test_round_173_cmd_march_active_player_swap.py
+(3 tests): marker; behavior swap after combat_pending; legal_moves
+offers stand_battle from defender side.
+
+Self-play sweep post-fix: 22/30 terminal (up from 20/30); 0
+unexpected harness exceptions.
+
+Pass 2+self-play counter: SMOKE total 110 → 111.
+Test count: 1037 → 1040 (+3 regressions).
