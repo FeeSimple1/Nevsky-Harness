@@ -179,23 +179,27 @@ def _require_levy_step(state: GameState, step: str) -> None:
 
 
 def _require_muster_or_legate_2c_extra(state: GameState, by_lord_id: str) -> None:
-    """SMOKE-106 (Round 152): Muster handlers normally require
-    levy_step == 'muster'. Legate Use sub-option 2c grants ONE Lord
-    an immediate EXTRA Muster during call_to_arms; that Lord may
-    invoke 3.4.1-3.4.4 Muster handlers as `by_lord` during
-    call_to_arms while `state.legate.extra_muster_target_lord ==
-    by_lord_id`. Other Lords still require muster step."""
+    """SMOKE-106 (Round 152) + SMOKE-107 (Round 153): Muster handlers
+    normally require levy_step == 'muster'. Legate Use sub-option 2c
+    AND Veche Option C each grant ONE Lord an immediate EXTRA Muster
+    during call_to_arms; that Lord may invoke 3.4.1-3.4.4 Muster
+    handlers as `by_lord` during call_to_arms while EITHER
+    `state.legate.extra_muster_target_lord == by_lord_id` OR
+    `state.veche.extra_muster_target_lord == by_lord_id`. Other Lords
+    still require muster step."""
     if state.meta.levy_step == "muster":
         return
-    if (state.meta.levy_step == "call_to_arms"
-            and state.legate.extra_muster_target_lord == by_lord_id):
+    if state.meta.levy_step == "call_to_arms" and (
+            state.legate.extra_muster_target_lord == by_lord_id
+            or state.veche.extra_muster_target_lord == by_lord_id):
         return
     raise IllegalAction(
         "wrong_step",
         f"Muster action requires levy_step=muster (or call_to_arms with "
-        f"Legate-2c extra-Muster target == by_lord); current="
-        f"{state.meta.levy_step}, legate extra target="
-        f"{state.legate.extra_muster_target_lord!r}",
+        f"Legate-2c / Veche-C extra-Muster target == by_lord); current="
+        f"{state.meta.levy_step}, legate target="
+        f"{state.legate.extra_muster_target_lord!r}, veche target="
+        f"{state.veche.extra_muster_target_lord!r}",
     )
 
 
@@ -306,10 +310,11 @@ def _h_advance_step(
                         if not vstate.ready and not vstate.mustered:
                             vstate.ready = True
         if next_step == "done":
-            # SMOKE-106 (Round 152): clear Legate-2c extra-Muster
-            # target on CtA exit. The flag should not persist into
-            # subsequent Levies.
+            # SMOKE-106 (Round 152) + SMOKE-107 (Round 153): clear
+            # Legate-2c / Veche-C extra-Muster targets on CtA exit.
+            # Flags should not persist into subsequent Levies.
             state.legate.extra_muster_target_lord = None
+            state.veche.extra_muster_target_lord = None
             # SMOKE-039 (Round 51): auto-fire 3.5.3 ("both sides discard
             # This-Levy events") on the call_to_arms -> done transition.
             # The explicit aow_discard_this_levy action stays available
@@ -2329,6 +2334,9 @@ def _h_veche_action(
                 f"{target_id} just arrived this Levy; cannot use Lordship same Call to Arms (3.5.2)",
             )
         target.lordship_used = 0
+        # SMOKE-107 (Round 153): mark target for call_to_arms-step
+        # Muster handler bypass; clears at CtA -> done in _h_advance_step.
+        state.veche.extra_muster_target_lord = target_id
         state.veche.vp_markers -= 1
         state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
         state.veche.acted_this_call_to_arms = True

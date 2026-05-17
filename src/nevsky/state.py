@@ -157,6 +157,13 @@ class Veche(BaseModel):
     vp_markers: int = Field(ge=0, le=8, default=0)
     novgorod_conquered: bool = False
     acted_this_call_to_arms: bool = False
+    # SMOKE-107 (Round 153): Veche Option C ("Extra Muster") grants a
+    # Russian Lord an immediate EXTRA Muster using his Lordship Rating.
+    # Pre-fix the harness set lordship_used=0 but Muster handlers
+    # hard-required levy_step=='muster' (same gap as SMOKE-106 for the
+    # Teutonic Legate 2c path). Track the target so the Muster handlers
+    # can accept call_to_arms-step Muster from this one Lord.
+    extra_muster_target_lord: str | None = None
 
 
 class CampaignTurn(BaseModel):

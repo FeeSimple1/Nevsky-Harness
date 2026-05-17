@@ -8665,3 +8665,39 @@ rejects/accepts the right by_lord ids in call_to_arms vs muster.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-106 reset the count).
 Test count: 1002 → 1013 (+11 regressions). SMOKE total: 106.
+
+## Round 153 — SMOKE-107 (Veche Option C "extra Muster" was unreachable)
+
+Same audit pattern as SMOKE-106 (Round 152), now found on the
+Russian Veche side. Per Calendar/Veche reference:
+  "ACTION C — Bonus Lordship for one Russian Lord
+   Cost: Remove 1× 1VP Conquered marker from the Veche box.
+   Effect: One Russian Lord at any Friendly Locale (NOT a Siege
+   Locale) immediately performs an EXTRA Muster using his Lordship
+   rating (3.4)."
+
+Pre-fix `_h_veche_action` Option C set `target.lordship_used = 0`
+but the Muster handlers required `levy_step == 'muster'`. The
+granted EXTRA Muster could not be exercised during call_to_arms —
+mirror gap to SMOKE-106 (Legate 2c on the Teutonic side).
+
+Audit pattern: dead code / unreachable handler branch (a side-effect
+was registered in state but no caller could exercise the effect),
+AND mirror gap (one side was fixed in SMOKE-106 and the other side
+still had the gap).
+
+Fix:
+  - Add `Veche.extra_muster_target_lord: str | None`.
+  - Veche Option C records the target Lord id there.
+  - Helper `_require_muster_or_legate_2c_extra` extended: accepts
+    call_to_arms when EITHER `state.legate.extra_muster_target_lord
+    == by_id` OR `state.veche.extra_muster_target_lord == by_id`.
+  - `_h_advance_step` clears BOTH flags on CtA -> done.
+
+Regressions: tests/test_round_153_veche_c_extra_muster.py (7 tests)
+covering: markers in Veche action / Veche model / helper; advance_
+step clears veche flag; helper accepts veche target in CtA; rejects
+other Lord; either flag matching suffices.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-107 reset the count).
+Test count: 1013 → 1020 (+7 regressions). SMOKE total: 107.
