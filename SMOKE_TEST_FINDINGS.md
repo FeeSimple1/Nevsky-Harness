@@ -7572,3 +7572,16 @@ Probed surfaces and found no actionable bugs:
   - Pleskau scenario No-Event pre-removal at setup time.
 
 Clean-round counter: 2 / 5.
+
+## Round 108 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Levy → Campaign lordship_bonus reset (full dict clear).
+  - Pass-card auto-pass in _h_command_reveal.
+  - cmd_storm spoils_recipient validation (must be in attackers).
+  - cmd_storm Sacked-Lord asset transfer uses attackers[0]
+    deterministically — minor inconsistency with Stronghold Spoils
+    which use the player-chosen recipient, but the rule
+    interpretation here is ambiguous.
+
+Clean-round counter: 3 / 5.
