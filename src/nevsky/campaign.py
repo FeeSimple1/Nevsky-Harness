@@ -2636,6 +2636,14 @@ def _h_stand_battle(
                 spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
                 aftermath["spoils"].append(spoil)
                 from nevsky.actions import _remove_lord_permanently as _rem
+                # SMOKE-101 (Round 131): the zero-forces removal branch
+                # above calls apply_ransom, but this no-retreat-path
+                # branch previously did not — a Ransom-capable winner
+                # was paid in one removal case and not the other.
+                # Same audit pattern as SMOKE-098/099 (mirror gap).
+                r = apply_ransom(state, lid, winner, cp.to_locale)
+                if r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(r)
                 _rem(state, lid, load_lords()[lid])
                 aftermath["removed"].append(lid)
                 continue
@@ -3262,8 +3270,18 @@ def _h_cmd_sally(
         # removed per 1.5.1 (Lord with no units leaves the game).
         from nevsky.actions import _remove_lord_permanently as _rem
         from nevsky.static_data import load_lords
+        # killer is the besiegers (the winners of the failed Sally).
+        killer_side_failed_sally: "Side" = "russian" if sd == "teutonic" else "teutonic"
         for lid in list(attackers):
             if lid in state.lords and not state.lords[lid].forces:
+                # SMOKE-101 (Round 131): failed-Sally zero-forces
+                # removal — the besiegers (the winners of this Sally)
+                # are the killers, so apply Ransom if it's in play
+                # for them. Mirror gap relative to Battle and Storm
+                # aftermath where apply_ransom is already called.
+                r = apply_ransom(state, lid, killer_side_failed_sally, locale_id)
+                if r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(r)
                 _rem(state, lid, load_lords()[lid])
                 aftermath.setdefault("removed_after_sally", []).append(lid)
         # SMOKE-099 (Round 118): besiegers (defenders) won the Sally
@@ -3288,6 +3306,12 @@ def _h_cmd_sally(
             l = state.lords[lid]
             if not l.forces:
                 spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                # SMOKE-101 (Round 131): Sally-win + besieger zero-
+                # forces — the sallying side (sd) killed the besieger,
+                # so Ransom may apply. Mirror gap with Battle/Storm.
+                r = apply_ransom(state, lid, sd, locale_id)
+                if r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(r)
                 _rem(state, lid, load_lords()[lid])
                 aftermath.setdefault("removed", []).append(lid)
                 aftermath.setdefault("spoils", []).append(spoil)
@@ -3321,6 +3345,12 @@ def _h_cmd_sally(
                     break
                 if target is None:
                     spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                    # SMOKE-101 (Round 131): Sally-win + besieger has
+                    # no retreat path — killer is sd. Mirror gap with
+                    # Battle no-retreat and zero-forces branches.
+                    r = apply_ransom(state, lid, sd, locale_id)
+                    if r.get("ransom"):
+                        aftermath.setdefault("ransom", []).append(r)
                     _rem(state, lid, load_lords()[lid])
                     aftermath.setdefault("removed", []).append(lid)
                     aftermath.setdefault("spoils", []).append(spoil)

@@ -8043,3 +8043,59 @@ Final Pass 1 batch:
 Test count: 944 → 968 (+24 regressions).
 
 Pass 1 complete. Holding for instruction before Pass 2.
+
+## Pass 2 Begins
+
+User authorized start of Pass 2 verification. Same workflow: probe →
+fix → regression → document → commit → push. Autoresume in effect;
+only stop on real blockers. If a SMOKE surfaces, the 10-round clean
+counter resets.
+
+## Round 131 — SMOKE-101 (Ransom gaps in Lord-removal branches)
+
+Probed apply_ransom call-site coverage across every code path that
+permanently removes a Lord. The function docstring says it's "Called
+when an enemy Lord is removed in Battle/Storm or while Besieged."
+
+Pre-fix, apply_ransom was wired into:
+  - `_h_stand_battle` zero-forces removal (line ~2589)
+  - `_h_cmd_storm`    Sack of besieged Lords (line ~3088)
+
+Four removal branches were missing the call:
+
+  Fix #1 — `_h_stand_battle` defender no-retreat-path branch
+    Defender lost Battle, still has forces, but all neighbors are
+    blocked (enemy Lord/Stronghold/Conquered marker excluding the
+    approach Way). Defender is permanently removed. Killer = winner
+    side; locale = cp.to_locale.
+
+  Fix #2 — `_h_cmd_sally` failed-Sally zero-forces sweep
+    Sallying Lord lost the Sally, withdrew back inside, and the
+    SMOKE-007 zero-forces sweep permanently removes him. Killer =
+    the besiegers (i.e. `_other(sd)`); locale = locale_id.
+
+  Fix #3 — `_h_cmd_sally` successful-Sally besieger zero-forces
+    The sallying side won; a besieger has 0 forces and is permanently
+    removed. Killer = sd (the sallying side); locale = locale_id.
+
+  Fix #4 — `_h_cmd_sally` successful-Sally besieger no-retreat-path
+    Besieger has forces but no valid retreat target after the lost
+    siege battle. Permanently removed. Same killer/locale as #3.
+
+Audit pattern: mirror gap — one branch of a switch-like structure
+handles a side-effect correctly while sibling branches forget. Same
+family as SMOKE-098 (Storm winner-restore) and SMOKE-099 (Sally
+winner-restore), where the Battle handler did the right thing and
+Storm/Sally did not.
+
+Fix: each branch now calls `apply_ransom(state, lid, killer_side,
+locale_id)` before `_remove_lord_permanently`, and appends the result
+to `aftermath["ransom"]` when ransom fires — matching the existing
+two callers.
+
+Regressions: tests/test_round_131_ransom_gaps.py (8 tests). Source-
+text checks verify each branch contains the SMOKE-101 marker and
+calls apply_ransom before _rem with the correct killer-side argument.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-101 reset the count).
+Test count: 968 → 976 (+8 regressions). SMOKE total: 101.
