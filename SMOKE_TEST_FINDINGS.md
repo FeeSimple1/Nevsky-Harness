@@ -8000,3 +8000,15 @@ Probed (no bugs found):
   - End-Campaign Crusade discard (4.9.5 Late Winter T11 path).
 
 Pass 1, 8 / 10 clean.
+
+## Round 129 — CLEAN (Pass 1: verification 9/10)
+
+Probed (no bugs found):
+  - _discard_side_capability cascade (SMOKE-031 fix):
+      T11 → Disband Summer Crusaders
+      R10 → Disband Mongols/Kipchaqs
+      T13 → Legate leaves map
+  - Cascade is idempotent and side-aware.
+  - was_in_play return flag for caller diagnostics.
+
+Pass 1, 9 / 10 clean.
