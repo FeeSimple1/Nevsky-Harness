@@ -8099,3 +8099,33 @@ calls apply_ransom before _rem with the correct killer-side argument.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-101 reset the count).
 Test count: 968 → 976 (+8 regressions). SMOKE total: 101.
+
+## Round 132 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - `_flip_trade_route_if_uncontested` call-site coverage:
+    cmd_march (line 2180), cmd_sail (line 1095), cmd_avoid_battle
+    (line 2346), _h_stand_battle retreat (line 2654), _h_cmd_sally
+    besieger retreat (line 3362). Withdraw correctly does NOT flip
+    (defender stays at locale; arrival was already covered by the
+    March that triggered the combat).
+  - Trade-route flip-back on enemy departure (SMOKE-020 + SMOKE-091
+    convention): the rule "Trade Routes flip simply by an enemy
+    Lord's presence with no friendly Lord contesting" is read as
+    arrival-triggered. Departure-of-enemy does NOT re-flip;
+    re-flip requires native-side arrival. Implementation matches.
+  - `_flip_trade_route_if_uncontested` no-op paths: same-side
+    re-entry when no marker exists, conquering-side re-entry when
+    marker is already in place. Both return None correctly.
+  - `_remove_lord_permanently` cleanup cascade: state ('removed'),
+    forces/assets, this_lord_capabilities (returned to deck per
+    3.4.4), routed_units (SMOKE-095), vassal_service_markers
+    (SMOKE-038), cylinder + service markers (incl. off_left/right
+    /off_*_service per SMOKE-062/070), Marshal/Lieutenant unstack
+    (SMOKE-033), Legate auto-removal (SMOKE-087), Campaign-victory
+    short-circuit (SMOKE-055).
+  - Legate trigger coverage: SMOKE-085 (Sally Retreat) + 086 (Storm
+    Sack) + 087 (Lord permanent removal) + 088 (`_disband_at_limit`)
+    cover the four removal paths.
+
+Pass 2, 1 / 10 clean.
