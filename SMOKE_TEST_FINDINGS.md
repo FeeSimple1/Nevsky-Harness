@@ -8891,3 +8891,20 @@ Probed (no bugs found):
     raw buckets per striker.
 
 Pass 2, 3 / 10 clean.
+
+## Round 163 — CLEAN (Pass 2: verification 4/10)
+
+Probed (no bugs found):
+  - Scenario deck construction (`_build_decks`):
+    - Pleskau pre-removes no_event cards (rule 6.0 Pleskau Special)
+    - Crusade-on-Novgorod: no_event cards stay (keep_no_event_cards)
+    - Standard: no_event cards in deck; drawn copies go to removed
+  - AoW implement handler honors keep_no_event_cards (sent to
+    discard) vs default (sent to removed).
+  - Q-001 setup_transport_choice defaults per scenario; no-auto-
+    confirm Lord sets honored.
+  - Pleskau victory_lord_removed_bonus path: SMOKE-024 mirror to
+    calendar.<other>_vp so determine_scenario_winner reads the
+    incremental value, not _compute_vp.
+
+Pass 2, 4 / 10 clean.
