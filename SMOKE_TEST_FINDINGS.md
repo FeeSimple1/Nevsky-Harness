@@ -8607,3 +8607,21 @@ Probed (no bugs found):
   - BattleDecisionContext scripted + callback wiring.
 
 Pass 2, 5 / 10 clean.
+
+## Round 151 — CLEAN (Pass 2: verification 6/10)
+
+Probed (no bugs found):
+  - 3.4.2 _h_muster_vassal: by_lord side check, vassal exists,
+    not already_mustered, special vassal gating (SMOKE-013/059
+    Steppe Warriors R10; Summer Crusaders T11 + Summer-season),
+    vstate.ready before spend.
+  - Advanced Vassal Service: place marker at levy_box + v.service
+    only if LEFT of Lord's Service marker (3.4.2 2E clarification).
+  - SMOKE-029 _check_capability_eligibility (scopes: lords,
+    any, all, any_except, none).
+  - 3.4.4 _h_levy_capability: card availability (deck/discard),
+    no-event rejection, this_lord vs side_wide, target eligibility
+    check, R15 block (SMOKE-061), T13 Heinrich-not-on-map block
+    (SMOKE-072).
+
+Pass 2, 6 / 10 clean.
