@@ -8544,3 +8544,23 @@ Probed (no bugs found):
     conquered/ravaged/enemy-at-target gates).
 
 Pass 2, 2 / 10 clean.
+
+## Round 148 — CLEAN (Pass 2: verification 3/10)
+
+Probed (no bugs found):
+  - 4.7.3 Sail: seaport-to-seaport, Lord Unbesieged at source, no
+    Winter, destination free of Unbesieged enemy (SMOKE-019
+    Lord-level besieged check).
+  - SMOKE-034 Lieutenant + Lower Lord must Sail together.
+  - SMOKE-042 group Sail requires Marshal or Lieutenant pair.
+  - SMOKE-046 Ship requirements: 1 ship/Teutonic horse, 2 ship/
+    Russian horse, 1 ship/provender, 2 ship/loot.
+  - SMOKE-100 voluntary discard_excess_provender/loot args before
+    insufficient_ships rejection.
+  - effective_ship_count Cogs doubling included in group total.
+  - SMOKE-036 in_stronghold flag clear on Sail move.
+  - SMOKE-020 trade-route auto-flip on uncontested arrival.
+  - SMOKE-064 Sail Stronghold-overlay coverage (castle, town with
+    castle overlay) for siege-marker placement.
+
+Pass 2, 3 / 10 clean.
