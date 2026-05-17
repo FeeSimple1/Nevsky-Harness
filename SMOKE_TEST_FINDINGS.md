@@ -9001,3 +9001,38 @@ Probed (no bugs found):
     eligibility lookups.
 
 Pass 2, 9 / 10 clean.
+
+## Round 169 — CLEAN (Pass 2: verification 10/10) ✓ PASS 2 COMPLETE
+
+Probed (no bugs found):
+  - Card data: 42 total (21 Teu + 21 Rus). All cards have
+    required fields (card_id, side, no_event, no_capability).
+  - capability_scope values: {side_wide, this_lord} only.
+  - event_persistence values: {this_campaign, immediate,
+    this_levy, hold} only.
+  - SMOKE-029 (capability_eligibility) + SMOKE-083 (event_
+    eligibility) coverage of structured eligibility lookups.
+  - Card data integrity matches the harness's enforced schema.
+
+**Pass 2, 10 / 10 CLEAN.**
+
+## Pass 2 Summary
+
+Pass 2 spanned R131 – R169 = 39 rounds.
+
+8 SMOKEs found and fixed (SMOKE-101 through SMOKE-108):
+
+| Round | SMOKE | Issue                                                       |
+|-------|-------|-------------------------------------------------------------|
+| 131   | 101   | Ransom gaps in 4 Lord-removal branches (mirror gap)         |
+| 137   | 102   | T1 Grand Prince "furthest right Service" not enforced       |
+| 139   | 103   | Retreat Service shift didn't cascade to Vassal markers      |
+| 143   | 104   | R17 Veliky Knyaz Tax restricted to single Transport type    |
+| 145   | 105   | R4 Raven's Rock Walls only fired when Teutonic was attacker |
+| 152   | 106   | Legate Use 2c "extra Muster" unreachable (CtA-step mismatch) |
+| 153   | 107   | Veche Option C "extra Muster" unreachable (same gap)        |
+| 159   | 108   | T2 Torzhok default asset_order excluded Ship                |
+
+Test count: 968 → 1025 (+57 regressions across 8 SMOKE fix sets).
+
+Pass 2 complete. Holding for instruction before scenario self-play.
