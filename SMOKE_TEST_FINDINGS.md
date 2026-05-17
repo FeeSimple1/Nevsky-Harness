@@ -8291,3 +8291,29 @@ affected.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-102 reset the count).
 Test count: 976 → 984 (+8 regressions). SMOKE total: 102.
+
+## Round 138 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - R17 Dietrich von Grüningen: card text "shift Andreas OR Rudolf
+    OR their Service 1 box". No "furthest right" qualifier — free
+    Russian choice on Service target. T1's SMOKE-102 fix correctly
+    scoped to T1 only.
+  - R9 Osilian Revolt: SMOKE-063 clamp at box >= 2 (no
+    off-left-end), enforced.
+  - R10 Batu Khan: boxes range 1-2, _shift_service for service
+    target. SMOKE-062 off-Calendar allowance.
+  - R11 Valdemar (this-levy block): shifts 0-1 box; block_lords_
+    this_levy_t.append('knud_and_abel') side correct (Valdemar is
+    Russian event so Russian shifts T-Lord). Re-add idempotent
+    (`if not in`).
+  - R16 Tempest: half-rounded-up keep formula (n+1)//2 with Cogs.
+    Operates on BASE ship count not effective.
+  - T11 Pope Gregory: Russian event flip-side, shifts T cylinder
+    by 1 left + appends T11 to capabilities_in_play if not
+    already present.
+  - T13 Heinrich Curia (hold): SMOKE-053 uses _disband_at_limit
+    not _remove_lord_permanently; recipient validation;
+    no-loot enforcement; total=4 per recipient validation.
+
+Pass 2, 1 / 10 clean (post SMOKE-102 reset).
