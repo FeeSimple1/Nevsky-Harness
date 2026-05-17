@@ -7835,3 +7835,22 @@ restore-loop count totals.
 gap (SMOKE-093 through SMOKE-099 — 7 SMOKEs in 6 rounds).** The
 "only the loser path got wired up" sub-pattern is now exhausted
 for Battle/Storm/Sally. Verification batch RESET 0/10. Continuing...
+
+## Round 119 — CLEAN (verification 1/10)
+
+Probed (no bugs found):
+  - Tax (4.7.4) handler: own-seat / coin-cap / entire-card.
+  - Forage (4.7.1): Ravaged-locale rejection, Famine effect,
+    Castle-on-Town friendly-stronghold (SMOKE-066 fix holds).
+  - Pass (4.7.5): consumes entire card, available to Besieged.
+  - Ravage (4.7.2): cost-2 adjacent unbesieged-enemy check.
+  - Pursuit (4.4.2 2E): conceder strikes halved Round 1.
+  - Veche Coin: removal on Conquest (1.3.3) vs transfer on Sack.
+  - Sail Ship requirements (SMOKE-046): horse_unit_types matches
+    the Forces-Reference mounted categories (knights, sergeants,
+    light_horse, asiatic_horse).
+  - Feed mechanism (4.8.1): co-located own-side sharing,
+    Hillforts (T8) skip, unfed service shift.
+  - Save/Load roundtrip with routed_units.
+
+Clean: 1 / 10 of verification batch.
