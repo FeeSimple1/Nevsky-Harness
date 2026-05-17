@@ -7550,3 +7550,15 @@ was the round that would have hit 5).
   - Other "Each Call to Arms" / "Each Campaign" auto-fire rules
     that might lack per-CtA tracking.
   - T16 / R7 Famine event tracking — fires each Campaign per text.
+
+## Round 106 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - T16 / R7 Famine this_campaign tracking — only one card per
+    deck, so multi-implement isn't reachable.
+  - cmd_storm Novgorod Veche Coin transfer cap at 8.
+  - cmd_storm "Storm own Stronghold" — unreachable (siege markers
+    only exist when enemy is besieging, and Besieged Lord can't
+    Storm per `_is_besieged` rejection).
+
+Clean-round counter: 1 / 5.
