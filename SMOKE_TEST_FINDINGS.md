@@ -7975,3 +7975,16 @@ Probed (no bugs found):
     checks are sound for this specific Locale).
 
 Pass 1, 6 / 10 clean.
+
+## Round 127 — CLEAN (Pass 1: verification 7/10)
+
+Probed (no bugs found):
+  - has_lord_capability: scope=this_lord filtering hardens
+    against side-wide cards in this_lord_capabilities list.
+  - has_side_capability: scope=side_wide filtering hardens
+    against this_lord cards in capabilities_in_play list.
+  - any_capability: union of both paths.
+  - Capability-scope JSON metadata correctly used.
+  - cards.json capability_scope is the single source of truth.
+
+Pass 1, 7 / 10 clean.
