@@ -7082,3 +7082,39 @@ T13 discard, william_of_modena_in_play=False, and cp.to_locale gate.
   - "Locale with Russian Lord(s) and no Teutonic Lord" Legate auto-
     removal — when last Teutonic Lord leaves the Legate's locale
     via any movement, is the Legate removed?
+
+## Round 89 — SMOKE-085
+
+### SMOKE-085: Legate not removed on Sally Aftermath Retreat
+
+**Rule:** AoW Reference 1.4.1 Legate — "Whenever a Teutonic Lord ...
+Retreats ... remove the pawn and discard the William of Modena card."
+
+**Bug:** SMOKE-084 wired the Battle Aftermath Retreat path. The
+Sally Aftermath path (`_h_cmd_sally` when sallying side wins and
+besiegers retreat) had the analogous gap. A Teutonic besieger
+retreating from a Russian Stronghold (the siege locale) with the
+Legate at that locale would silently leave the Legate behind.
+
+**Fix:** After the sally retreat loop, if the Legate is at
+locale_id and any Teutonic Lord was in `defenders` (the losing
+besiegers), remove the pawn and discard T13.
+
+`tests/test_round_89_sally_legate.py` — 5 source-inspection
+regressions covering the SMOKE-085 marker, Teutonic-defender filter,
+T13 discard, locale_id gate, william_of_modena_in_play clear.
+
+907 → 912 passing. Clean-round counter remains RESET 0/5.
+
+## Candidate surfaces for R90
+
+  - Storm aftermath Legate — Storm Sack permanently removes
+    Besieged Lords (3.3.1 path). If Teutonic Besieged Lords are
+    removed, the Legate (if at the Storm locale) should be removed
+    via the "no Teutonic Lord remains" branch.
+  - "Locale with Russian Lord(s) and no Teutonic Lord" — when the
+    last Teutonic Lord leaves the Legate's locale via any
+    movement, is the Legate removed?
+  - Permanent-removal cascade — if all Teutonic Lords at the
+    Legate's locale are permanently Disbanded/Removed (Wastage,
+    Pay/Disband, Veche), is the Legate removed?

@@ -3182,6 +3182,25 @@ def _h_cmd_sally(
         state.locales[locale_id].siege_markers = 0
         aftermath["siege_lifted"] = True
         aftermath["sally_outcome"] = "broken_siege"
+        # SMOKE-085 (Round 89): per AoW Reference 1.4.1 Legate, a
+        # Teutonic Lord that Retreats (Sally aftermath when besiegers
+        # lose) triggers Legate removal if the pawn is at the locale.
+        # Mirrors the Avoid Battle / Withdraw / Battle-aftermath fixes.
+        if (state.legate.william_of_modena_in_play
+                and state.legate.location == "locale"
+                and state.legate.locale_id == locale_id):
+            teu_lost = any(
+                lid in state.lords and state.lords[lid].side == "teutonic"
+                for lid in defenders
+            )
+            if teu_lost:
+                if "T13" in state.decks.teutonic.capabilities_in_play:
+                    state.decks.teutonic.capabilities_in_play.remove("T13")
+                    state.decks.teutonic.discard.append("T13")
+                state.legate.william_of_modena_in_play = False
+                state.legate.location = "card"
+                state.legate.locale_id = None
+                aftermath["legate_removed"] = True
 
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
