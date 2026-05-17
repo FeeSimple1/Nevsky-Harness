@@ -8908,3 +8908,23 @@ Probed (no bugs found):
     incremental value, not _compute_vp.
 
 Pass 2, 4 / 10 clean.
+
+## Round 164 — CLEAN (Pass 2: verification 5/10)
+
+Probed (no bugs found):
+  - 3.3 Disband resolve cascade:
+    - sm_box < levy_box: 3.3.1 permanent removal (includes
+      off_left_service sentinel box=0 per SMOKE-070)
+    - sm_box == levy_box: 3.3.2 at-limit Disband
+    - Else: no Disband action
+  - off_right_service (sentinel box=17) returns no Disband (Lord
+    is past the visible end of Calendar; Levy marker hasn't
+    reached him yet).
+  - 4.8.2 FPD Disband uses `sm_box + 1 + srating` (next-box origin
+    per 2E correction); 3.3.2 Levy Disband uses `sm_box + srating`
+    (current-box origin during Levy).
+  - Advanced Vassal Service Disband (3.4.2): markers at < levy_box
+    permanent-remove; at levy_box face-down on mat. Forces return
+    in both cases.
+
+Pass 2, 5 / 10 clean.
