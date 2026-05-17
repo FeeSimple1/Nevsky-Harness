@@ -187,7 +187,20 @@ def _ev_torzhok(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
         if "domash" not in state.lords:
             raise IllegalAction("no_target", "domash not in state")
         d = state.lords["domash"]
-        order = args.get("asset_order", ["coin", "loot", "provender", "boat", "cart", "sled"])
+        # SMOKE-108 (Round 159): per AoW Reference T2 card text "Remove
+        # 3 Assets from Domash" — Assets include all Transport types
+        # (Coin, Loot, Provender, Boat, Cart, Sled, Ship). The default
+        # asset_order previously omitted "ship", so a Domash mat
+        # holding only Ships (Domash is ships_authorized) would have
+        # zero Assets removed under the default. The default now
+        # includes "ship" as the last option (matching standard
+        # "burn-Coin-first" intuition while still preserving Ships
+        # last). Agents can still pass a custom asset_order to put
+        # Ships at any priority.
+        order = args.get(
+            "asset_order",
+            ["coin", "loot", "provender", "boat", "cart", "sled", "ship"],
+        )
         removed: dict[str, int] = {}
         n = 3
         for k in order:

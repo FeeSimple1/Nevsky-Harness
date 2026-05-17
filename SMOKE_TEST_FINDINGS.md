@@ -8816,3 +8816,30 @@ Probed (no bugs found):
     just_arrived_this_levy + per-Levy flags.
 
 Pass 2, 5 / 10 clean.
+
+## Round 159 — SMOKE-108 (T2 Torzhok default asset_order omitted Ship)
+
+Per AoW Reference T2 card text: "Remove 3 Assets from Domash OR 3
+Coin from Veche." "Assets" includes Coin/Loot/Provender AND all
+Transport types (Boat, Cart, Sled, Ship). Domash is ships_authorized
+per `lords.json`.
+
+Pre-fix the default `asset_order` was `["coin", "loot", "provender",
+"boat", "cart", "sled"]` — silently omitting Ships. A Domash mat
+holding only Ships would have ZERO Assets removed under the default
+invocation, contradicting "Remove 3 Assets".
+
+Same audit pattern as SMOKE-046/048/067/102/104 (rule-cite-but-no-
+enforce / over-restrictive default).
+
+Fix appends "ship" as the last priority in the default order. Custom
+asset_order still respected for agents that want Ships at any
+priority.
+
+Regressions: tests/test_round_159_torzhok_ships.py (5 tests):
+marker, default order includes ship, removes ships under default
+when only ships available, default order preserves coin-first
+priority, custom order still respected.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-108 reset the count).
+Test count: 1020 → 1025 (+5 regressions). SMOKE total: 108.
