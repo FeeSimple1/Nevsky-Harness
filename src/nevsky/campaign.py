@@ -3250,6 +3250,17 @@ def _h_cmd_sally(
                         )
                     else:
                         spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                    # SMOKE-094 (Round 114): Sally aftermath Loser
+                    # routed_units never resolved via 4.4.4 Losses
+                    # (same gap as SMOKE-093 in Battle aftermath).
+                    from nevsky.battle import apply_losses_rolls
+                    sally_loss_state = (
+                        "conceded_then_retreated"
+                        if this_lord_conceded
+                        else "retreated_no_concede"
+                    )
+                    if l.routed_units:
+                        apply_losses_rolls(state, lid, sally_loss_state)
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
         # Siege lifted.

@@ -7673,3 +7673,31 @@ routed_units gate.
 The user requested 10 verification rounds. Found SMOKE-093 at R113
 (the 3rd round of the batch). Counter reset to 0/10. Continuing
 the batch...
+
+## Round 114 — SMOKE-094
+
+### SMOKE-094: Sally aftermath Loser routed_units never resolved via 4.4.4 Losses rolls
+
+**Rule:** Rulebook 4.4.4 Losses — same as SMOKE-093: the LOSER
+rolls 1d6 per Routed unit; some return to Forces, others are
+permanently lost.
+
+**Bug:** Same gap as SMOKE-093, but in the Sally code path
+(`_h_cmd_sally`). The Sally retreat block transferred spoils and
+recorded the retreat but never called `apply_losses_rolls` for
+loser besiegers (or sallying garrison) whose units were routed.
+Routed units silently persisted across subsequent commands.
+
+**Fix:** Call `apply_losses_rolls(state, lid, sally_loss_state)`
+in the Sally aftermath retreat block, using
+`"conceded_then_retreated"` if `this_lord_conceded` else
+`"retreated_no_concede"`.
+
+`tests/test_round_114_sally_losses_rolls.py` — 3 source-inspection
+regressions: SMOKE-094 marker, both loss_state strings present,
+routed_units gate.
+
+947 → 950 passing. Clean-streak verification batch RESET 0/10
+again (SMOKE-094 surfaced in R114; same family as SMOKE-093 —
+"dead code surfaces" pattern: function defined but no callers).
+Continuing the batch...
