@@ -126,10 +126,21 @@ def _h_finalize_plan(
         if state.meta.plan_complete_t:
             raise IllegalAction("already_done", "Teutonic Plan already finalized")
         state.meta.plan_complete_t = True
+        # SMOKE-109 (Round 170): when only one side has finalized the
+        # Plan, switch active_player to the other side so legal_moves
+        # enumerates that side's Plan options. Without this swap,
+        # `side = state.meta.active_player` in legal_moves stays on
+        # the side that just finalized; the other side's plan moves
+        # are unreachable.
+        if not state.meta.plan_complete_r:
+            state.meta.active_player = "russian"
     else:
         if state.meta.plan_complete_r:
             raise IllegalAction("already_done", "Russian Plan already finalized")
         state.meta.plan_complete_r = True
+        # SMOKE-109 (Round 170): mirror swap on Russian-first finalize.
+        if not state.meta.plan_complete_t:
+            state.meta.active_player = "teutonic"
 
     advanced = False
     if state.meta.plan_complete_t and state.meta.plan_complete_r:

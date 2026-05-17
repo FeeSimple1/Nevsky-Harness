@@ -9036,3 +9036,32 @@ Pass 2 spanned R131 – R169 = 39 rounds.
 Test count: 968 → 1025 (+57 regressions across 8 SMOKE fix sets).
 
 Pass 2 complete. Holding for instruction before scenario self-play.
+
+## Round 170 — SMOKE-109 (finalize_plan didn't switch active_player)
+
+Found via self-play (scripts/self_play.py) — the Watland self-play
+reached the Plan step, Teutonic called finalize_plan, then legal_moves
+returned 0 moves: `state.meta.active_player` stayed on "teutonic" but
+Teutonic's Plan was complete; Russian's Plan moves weren't enumerated
+because `side = state.meta.active_player` keys off the active player.
+
+Pre-fix, `_h_finalize_plan` set `plan_complete_t = True` (or _r) but
+did NOT swap `active_player`. The other side could not contribute
+plan_add_card / finalize_plan; the agent saw zero legal moves.
+
+Same audit pattern as SMOKE-106/107 (state-set-but-unreachable):
+the path to set `plan_complete_r` was blocked by the active-player
+filter.
+
+Fix: when one side finalizes Plan and the other hasn't, swap
+active_player to the other side. The existing "both complete"
+transition to campaign_step="command" + active_player="teutonic"
+stays.
+
+Regressions: tests/test_round_170_finalize_plan_active_player.py
+(5 tests): marker; T-first swaps to R; R-first swaps to T; both
+finalize advances to command; legal_moves enumerates Russian Plan
+options after Teutonic finalize.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-109 reset).
+Test count: 1025 → 1030 (+5 regressions). SMOKE total: 109.
