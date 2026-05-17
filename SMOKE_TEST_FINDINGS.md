@@ -7475,3 +7475,15 @@ Probed surfaces and found no actionable bugs:
   - cmd_sail Unbesieged-enemy check at dest.
 
 Clean-round counter: 1 / 5.
+
+## Round 102 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Raiders Ravage parallel-Ways edge case (re-confirmed
+    unreachable; dorpat↔odenpah both Teutonic-territory, can't
+    Teutonic-Raid own territory).
+  - Battle aftermath spoils_recipient routing (SMOKE-003).
+  - Stone Kremlin Walls +1 applied to walls_max during Storm.
+  - cmd_sail group movement Legate ride-along consistency.
+
+Clean-round counter: 2 / 5.
