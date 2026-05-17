@@ -8367,3 +8367,23 @@ Probed (no bugs found):
     capped at 8.
 
 Pass 2, 1 / 10 clean (post-SMOKE-103 reset).
+
+## Round 141 — CLEAN (Pass 2: verification 2/10)
+
+Probed (no bugs found):
+  - T8 Hillforts of the Sword Brethren: `_hillforts_skip_lord`
+    enforces side=teutonic + has_side_capability + moved_fought +
+    not besieged + subregion=='crusader_livonia'. The Tip text
+    "in Livonia (not Estonia or Rus)" → harness excludes
+    danish_estonia (reval/wesenberg/etc) and novgorodan_rus
+    correctly. Per-card alphabetical pick is deterministic.
+  - Locale subregion partition: crusader_livonia (17), danish_
+    estonia (7), novgorodan_rus (28). No locale unassigned.
+  - R17 Veliky Knyaz Tax: extends cmd_tax with +2 Transport and
+    Force restoration when the capability is in play. The
+    HANDLERS dict swap (`HANDLERS["cmd_tax"] = _h_cmd_tax_veliky_
+    knyaz_aware`) ensures Tax goes through the aware variant
+    universally.
+  - moved_fought set in _h_cmd_tax_veliky_knyaz_aware.
+
+Pass 2, 2 / 10 clean.
