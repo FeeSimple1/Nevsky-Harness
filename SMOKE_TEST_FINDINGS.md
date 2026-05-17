@@ -8462,3 +8462,36 @@ Probed (no bugs found):
     Legate pawn + flips in_play=False.
 
 Pass 2, 1 / 10 clean (post-SMOKE-104 reset).
+
+## Round 145 — SMOKE-105 (R4 Raven's Rock Walls only fired with Teutonic as attacker)
+
+Per AoW Reference R4 Tip:
+  "The Russians may play Raven's Rock in field Battle on either
+   Attack or Defense, inside or outside of Rus, as long as the
+   current Season is Winter or Rasputitsa."
+
+Pre-fix the resolve_battle melee Walls block gated on
+  `striker_role == "attacker" and attacker_side == "teutonic"`
+which fires only when Teutonic is the Battle's attacker (Russian
+defender case). When Russian is the attacker, Teutonic defender
+Strikes still hit Russian units in melee Round 1, and Walls 1-2
+should apply — but didn't.
+
+Same audit pattern as SMOKE-080 (Defending-only role check): a
+role qualifier wrongly restricted card effect to one side's role
+when the card text was symmetric.
+
+Fix drops the role/side restriction; Walls fire whenever:
+  - target is Russian
+  - kind != archery (Teutonic Archery not affected, per Tip)
+  - rounds == 1
+  - non-Summer season (already enforced at consumption time by
+    `_consume_battle_holds` per SMOKE-079)
+
+Regressions: tests/test_round_145_ravens_rock_attacker.py (5
+source-text checks: marker, no attacker_side/striker_role gate,
+target-Russian still required, archery still excluded, Round-1
+still required).
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-105 reset the count).
+Test count: 997 → 1002 (+5 regressions). SMOKE total: 105.

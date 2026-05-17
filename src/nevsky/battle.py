@@ -1465,9 +1465,19 @@ def resolve_battle(
                 # Round 1 (R4). Per-Hit roll, applied to each Hit
                 # incoming to the target.
                 walls_absorbed = 0
+                # SMOKE-105 (Round 145): per AoW Reference R4 Tip,
+                # "The Russians may play Raven's Rock in field Battle
+                # on either Attack or Defense." Pre-fix the harness
+                # restricted Walls to `striker_role == "attacker" and
+                # attacker_side == "teutonic"`, which fires only when
+                # Teutonic is the Battle's attacker (Russian defender
+                # case). When Russian is the attacker, Teutonic
+                # defender Strikes still hit Russian units in melee
+                # Round 1, and Walls should also apply. Drop the
+                # role/side restriction and rely on the target-is-
+                # Russian + melee + Round 1 + non-Summer (already
+                # enforced at consumption per SMOKE-079) gates.
                 if (raven_rock_walls and rounds == 1 and kind != "archery"
-                        and striker_role == "attacker"
-                        and attacker_side == "teutonic"
                         and tlid in state.lords
                         and state.lords[tlid].side == "russian"):
                     for _ in range(hits):
