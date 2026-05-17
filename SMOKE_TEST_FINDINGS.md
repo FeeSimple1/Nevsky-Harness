@@ -7885,3 +7885,19 @@ Sail, no-arg still rejects, and source-inspection check.
 after R119). 8 routed-units-family bugs (SMOKE-093 ... -099) +
 this new "greed rule not honored by Sail" bug = 9 SMOKEs in 7
 rounds.
+
+## Round 121 — CLEAN (Pass 1: verification 1/10)
+
+Probed (no bugs found):
+  - Withdraw (4.3.4): no discard requirement per rule (only
+    Avoid Battle and Retreat have spoils transfer).
+  - Avoid Battle (4.3.4): automatic Loot+excess-Provender drop.
+  - Retreat (4.4.3): Conceded → loot_and_excess; Retreated-no-
+    concede → all_except_ships; both via transfer_spoils.
+  - Veche Option A (slide LEFT): max(1, cyl_box-2) clamp.
+  - Veche Option D (decline): SMOKE-058 off_left handling.
+  - legal_moves cmd_sail offered as UI hint, handler validates.
+  - cmd_storm empty besieged/attackers behavior.
+  - Wastage (4.9.4): per-Lord most-count asset OR capability.
+
+Pass 1, 1 / 10 clean.
