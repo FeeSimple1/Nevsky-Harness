@@ -8726,3 +8726,29 @@ Probed (no bugs found):
     Not a bug per current game state grammar.
 
 Pass 2, 1 / 10 clean (post-SMOKE-107 reset).
+
+## Round 155 — CLEAN (Pass 2: verification 2/10)
+
+Probed (no bugs found):
+  - Lordship +2 hold cards (T7, T8, T17, R8, R13):
+    `_LORDSHIP_PLUS_2_TARGETS` validates target Lord against the
+    card's printed Eligibility list (or "any_russian" for R8).
+    apply_lordship_plus_2 vs apply_calendar_shift_hold are two
+    modes per card (Lordship +2 OR cylinder shift).
+  - `_h_play_lordship_hold` action wrapper: requires Levy phase +
+    Muster/CtA step + card in side's holds + SMOKE-056 side
+    validation. Mode lordship/shift.
+  - state.meta.lordship_bonus dict: read in `_spend_lordship`
+    as base + bonus budget; cleared on Levy → Campaign transition.
+  - `_effective_command_rating` modifiers: Druzhina (R5/R6),
+    House of Suzdal (R11), Treaty of Stensby (T1 side-wide),
+    Ordensburgen (T12, AUDIT-006 broadened), Archbishopric (R15
+    at Novgorod). Each adds at most +1.
+  - T3 Converts (first-March-of-card with Light Horse in group =
+    0 actions) wired in cmd_march; requires any group member
+    with Converts + any group member with Light Horse.
+  - SMOKE-012 / SMOKE-026 "more than 2x Provender as usable
+    Transport" gate with way-aware usable count + discard_excess_
+    provender arg.
+
+Pass 2, 2 / 10 clean.
