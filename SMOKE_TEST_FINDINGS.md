@@ -8196,3 +8196,33 @@ Probed (no bugs found):
     blocked), self-target rejected.
 
 Pass 2, 3 / 10 clean.
+
+## Round 135 — CLEAN (Pass 2: verification 4/10)
+
+Probed (no bugs found):
+  - 3.1 AoW draw + shuffle interaction: aow_draw is non-auto-
+    shuffling (returns min(2, len(deck))). aow_shuffle is offered
+    by legal_moves whenever deck or discard has cards. Agent
+    must shuffle explicitly.
+  - 3.3 Disband resolve cascade: at-limit (`_disband_at_limit`)
+    vs permanent removal (`_remove_lord_permanently`) routed by
+    Service marker position vs Levy marker.
+  - `moved_fought` lifecycle: set by movement/combat handlers;
+    cleared in FPD line 617-618 (own side, all states) and
+    Feed step (line 519-520) for removed/disbanded Lords. No
+    re-Muster path can carry stale moved_fought=True because
+    FPD-end-clear happens to ALL own-side Lords regardless of
+    state. SMOKE-037 covers other flag carry-over.
+  - `_place_lord_on_map` (re-Muster on success): clears
+    in_stronghold, first_march_used_this_card,
+    raiders_used_this_card (SMOKE-037); resets lordship_used,
+    just_arrived_this_levy; restores starting forces/assets;
+    handles special vassals gated by T11/R10.
+  - 4.2.3 Pass on Lord-not-on-map: `_h_command_reveal` checks
+    lord.state=mustered before activating; otherwise auto-Pass.
+    Covers Plan-time references to subsequently-removed Lords.
+  - 4.1.3 Lower Lord card resolves as Pass.
+  - SMOKE-044 (Round 56) disbanded→ready transition fires at
+    Muster step entry. Covers the lifecycle re-entry.
+
+Pass 2, 4 / 10 clean.
