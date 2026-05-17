@@ -7732,3 +7732,32 @@ that `clear_routed_pile` now has callers in actions.py.
 "dead code surfaces" family as SMOKE-093 and SMOKE-094 — third
 hit in a row of "function defined but never called" gaps).
 Continuing the batch...
+
+## Round 116 — SMOKE-096
+
+### SMOKE-096: Failed-Storm attackers' routed_units never resolved via 4.4.4 Losses rolls
+
+**Rule:** 4.4.4 Losses — after a failed Storm, attackers carrying
+Routed units must roll 1d6 each (storm_attacker threshold: keep
+on roll == 1). The Storm ends and Siege continues, but the
+Routed pile MUST be resolved before continuing.
+
+**Bug:** `apply_losses_rolls` in battle.py defines an explicit
+`"storm_attacker"` loss_state but `_h_cmd_storm` never called it.
+The "storm_failed" branch only set `aftermath["storm_failed"] =
+True` and continued. Attacker routed_units silently persisted —
+the besieger could carry routed units across multiple Storms and
+into Sallies/Battles without ever rolling Losses.
+
+**Fix:** In the storm_failed branch of `_h_cmd_storm`, iterate
+attacker lords and call `apply_losses_rolls(state, alid,
+"storm_attacker")` for any with non-empty `routed_units`.
+
+`tests/test_round_116_storm_losses_rolls.py` — 3 source-inspection
+regressions: SMOKE-096 marker, "storm_attacker" loss state, and
+the routed_units gate.
+
+953 → 956 passing. **Fourth consecutive "dead code surfaces" bug
+(SMOKE-093/094/095/096)** — the audit pattern of "function or
+branch defined but never invoked" is producing a steady stream of
+gap fixes. Verification batch RESET 0/10 again. Continuing...

@@ -3076,6 +3076,16 @@ def _h_cmd_storm(
     else:
         # Attacker lost: Storm ends; Siege continues.
         aftermath["storm_failed"] = True
+        # SMOKE-096 (Round 116): failed-Storm attackers' routed_units
+        # never resolved via 4.4.4 Losses. apply_losses_rolls has an
+        # explicit "storm_attacker" loss_state (keep on roll==1) but
+        # had no caller. Same dead-code-surfaces pattern as
+        # SMOKE-093/094/095. Resolve losses for each attacker that
+        # has routed units; siege continues with what survives.
+        from nevsky.battle import apply_losses_rolls
+        for alid in attackers:
+            if alid in state.lords and state.lords[alid].routed_units:
+                apply_losses_rolls(state, alid, "storm_attacker")
 
     # SMOKE-086 (Round 90): per AoW Reference 1.4.1 Legate, when a
     # Teutonic Stronghold is Stormed and Sacked by Russians, the
