@@ -8584,3 +8584,26 @@ Probed (no bugs found):
   - All Lords at locale marked moved_fought.
 
 Pass 2, 4 / 10 clean.
+
+## Round 150 — CLEAN (Pass 2: verification 5/10)
+
+Probed (no bugs found):
+  - 4.5.2 Storm: Active Lord not Besieged, Stronghold exists +
+    not no_storm (Trade Route exclusion), siege_markers > 0.
+  - Walls+1 marker via R18 Stone Kremlin handled.
+  - resolve_storm called with garrison + walls_max + siege_markers
+    + decision_ctx for Storm Reposition flow (Q-007).
+  - Storm sack path (winner="attacker"): besieged Lords spoils
+    + ransom (SMOKE-101 fix) + permanent removal in order, then
+    conquest + Veche removal + Walls+1 cleared + winner-routed
+    restored (SMOKE-098).
+  - Storm-fail path (winner="defender"): apply_losses_rolls with
+    storm_attacker state for attackers (SMOKE-096); defender-
+    routed restored (SMOKE-098).
+  - 4.4.1 Battle Array (_init_battle_array): Active Lord at
+    center, operator decisions for left/right slot assignments,
+    Reserve overflow.
+  - Q-006 Relief Sally Array placement (sally_*, rearguard_*).
+  - BattleDecisionContext scripted + callback wiring.
+
+Pass 2, 5 / 10 clean.
