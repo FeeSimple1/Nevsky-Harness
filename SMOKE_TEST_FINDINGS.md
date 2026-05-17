@@ -7383,3 +7383,16 @@ Probed surfaces and found no actionable bugs:
     adjacencies via set dedup.
 
 Clean-round counter: 1 / 5.
+
+## Round 98 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - apply_calendar_shift_hold / apply_lordship_plus_2 eligibility
+    map (T7/T8/T17/R8/R13) — matches cards.json event_eligibility.
+  - cmd_supply route validation (start/end constraints, enemy-
+    Lord-blocks-route check).
+  - Trade Route flips don't interact with Castle markers (T17
+    builds on Fort/Town only).
+  - cmd_tax / cmd_forage / cmd_supply Friendly-Locale gating.
+
+Clean-round counter: 2 / 5.
