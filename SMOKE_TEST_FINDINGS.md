@@ -7585,3 +7585,14 @@ Probed surfaces and found no actionable bugs:
     interpretation here is ambiguous.
 
 Clean-round counter: 3 / 5.
+
+## Round 109 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - Lord Supply from own-Conquered enemy-Stronghold (allowed per
+    rule; Lord must be Unbesieged, no friendly-locale check).
+  - seat_supply_this_card reset at command_reveal (SMOKE-030).
+  - apply_immediate_event for R10/T12 cylinder + service shift
+    paths (whitelist eligibility + shift helpers).
+
+Clean-round counter: 4 / 5.
