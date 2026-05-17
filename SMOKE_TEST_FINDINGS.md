@@ -8495,3 +8495,30 @@ still required).
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-105 reset the count).
 Test count: 997 → 1002 (+5 regressions). SMOKE total: 105.
+
+## Round 146 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - 4.6 Supply: validates per-Source seasonality (Boats/Carts/
+    Sleds/Ships), eligibility (Russian Ships from Novgorod;
+    Teutonic Ships from Seaports; Seat sources own-side).
+  - SMOKE-089 duplicate-Source dedupe (Novgorod-Ship exception
+    for up-to-2 honored).
+  - SMOKE-078 Sleds-Winter-only enforcement.
+  - SMOKE-047 parallel-Ways Transport-Way compatibility.
+  - SMOKE-048 Transport count required per Provender per Way
+    pooled from co-located own-side Lords.
+  - SMOKE-019 Lord-level besieged check on route blocking (not
+    locale-level siege_markers).
+  - SMOKE-030 T16/R7 Famine cap on Seat-sourced Provender (Ships
+    not affected per Tip).
+  - 8-cap on Provender (final_added vs lost_to_cap reporting).
+  - Seat/Ship source caps (2 each).
+  - T6 Ambush "Round 1 ignore enemy left/right" wired in
+    battle.py via ambush_disable_for; T6 "Block Avoid Battle"
+    mode is documented but not implemented (feature gap, NOT
+    SMOKE — no silent wrong output, only missing feature).
+  - R4 Raven's Rock Walls (post-SMOKE-105) symmetric across
+    attacker/defender Russian roles.
+
+Pass 2, 1 / 10 clean (post-SMOKE-105 reset).
