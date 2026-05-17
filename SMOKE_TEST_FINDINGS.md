@@ -7798,3 +7798,40 @@ defined for all five loss_states ("retreated_no_concede",
 "removed") but only three paths called it; the other paths each
 contained a distinct gap. The audit pattern is converging.
 Verification batch RESET 0/10 again. Continuing...
+
+## Round 118 — SMOKE-098 + SMOKE-099 (twofer)
+
+### SMOKE-098: Storm winners' routed_units not restored to forces
+### SMOKE-099: Sally winners' routed_units not restored to forces
+
+**Rule:** 4.4.4 Losses — "the Winner's Routed units automatically
+return to Forces; only the Loser rolls Losses." The Battle
+handler (`_h_stand_battle`) does this; Storm and Sally handlers
+omitted it.
+
+**Bug:** During Storm/Sally rounds, winner-side Lords can have
+units routed via `_absorb_hit` (battle.py:367 puts them in
+`lord.routed_units` regardless of side). The Battle aftermath
+restores winners' routed_units to forces unconditionally; Storm
+and Sally aftermaths never did. Winning Lords carried ghost
+routed units indefinitely.
+
+Four affected branches:
+  - Storm winner = "attacker" (Sack): attackers' routed not restored
+  - Storm winner = "defender" (storm_failed): defenders' routed not restored
+  - Sally sallying-side LOST (RAID withdrew): besiegers (defenders) won — defenders' routed not restored
+  - Sally sallying-side WON (broken_siege): sallying lords (attackers) won — attackers' routed not restored
+
+**Fix:** In each of the four branches, iterate the winning-side
+Lords and move all routed_units → forces. Mirror the existing
+Battle winner-restore loop in `_h_stand_battle`.
+
+`tests/test_round_118_winner_routed_restore.py` — 5 source-
+inspection regressions verifying SMOKE-098 markers in both Storm
+branches, SMOKE-099 markers in both Sally branches, and
+restore-loop count totals.
+
+959 → 964 passing. **Sixth and seventh consecutive routed-units
+gap (SMOKE-093 through SMOKE-099 — 7 SMOKEs in 6 rounds).** The
+"only the loser path got wired up" sub-pattern is now exhausted
+for Battle/Storm/Sally. Verification batch RESET 0/10. Continuing...

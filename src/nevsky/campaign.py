@@ -3073,6 +3073,17 @@ def _h_cmd_storm(
                 w.assets["coin"] = min(8, w.assets.get("coin", 0) + state.veche.coin)
             aftermath["veche_coin_taken"] = state.veche.coin
             state.veche.coin = 0
+        # SMOKE-098 (Round 118): per 4.4.4 Losses, the Battle Winner
+        # restores routed → forces unconditionally ("winner doesn't
+        # suffer Losses"). The Battle handler does this; Storm and
+        # Sally previously did not. Restore winning attackers'
+        # routed_units to forces after a successful Sack.
+        for alid in attackers:
+            if alid in state.lords:
+                al = state.lords[alid]
+                for utype, n in list(al.routed_units.items()):
+                    al.forces[utype] = al.forces.get(utype, 0) + n  # type: ignore[index]
+                al.routed_units = {}
     else:
         # Attacker lost: Storm ends; Siege continues.
         aftermath["storm_failed"] = True
@@ -3086,6 +3097,15 @@ def _h_cmd_storm(
         for alid in attackers:
             if alid in state.lords and state.lords[alid].routed_units:
                 apply_losses_rolls(state, alid, "storm_attacker")
+        # SMOKE-098 (Round 118): defenders won the failed Storm —
+        # they're winners; restore routed → forces unconditionally
+        # ("winner doesn't suffer Losses").
+        for did in besieged:
+            if did in state.lords:
+                dl = state.lords[did]
+                for utype, n in list(dl.routed_units.items()):
+                    dl.forces[utype] = dl.forces.get(utype, 0) + n  # type: ignore[index]
+                dl.routed_units = {}
 
     # SMOKE-086 (Round 90): per AoW Reference 1.4.1 Legate, when a
     # Teutonic Stronghold is Stormed and Sacked by Russians, the
@@ -3199,6 +3219,16 @@ def _h_cmd_sally(
             if lid in state.lords and not state.lords[lid].forces:
                 _rem(state, lid, load_lords()[lid])
                 aftermath.setdefault("removed_after_sally", []).append(lid)
+        # SMOKE-099 (Round 118): besiegers (defenders) won the Sally
+        # — restore their routed → forces unconditionally per
+        # "winner doesn't suffer Losses". Same pattern as SMOKE-098
+        # (Storm winner restore).
+        for did in defenders:
+            if did in state.lords:
+                dl = state.lords[did]
+                for utype, n in list(dl.routed_units.items()):
+                    dl.forces[utype] = dl.forces.get(utype, 0) + n  # type: ignore[index]
+                dl.routed_units = {}
     else:
         # Sallying side won. Besieging side Lords lose per 4.4 Battle
         # aftermath. Siege is lifted (remove all siege markers).
@@ -3284,6 +3314,16 @@ def _h_cmd_sally(
                         apply_losses_rolls(state, lid, sally_loss_state)
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
+        # SMOKE-099 (Round 118): sallying side (attackers) won the
+        # Sally — restore their routed → forces unconditionally
+        # per "winner doesn't suffer Losses". Mirrors the Battle
+        # winner-restore in _h_stand_battle.
+        for alid in attackers:
+            if alid in state.lords:
+                al = state.lords[alid]
+                for utype, n in list(al.routed_units.items()):
+                    al.forces[utype] = al.forces.get(utype, 0) + n  # type: ignore[index]
+                al.routed_units = {}
         # Siege lifted.
         state.locales[locale_id].siege_markers = 0
         aftermath["siege_lifted"] = True
