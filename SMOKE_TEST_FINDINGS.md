@@ -7960,3 +7960,18 @@ Probed (no bugs found):
     list correctly tracked.
 
 Pass 1, 5 / 10 clean.
+
+## Round 126 — CLEAN (Pass 1: verification 6/10)
+
+Probed (no bugs found):
+  - R3 Pogost: +4 Provender clamped at 8, Russian-Mustered in Rus.
+  - T14 Bountiful Harvest (T): removes Russian Ravaged in Livonia/
+    Estonia, decrements russian_vp by 0.5.
+  - R18 Bountiful Harvest (R): mirror for Teutonic Ravaged in Rus.
+  - R10 Batu Khan: boxes in [1,2] gate, andreas-or-service:andreas.
+  - R14 Prussian Revolt: "nothing at Riga" check covers siege/
+    conquered/ravaged/Lord/Legate (Riga's Bishopric type means
+    Castle marker and walls_plus_one aren't applicable, so absent
+    checks are sound for this specific Locale).
+
+Pass 1, 6 / 10 clean.
