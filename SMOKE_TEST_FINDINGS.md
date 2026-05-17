@@ -8625,3 +8625,43 @@ Probed (no bugs found):
     (SMOKE-072).
 
 Pass 2, 6 / 10 clean.
+
+## Round 152 — SMOKE-106 (Legate Use 2c "extra Muster" was unreachable)
+
+Per Call to Arms reference, Legate sub-option 2c:
+  "That Lord (must be Mustered and at this Friendly Locale) performs
+   an immediate EXTRA Muster using his FULL Lordship Rating. All
+   Muster options (3.4.1-3.4.4) are available to him — Levy other
+   Lords, Levy Vassals, Levy Transport, Levy Capabilities — at this
+   moment, in addition to whatever he did during the regular Muster
+   segment."
+
+Pre-fix `_h_legate_use` 2c set `lord.lordship_used = 0` and
+`just_arrived_this_levy = False` on the target — but each Muster
+handler (`_h_muster_lord`, `_h_muster_vassal`, `_h_levy_transport`,
+`_h_levy_capability`) hard-required `_require_levy_step(state,
+"muster")`. The granted "extra Muster" was effectively unreachable
+during call_to_arms; the flag set on the Lord could not be acted on.
+
+Audit pattern: dead code / unreachable handler branch (same family
+as SMOKE-093/094/095/096/097/100): a side-effect was registered in
+state but no caller could exercise the effect.
+
+Fix:
+  - New field `Legate.extra_muster_target_lord: str | None`.
+  - `_h_legate_use` sub-option 2c records the target Lord id there.
+  - New helper `_require_muster_or_legate_2c_extra(state, by_id)`:
+    accepts levy_step=="muster" (normal) OR call_to_arms when
+    `state.legate.extra_muster_target_lord == by_id`.
+  - All four Muster handlers replace their _require_levy_step("muster")
+    with the helper (using the args.by_lord id).
+  - `_h_advance_step` clears the flag on CtA -> done transition so it
+    cannot persist into a subsequent Levy.
+
+Regressions: tests/test_round_152_legate_2c_extra_muster.py (11 tests)
+covering: markers in legate_use / Legate model / helper; each Muster
+handler uses the helper; advance_step clears the flag; helper
+rejects/accepts the right by_lord ids in call_to_arms vs muster.
+
+Pass 2 clean-round counter: 0 / 10 (SMOKE-106 reset the count).
+Test count: 1002 → 1013 (+11 regressions). SMOKE total: 106.

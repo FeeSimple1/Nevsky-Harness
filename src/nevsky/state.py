@@ -369,6 +369,14 @@ class Legate(BaseModel):
     location: Literal["card", "locale"] = "card"
     locale_id: str | None = None
     acted_this_call_to_arms: bool = False
+    # SMOKE-106 (Round 152): when Legate Use sub-option 2c fires, the
+    # targeted Mustered Lord gets an immediate EXTRA Muster using his
+    # FULL Lordship Rating; all 3.4.1-3.4.4 options are available.
+    # Pre-fix the harness set lordship_used=0 but each Muster handler
+    # required levy_step=="muster" — so the agent literally could not
+    # invoke the granted Muster. Track the target here so the Muster
+    # handlers can accept call_to_arms-step calls from that one Lord.
+    extra_muster_target_lord: str | None = None
 
 
 class PendingDecision(BaseModel):

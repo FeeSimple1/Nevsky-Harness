@@ -178,6 +178,27 @@ def _require_levy_step(state: GameState, step: str) -> None:
         )
 
 
+def _require_muster_or_legate_2c_extra(state: GameState, by_lord_id: str) -> None:
+    """SMOKE-106 (Round 152): Muster handlers normally require
+    levy_step == 'muster'. Legate Use sub-option 2c grants ONE Lord
+    an immediate EXTRA Muster during call_to_arms; that Lord may
+    invoke 3.4.1-3.4.4 Muster handlers as `by_lord` during
+    call_to_arms while `state.legate.extra_muster_target_lord ==
+    by_lord_id`. Other Lords still require muster step."""
+    if state.meta.levy_step == "muster":
+        return
+    if (state.meta.levy_step == "call_to_arms"
+            and state.legate.extra_muster_target_lord == by_lord_id):
+        return
+    raise IllegalAction(
+        "wrong_step",
+        f"Muster action requires levy_step=muster (or call_to_arms with "
+        f"Legate-2c extra-Muster target == by_lord); current="
+        f"{state.meta.levy_step}, legate extra target="
+        f"{state.legate.extra_muster_target_lord!r}",
+    )
+
+
 def _require_active(state: GameState, side: Side) -> None:
     if state.meta.active_player != side:
         raise IllegalAction(
@@ -285,6 +306,10 @@ def _h_advance_step(
                         if not vstate.ready and not vstate.mustered:
                             vstate.ready = True
         if next_step == "done":
+            # SMOKE-106 (Round 152): clear Legate-2c extra-Muster
+            # target on CtA exit. The flag should not persist into
+            # subsequent Levies.
+            state.legate.extra_muster_target_lord = None
             # SMOKE-039 (Round 51): auto-fire 3.5.3 ("both sides discard
             # This-Levy events") on the call_to_arms -> done transition.
             # The explicit aow_discard_this_levy action stays available
@@ -1488,12 +1513,16 @@ def _h_muster_lord(
 
     sd = _require_side_player(state, side)
     _require_levy_phase(state)
-    _require_levy_step(state, "muster")
     _require_active(state, sd)
-
     by_id = args.get("by_lord")
     target_id = args.get("target_lord")
     seat = args.get("seat")
+    # SMOKE-106 (Round 152): allow call_to_arms when Legate-2c
+    # extra-Muster target matches by_id.
+    if isinstance(by_id, str):
+        _require_muster_or_legate_2c_extra(state, by_id)
+    else:
+        _require_levy_step(state, "muster")
     for k, v in (("by_lord", by_id), ("target_lord", target_id), ("seat", seat)):
         if not isinstance(v, str):
             raise IllegalAction("missing_arg", f"args.{k} must be a string")
@@ -1719,11 +1748,13 @@ def _h_muster_vassal(
 
     sd = _require_side_player(state, side)
     _require_levy_phase(state)
-    _require_levy_step(state, "muster")
     _require_active(state, sd)
-
     by_id = args.get("by_lord")
     vid = args.get("vassal_id")
+    if isinstance(by_id, str):
+        _require_muster_or_legate_2c_extra(state, by_id)
+    else:
+        _require_levy_step(state, "muster")
     if not (isinstance(by_id, str) and isinstance(vid, str)):
         raise IllegalAction("missing_arg", "args: by_lord, vassal_id")
     if by_id not in state.lords or state.lords[by_id].side != sd:
@@ -1806,13 +1837,14 @@ def _h_levy_transport(
 
     sd = _require_side_player(state, side)
     _require_levy_phase(state)
-    _require_levy_step(state, "muster")
     _require_active(state, sd)
-
     by_id = args.get("by_lord")
     ttype = args.get("transport_type")
     if not (isinstance(by_id, str) and isinstance(ttype, str)):
         raise IllegalAction("missing_arg", "args: by_lord, transport_type")
+    # SMOKE-106 (Round 152): accept call_to_arms-step Muster from
+    # Legate-2c extra-Muster target.
+    _require_muster_or_legate_2c_extra(state, by_id)
     if ttype not in ("boat", "cart", "sled", "ship"):
         raise IllegalAction("bad_transport", f"transport_type {ttype!r} invalid")
     if by_id not in state.lords or state.lords[by_id].side != sd:
@@ -1890,13 +1922,14 @@ def _h_levy_capability(
 
     sd = _require_side_player(state, side)
     _require_levy_phase(state)
-    _require_levy_step(state, "muster")
     _require_active(state, sd)
-
     by_id = args.get("by_lord")
     cid = args.get("card_id")
     if not (isinstance(by_id, str) and isinstance(cid, str)):
         raise IllegalAction("missing_arg", "args: by_lord, card_id")
+    # SMOKE-106 (Round 152): accept call_to_arms-step Levy from
+    # Legate-2c extra-Muster target.
+    _require_muster_or_legate_2c_extra(state, by_id)
     if by_id not in state.lords or state.lords[by_id].side != sd:
         raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
 
@@ -2163,6 +2196,10 @@ def _h_legate_use(
         # (we do not trigger them here -- the agent emits them next).
         target.lordship_used = 0
         target.just_arrived_this_levy = False  # already-Mustered Lord
+        # SMOKE-106 (Round 152): mark the target so the Muster handlers
+        # accept call_to_arms-step Muster actions from this Lord. The
+        # flag clears at the next CtA boundary in _h_advance_step.
+        state.legate.extra_muster_target_lord = target_id
         result_extra = {"target_lord": target_id, "extra_muster": True}
 
     state.legate.acted_this_call_to_arms = True
