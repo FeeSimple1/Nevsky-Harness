@@ -8701,3 +8701,28 @@ other Lord; either flag matching suffices.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-107 reset the count).
 Test count: 1013 → 1020 (+7 regressions). SMOKE total: 107.
+
+## Round 154 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - Legate Endangered (1.4.1) trigger coverage across removal paths:
+    - SMOKE-043 Avoid Battle (Teutonic defender leaves origin)
+    - SMOKE-084 Battle aftermath Retreat (any Teu loser)
+    - SMOKE-085 Sally Retreat (besiegers, Teu)
+    - SMOKE-086 Storm Sack (Teu Stronghold sacked)
+    - SMOKE-087 Permanent Lord removal
+    - SMOKE-088 Disband at limit
+    - Withdraw (4.3.4) trigger inline in `_h_withdraw`
+  - Capability lookup hardening (has_lord_capability / has_side_
+    capability filter by capability_scope to avoid mis-placed
+    cards firing through the wrong path).
+  - Battle aftermath SMOKE-084 edge case: a besieged-inside-
+    Stronghold Teutonic Lord at cp.to_locale would technically
+    remain "at the locale" per the Endangered rule, but this
+    scenario isn't reachable through normal combat-pending flow
+    (you can't have a Battle at a locale with Russian besiegers
+    AND Teutonic defenders simultaneously losing — the Battle's
+    defender_lords filter excludes besieged-inside Lords).
+    Not a bug per current game state grammar.
+
+Pass 2, 1 / 10 clean (post-SMOKE-107 reset).
