@@ -8439,3 +8439,26 @@ rejection, ship authorization, per-type cap, no-R17 no-op.
 
 Pass 2 clean-round counter: 0 / 10 (SMOKE-104 reset the count).
 Test count: 989 → 997 (+8 regressions). SMOKE total: 104.
+
+## Round 144 — CLEAN (Pass 2: verification 1/10)
+
+Probed (no bugs found):
+  - T13 William of Modena lifecycle: capability text "Legate is in
+    play—start pawn on card and return it here when used". Initial
+    state in scenarios: william_of_modena_in_play=False, location=
+    "card", locale_id=None.
+  - 3.5.1 Legate Arrives: requires W.o.M. in play, pawn on card,
+    once-per-CtA gate (SMOKE-090), bishopric arg validation.
+  - 3.5.1 Legate Move / Use (2a/2b/2c): legal_moves enumerates
+    candidates correctly (Ready Lord at pawn's Seat for 2a; Lord
+    with pawn at Seat on Calendar for 2b; Mustered co-located Lord
+    at Friendly Locale for 2c).
+  - 3.5.1 "Without W.o.M., Teutons skip CtA": no Legate options
+    offered when not in play; legate_skip + aow_discard_this_levy
+    always offered (effective skip).
+  - SMOKE-087/088 Legate auto-removal on Teutonic Lord removal /
+    disband at Legate's Locale (cross-checked).
+  - T13 discard cascade: SMOKE-031 _discard_side_capability drops
+    Legate pawn + flips in_play=False.
+
+Pass 2, 1 / 10 clean (post-SMOKE-104 reset).
