@@ -1016,21 +1016,68 @@ def _h_cmd_sail(
         int(state.lords[gid].forces.get(u, 0))
         for gid in group for u in horse_unit_types
     )
+    # SMOKE-100 (Round 120): per rule 1.7.2 Greed, Lords MAY discard
+    # Loot and Provender when Sailing (4.7.3 listed alongside March/
+    # Avoid Battle/Retreat). The harness previously rejected with
+    # insufficient_ships even when voluntary discard could fit the
+    # group within budget. Accept optional discard flags:
+    #   args.discard_excess_provender=True/<int>
+    #   args.discard_excess_loot=True/<int>
+    # True discards EVERYTHING; integer N discards up to N.
+    horse_ship_factor = 1 if sd == "teutonic" else 2
+    ships_available = sum(effective_ship_count(state, gid) for gid in group)
+    horse_ship_need = horse_units * horse_ship_factor
+    discard_prov_req = args.get("discard_excess_provender")
+    discard_loot_req = args.get("discard_excess_loot")
+    discarded_prov = 0
+    discarded_loot = 0
+    if discard_prov_req or discard_loot_req:
+        # Greedily discard to fit budget — Loot first (2 Ships saved
+        # per discard), then Provender. Honor explicit per-arg caps
+        # when given as int; True means up to all available.
+        budget = ships_available - horse_ship_need
+        # Distribute discards across group members (Lord may discard
+        # from each own mat). The 1.7.2 rule is per-Lord; we apply
+        # discard greedily across the group, recording per-Lord delta.
+        if discard_loot_req:
+            cap_loot = (sum(int(state.lords[gid].assets.get("loot", 0)) for gid in group)
+                        if discard_loot_req is True else int(discard_loot_req))
+            for gid in group:
+                if cap_loot <= 0:
+                    break
+                have = int(state.lords[gid].assets.get("loot", 0))
+                take = min(have, cap_loot)
+                if take > 0:
+                    state.lords[gid].assets["loot"] = have - take
+                    if state.lords[gid].assets["loot"] == 0:
+                        del state.lords[gid].assets["loot"]
+                    discarded_loot += take
+                    cap_loot -= take
+        if discard_prov_req:
+            cap_prov = (sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
+                        if discard_prov_req is True else int(discard_prov_req))
+            for gid in group:
+                if cap_prov <= 0:
+                    break
+                have = int(state.lords[gid].assets.get("provender", 0))
+                take = min(have, cap_prov)
+                if take > 0:
+                    state.lords[gid].assets["provender"] = have - take
+                    if state.lords[gid].assets["provender"] == 0:
+                        del state.lords[gid].assets["provender"]
+                    discarded_prov += take
+                    cap_prov -= take
     provender_total = sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
     loot_total = sum(int(state.lords[gid].assets.get("loot", 0)) for gid in group)
-    horse_ship_factor = 1 if sd == "teutonic" else 2
-    ships_needed = (
-        horse_units * horse_ship_factor
-        + provender_total
-        + loot_total * 2
-    )
-    ships_available = sum(effective_ship_count(state, gid) for gid in group)
+    ships_needed = horse_ship_need + provender_total + loot_total * 2
     if ships_needed > ships_available:
         raise IllegalAction(
             "insufficient_ships",
             f"Sail needs {ships_needed} Ships (horse={horse_units}x{horse_ship_factor}, "
             f"prov={provender_total}, loot={loot_total}x2); group has "
-            f"{ships_available} effective Ships (4.7.3)",
+            f"{ships_available} effective Ships (4.7.3). Pass "
+            f"args.discard_excess_provender / args.discard_excess_loot "
+            f"to drop assets first per 1.7.2.",
         )
 
     # Move group (location + moved_fought already validated above).

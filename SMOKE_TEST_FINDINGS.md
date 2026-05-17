@@ -7854,3 +7854,34 @@ Probed (no bugs found):
   - Save/Load roundtrip with routed_units.
 
 Clean: 1 / 10 of verification batch.
+
+## Round 120 — SMOKE-100
+
+### SMOKE-100: Sail doesn't honor 1.7.2 voluntary asset discard
+
+**Rule:** 1.7.2 Greed — "Lords may discard Assets ONLY when
+triggered by one of these events: March Laden, March Unladen,
+Avoid Battle, Retreat, or Sail." All four listed events
+previously honored this in the harness EXCEPT Sail.
+
+**Bug:** `_h_cmd_sail` had no discard step. A Lord with extra
+Loot/Provender that exceeded the Ship budget could not
+voluntarily discard to fit; Sail rejected with
+`insufficient_ships`. The March handler accepts
+`args.discard_excess_provender`; Sail had no counterpart.
+
+**Fix:** Accept `args.discard_excess_provender` and
+`args.discard_excess_loot` (True = all, int = cap). Discard
+runs BEFORE the ship-budget check so the check uses post-discard
+totals. Loot is discarded first (2 Ships saved per discard) then
+Provender (1 Ship saved per discard). Error message updated to
+direct the caller to the new args.
+
+`tests/test_round_120_sail_discard.py` — 4 regressions:
+discard_excess_provender saves Sail, discard_excess_loot saves
+Sail, no-arg still rejects, and source-inspection check.
+
+964 → 968 passing. Verification batch RESET 0/10 again (was 1/10
+after R119). 8 routed-units-family bugs (SMOKE-093 ... -099) +
+this new "greed rule not honored by Sail" bug = 9 SMOKEs in 7
+rounds.
