@@ -7562,3 +7562,13 @@ Probed surfaces and found no actionable bugs:
     Storm per `_is_besieged` rejection).
 
 Clean-round counter: 1 / 5.
+
+## Round 107 — CLEAN (no bugs found)
+
+Probed surfaces and found no actionable bugs:
+  - _h_legate_move acted_this_call_to_arms flag setting.
+  - Veche Option A/B/C VP marker decrement + russian_vp decrement.
+  - Veche Option D VP marker cap at 8 + russian_vp update.
+  - Pleskau scenario No-Event pre-removal at setup time.
+
+Clean-round counter: 2 / 5.
