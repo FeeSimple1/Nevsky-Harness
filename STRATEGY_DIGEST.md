@@ -434,3 +434,190 @@ The harness will not consult this document. Nothing in
 `src/nevsky/` parses or loads it. It is a peer document to BRIEF.md
 and the reference/ files — useful information for the LLM consumer,
 not a runtime dependency of the engine.
+
+
+# 11. Insights from the Self-Play Sweep (R178-R179)
+
+A "greedy advance-and-progress" self-play agent was built and run
+across all six loadable scenarios at 50 seeds each (300 sessions
+total). The agent picks the highest-priority legal action with no
+strategic foresight: progression actions over commands, pay-self-
+service over cross-pays, no proactive ravaging or sieging. It
+completes 298/300 sessions and exhibits a clear "no-combat baseline"
+that's worth knowing.
+
+## 11.1 The no-combat baseline favors whoever starts ahead on VP
+
+Across all 300 sessions, the greedy agent triggered **zero
+Battles, Storms, Sallies, or Ravages**. Every game decayed into VP
+arithmetic from the starting position plus a small drip from
+events (Bountiful Harvest +/-0.5 VP). Outcomes:
+
+| Scenario               | No-combat winner            | Reason                                                     |
+|------------------------|-----------------------------|------------------------------------------------------------|
+| Pleskau                | Russian (slight) or Draw    | Russian starts with 1 Conquered Bishopric; Teutons get nothing without aggression. |
+| Watland                | Teutonic                    | Teutons start ~4 VP; Watland override requires Teu ≥ 7 AND ≥ 2× Rus, so without aggression Teu still beats Rus by VP-count. |
+| Peipus                 | Teutonic                    | Teutons start 4.5; Rus start ~1; Rus must aggressively attack to catch up. |
+| Return of the Prince   | Teutonic                    | T 9 - R 0 starting; Rus must claw back ~6 VP through Storm/Ravage. |
+| Crusade on Novgorod    | Russian (narrow)            | Both start with 0 VP; small VP drift from events tips R-side. |
+
+The takeaway for both sides: **playing purely defensively is a
+losing strategy for whoever has the lower starting VP**. The
+asymmetric scenarios (everything except CtN) require the trailing
+side to commit to aggressive action. CtN starts even and rewards
+attrition; the others demand offensive plays.
+
+## 11.2 Andreas is the Russian's most-attacked target
+
+Across the 300 sessions, Andreas (Teutonic permanent Marshal) was
+permanently removed (via Battle/Storm losses or Disband-from-zero-
+forces) in many mid-Levy events that triggered R10 / R17 (which
+SHIFT Andreas) — confirming that the "Mongols turn west" and
+"Dietrich von Grueningen" events are effectively soft-anchored on
+Andreas. Russian play that gets Andreas off the map (Battle losses,
+forcing his Service short) materially weakens the Teuton because
+he's the only permanent Teuton Marshal. Hermann/Yaroslav can fill
+in only when Andreas is off the map (Q-003).
+
+## 11.3 Late-game Pass-card collapse
+
+Past the midpoint, scenarios where neither side mustered new Lords
+saw the Plan stacks fill with Pass cards (Lord cards for removed
+Lords resolved as "pass_not_on_map"). The agent stalled into endless
+Pass-FPD-advance cycles. Strategic implication: **failing to re-
+Muster Lords aggressively means losing tempo permanently** —
+Pass cards are not just neutral, they accelerate the Calendar
+without doing anything for the player.
+
+For the Teuton in long scenarios (RotP, CtN): Plan around 4.9.5
+Crusade auto-discard at the start of each year's Late Winter (box
+5/13). Summer Crusaders disband then; if you didn't extract VP
+during the Summer they were free-Mustered, you wasted them.
+
+For the Russian: Veche Option A (slide LEFT 2 boxes for 1 VP) and
+Option B (auto-Muster Ready Lord) become more valuable as the game
+progresses and natural Muster opportunities decay. Don't hoard Veche
+VP — spend them to keep Lords on the map.
+
+## 11.4 The 4.8 Feed/Pay/Disband cycle is the dominant time cost
+
+In every replay, FPD-resolve was the most-frequent action by 2-3x
+(48-304 calls per scenario). The harness fires FPD between every
+card. Plan accordingly:
+
+- **Lords with no Provender in non-Friendly territory rout quickly**
+  during Feed (1 unit lost per moved_fought Lord with empty
+  Provender). Stack Provender via Forage/Supply BEFORE marching
+  into a multi-card campaign.
+- **The Pay step is where Service-marker pressure hits**. Always
+  decide whether you need to spend Coin to push Service right NOW
+  vs save for next Levy. Service marker at-or-left-of Levy →
+  permanent removal at next Disband (3.3.1), so 1 Coin spent on
+  Service is sometimes worth more than 5 Coin spent on capabilities.
+- **The Disband step is where Lords leave the game permanently**.
+  Audit each Lord's current Service-marker box before the start of
+  each Campaign; flag anyone whose marker is in danger.
+
+## 11.5 Trade-route auto-flip is a free VP source per locale visit
+
+The harness has explicit auto-flip on uncontested entry (SMOKE-020,
+091). For Trade Route locales (Russian-territory boxed locales:
+the harness encodes these as `type=trade_route`), a Lord entering
+unopposed flips the marker for 1 VP each. **Sending a single Lord
+to walk along the Russian trade-route chain in a quiet Campaign is
+worth several VP**, with no Battle cost.
+
+For the Russian, this also goes the other way: re-occupying
+Teuton-Conquered trade-route locales re-flips them back, costing
+the Teuton VP. Don't leave them open during downtime.
+
+## 11.6 Storm vs Siege economics
+
+The harness implements Surrender (Siege roll ≤ siege_markers, no
+Spoils) and Sack (Storm wins, full Spoils + Lord removal +
+optional Castle flip via SMOKE-040 / 023). Strategic implication
+the digest already hints at, confirmed by the harness:
+
+- **Surrender** is the cheap path. Build siege markers to 3-4 over
+  multiple Campaigns, then Siege when no defenders are inside.
+  This is the dominant strategy for Castles you DON'T need the
+  Coin/Provender from.
+- **Storm** is the expensive path but pays Loot/Provender/Coin =
+  VP each, plus auto-removes besieged Lords (Ransom may apply per
+  SMOKE-101). The dominant strategy for Cities (2 VP, Pskov/
+  Ladoga/Rusa) and Novgorod (3 VP + Veche Coin transfer) where the
+  Spoils matter.
+
+## 11.7 Multi-card campaigns require provender stacking
+
+A Lord marching multi-Locale into enemy territory needs Provender
+for every Feed step (≥1 Provender per moved_fought card OR routs).
+The greedy agent never plans multi-card campaigns because it lacks
+intent. A strategic player should:
+
+1. Pre-Forage / Supply the active Lord to 4-6 Provender BEFORE the
+   campaign Plan finalizes.
+2. Use group Marches with Marshal so Provender can be shared
+   (1.5.2 sharing rules apply).
+3. Plan for Sled-vs-Cart seasonality (SMOKE-078): Sleds in Winter
+   only, Carts in Summer only; Boats Summer/Rasputitsa.
+
+## 11.8 Levy-time capability picks confirmed by replay frequency
+
+The greedy agent picked capabilities ~15-25 times per long scenario
+(via the high-priority `levy_capability` action). When picks were
+restricted by Eligibility (SMOKE-029) or Lord-cap-2 (line 503 of
+actions.py), the agent skipped — confirming the printed Eligibility
+list is the binding constraint in practice, not Lord choice.
+
+Strategic implication: when picking Capabilities at Levy, prioritize
+by Lord-fit:
+
+- **For your single most-likely-to-survive Lord**, pick the strong
+  this_lord capabilities (Druzhina, Cogs, Lodya, Veliky Knyaz).
+- **For side-wide capabilities** (Treaty of Stensby, Ordensburgen,
+  Archbishopric, T11 Crusade, T13 William of Modena): pick by VP
+  trajectory. Stensby +1 Command for 2 Teuton Lords is high-
+  leverage early; Crusade is a Summer-only auto-Muster pump.
+
+## 11.9 Specific scenario refinements
+
+### Pleskau refinement
+
+Self-play confirmed: 2-turn scenarios are too short to recover from
+an early VP swing. Teuton play that doesn't Storm Izborsk by turn 2
+gets at most a draw. Russian play that Ravages aggressively in
+Estonia (via Vladislav) can flip the draw to a Russian win on the
+"+1 VP per enemy Lord removed" rule (Pleskau special: SMOKE-024
+mirrors the bonus to calendar.\<other\>_vp).
+
+### Watland refinement
+
+Self-play confirmed the Teutonic floor of ~3.5-4 VP from starting
+markers. With Watland's victory override (T ≥ 7 AND T ≥ 2×R), even
+the no-combat baseline gives Teutons. Russian play MUST raise R-VP
+above T/2 to win — typically by Ravaging Estonia/Livonia to ≥2 R-
+Ravaged markers (1 VP combined) plus Conquering at least one minor
+T-Stronghold.
+
+### Crusade on Novgorod refinement
+
+The 16-turn game in self-play repeatedly closed at T 0 - R 0.5/1
+because no aggressive play happened. With strategic play:
+
+- **Year 1 (boxes 1-8)** is the Teuton's best window: Andreas
+  fresh, Crusade auto-Muster active in Summer (T11 + box 1/9 =
+  Summer). Plan the Pskov Storm by box 2 of Summer.
+- **Box 5/13 Late Winter** is the Crusade discard trigger. Plan
+  to extract VP from Summer Crusaders BEFORE this box.
+- **Aleksandr arrives via Veche** at the Russian's discretion; the
+  rule "no Lord may Muster Aleksandr" (SMOKE-008-style enforcement)
+  makes him a Russian initiative card. Bring him on when Teuton
+  Service has worn (boxes 8-10 typically).
+
+---
+
+*Sections 11.1-11.9 were added based on R178-R179 self-play sweep
+data (300 sessions, all scenarios). The data is descriptive (what
+the no-strategy baseline produces) — strategic recommendations
+above interpolate from that baseline + the existing digest.*
