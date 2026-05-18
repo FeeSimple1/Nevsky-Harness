@@ -122,10 +122,13 @@ def test_smoke_124_aow_implement_card_carries_lord_id_for_this_lord_scope():
                and target.side == "russian"
 
 
-def test_smoke_124_aow_implement_card_no_emit_when_no_eligible_lord():
-    """When no Mustered Lord is eligible (R11 in pleskau —
-    Aleksandr+Andrey both removed_from_play), the enumerator must
-    NOT emit a phantom no-lord_id placeholder."""
+def test_smoke_124_aow_implement_card_routes_to_autodiscard_when_no_eligible_lord():
+    """Post-Q-R190-A (R193): when no Mustered own-side Lord is
+    eligible (R11 in pleskau — Aleksandr+Andrey both removed_from_play),
+    the enumerator emits a single aow_implement_card option WITHOUT
+    lord_id. The handler routes that through the new auto-discard
+    path: pop pending_draw, append to deck.discard, return
+    outcome='discarded_no_eligible_lord'."""
     s = load_scenario("pleskau", seed=1)
     s.decks.russian.pending_draw = ["R11"]
     s.meta.phase = "levy"
@@ -134,10 +137,19 @@ def test_smoke_124_aow_implement_card_no_emit_when_no_eligible_lord():
     s.meta.first_levy_done = False
     moves = legal_moves(s, with_previews=False)
     imp = [m for m in moves if m.get("type") == "aow_implement_card"]
-    assert imp == [], (
-        f"enumerator must not emit aow_implement_card R11 when no Lord "
-        f"is eligible; got {imp}"
+    assert len(imp) == 1, (
+        f"enumerator must offer exactly one auto-discard option for "
+        f"R11 in pleskau (no-eligible-Lord case); got {imp}"
     )
+    # The emitted option has no lord_id (routes through handler discard).
+    assert imp[0]["args"]["card_id"] == "R11"
+    assert "lord_id" not in imp[0]["args"]
+    # And the move round-trips cleanly through apply_action.
+    snap = s.model_copy(deep=True)
+    res = apply_action(snap, imp[0])
+    assert res.get("outcome") == "discarded_no_eligible_lord"
+    assert "R11" in snap.decks.russian.discard
+    assert snap.decks.russian.pending_draw == []
 
 
 # ----- SMOKE-125 -----------------------------------------------------------

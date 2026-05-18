@@ -9826,3 +9826,45 @@ and aggressive all beat greedy more often than they lose to it
 (33% vs 25% win rate).
 
 Tests: 1231 → 1235 (4 new in `test_round_192_llm_tournament.py`).
+
+---
+
+## Round 193 — Q-R190-A adjudicated: auto-discard un-implementable this_lord Capability
+
+User adjudication (see RULES_DECISIONS.md Q-R190-A): when
+`_h_aow_implement_card` is invoked for a `this_lord` Capability
+at first Levy and no Mustered own-side Lord matches the coats
+of arms (the same predicate 3.4.4 uses), pop pending_draw,
+append to `deck.discard`, return `outcome="discarded_no_eligible_lord"`.
+Card may resurface as an Event in later Levies — distinct from
+the "Remove from play any No Capability card" path (which goes
+to `deck.removed`).
+
+Cited from 2E Sequence of Play 3.1.2 bullet list — easy to miss
+because it visually reads like part of 3.1.3.
+
+### Handler
+
+`src/nevsky/actions.py` `_h_aow_implement_card` — added pre-check
+before the `lord_id` arg validation that iterates Mustered own-side
+Lords through `_check_capability_eligibility` (reuses SMOKE-029's
+predicate so all four scope codes — `lords` / `any` / `all` /
+`any_except` — are honored identically). When zero pass, executes
+the auto-discard path with the documented telemetry shape.
+
+### Enumerator
+
+`src/nevsky/legal_moves.py` `_aow_moves` (SMOKE-124 block) —
+when no eligible Lord found, now emits a single
+`aow_implement_card` option without `lord_id` so agents have a
+legal move to pick rather than stalling. Replaces R190's
+"emit nothing" honesty-stub.
+
+### Verification
+
+- Round-trip sweep (18 sessions × 9454 probes): 0 findings.
+- Scaled self-play sweep (300 sessions): 300/300 terminal, 0
+  real errors. Pleskau now progresses through R11 instead of
+  stalling.
+- Tests: 1235 → 1241 (6 new in
+  `test_round_193_no_eligible_lord_auto_discard.py`).
