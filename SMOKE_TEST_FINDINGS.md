@@ -9750,3 +9750,44 @@ scenario data).
 
 Test count: 1213 → 1224 (11 new in `tests/test_round_190_roundtrip_smokes.py`).
 SMOKE total: 122 → 128.
+
+---
+
+## Round 191 — Soft-signal verification + CI-gate round-trip property test
+
+### R187 R9 stuck case: transitively fixed by R190
+
+R187's scaled sweep (300 sessions) had 1 stuck session attributed to
+"a downstream R9 ineligible_target edge case (combination of state
+SMOKE-114's fix didn't anticipate)." Re-ran the scaled sweep
+post-R190: **300/300 terminal, 0 real errors**. The R9 stall was
+not in the R9 handler itself but in the greedy agent's state-space
+navigation — once R190's enumerator filters (SMOKE-123..128) stopped
+the agent from burning turns on phantom-legal moves, the R9
+sequence ran to completion in every seed.
+
+### cmd_march excess_provender: shipped in R190 as SMOKE-127
+
+R191's planned scope had a separate `cmd_march excess_provender`
+investigation. The R190 round-trip sweep surfaced this naturally
+and SMOKE-127 fixed it in the same batch (enumerator now emits
+the move with `args.discard_excess_provender=True` set when the
+4.3.2 gate would otherwise fire). No additional R191 work needed.
+
+### Pivot: CI gate for the round-trip audit
+
+Replaced R191's planned investigations with the more durable
+follow-up: convert `scripts/roundtrip_sweep.py`'s informational
+sweep into a pytest regression gate. Added
+`tests/test_round_191_roundtrip_property.py` — parameterized over
+7 (scenario, seed) pairs covering all 6 scenarios, walking 30
+steps per session, probing every emitted move through
+`apply_action`. Pre-R190 this would have surfaced ~50 findings
+per scenario; post-R190 it's clean.
+
+The CI gate exists to catch enumerator drift before it lands —
+any future change that breaks the SMOKE-118/119/122/123..128
+filter family will fail this test before merging.
+
+Tests: 1224 → 1231 (7 new in test_round_191_roundtrip_property.py).
+SMOKE total: still 128.
