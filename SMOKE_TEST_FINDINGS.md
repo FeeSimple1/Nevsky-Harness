@@ -9652,3 +9652,101 @@ own-territory teutonic, own-territory russian, already-
 ravaged, positive-control enemy locale, source-marker).
 
 Test count: 1208 → 1213. SMOKE total: 122.
+
+---
+
+## Round 190 — Enumerator/handler round-trip sweep + SMOKE-123..128 batch
+
+The §2 audit recommended in `CROSS_PROJECT_LESSONS.md`: snapshot
+every state visited by self-play, replay every `legal_moves` shape
+through `apply_action`, assert no `IllegalAction`. Implemented as
+`scripts/roundtrip_sweep.py`. Pre-fix sweep across all 6 scenarios
+× 5 seeds × max-200 steps: **456 findings**. Post-fix: **0**.
+
+The audit predicted 2-5 SMOKEs in the same family as 118/122; the
+sweep surfaced six, all the same shape (enumerator emits options
+the handler then rejects).
+
+### SMOKE-123 — `levy_capability` T13 needs Heinrich on map
+
+T13 William of Modena's handler hardcodes `if cid == "T13" and
+heinrich not mustered/located: raise heinrich_off_map`. SMOKE-118's
+generic `capability_eligibility` filter doesn't catch it because
+T13's eligibility data permits any Levyer; the Heinrich-on-map
+requirement is a separate runtime gate. Fix: mirror the gate in
+`_levy_moves`'s SMOKE-118 filter block.
+
+### SMOKE-124 — `aow_implement_card` first-Levy this_lord needs `lord_id`
+
+When first_levy_done=False and the next pending_draw card is
+`capability_scope == "this_lord"`, the handler requires `args.lord_id`
+targeting an eligible Mustered own-side Lord. The enumerator was
+emitting only `{card_id}`, triggering `missing_arg` on every
+draw of a this_lord capability. Fix: expand the emit into one
+option per eligible Lord (mirroring the SMOKE-118 filter's
+capability_eligibility / cap-2 / dup-name checks). When no Lord
+is eligible (R11 in pleskau — see Q-R190-A in RULES_QUESTIONS.md),
+emit nothing rather than a phantom-illegal placeholder.
+
+### SMOKE-125 — `cmd_tax` requires own Seat
+
+`_h_cmd_tax` raises `not_at_seat` when the active Lord isn't at
+one of his Seats (4.7.4). The enumerator offered cmd_tax
+unconditionally. Fix: pre-filter via `_is_own_seat`, also
+suppressing when Coin is already at the cap of 8.
+
+### SMOKE-126 — `cmd_forage` requires NOT-Ravaged AND (Friendly Stronghold OR Summer)
+
+Three independent rejection codes in `_h_cmd_forage`: `ravaged`,
+`forage_seasonal`, `provender_max`. Enumerator offered forage
+without any of these checks. Fix: mirror all three in
+`_campaign_moves`, gated behind a try/except so a static-data
+load failure suppresses the option rather than crashing.
+
+### SMOKE-127 — `cmd_march` with excess Provender
+
+4.3.2: a Lord with Provender > 2x usable Transport may NOT march
+unless he discards the excess. The handler accepts
+`args.discard_excess_provender=True` as the auto-discard flag.
+Enumerator was emitting bare `{lord_id, to}` even when the gate
+would fire. Fix: when `_must_discard_to_move_excess` > 0 for the
+(lord, way_type) combination, emit the move WITH the flag set so
+every emitted cmd_march is legal as-is. Annotate the note with
+the excess amount so consumers can see what they're agreeing to.
+
+### SMOKE-128 — `cmd_march` insufficient_actions
+
+4.3: March costs 1 action Unladen, 2 Laden. Enumerator emitted
+the move regardless of `actions_remaining`. Fix: compute
+`_is_laden(state, lord, way_type=way_type)` per-edge and suppress
+edges where `actions_remaining < cost`.
+
+### Remaining open: Q-R190-A (un-implementable Capability)
+
+The sweep also surfaced a handler-level dead-end: pleskau removes
+Aleksandr and Andrey from play but keeps R5/R6/R11 in the Russian
+deck. When R11 (House of Suzdal — aleksandr/andrey only) is drawn
+at first Levy, no Mustered Lord can carry it; the handler has no
+auto-discard path; the game stalls. SMOKE-124's enumerator fix
+exposes this honestly (emits no `aow_implement_card` option) but
+the underlying gap requires a rules adjudication. Logged as
+Q-R190-A in RULES_QUESTIONS.md with 5 options for the user
+(auto-discard / auto-remove / any-Lord / re-shuffle / fix in
+scenario data).
+
+### Sweep result
+
+| Scope                 | Pre-fix | Post-fix |
+|-----------------------|---------|----------|
+| Findings              | 456     | 0        |
+| Probes                | 15560   | 15350    |
+| Sessions terminal     | 0/30    | 0/30     |
+| `levy_capability` h_o_m | 288   | 0        |
+| `cmd_march` exc_prov  | 48      | 0        |
+| `cmd_tax` not_at_seat | 43      | 0        |
+| `aow_implement_card`  | 30      | 0        |
+| `cmd_forage` (×2)     | 23      | 0        |
+| `cmd_march` ins_act   | 10      | 0        |
+
+Test count: 1213 → 1224 (11 new in `tests/test_round_190_roundtrip_smokes.py`).
+SMOKE total: 122 → 128.

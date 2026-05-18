@@ -63,14 +63,61 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
 def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     sd = state.decks.teutonic if side == "teutonic" else state.decks.russian
+    # SMOKE-124 (Round 190): need cards static data for capability scope check.
+    cards = load_cards()
     if sd.pending_draw:
         # Must implement before drawing more.
-        out.append({
-            "type": "aow_implement_card",
-            "side": side,
-            "args": {"card_id": sd.pending_draw[0]},
-            "note": "implements next pending_draw card per 3.1.2 / 3.1.3",
-        })
+        # SMOKE-124 (Round 190): when this is first_levy implementation
+        # AND the card has capability_scope == "this_lord", the handler
+        # requires args.lord_id targeting a Mustered own-side Lord with
+        # capacity and eligibility (per 3.1.2 / 3.4.4 / SMOKE-029). The
+        # naive pending_draw[0] emit-without-lord_id was rejected with
+        # missing_arg. Expand to one option per eligible Lord.
+        cid_pending = sd.pending_draw[0]
+        card_pending = cards[cid_pending]
+        is_capability_phase = not state.meta.first_levy_done
+        scope_pending = card_pending.get("capability_scope") or "?"
+        if (is_capability_phase
+                and scope_pending == "this_lord"
+                and not card_pending.get("no_event")):
+            from nevsky.actions import _check_capability_eligibility
+            eligible_lords = []
+            for lid, lord in state.lords.items():
+                if lord.side != side or lord.state != "mustered":
+                    continue
+                if len(lord.this_lord_capabilities) >= 2:
+                    continue
+                cap_name_p = card_pending.get("capability_name") or "?"
+                if any(cards[ex].get("capability_name") == cap_name_p
+                       for ex in lord.this_lord_capabilities):
+                    continue
+                try:
+                    _check_capability_eligibility(card_pending, lid, role="target")
+                except Exception:
+                    continue
+                eligible_lords.append(lid)
+            for lid in eligible_lords:
+                out.append({
+                    "type": "aow_implement_card",
+                    "side": side,
+                    "args": {"card_id": cid_pending, "lord_id": lid},
+                    "note": f"implements pending_draw {cid_pending} on {lid} (this_lord scope, 3.1.2)",
+                })
+            # If no Lord is eligible (e.g. R11 House of Suzdal in
+            # pleskau where Aleksandr+Andrey are both removed_from_play),
+            # we deliberately emit NOTHING rather than a guaranteed-
+            # illegal placeholder. This surfaces the underlying handler
+            # gap (no auto-discard path for un-implementable this_lord
+            # Capabilities at first Levy) instead of masking it with a
+            # phantom-legal option. See RULES_QUESTIONS Q-XXX for the
+            # adjudication-pending rules call.
+        else:
+            out.append({
+                "type": "aow_implement_card",
+                "side": side,
+                "args": {"card_id": cid_pending},
+                "note": "implements next pending_draw card per 3.1.2 / 3.1.3",
+            })
     else:
         # Allow shuffle + draw in same Levy.
         if sd.deck or sd.discard:
@@ -262,6 +309,16 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                      else state.meta.block_lords_this_levy_r)
             if by_lid in block:
                 continue
+            # SMOKE-123 (Round 190): T13 William of Modena requires
+            # Heinrich on map (per AoW Reference Event Tip). The
+            # handler hardcodes this check in actions.py; the
+            # SMOKE-118 capability_eligibility filter doesn't catch
+            # it because T13's eligibility data permits any Lord
+            # to Levy it -- the runtime condition is separate.
+            if cid == "T13" and side == "teutonic":
+                h = state.lords.get("heinrich")
+                if h is None or h.state != "mustered" or h.location is None:
+                    continue
             out.append({
                 "type": "levy_capability", "side": side,
                 "args": {"by_lord": by_lid, "card_id": cid},
@@ -579,9 +636,36 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     adj.append((w["b"], w.get("type", "?")))
                 elif w["b"] == here:
                     adj.append((w["a"], w.get("type", "?")))
-            from nevsky.campaign import _has_enemy_stronghold_at
+            from nevsky.campaign import (
+                _has_enemy_stronghold_at,
+                _is_laden as _il_mr,
+                _must_discard_to_move_excess as _mdme_mr,
+            )
             for dest, way_type in adj:
-                base_note = f"March {active_lord} {here}->{dest} via {way_type} (1 action Unladen, 2 Laden)"
+                # SMOKE-128 (Round 190): cmd_march costs 1 action
+                # Unladen, 2 Laden (4.3). Suppress the option when the
+                # active Lord's actions_remaining can't cover the cost
+                # for this specific way_type -- the handler raises
+                # insufficient_actions. The enumerator already had way
+                # information per-edge, so the check is cheap.
+                march_laden = _il_mr(state, active_lord, way_type=way_type)
+                march_cost = 2 if march_laden else 1
+                if state.campaign_turn.actions_remaining < march_cost:
+                    continue
+                # SMOKE-127 (Round 190): 4.3.2 gate -- a Lord with more
+                # than 2x usable Transport in Provender may NOT March
+                # unless he discards the excess. The handler accepts
+                # an explicit args.discard_excess_provender=True to
+                # auto-discard (which is the only legal way through
+                # this gate without a separate action). Emit the move
+                # with the flag set when the gate would otherwise fire,
+                # so every emitted cmd_march is legal.
+                excess_mr = _mdme_mr(state, active_lord, way_type=way_type)
+                base_note = f"March {active_lord} {here}->{dest} via {way_type} (cost={march_cost})"
+                args_mr: dict[str, Any] = {"lord_id": active_lord, "to": dest}
+                if excess_mr > 0:
+                    args_mr["discard_excess_provender"] = True
+                    base_note += f" | NOTE: discards {excess_mr} excess Provender (4.3.2)"
                 # Warn when entering enemy-territory Stronghold: per rule
                 # 4.3 ends_card_when began_siege, this March places a
                 # Siege marker AND ends the Command card.
@@ -601,7 +685,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     base_note += f" | NOTE: enemy Lord(s) {enemy_at_dest} at dest; triggers Approach decision (4.3.4)"
                 out.append({
                     "type": "cmd_march", "side": side,
-                    "args": {"lord_id": active_lord, "to": dest},
+                    "args": args_mr,
                     "note": base_note,
                 })
         except (ImportError, KeyError, AttributeError, FileNotFoundError) as e:
@@ -648,12 +732,52 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})
-        out.append({"type": "cmd_tax", "side": side,
-                    "args": {"lord_id": active_lord},
-                    "note": "+1 Coin at own Seat (entire card)"})
-        out.append({"type": "cmd_forage", "side": side,
-                    "args": {"lord_id": active_lord},
-                    "note": "+1 Provender (1 action)"})
+        # SMOKE-125 (Round 190): cmd_tax requires the active Lord be
+        # at his own Seat (4.7.4). Without this filter the enumerator
+        # surfaces guaranteed-illegal Tax actions whenever the active
+        # Lord is anywhere but his Seat -- which is most of the game.
+        from nevsky.campaign import _is_own_seat
+        if (active.location is not None
+                and _is_own_seat(state, active_lord, active.location)
+                and active.assets.get("coin", 0) < 8):
+            out.append({"type": "cmd_tax", "side": side,
+                        "args": {"lord_id": active_lord},
+                        "note": "+1 Coin at own Seat (entire card)"})
+        # SMOKE-126 (Round 190): cmd_forage requires (a) Locale NOT
+        # Ravaged AND (b) at a Friendly Stronghold OR season is Summer
+        # (4.7.1). The enumerator was offering forage at ravaged
+        # Locales (forage code: ravaged) and at non-friendly non-Summer
+        # Locales (forage_seasonal). Mirror _h_cmd_forage's pre-checks.
+        forage_ok = False
+        if active.location is not None and active.assets.get("provender", 0) < 8:
+            try:
+                from nevsky.campaign import (
+                    _effective_stronghold as _es_fg,
+                    _is_friendly_locale as _ifr_fg,
+                )
+                from nevsky.scenarios import _season_for_box as _sfb_fg
+                loc_state_fg = state.locales.get(active.location)
+                if loc_state_fg is not None:
+                    own_rav = (loc_state_fg.teutonic_ravaged if side == "teutonic"
+                               else loc_state_fg.russian_ravaged)
+                    enemy_rav = (loc_state_fg.russian_ravaged if side == "teutonic"
+                                 else loc_state_fg.teutonic_ravaged)
+                    if not (own_rav or enemy_rav):
+                        season_fg = _sfb_fg(state.meta.box)
+                        eff_sh_fg = _es_fg(state, active.location)
+                        is_fr_sh = (
+                            eff_sh_fg is not None
+                            and not eff_sh_fg.get("no_storm")
+                            and _ifr_fg(state, active.location, side)
+                        )
+                        if is_fr_sh or season_fg == "summer":
+                            forage_ok = True
+            except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                forage_ok = False
+        if forage_ok:
+            out.append({"type": "cmd_forage", "side": side,
+                        "args": {"lord_id": active_lord},
+                        "note": "+1 Provender (1 action)"})
         # SMOKE-122 (Round 188): pre-filter cmd_ravage by the same
         # rejection conditions enforced in _h_cmd_ravage (campaign.py
         # 4.7.2): NOT own territory, NOT already Conquered, NOT
