@@ -9791,3 +9791,38 @@ filter family will fail this test before merging.
 
 Tests: 1224 → 1231 (7 new in test_round_191_roundtrip_property.py).
 SMOKE total: still 128.
+
+---
+
+## Round 192 — LLM-vs-LLM tournament harness
+
+Added `scripts/llm_tournament.py` — a round-robin tournament
+across configurable agents and scenarios. Four built-in agent
+personas (deterministic strategies mimicking different LLM
+styles): `greedy` (self_play priority), `strategic`
+(strategic_agent scoring, combat-aggressive), `aggressive`
+(greedy + combat-shape boosts), `conservative` (greedy +
+economy boosts, combat penalties).
+
+Designed for three uses:
+
+1. **System-prompt variant evaluation.** When the LLM-play
+   interface gets a prompt revision, run the old vs new prompt
+   as two pluggable agents and check which one wins more.
+2. **Additional bug surface.** Tournaments generate many more
+   games than the standard 6-scenario × 50-seed sweep. Each
+   pairing exercises a different state-space slice.
+3. **Baseline for future model swaps.** Persist
+   today's leaderboard; when swapping the underlying model,
+   confirm no regression in win rate against the deterministic
+   baselines.
+
+Initial run (pleskau + watland × 4 agents = 24 games): all
+terminal. Watland is teutonic-favored across every pairing
+(victory_override + aggressor=teutonic). Pleskau remains
+near-zero-VP (the open Q-R190-A means R11-affected sessions
+stall before VP accrues meaningfully). Strategic, conservative,
+and aggressive all beat greedy more often than they lose to it
+(33% vs 25% win rate).
+
+Tests: 1231 → 1235 (4 new in `test_round_192_llm_tournament.py`).
