@@ -33,8 +33,16 @@ ADVISORY_PATTERNS = [
 
 
 def _harness_files():
+    """The shipped HARNESS is src/nevsky/ MINUS the llm/ subpackage.
+    The llm/ subpackage is the LLM-consumer interface (added R185 —
+    LLM-play interface), which is by definition consumer-facing and
+    DOES carry strategic/advisory content (briefings, the play guide,
+    strategy lookups). It is not the rules engine; the no-advisory
+    constraint applies to the rules engine only."""
     src = Path("src/nevsky")
-    return [p for p in src.rglob("*.py") if "__pycache__" not in str(p)]
+    return [p for p in src.rglob("*.py")
+            if "__pycache__" not in str(p)
+            and "/llm/" not in str(p).replace("\\", "/")]
 
 
 def test_harness_has_no_advisory_language():

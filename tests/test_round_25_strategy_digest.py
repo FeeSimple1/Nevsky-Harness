@@ -64,16 +64,26 @@ def test_digest_describes_teuton_provender_constraint():
 
 
 def test_harness_code_does_not_reference_digest():
-    """The shipped harness must not load or reference the digest. The
-    digest is an LLM-consumer aid, not a runtime input."""
+    """The shipped harness (rules engine in src/nevsky/) must not load
+    or reference the digest. The digest is an LLM-consumer aid, not a
+    runtime input for the rules engine.
+
+    The src/nevsky/llm/ subpackage IS the LLM-consumer interface
+    (R185), so it is allowed — even expected — to reference the
+    digest via on-demand lookup tools. The guardrail applies to the
+    rules engine only."""
     from pathlib import Path as _P
     src = _P("src/nevsky")
     assert src.is_dir()
     for p in src.rglob("*.py"):
+        # The llm/ subpackage is the LLM-consumer interface; the
+        # digest-reference constraint doesn't apply to it.
+        if "/llm/" in str(p).replace("\\", "/"):
+            continue
         text = p.read_text()
         assert "STRATEGY_DIGEST" not in text, (
-            f"{p} references STRATEGY_DIGEST — the harness must not "
-            "depend on the digest"
+            f"{p} references STRATEGY_DIGEST — the rules engine must "
+            "not depend on the digest (the llm/ subpackage is exempt)"
         )
 
 
