@@ -220,6 +220,14 @@ class CombatPending(BaseModel):
     # other side's Lords.
     attacker_positions: dict[str, str] = Field(default_factory=dict)
     defender_positions: dict[str, str] = Field(default_factory=dict)
+    # SMOKE-115 (Round 180): T6/R6 Ambush "Block Avoid Battle" mode.
+    # When the defender declares avoid_battle AND the attacker has the
+    # appropriate Ambush hold (T6 if attacker is Teutonic; R6 if
+    # Russian), the attacker has a response window to block the avoid.
+    # The defender's avoid is staged into `pending_avoid_args`; the
+    # attacker calls play_ambush_block or decline_ambush_block.
+    ambush_block_pending: bool = False
+    pending_avoid_args: dict[str, Any] = Field(default_factory=dict)
 
 
 class VassalState(BaseModel):

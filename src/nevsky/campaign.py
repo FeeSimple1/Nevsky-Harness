@@ -2285,6 +2285,24 @@ def _h_avoid_battle(
     dest = args.get("to")
     if not isinstance(dest, str):
         raise IllegalAction("missing_arg", "args.to required")
+    # SMOKE-115 (Round 180): T6/R6 Ambush "Block Avoid Battle" mode.
+    # Per AoW Reference T6 Tip: "If played to block Avoid Battle,
+    # declare Event after Defender declares Avoid Battle; any discard
+    # of Assets to Avoid Battle also is blocked." When defender
+    # declares avoid, check if attacker has the relevant Ambush hold.
+    # If so, enter an interrupt window: stage the avoid args and let
+    # the attacker decide (play_ambush_block / decline_ambush_block).
+    if not args.get("_post_ambush_decline", False):
+        attacker_holds = (state.decks.teutonic.holds if cp.attacker_side == "teutonic"
+                          else state.decks.russian.holds)
+        ambush_cid = "T6" if cp.attacker_side == "teutonic" else "R6"
+        if ambush_cid in attacker_holds:
+            cp.ambush_block_pending = True
+            cp.pending_avoid_args = dict(args)
+            cp.pending_response_by = cp.attacker_side
+            state.meta.active_player = cp.attacker_side
+            return ({"ambush_interrupt": True, "ambush_card": ambush_cid,
+                     "owed_by": cp.attacker_side}, [])
 
     src = cp.to_locale  # defender currently at to_locale
     # SMOKE-068 (Round 73): for parallel-Ways pairs (dorpat<->odenpah
@@ -2419,6 +2437,83 @@ def _h_avoid_battle(
         },
         [],
     )
+
+
+def _h_play_ambush_block(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """SMOKE-115 (Round 180): T6/R6 Ambush Block Avoid Battle.
+
+    Played in response to defender's avoid_battle declaration when
+    attacker has the Ambush hold (T6 if attacker is Teutonic, R6 if
+    Russian). The avoid is rejected; defender must Stand or Withdraw.
+    Per AoW Reference T6 Tip: "any discard of Assets to Avoid Battle
+    also is blocked; Event used to Block Avoid Battle does not
+    otherwise affect the ensuing Battle."
+
+    The Ambush card moves from holds to discard.
+    """
+    sd = _require_side_player(state, side)
+    cp = state.combat_pending
+    if cp is None:
+        raise IllegalAction("no_combat", "no pending combat")
+    if not cp.ambush_block_pending:
+        raise IllegalAction("no_ambush_window",
+                            "play_ambush_block only legal in Ambush response window")
+    if cp.pending_response_by != sd:
+        raise IllegalAction("wrong_actor",
+                            f"Ambush response owed by {cp.pending_response_by}; got {sd}")
+    if sd != cp.attacker_side:
+        raise IllegalAction("wrong_side",
+                            "only the attacker may play Ambush to block avoid")
+    deck = state.decks.teutonic if sd == "teutonic" else state.decks.russian
+    ambush_cid = "T6" if sd == "teutonic" else "R6"
+    if ambush_cid not in deck.holds:
+        raise IllegalAction("not_in_holds", f"{ambush_cid} not in {sd} holds")
+    # Move the card from holds to discard.
+    deck.holds.remove(ambush_cid)
+    deck.discard.append(ambush_cid)
+    # Reset combat_pending state: avoid is blocked; baton returns to defender
+    # for stand_battle / withdraw choice. NO Asset discard happens (the
+    # avoid is fully blocked).
+    cp.ambush_block_pending = False
+    cp.pending_avoid_args = {}
+    cp.pending_response_by = cp.defender_side
+    state.meta.active_player = cp.defender_side
+    return ({"ambush_blocked": True, "card_consumed": ambush_cid,
+             "owed_by": cp.defender_side,
+             "remaining_options": ["stand_battle", "withdraw"]}, [])
+
+
+def _h_decline_ambush_block(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """SMOKE-115 (Round 180): attacker declines to play T6/R6 Ambush
+    to block the defender's avoid_battle. The original avoid resolves
+    with the args staged when avoid_battle was declared.
+    """
+    sd = _require_side_player(state, side)
+    cp = state.combat_pending
+    if cp is None:
+        raise IllegalAction("no_combat", "no pending combat")
+    if not cp.ambush_block_pending:
+        raise IllegalAction("no_ambush_window",
+                            "decline_ambush_block only legal in Ambush response window")
+    if cp.pending_response_by != sd:
+        raise IllegalAction("wrong_actor",
+                            f"Ambush response owed by {cp.pending_response_by}; got {sd}")
+    if sd != cp.attacker_side:
+        raise IllegalAction("wrong_side",
+                            "only the attacker may decline Ambush")
+    # Clear ambush state and re-fire avoid_battle with the staged args.
+    avoid_args = dict(cp.pending_avoid_args)
+    cp.ambush_block_pending = False
+    cp.pending_avoid_args = {}
+    cp.pending_response_by = cp.defender_side
+    state.meta.active_player = cp.defender_side
+    avoid_args["_post_ambush_decline"] = True
+    # Re-invoke avoid_battle as the defender side.
+    return _h_avoid_battle(state, cp.defender_side, avoid_args)
 
 
 def _h_withdraw(
@@ -2790,6 +2885,9 @@ HANDLERS_PHASE_3B = {
     "avoid_battle": _h_avoid_battle,
     "withdraw": _h_withdraw,
     "stand_battle": _h_stand_battle,
+    # SMOKE-115 (Round 180): T6/R6 Ambush block-Avoid response actions
+    "play_ambush_block": _h_play_ambush_block,
+    "decline_ambush_block": _h_decline_ambush_block,
 }
 
 HANDLERS.update(HANDLERS_PHASE_3B)

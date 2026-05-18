@@ -9275,3 +9275,39 @@ exceptions. The remaining 2 stalls are agent gaps (`cap_limit` —
 agent trying to give a Lord a third capability).
 
 Test count: 1052 → 1058 (+6 regressions). SMOKE total: 114.
+
+## Round 180 — SMOKE-115 (T6/R6 Ambush "Block Avoid Battle" mode implemented)
+
+Previously documented as a known feature gap (Round 146); the T6/R6
+Ambush card has two modes:
+1. Round 1 ignore enemy left/right (already wired)
+2. **Block Avoid Battle** (NEW)
+
+Per AoW Reference T6 Tip: "If played to block Avoid Battle, declare
+Event after Defender declares Avoid Battle; any discard of Assets
+to Avoid Battle also is blocked; Event used to Block Avoid Battle
+does not otherwise affect the ensuing Battle."
+
+Implementation:
+  - New `CombatPending.ambush_block_pending: bool` + `pending_
+    avoid_args: dict` fields.
+  - `_h_avoid_battle` checks if attacker has the relevant Ambush
+    hold (T6 for Teutonic attacker, R6 for Russian). If so, opens
+    an interrupt window: stages the avoid args, sets
+    pending_response_by = attacker_side, returns
+    `{"ambush_interrupt": True}`.
+  - New `_h_play_ambush_block` handler: consumes the card from
+    attacker's holds → discard, sets baton back to defender for
+    Stand/Withdraw choice (no asset discard, no spoils transfer).
+  - New `_h_decline_ambush_block` handler: re-fires avoid_battle
+    with `_post_ambush_decline=True` sentinel arg to skip the
+    interrupt check.
+  - Both handlers registered in `HANDLERS_PHASE_3B`.
+
+Regressions: tests/test_round_180_ambush_block_avoid.py (7 tests):
+markers, handler registration, state-field presence, behavioral
+interrupt-on-avoid, no-interrupt-without-ambush-hold.
+
+Self-play sweep: 298/300 still terminal, 0 harness exceptions.
+
+Test count: 1058 → 1065 (+7 regressions). SMOKE total: 115.
