@@ -9552,3 +9552,54 @@ rule diff (R178), the harness's combat code is now well-exercised.
 
 Regressions: tests/test_round_186_legal_moves_filters.py
 (7 tests). Test count: 1194 → 1201. SMOKE total: 120.
+
+## Round 187 — Scaled strategic sweep + SMOKE-121 (event no-op batch)
+
+Scaled the strategic-agent sweep from 5 seeds × 6 scenarios (30
+sessions) to **50 seeds × 6 scenarios (300 sessions)**. Found 4 more
+events still raising on missing targets (same SMOKE-112/113/114/120
+family).
+
+### SMOKE-121: per-event no-op pattern extended to T11, R11, R17, T18
+
+Pre-fix counts (stuck sessions per card):
+- R11 Valdemar: 6 sessions stuck on `no_cylinder` for knud_and_abel
+- R17 Dietrich: 3 sessions stuck on `no_service_marker`
+- T18 Swedish Crusade: 3 sessions stuck on `no_cylinder`
+- T11 Pope Gregory: 2 sessions stuck on `no_cylinder`
+
+Each event was raising IllegalAction when the canonical target was
+permanently removed or otherwise off-Calendar, even though per
+SMOKE-112/113/114/120 convention these immediate events should
+discard with no effect.
+
+For R11 and R17 specifically, the rules give them a SECOND effect
+(this-Levy block of named Lords from using Lordship). The block is
+independent of the shift — even if Knud&Abel is dead, blocking him
+from Mustering is moot but the rule applies. The fix keeps the
+block side-effect and only no-ops the shift portion.
+
+T18 has a special pattern: it shifts BOTH Vladislav AND Karelians.
+The fix supports partial resolution — shift whichever is on
+Calendar; skip the other. No-op only when neither is reachable.
+
+T11 has the simpler no-op (no separate side-effect to preserve).
+
+Regressions: tests/test_round_187_event_no_ops.py (7 tests).
+
+### Scaled sweep result post-SMOKE-121
+
+| Metric              | Pre-R187 (5 seeds) | Post-R187 (50 seeds) |
+|---------------------|--------------------|----------------------|
+| Total sessions      | 30                 | 300                  |
+| Terminal            | 30 / 30            | 299 / 300            |
+| Battles exercised   | 23                 | ~244                 |
+| Storms exercised    | 1                  | ~22                  |
+| Real harness errors | 0                  | 0                    |
+
+The 1 remaining stuck case is a downstream R9 ineligible_target
+edge case (combination of state SMOKE-114's fix didn't anticipate);
+exercising it requires a different state setup than the no-op
+pattern covers — not worth chasing right now.
+
+Test count: 1201 → 1208. SMOKE total: 121.

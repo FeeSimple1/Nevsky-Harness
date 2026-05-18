@@ -222,6 +222,8 @@ def _ev_pope_gregory(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """T11 Pope Gregory issues indulgences (immediate, side-wide capability + event).
     Shift 1 Teuton cylinder 1 box LEFT and add Crusade card to capabilities_in_play.
 
+    SMOKE-121 (Round 187): if no Teutonic Lord cylinder is on the
+    Calendar, the event no-ops (same family as SMOKE-112/113/114/120).
     SMOKE-117 (Round 182): per card text, the SAME card moves into
     capabilities_in_play as Crusade. The aow_implement_card immediate-
     event flow normally appends to discard after the resolver; if T11
@@ -229,6 +231,18 @@ def _ev_pope_gregory(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     lists (deck-uniqueness violation). Return places_in_capabilities=
     True so aow_implement_card can skip the discard append.
     """
+    # SMOKE-121 pre-flight: any Teuton cylinder on Calendar?
+    cal = state.calendar
+    teu_cyl_on_cal = [
+        lid for lid, l in state.lords.items()
+        if l.side == "teutonic" and (
+            lid in cal.off_left or lid in cal.off_right
+            or any(lid in cb.cylinders for cb in cal.boxes)
+        )
+    ]
+    if not teu_cyl_on_cal:
+        return {"event": "T11", "no_op": True,
+                "reason": "no_teutonic_cylinder_on_calendar"}
     target = args.get("target")
     if not isinstance(target, str) or target not in state.lords or state.lords[target].side != "teutonic":
         raise IllegalAction("missing_arg", "args.target Teutonic lord_id required for T11")
@@ -277,13 +291,31 @@ def _ev_swedish_crusade(state: GameState, args: dict[str, Any]) -> dict[str, Any
                 "ineligible_target",
                 f"T18 Swedish Crusade targets only {sorted(_ELIGIBLE)}; got {lid!r}",
             )
+    # SMOKE-121 (Round 187): per-target reachability — skip targets
+    # that aren't on Calendar instead of raising. If both are off-
+    # Calendar, the event no-ops entirely (same family as
+    # SMOKE-112/113/114/120).
+    cal = state.calendar
+    def reachable(lid, kind):
+        if kind == "service":
+            return (lid in cal.off_left_service or lid in cal.off_right_service
+                    or any(lid in cb.service_markers for cb in cal.boxes))
+        return (lid in cal.off_left or lid in cal.off_right
+                or any(lid in cb.cylinders for cb in cal.boxes))
     out: dict[str, int] = {}
+    skipped: list[str] = []
     for lid, kind in targets.items():
+        if not reachable(lid, kind):
+            skipped.append(f"{lid}:{kind}")
+            continue
         if kind == "service":
             out[f"service:{lid}"] = _shift_service(state, lid, 1, direction)
         else:
             out[lid] = _shift_cylinder(state, lid, 1, direction)
-    return {"event": "T18", "shifted": out}
+    if not out:
+        return {"event": "T18", "no_op": True,
+                "reason": "no_targets_on_calendar", "skipped": skipped}
+    return {"event": "T18", "shifted": out, "skipped": skipped or None}
 
 
 def _ev_bountiful_harvest_t(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
@@ -625,19 +657,33 @@ def _ev_tempest(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 def _ev_valdemar(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """R11 Valdemar (this-levy block). Russian choice direction shift Knud&Abel
     cylinder OR Service up to 1 box; THIS LEVY no Muster of or by them.
+
+    SMOKE-121 (Round 187): if Knud&Abel has neither cylinder nor
+    Service on Calendar, the shift portion is skipped but the
+    this-Levy block still applies (the block is a separate effect).
     """
-    target = args.get("target", "knud_and_abel")  # "knud_and_abel" or "service:knud_and_abel"
+    cal = state.calendar
+    kab_cyl_on_cal = ("knud_and_abel" in cal.off_left
+                       or "knud_and_abel" in cal.off_right
+                       or any("knud_and_abel" in cb.cylinders for cb in cal.boxes))
+    kab_svc_on_cal = ("knud_and_abel" in cal.off_left_service
+                       or "knud_and_abel" in cal.off_right_service
+                       or any("knud_and_abel" in cb.service_markers for cb in cal.boxes))
+    target = args.get("target", "knud_and_abel")
     direction = args.get("direction", "left")
     boxes = int(args.get("boxes", 1))
     if not 0 <= boxes <= 1:
         raise IllegalAction("bad_boxes", "boxes must be 0 or 1")
-    if boxes > 0:
-        if target.startswith("service:"):
+    new = None
+    if boxes > 0 and (kab_cyl_on_cal or kab_svc_on_cal):
+        if target.startswith("service:") and kab_svc_on_cal:
             new = _shift_service(state, "knud_and_abel", boxes, direction)
-        else:
+        elif (not target.startswith("service:")) and kab_cyl_on_cal:
             new = _shift_cylinder(state, "knud_and_abel", boxes, direction)
-    else:
-        new = None
+        elif kab_svc_on_cal:
+            new = _shift_service(state, "knud_and_abel", boxes, direction)
+        elif kab_cyl_on_cal:
+            new = _shift_cylinder(state, "knud_and_abel", boxes, direction)
     if "knud_and_abel" not in state.meta.block_lords_this_levy_t:
         state.meta.block_lords_this_levy_t.append("knud_and_abel")
     return {"event": "R11", "shift": new, "blocked_this_levy": ["knud_and_abel"]}
@@ -646,17 +692,42 @@ def _ev_valdemar(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 def _ev_dietrich_r17(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """R17 Dietrich von Grueningen leads Order to Kurland (this-levy block).
     Shift Andreas OR Rudolf OR Service of either 1 box; this Levy no Muster of or by them.
+
+    SMOKE-121 (Round 187): if neither Andreas nor Rudolf has a
+    cylinder/Service on Calendar, the shift is skipped but the
+    this-Levy block still applies.
     """
+    cal = state.calendar
+    def cyl(lid):
+        return (lid in cal.off_left or lid in cal.off_right
+                or any(lid in cb.cylinders for cb in cal.boxes))
+    def svc(lid):
+        return (lid in cal.off_left_service or lid in cal.off_right_service
+                or any(lid in cb.service_markers for cb in cal.boxes))
+    any_on_calendar = (cyl("andreas") or cyl("rudolf")
+                       or svc("andreas") or svc("rudolf"))
     target = args.get("target", "andreas")
     direction = args.get("direction", "left")
     if target not in ("andreas", "rudolf", "service:andreas", "service:rudolf"):
         raise IllegalAction("missing_arg", "args.target required for R17")
-    if target.startswith("service:"):
-        lid = target.split(":", 1)[1]
-        new = _shift_service(state, lid, 1, direction)
-    else:
-        lid = target
-        new = _shift_cylinder(state, lid, 1, direction)
+    new = None
+    if any_on_calendar:
+        if target.startswith("service:"):
+            lid = target.split(":", 1)[1]
+            if svc(lid):
+                new = _shift_service(state, lid, 1, direction)
+            elif svc("andreas"):
+                new = _shift_service(state, "andreas", 1, direction)
+            elif svc("rudolf"):
+                new = _shift_service(state, "rudolf", 1, direction)
+        else:
+            lid = target
+            if cyl(lid):
+                new = _shift_cylinder(state, lid, 1, direction)
+            elif cyl("andreas"):
+                new = _shift_cylinder(state, "andreas", 1, direction)
+            elif cyl("rudolf"):
+                new = _shift_cylinder(state, "rudolf", 1, direction)
     for blocked in ("andreas", "rudolf"):
         if blocked not in state.meta.block_lords_this_levy_t:
             state.meta.block_lords_this_levy_t.append(blocked)

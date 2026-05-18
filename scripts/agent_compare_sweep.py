@@ -17,7 +17,7 @@ spec_s.loader.exec_module(strat)
 
 SCENARIOS = ["watland", "pleskau", "peipus", "return_of_the_prince",
              "return_of_the_prince_nicolle", "crusade_on_novgorod"]
-SEEDS = list(range(1, 6))  # 5 seeds for quick comparison
+SEEDS = list(range(1, 51))  # 50 seeds for scaled coverage
 
 
 def main():

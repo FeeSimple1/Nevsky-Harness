@@ -189,23 +189,30 @@ def test_smoke_010_aow_implement_card_no_partial_mutation_on_failure() -> None:
     """SMOKE-010: aow_implement_card previously popped pending_draw BEFORE
     calling the resolver; if the resolver raised IllegalAction, the card
     was lost. After fix: pending_draw stays intact so the agent can retry
-    with corrected args."""
+    with corrected args.
+
+    Note (R187 SMOKE-121): R17 now no-ops if Andreas/Rudolf are
+    off-Calendar (instead of raising no_cylinder). Updated to use
+    invalid target value to keep the no-partial-mutation guarantee
+    test focused on the original property.
+    """
     from nevsky.actions import IllegalAction, apply_action
     import pytest as _pytest
     s = load_scenario("watland", seed=23)
     s.meta.first_levy_done = True
-    # R17 Dietrich: needs to shift Andreas/Rudolf cylinder, but Andreas
-    # is mustered (no cylinder). Resolver should raise no_cylinder.
     s.decks.russian.deck = []
     s.decks.russian.pending_draw = ["R17"]
     s.meta.active_player = "russian"
     s.meta.levy_step = "arts_of_war"
     pre_pending = list(s.decks.russian.pending_draw)
+    # Use an invalid target string — R17 still raises missing_arg
+    # before the no-op pre-flight short-circuits.
     with _pytest.raises(IllegalAction) as exc:
         apply_action(s, {"type": "aow_implement_card", "side": "russian",
-                          "args": {"target": "andreas", "direction": "left"}})
-    assert exc.value.code == "no_cylinder"
-    # Card still in pending_draw -- agent can retry with target="service:andreas".
+                          "args": {"target": "not_a_valid_target",
+                                   "direction": "left"}})
+    assert exc.value.code == "missing_arg"
+    # Card still in pending_draw — agent can retry with corrected args.
     assert s.decks.russian.pending_draw == pre_pending
 
 
