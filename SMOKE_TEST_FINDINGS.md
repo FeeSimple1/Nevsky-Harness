@@ -9478,3 +9478,77 @@ through any of the techniques applied. Confident statement:
 "This engine implements the printed rules correctly under all
 reachable action sequences from the greedy and Hypothesis-driven
 agents."
+
+## Round 186 — Strategic reference agent + 3 SMOKEs surfaced
+
+Built `scripts/strategic_agent.py` — a layered-heuristic agent that
+actively pursues combat, Storm/Siege, Ravage, capability commands.
+Lives under `scripts/` (not `src/nevsky/`) to honor the No-Agent-in-
+Harness constraint.
+
+The agent surfaced three SMOKEs by exercising paths the greedy
+self-play never touches.
+
+### SMOKE-118: legal_moves levy_capability over-enumeration
+
+The legal_moves enumerator offered `levy_capability` as every
+`(by_lord, card_id)` cross-product without filtering by:
+  - `capability_eligibility` (printed Lord coats of arms; SMOKE-029)
+  - per-Lord 2-cap limit (3.4.4)
+  - duplicate-capability-name rule (e.g. T4/T5/T6 all = Balistarii)
+  - this-Levy block list (R11 / R17)
+
+Consumers (`self_play.py`, `strategic_agent.py`, the LLM-play
+interface) that rely on `legal_moves` as the move palette could
+attempt impossible levies the harness then rejected. Not catastrophic
+(the harness correctly rejects), but the LLM-play guarantee "the LLM
+never sees illegal options" was being violated for this one action
+type.
+
+Fix: pre-filter `levy_capability` enumeration by all four constraints.
+
+### SMOKE-119: stand_battle concede arg used game side instead of battle role
+
+The `stand_battle` concede pseudo-option in `legal_moves` was built
+with `{"concede": side}` where `side` was "teutonic" or "russian"
+(game side). The harness's `_h_stand_battle` expects `"attacker"` or
+`"defender"` (battle role) — concede picks were rejected with
+`bad_concede`.
+
+Found by the strategic agent attempting to concede a Battle. Pre-fix
+this was unreachable through legal_moves (any agent choosing the
+concede option failed immediately).
+
+Fix: translate side → role using `cp.attacker_side`. The concede arg
+is now `"attacker"` if the responding side is the attacker;
+`"defender"` otherwise.
+
+### SMOKE-120: R16 Tempest didn't no-op when no Teutonic Lord on map
+
+R16 Tempest's card text says "remove all Ships from a Teutonic
+Lord." Per the SMOKE-112/113/114 family, when no valid target
+exists, the event should discard with no effect. Pre-fix R16 raised
+`missing_arg` even when no Teutonic Lord was mustered, making the
+event unresolvable.
+
+Fix: pre-flight check returns `{no_op: True,
+reason: "no_teutonic_lord_on_map"}` when no target exists.
+
+### Sweep result after fixes
+
+Strategic agent across 6 scenarios × 5 seeds = 30 sessions:
+
+| Metric              | Greedy agent | Strategic agent |
+|---------------------|--------------|-----------------|
+| Terminal sessions   | 30 / 30      | 30 / 30         |
+| Total battles       | 0            | 23              |
+| Total storms        | 0            | 1               |
+| Total sallies       | 0            | 1               |
+| Real harness errors | 0            | 0               |
+
+The strategic agent exercises actual combat paths the greedy never
+touched. Combined with property-based testing (R182-R184) and full
+rule diff (R178), the harness's combat code is now well-exercised.
+
+Regressions: tests/test_round_186_legal_moves_filters.py
+(7 tests). Test count: 1194 → 1201. SMOKE total: 120.

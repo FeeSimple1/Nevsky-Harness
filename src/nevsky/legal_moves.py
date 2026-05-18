@@ -223,15 +223,45 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             })
 
     # Levy Capability.
+    # SMOKE-118 (Round 186): pre-filter by capability_eligibility,
+    # per-Lord capability-2 limit, and duplicate-capability-name.
+    # Pre-fix legal_moves offered (by_lord, card_id) pairs the
+    # harness would reject for ineligible_target / ineligible_levyer /
+    # cap_limit / duplicate_capability. Agents and the LLM-play
+    # interface (which uses legal_moves as the LLM's move palette)
+    # could waste turns retrying impossible moves.
+    from nevsky.actions import _check_capability_eligibility
     sd = state.decks.teutonic if side == "teutonic" else state.decks.russian
     available_caps = [
         cid for cid in (sd.deck + sd.discard)
         if not cards[cid]["no_event"]
     ]
     for by_lid in by_with_budget:
+        by_lord = state.lords[by_lid]
         for cid in available_caps:
-            cap_name = cards[cid].get("capability_name") or "?"
-            scope = cards[cid].get("capability_scope") or "?"
+            card = cards[cid]
+            cap_name = card.get("capability_name") or "?"
+            scope = card.get("capability_scope") or "?"
+            # Per-Lord cap-2 (3.4.4) only applies to this_lord scope.
+            target_lord_id = by_lid if scope == "this_lord" else None
+            if scope == "this_lord":
+                if len(by_lord.this_lord_capabilities) >= 2:
+                    continue  # cap_limit would fire
+                if any(cards[ex].get("capability_name") == cap_name
+                       for ex in by_lord.this_lord_capabilities):
+                    continue  # duplicate_capability would fire
+            # capability_eligibility on by_lord (levyer) and target.
+            try:
+                _check_capability_eligibility(card, by_lid, role="levyer")
+                if target_lord_id is not None:
+                    _check_capability_eligibility(card, target_lord_id, role="target")
+            except Exception:
+                continue
+            # this-Levy block list check.
+            block = (state.meta.block_lords_this_levy_t if side == "teutonic"
+                     else state.meta.block_lords_this_levy_r)
+            if by_lid in block:
+                continue
             out.append({
                 "type": "levy_capability", "side": side,
                 "args": {"by_lord": by_lid, "card_id": cid},
@@ -425,9 +455,16 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 "mode (transfer all Loot and any Provender beyond Unladen "
                 "for the Retreat Way) per 4.4.3 2E."
             )
+            # SMOKE-119 (Round 186): the concede arg expects a
+            # battle role ("attacker" or "defender"), not a game
+            # side ("teutonic" / "russian"). Translate via
+            # cp.attacker_side. Pre-fix, the legal-moves enumerator
+            # offered {"concede": side} which the harness rejected
+            # with bad_concede when the LLM/agent tried to use it.
+            concede_role = "attacker" if cp.attacker_side == side else "defender"
             out.append({
                 "type": "stand_battle", "side": side,
-                "args": {"concede": side},
+                "args": {"concede": concede_role},
                 "note": concede_note,
             })
             # Avoid Battle: per-destination forecast (just no battle).

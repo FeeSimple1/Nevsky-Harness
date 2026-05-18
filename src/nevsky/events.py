@@ -583,7 +583,18 @@ def _ev_death_of_pope(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 def _ev_tempest(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """R16 Tempest (immediate). Remove all Ships from a chosen Teutonic Lord;
     half (rounded up) if he has Cogs.
+
+    SMOKE-120 (Round 186): per AoW Reference R16 Tip "The Russian
+    player chooses which Teutonic Lord is affected" — if NO Teutonic
+    Lord is on map, no valid target exists, event no-ops. Same
+    family as SMOKE-112/113/114.
     """
+    # Pre-flight: if no mustered Teutonic Lord exists, the event has no target.
+    on_map_teu = [lid for lid, l in state.lords.items()
+                  if l.side == "teutonic" and l.state == "mustered"]
+    if not on_map_teu:
+        return {"event": "R16", "no_op": True,
+                "reason": "no_teutonic_lord_on_map"}
     target = args.get("target")
     if not isinstance(target, str) or target not in state.lords:
         raise IllegalAction("missing_arg", "args.target Teutonic lord_id required")
