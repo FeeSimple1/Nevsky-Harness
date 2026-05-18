@@ -128,33 +128,33 @@ def _step_with_invariants(scenario, seed, max_steps, every_n_check=10):
 
 
 @given(seed=st.integers(min_value=1, max_value=100))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "pleskau"])
 def test_property_invariants_hold_through_self_play(scenario, seed):
     _step_with_invariants(scenario, seed, max_steps=400, every_n_check=20)
 
 
 @given(seed=st.integers(min_value=1, max_value=200))
-@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 def test_property_invariants_pleskau_exhaustive(seed):
     _step_with_invariants("pleskau", seed, max_steps=300, every_n_check=10)
 
 
 @given(seed=st.integers(min_value=1, max_value=300))
-@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=80, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "peipus"])
 def test_property_no_lord_two_states(scenario, seed):
     _step_with_invariants(scenario, seed, max_steps=400, every_n_check=20)
 
 
 @given(seed=st.integers(min_value=1, max_value=200))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 def test_property_long_scenario_invariants(seed):
     _step_with_invariants("crusade_on_novgorod", seed, max_steps=1500, every_n_check=50)
 
 
 @given(seed=st.integers(min_value=1, max_value=300))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 def test_property_save_load_round_trip_during_play(seed):
     s = _step_with_invariants("watland", seed, max_steps=200, every_n_check=200)
     txt = s.model_dump_json()

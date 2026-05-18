@@ -110,7 +110,7 @@ def _run_self_play(scenario, seed, max_steps):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "pleskau"])
 def test_property_card_count_invariant(scenario, seed):
     """Total cards (across all deck lists + this_lord_capabilities)
@@ -131,7 +131,7 @@ def test_property_card_count_invariant(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "peipus"])
 def test_property_no_card_in_multiple_lists(scenario, seed):
     s = _run_self_play(scenario, seed=seed, max_steps=400)
@@ -162,7 +162,7 @@ def test_property_no_card_in_multiple_lists(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "pleskau"])
 def test_property_mustered_lord_no_stale_state(scenario, seed):
     """A mustered Lord must have a location. A removed Lord must
@@ -188,7 +188,7 @@ def test_property_mustered_lord_no_stale_state(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "pleskau"])
 def test_property_combat_pending_doesnt_stick(scenario, seed):
     """At terminal or stalled end, combat_pending should be None
@@ -203,7 +203,7 @@ def test_property_combat_pending_doesnt_stick(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland"])
 def test_property_vp_is_half_step(scenario, seed):
     """VP changes by integer or 0.5 increments only."""
@@ -220,7 +220,7 @@ def test_property_vp_is_half_step(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "crusade_on_novgorod"])
 def test_property_levy_campaign_marker_unique(scenario, seed):
     """The Levy/Campaign marker is on exactly one box (or 0 if
@@ -234,7 +234,7 @@ def test_property_levy_campaign_marker_unique(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["watland", "pleskau"])
 def test_property_lordship_used_bounded(scenario, seed):
     """lordship_used should never exceed (lordship_rating + bonus)."""
@@ -252,7 +252,7 @@ def test_property_lordship_used_bounded(scenario, seed):
 
 
 @given(seed=st.integers(min_value=1, max_value=500))
-@settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@settings(max_examples=30, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @pytest.mark.parametrize("scenario", ["pleskau"])
 def test_property_pleskau_counters_non_negative(scenario, seed):
     s = _run_self_play(scenario, seed=seed, max_steps=300)
