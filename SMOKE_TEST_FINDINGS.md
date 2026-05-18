@@ -9603,3 +9603,52 @@ exercising it requires a different state setup than the no-op
 pattern covers — not worth chasing right now.
 
 Test count: 1201 → 1208. SMOKE total: 121.
+
+---
+
+## Round 188 — LLM-interface end-to-end playthrough + SMOKE-122
+
+End-to-end exercise of the LLM-play interface built in R185b
+(`src/nevsky/llm/`). One full Pleskau game was run with an
+LLM agent (Teutonic, hallucinated-move tolerant via 3-strike +
+safe-fallback) against the strategic agent (Russian).
+Result: 133 steps, terminal=True, Russian wins 1-0 by VP.
+Transcript: `docs/llm_interface_playthrough.md`.
+
+The playthrough surfaced two more legal_moves over-enumeration
+patterns. Only the clean one is a SMOKE; the other (cmd_march
+`excess_provender` — Lord has more Provender than 2x usable
+Transport, so the next March would lose the excess) is a soft
+warning the harness raises *after* enumeration. Filtering it
+in legal_moves would suppress an actually-legal-but-lossy
+move; current behavior is correct.
+
+### SMOKE-122 — cmd_ravage enumerated at illegal Locales
+
+`legal_moves.py` was offering `cmd_ravage` unconditionally in
+the command-execution block, even though `_h_cmd_ravage`
+(campaign.py 4.7.2) rejects it whenever any of:
+
+1. Locale is own territory
+2. Locale is already Conquered (either color)
+3. Locale is Friendly to the active side
+4. Locale is already Ravaged (either color)
+
+The LLM agent burned retry slots on `own_territory` errors
+during the Pleskau playthrough (pskov, neva, reval). Same
+family as SMOKE-118 (levy_capability filters) and SMOKE-120
+(R16 no-op): the harness enforces the rule, but the
+enumerator surfaces moves the harness will reject.
+
+Fix: pre-filter `cmd_ravage` enumeration by the four rejection
+conditions, gated behind a defensive try/except so a
+static-data load failure suppresses the option rather than
+crashing the enumerator. The locale-level checks reuse
+`_is_friendly_locale` (already imported) and read directly
+from `state.locales`.
+
+Regressions: `tests/test_round_188_smoke_122.py` (5 tests:
+own-territory teutonic, own-territory russian, already-
+ravaged, positive-control enemy locale, source-marker).
+
+Test count: 1208 → 1213. SMOKE total: 122.

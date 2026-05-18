@@ -654,10 +654,39 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         out.append({"type": "cmd_forage", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "+1 Provender (1 action)"})
-        ravage_note = "Ravage current Locale (1-2 actions); +0.5 VP for own Ravaged marker"
-        out.append({"type": "cmd_ravage", "side": side,
-                    "args": {"lord_id": active_lord, "locale_id": active.location},
-                    "note": ravage_note})
+        # SMOKE-122 (Round 188): pre-filter cmd_ravage by the same
+        # rejection conditions enforced in _h_cmd_ravage (campaign.py
+        # 4.7.2): NOT own territory, NOT already Conquered, NOT
+        # Friendly to active side, NOT already Ravaged. Without this
+        # filter the enumerator surfaces guaranteed-illegal options
+        # (e.g. ravage at own Seat), which trips LLM agents and is a
+        # known over-enumeration pattern (see SMOKE-118/120).
+        ravage_ok = False
+        if active.location is not None:
+            try:
+                from nevsky.static_data import load_locales as _ll_rv
+                _static_locs_rv = _ll_rv()
+                _static_loc_rv = _static_locs_rv.get(active.location)
+                _loc_state_rv = state.locales.get(active.location)
+                if _static_loc_rv is not None and _loc_state_rv is not None:
+                    if (
+                        _static_loc_rv.get("territory") != side
+                        and _loc_state_rv.russian_conquered == 0
+                        and _loc_state_rv.teutonic_conquered == 0
+                        and not _is_friendly_locale(state, active.location, side)
+                        and not _loc_state_rv.russian_ravaged
+                        and not _loc_state_rv.teutonic_ravaged
+                    ):
+                        ravage_ok = True
+            except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                # On static-data load failure, conservatively suppress
+                # the option rather than offer a likely-illegal one.
+                ravage_ok = False
+        if ravage_ok:
+            ravage_note = "Ravage current Locale (1-2 actions); +0.5 VP for own Ravaged marker"
+            out.append({"type": "cmd_ravage", "side": side,
+                        "args": {"lord_id": active_lord, "locale_id": active.location},
+                        "note": ravage_note})
         out.append({"type": "cmd_supply", "side": side,
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
                     "note": "Supply (1 action)"})
