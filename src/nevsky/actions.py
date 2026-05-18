@@ -542,6 +542,13 @@ def _h_aow_implement_card(
     from nevsky.events import resolve_immediate_event
     result = resolve_immediate_event(state, cid, args)
     deck.pending_draw = deck.pending_draw[1:]
+    # SMOKE-117 (Round 182): if the event resolver placed the card
+    # into capabilities_in_play (T11 Pope Gregory: card becomes
+    # Crusade Capability), skip the discard append to avoid the
+    # card appearing in BOTH lists.
+    if isinstance(result, dict) and result.get("places_in_capabilities"):
+        return ({"card": cid, "outcome": "immediate_event_to_capability",
+                 "effect": result}, [])
     deck.discard.append(cid)
     return ({"card": cid, "outcome": "immediate_event_discarded", "effect": result}, [])
 

@@ -221,14 +221,24 @@ def _ev_torzhok(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 def _ev_pope_gregory(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """T11 Pope Gregory issues indulgences (immediate, side-wide capability + event).
     Shift 1 Teuton cylinder 1 box LEFT and add Crusade card to capabilities_in_play.
+
+    SMOKE-117 (Round 182): per card text, the SAME card moves into
+    capabilities_in_play as Crusade. The aow_implement_card immediate-
+    event flow normally appends to discard after the resolver; if T11
+    also adds itself to capabilities_in_play, the card ends up in BOTH
+    lists (deck-uniqueness violation). Return places_in_capabilities=
+    True so aow_implement_card can skip the discard append.
     """
     target = args.get("target")
     if not isinstance(target, str) or target not in state.lords or state.lords[target].side != "teutonic":
         raise IllegalAction("missing_arg", "args.target Teutonic lord_id required for T11")
     new = _shift_cylinder(state, target, 1, "left")
-    if "T11" not in state.decks.teutonic.capabilities_in_play:
+    already_in_play = "T11" in state.decks.teutonic.capabilities_in_play
+    if not already_in_play:
         state.decks.teutonic.capabilities_in_play.append("T11")
-    return {"event": "T11", "shifted": target, "new_box": new, "crusade_added": True}
+    return {"event": "T11", "shifted": target, "new_box": new,
+            "crusade_added": not already_in_play,
+            "places_in_capabilities": True}
 
 
 def _ev_khan_baty(state: GameState, args: dict[str, Any]) -> dict[str, Any]:

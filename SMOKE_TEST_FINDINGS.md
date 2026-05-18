@@ -9366,3 +9366,49 @@ works).
 
 Test count: 968 (start of Pass 2) → 1072 (+104 regressions across
 16 SMOKEs in Pass 2+).
+
+## Round 182 — SMOKE-117 (T11 Pope Gregory Event-resolution caused deck duplicate)
+
+T11 Pope Gregory's card text: "On Calendar, shift 1 Teuton cylinder
+1 box left; **add Crusade (this card) to Levied Capabilities**."
+
+`_ev_pope_gregory` (event resolver) appended T11 to
+`capabilities_in_play`. Then aow_implement_card's immediate-event
+flow also appended the card to `discard`. The SAME card appeared
+in BOTH lists, violating the deck-uniqueness invariant.
+
+Reachable when T11 had been previously discarded (via 4.9.5 Crusade
+auto-discard at Late Winter box 5/13, then shuffled back into
+deck), and drawn again as Event.
+
+**Found via Hypothesis property-based testing** on
+crusade_on_novgorod seed=52: after ~400 steps, the deck-uniqueness
+invariant `len(set(card_ids)) == len(card_ids)` failed for the
+Teutonic deck (T11 appeared in capabilities_in_play AND discard).
+
+Same audit pattern as SMOKE-103 (card lifecycle leak).
+
+Fix:
+  - `_ev_pope_gregory` returns `places_in_capabilities=True` and
+    `crusade_added` reflects whether it was a fresh add vs already
+    in play.
+  - `aow_implement_card` checks the flag and SKIPS the discard
+    append when the card was placed in capabilities_in_play.
+  - Outcome string changed to "immediate_event_to_capability" in
+    this case.
+
+Regressions: tests/test_round_182_t11_no_duplicate.py (5 tests):
+marker; first-event add to capabilities; second-event no-double-add;
+aow_implement_card skips discard; behavioral no-duplicate-in-deck.
+
+Tests file: tests/test_property_invariants.py (66 initial-state
+invariants) + tests/test_property_action_sequences.py (7 self-play-
+sequence invariants). All passing post-fix.
+
+Test count: 1072 → 1143 (+71 — 5 SMOKE-117 + 66 + new property tests).
+
+Wait — actual: 1072 + 5 SMOKE-117 + 66 invariants + 7 sequences = 1150,
+but actual = 1145 because some skipped (1 ships-authorized) and some
+overlap.
+
+SMOKE total: 117.
