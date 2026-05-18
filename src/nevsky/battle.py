@@ -1088,6 +1088,7 @@ def resolve_battle(
     sallying_lords: list[str] | None = None,
     siegeworks_for_sally: int = 0,
     simple_sally: bool = False,
+    concede_decisions: dict[int, str] | None = None,
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
@@ -1141,11 +1142,23 @@ def resolve_battle(
     rounds = 0
     while rounds < max_rounds:
         rounds += 1
+        # SMOKE-116 (Round 181): resolve THIS Round's concede declaration.
+        # Round 1 uses the legacy `concede` arg; Round 2+ uses
+        # concede_decisions[rounds]. Per AoW Reference / SoP,
+        # concede may be declared at the start of ANY Round.
+        round_concede: str | None = None
+        if rounds == 1 and concede is not None:
+            round_concede = concede
+        elif concede_decisions is not None and rounds in concede_decisions:
+            round_concede = concede_decisions[rounds]
+        if round_concede is not None and round_concede not in ("attacker", "defender"):
+            round_concede = None
         round_log: dict[str, Any] = {
             "round": rounds, "steps": [],
             "attacker_positions": dict(atk_pos),
             "defender_positions": dict(def_pos),
             "reposition": None,
+            "concede": round_concede,
         }
         # Q-005 Reposition: Round 2+, attacker then defender.
         if rounds >= 2:
@@ -1368,8 +1381,13 @@ def resolve_battle(
                 if (this_cb_raw + this_norm_raw) <= 0:
                     continue
                 # Pursuit: halve conceder Hits this Round (per striker,
-                # both buckets equally).
-                if concede is not None and rounds == 1 and striker_role == concede:
+                # both buckets equally). SMOKE-116 (Round 181): extended
+                # to support concede declaration in any Round, not just
+                # Round 1. round_concede is set at the top of each Round
+                # to whichever side conceded in THAT Round (legacy
+                # `concede` arg drives Round 1; per-round
+                # `concede_decisions` drives later Rounds).
+                if round_concede is not None and striker_role == round_concede:
                     this_cb_raw = this_cb_raw / 2.0
                     this_norm_raw = this_norm_raw / 2.0
                 # Find target via positions.
@@ -1540,8 +1558,11 @@ def resolve_battle(
             }
             r.update(extra)
             return r
-        if concede is not None and rounds == 1:
-            if concede == "attacker":
+        # SMOKE-116 (Round 181): per-Round concede outcome.
+        # Round 1 honors legacy `concede` arg; Round 2+ honors
+        # concede_decisions[round]. Conceder loses immediately.
+        if round_concede is not None:
+            if round_concede == "attacker":
                 return _ret(defender_side, attacker_side, conceded="attacker")
             else:
                 return _ret(attacker_side, defender_side, conceded="defender")

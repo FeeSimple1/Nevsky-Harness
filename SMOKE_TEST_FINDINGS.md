@@ -9311,3 +9311,58 @@ interrupt-on-avoid, no-interrupt-without-ambush-hold.
 Self-play sweep: 298/300 still terminal, 0 harness exceptions.
 
 Test count: 1058 → 1065 (+7 regressions). SMOKE total: 115.
+
+## Round 181 — SMOKE-116 (Multi-round Concede declaration implemented)
+
+Previously documented as a known feature gap (R162). Per rule 4.4.2:
+"side Concedes the Field at start of Round". The legacy `concede`
+arg to resolve_battle was only consulted at Round 1.
+
+Implementation extends resolve_battle with new arg:
+
+    concede_decisions: dict[int, str] | None = None
+
+Maps round_number → side that concedes at start of that round
+(`"attacker"` or `"defender"`). The legacy `concede` arg still
+drives Round 1; `concede_decisions` drives Round 2+.
+
+Inside the round loop, a new local `round_concede` is computed at
+the top of each Round:
+
+  - Round 1 → from legacy `concede` arg (if set)
+  - Round N (N >= 2) → from `concede_decisions[N]` (if set)
+  - Else → None
+
+The Pursuit halving (per striker, both Crossbow + Normal raw
+buckets) now consults `round_concede` instead of the static
+`concede is not None and rounds == 1`. The outcome resolution at
+end of round also consults `round_concede`.
+
+Each per-Round log entry gains a `"concede": <side|None>` field for
+traceability.
+
+Regressions: tests/test_round_181_multi_round_concede.py (7 tests):
+marker present; concede_decisions arg accepted; Round 2 concede
+ends Battle with conceder loss; legacy Round 1 still works;
+Pursuit halving uses round_concede; round log includes concede;
+no-concede passes through normally.
+
+Self-play sweep: 298/300 still terminal, 0 harness exceptions.
+
+Test count: 1065 → 1072 (+7 regressions). SMOKE total: 116.
+
+## Final summary (R180-R181 — option 2 feature gaps)
+
+The two documented feature gaps are now closed:
+
+| Round | SMOKE | Feature |
+|---|---|---|
+| 180   | 115   | T6/R6 Ambush "Block Avoid Battle" mode |
+| 181   | 116   | Multi-round Concede declaration |
+
+Both implementations preserve backward compatibility with existing
+callers (T6 mode 2 still works; legacy `concede` Round-1 still
+works).
+
+Test count: 968 (start of Pass 2) → 1072 (+104 regressions across
+16 SMOKEs in Pass 2+).
