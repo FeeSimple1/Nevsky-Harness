@@ -103,14 +103,21 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     "args": {"card_id": cid_pending, "lord_id": lid},
                     "note": f"implements pending_draw {cid_pending} on {lid} (this_lord scope, 3.1.2)",
                 })
-            # If no Lord is eligible (e.g. R11 House of Suzdal in
-            # pleskau where Aleksandr+Andrey are both removed_from_play),
-            # we deliberately emit NOTHING rather than a guaranteed-
-            # illegal placeholder. This surfaces the underlying handler
-            # gap (no auto-discard path for un-implementable this_lord
-            # Capabilities at first Levy) instead of masking it with a
-            # phantom-legal option. See RULES_QUESTIONS Q-XXX for the
-            # adjudication-pending rules call.
+            if not eligible_lords:
+                # Q-R190-A (Round 193, adjudicated): when no Mustered
+                # own-side Lord matches the Capability's coats of arms,
+                # the handler auto-discards. Emit a single option
+                # routing through that path so the agent/LLM has a
+                # legal move to pick rather than stalling on
+                # pending_draw.
+                out.append({
+                    "type": "aow_implement_card",
+                    "side": side,
+                    "args": {"card_id": cid_pending},
+                    "note": f"auto-discards pending_draw {cid_pending} "
+                            f"— no Mustered own-side Lord matches "
+                            f"coats of arms (3.1.2 bullet)",
+                })
         else:
             out.append({
                 "type": "aow_implement_card",

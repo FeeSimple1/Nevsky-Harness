@@ -480,6 +480,47 @@ def _h_aow_implement_card(
         # First Levy: implement as capability (bottom half).
         scope = card["capability_scope"]
         if scope == "this_lord":
+            # Q-R190-A (Round 193): auto-discard a this_lord Capability
+            # at first Levy when NO Mustered own-side Lord is eligible
+            # per the Capability's coats of arms (3.4.4 eligibility,
+            # evaluated automatically at first-Levy implementation).
+            # The card's Event half may still be valuable in later
+            # Levies, so the discard goes to deck.discard (not
+            # deck.removed). Distinct reason code so sweep analytics
+            # can separate this from no-event removals. Citation: the
+            # bullet list immediately after 3.1.2 in 2E SoP (the same
+            # block that contains "Remove from play any No Capability
+            # card" and the Pleskau/Crusade No-Event note) describes
+            # the "This Lord card that cannot be assigned" branch.
+            # Reuses _check_capability_eligibility so all scope codes
+            # (lords/any/all/any_except) are honored identically to
+            # SMOKE-029's gate.
+            any_mustered_eligible = False
+            for lid_x, lord_x in state.lords.items():
+                if lord_x.side != sd or lord_x.state != "mustered":
+                    continue
+                try:
+                    _check_capability_eligibility(card, lid_x, role="target")
+                except IllegalAction:
+                    continue
+                any_mustered_eligible = True
+                break
+            if not any_mustered_eligible:
+                # Pop and discard. Card may resurface as an Event in
+                # later Levies via the normal draw cycle.
+                deck.pending_draw = deck.pending_draw[1:]
+                deck.discard.append(cid)
+                return (
+                    {
+                        "card": cid,
+                        "outcome": "discarded_no_eligible_lord",
+                        "reason": "no_eligible_lord",
+                        "rule": "3.1.2 bullet — this_lord Capability "
+                                "auto-discards when no Mustered own-side "
+                                "Lord matches the coats of arms",
+                    },
+                    [],
+                )
             lord_id = args.get("lord_id")
             if not isinstance(lord_id, str) or lord_id not in state.lords:
                 raise IllegalAction(

@@ -606,3 +606,101 @@ R1/R2 Luchniki Tips: "round in favor of Crossbowmen."
 **Citation.** `reference/Nevsky_Arts_of_War_Reference.txt` Tips
 sections for T4/R1, T5/R2, T6/R6, T9/R5, T10.
 
+
+---
+
+## Q-R190-A — Un-implementable this_lord Capability at first Levy
+*Adjudicated 2026-05-17. Encoded in Round 193 (commit pending merge).*
+
+**User adjudication (verbatim):**
+
+> Recommended answer: option (a), with one nuance
+>
+> (a) Auto-discard to deck.discard. This is what the rules and
+> playbook say to do. Pop pending_draw, append to deck.discard,
+> continue Levy.
+>
+> The R11 card isn't dead weight in Pleskau even though its
+> Capability half is. The Event half of R11 (Valdemar — shift
+> Knud & Abel on the Calendar; no Muster of or by them this
+> Levy) is a perfectly functional Russian Event that the
+> Russian player will want available in second and later
+> Levies, drawn as an Event per 3.1.3. R5 and R6 likewise
+> have working Event halves (R5 Bridge, R6 Ambush — both Hold
+> Events) that don't depend on Aleksandr/Andrey being in play.
+> Permanently removing the card under option (b) would strip
+> those Events from the game for no rules-based reason, which
+> is why option (b) is wrong.
+>
+> The other options fail for clear reasons:
+>
+>   - (b) treats this case like a No Capability card. The Second
+>     Edition is careful to distinguish the two — "Remove from
+>     play any No Capability card drawn" sits on its own bullet,
+>     separate from the "This Lord card that cannot be assigned"
+>     bullet. Both bullets are in the same list precisely to
+>     draw the contrast.
+>   - (c) is just ignoring 3.4.4 eligibility, which the cards'
+>     coats of arms enforce.
+>   - (d) reshuffle-in-place isn't a pattern that appears
+>     anywhere in the rules.
+>   - (e) pre-removing at scenario load is doing a different
+>     job than the rule asks for. The rule fires on the dynamic
+>     state at draw time, not on the static "could this Lord
+>     ever Muster" question. Scenarios with Lords on the
+>     Calendar (not removed_from_play, just not Mustered yet)
+>     need the same handler — Watland with Druzhina drawn for
+>     a Domash-only setup is the canonical Playbook example.
+>     A scenario-data fix solves Pleskau but leaves the general
+>     case unhandled.
+>
+> What the handler should do
+>
+> When `_h_aow_implement_card` is invoked for a Capability whose
+> `this_lord` scope finds zero Mustered own-side Lords matching
+> the coats of arms:
+>
+>   - Pop the card from `pending_draw`.
+>   - Append it to `deck.discard`.
+>   - Emit whatever telemetry/log entry the no-event auto-discard
+>     branch already emits, with a distinct reason code (e.g.,
+>     `no_eligible_lord`) so sweep analytics can tell them apart
+>     from no-event discards.
+>   - Continue the Levy sequence.
+>
+> The eligibility check is "is there ≥1 Mustered own-side Lord
+> whose coat of arms appears on the Capability's lower half?"
+> — same predicate 3.4.4 uses, just evaluated automatically at
+> first Levy instead of by player choice. R11's "Aleksandr AND
+> Andrey on map" wording is a Command-bonus trigger, not an
+> eligibility requirement; the eligibility test for assignment
+> is the coats of arms (Aleksandr, Andrey), and only one of
+> them needs to be Mustered to legally carry the card. In
+> Pleskau both are removed_from_play, so the predicate returns
+> false either way.
+
+**Citation.** Second Edition Sequence of Play, 3.1.2. The bullet
+list immediately after 3.1.2 contains the "This Lord card that
+cannot be assigned" branch — easy to miss because the same
+bullet block also contains the "Remove from play any No
+Capability card" rule and the Pleskau/Crusade No-Event note, so
+it visually reads like it belongs to 3.1.3.
+
+**Implementation.**
+
+- Handler: `_h_aow_implement_card` in `src/nevsky/actions.py` —
+  added a pre-check before the `lord_id` arg validation that
+  iterates Mustered own-side Lords and runs
+  `_check_capability_eligibility` (reusing SMOKE-029's predicate
+  so all four scope codes — `lords` / `any` / `all` / `any_except`
+  — are honored identically to the player-pick path). When no
+  Lord passes, pops `pending_draw`, appends to `deck.discard`,
+  and returns
+  `{"card": cid, "outcome": "discarded_no_eligible_lord",
+    "reason": "no_eligible_lord", "rule": "3.1.2 bullet — ..."}`.
+- Enumerator: `_aow_moves` in `src/nevsky/legal_moves.py` (the
+  SMOKE-124 block) — when zero eligible Lords found, now emits a
+  single `aow_implement_card` option without `lord_id` so agents
+  and the LLM-play interface have a legal move to pick rather
+  than stalling on `pending_draw`.
+- Regression: `tests/test_round_193_no_eligible_lord_auto_discard.py`.
