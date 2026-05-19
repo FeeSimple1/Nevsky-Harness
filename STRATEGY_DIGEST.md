@@ -621,3 +621,76 @@ because no aggressive play happened. With strategic play:
 data (300 sessions, all scenarios). The data is descriptive (what
 the no-strategy baseline produces) — strategic recommendations
 above interpolate from that baseline + the existing digest.*
+
+---
+
+## 12. Lessons from the R195 Pleskau self-play
+
+The first end-to-end LLM-vs-LLM playthrough (R195, Pleskau seed
+1, Russian win 1-0) surfaced two strategic footguns sharp enough
+to deserve their own section. The post-mortem is preserved in
+`docs/self_play_pleskau_seed1.md`; the rules are below.
+
+### 12.1 The Forage-before-March Laden trap
+
+A Lord becomes **Laden** when `provender > usable_transport`
+(1.7.4) — not when `provender > 2× usable_transport`. The 2×
+threshold is the separate "cannot-move-without-discard" gate
+(SMOKE-127's territory; the discard option exists). The basic
+Laden threshold trips at *one* unit over capacity, and Laden
+March costs 2 actions per Way instead of 1.
+
+In the R195 game, Hermann had 1 Provender and 1 usable Cart at
+Dorpat. Foraging at Dorpat before marching pushed Provender to 2,
+made him Laden, and his remaining 2 actions reached only Ugaunia
+instead of Izborsk. That single move cost the Teutons the
+Turn-1 siege of Izborsk and, transitively, the game.
+
+The rule for the digest: **Forage is best as the LAST action on a
+Lord's Command card**, or at a Friendly Stronghold the Lord
+won't leave that card. Pre-March Foraging is correct only when
+the Lord has Transport slack to absorb the extra Provender
+without crossing the Laden threshold for the Ways he plans to
+take.
+
+The same trap applies to Looting and to ending a March on a
+Locale where the Lord intends to Forage on the next card — count
+Transport before committing.
+
+### 12.2 March-lead vs Storm-lead in a 2-action siege plan
+
+Pleskau's Izborsk axis has two paths: Dorpat → Ugaunia → Izborsk
+(Hermann, 4 forces) and Adsel → Lettgallia → Izborsk (Rudolf, 3
+forces). Both are 2 Marches. Pre-fix R195 played Hermann as
+March-lead intending to use his weight on the Storm; the Laden
+trap broke that plan.
+
+The cleaner sequencing for any 2-card siege plan in Pleskau:
+
+The **lighter, faster Lord leads the March** — fewer forces means
+less Provender drag, lower Laden risk, and the card terminates
+with the Siege marker placed (4.3's `ends_card_when_began_siege`)
+regardless of who marched. Rudolf at Adsel fits this role exactly.
+
+The **heavier Lord saves his card for the Storm**, which is a
+full-card action against the resulting Siege. Hermann's
+Trebuchets capability (T14, Walls -1) is the Storm payoff that
+makes a 50-70% odds attack against Izborsk's Garrison-only Fort
+(Walls 1 − 1 = 0) possible.
+
+Reveal-order alternation reinforces this: putting the
+March-leader at Slot 1 means his card resolves first, the Siege
+is placed before the defender's Slot-1 card reveals, and any
+Russian Withdraw-into-Stronghold by the defender just confirms
+the siege rather than disrupting it.
+
+### 12.3 The SMOKE-129 corollary
+
+R195 also surfaced a real bug — Approach was triggering against
+besieged-inside enemies, letting a defender Withdraw a Lord who
+was already at-bay. Fixed in R196 as SMOKE-129. The strategic
+implication: a Lord joining an existing siege now correctly
+stacks alongside the existing besieger without giving the
+defender a free re-Withdraw cycle. Plan around the fact that
+once a Lord is besieged inside a Stronghold, the only way out
+is Sally (4.5.3) or Surrender (4.5.1).
