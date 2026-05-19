@@ -2151,7 +2151,19 @@ def _h_cmd_march(
             f"March costs {cost} action(s); {state.campaign_turn.actions_remaining} remain",
         )
 
-    enemies = _enemies_at(state, dest, sd)
+    # SMOKE-129 (Round 196): Approach (4.3.4) triggers only on enemy
+    # Lords NOT in a Stronghold at the destination. A besieged-inside
+    # enemy (in_stronghold=True) is not in the open and not a valid
+    # Approach target; the arriving Lord simply joins the siege.
+    # Pre-fix, marching Rudolf into Izborsk where Gavrilo was already
+    # Withdrawn-inside fired a second Approach with Gavrilo as
+    # defender, letting Russia "Withdraw" a Lord who was already
+    # besieged — visible in the Round 195 Pleskau playthrough at
+    # Turn 2 Rudolf's reveal.
+    enemies = [
+        lid for lid in _enemies_at(state, dest, sd)
+        if not state.lords[lid].in_stronghold
+    ]
     if enemies:
         # Approach: pause and request defender response.
         from nevsky.state import CombatPending

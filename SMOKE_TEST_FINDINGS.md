@@ -9868,3 +9868,40 @@ legal move to pick rather than stalling. Replaces R190's
   stalling.
 - Tests: 1235 → 1241 (6 new in
   `test_round_193_no_eligible_lord_auto_discard.py`).
+
+---
+
+## Round 196 — SMOKE-129 Approach against besieged-inside enemy
+
+Surfaced by the R195 Pleskau self-play playthrough (preserved in
+`docs/self_play_pleskau_seed1.md`): a Teutonic Lord (Rudolf)
+marching into Izborsk to join an existing siege triggered a
+spurious Approach against a Russian Lord (Gavrilo) who had
+already Withdrawn into the Stronghold during Hermann's earlier
+March. The harness gave the Russian a free Withdraw cycle on a
+Lord who was already besieged.
+
+Root cause: `_enemies_at` (campaign.py:1864) returns every
+mustered enemy at the destination without checking
+`in_stronghold`. The Approach trigger at line 2154 used the raw
+result. Per 4.3.4, Approach fires only on enemy Lords NOT in a
+Stronghold — a besieged-inside Lord is already at-bay; the
+arriving Lord just joins the siege as a co-besieger.
+
+Fix: at the Approach call site only, filter `_enemies_at` output
+by `not state.lords[lid].in_stronghold`. The helper stays
+general because the other two call sites (Avoid-Battle
+destination check at line 2343, Retreat target search at line
+2763) have adjacent `_has_enemy_stronghold_at` checks that
+already cover the besieged-inside case.
+
+Regression: `tests/test_round_196_smoke_129_approach_besieged.py`
+— 3 tests (no Approach against besieged, positive control for
+open-enemy Approach still firing, source marker guardrail).
+
+STRATEGY_DIGEST.md §12 added with the two strategic learnings
+from the playthrough (12.1 Forage-before-March Laden trap, 12.2
+March-lead vs Storm-lead in a 2-action siege plan) and the
+SMOKE-129 corollary (12.3).
+
+Tests: 1247 → 1250. SMOKE total: 128 → 129.
