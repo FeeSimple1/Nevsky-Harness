@@ -10060,3 +10060,29 @@ Full suite 1273 → 1275 (8 in test_round_199 incl. scoping +
 SMOKE-133 + subsequent-Levy-not-blocked). Scaled self-play sweep
 300/300. Tournament (24 games) 0 non-terminal. Round-trip sweep 0
 findings. SMOKE total: 130 → 133.
+
+---
+
+## Round 200 — CROSS_PROJECT_LESSONS §8 (LLM-playthrough era distillation)
+
+Docs-only. Added §8 to CROSS_PROJECT_LESSONS.md distilling the R188-R199
+learnings for the sibling L&C harnesses (Almoravid, Inferno). Seven
+sub-points, evidence-backed by the playthrough SMOKEs:
+
+  8.1 LLM self-play is the highest-yield detector for a mature harness
+      (every full playthrough found a fresh bug after 187 clean sweeps).
+  8.2 Combat/siege state-transition predicates are the hotspot
+      (SMOKE-129 besieged-target, SMOKE-130 conquered-Friendly).
+  8.3 Define each rules predicate once; never re-derive inline
+      (SMOKE-130 root cause).
+  8.4 Auto-resolved player choices are silent fidelity bugs (R198
+      casualty absorption).
+  8.5 Tightening a "must do X first" rule can deadlock — guarantee X is
+      always completable, or scope to the cases where it is (SMOKE-131).
+  8.6 A clean sweep means "no bugs on current trajectories"; diversify
+      to flush latent ones (SMOKE-133).
+  8.7 Audit a per-phase flag's reset as carefully as its set; test
+      across phases (SMOKE-132).
+
+Also refreshed the stale "188 rounds" vantage references to "~200".
+No code change; SMOKE total unchanged at 133.
