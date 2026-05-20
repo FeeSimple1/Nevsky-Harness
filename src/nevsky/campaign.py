@@ -2556,13 +2556,29 @@ def _h_withdraw(
         raise IllegalAction("no_stronghold", f"{cp.to_locale} has no Stronghold to Withdraw into")
     # Friendly to defender side?
     if not _is_friendly_locale(state, cp.to_locale, sd):
-        # Strict Friendly check excludes Besieged locales; for Withdraw we
-        # require defender's territory or defender's Conquered Stronghold,
-        # without enemy Conquered marker.
+        # Strict Friendly check excludes Besieged locales AND any Locale
+        # with an enemy Lord present -- but during an Approach the
+        # attacker is necessarily AT the Battle Locale, so the strict
+        # check always fails here. For Withdraw eligibility we mirror
+        # 1.3.1's territory criterion directly: defender's own territory
+        # OR a Stronghold the defender has Conquered, with no enemy
+        # Conquered marker.
+        #
+        # SMOKE-130 (Round 197): the prior code only accepted own
+        # territory and dropped the "own Conquered Stronghold" half --
+        # contradicting the inline comment AND 1.3.1 ("A Lord at a
+        # Stronghold Conquered FROM the enemy ... is Friendly to this
+        # side", Miscellaneous Rules Reference). A defender holding a
+        # Stronghold he conquered in enemy territory (e.g. Teuton-held
+        # Pskov in Peipus) was wrongly denied a Withdraw into it and
+        # forced to Stand. Surfaced in the Round 196.5 Peipus LLM
+        # playthrough; legal_moves already offered withdraw, so this
+        # was also an enumerator/handler asymmetry.
         loc_state = state.locales[cp.to_locale]
         own_terr = (sd == "teutonic" and sloc["territory"] in ("teutonic", "crusader")) or (sd == "russian" and sloc["territory"] == "russian")
+        own_conq = (sd == "teutonic" and loc_state.teutonic_conquered > 0) or (sd == "russian" and loc_state.russian_conquered > 0)
         enemy_conq = (sd == "teutonic" and loc_state.russian_conquered > 0) or (sd == "russian" and loc_state.teutonic_conquered > 0)
-        if not own_terr or enemy_conq:
+        if not (own_terr or own_conq) or enemy_conq:
             raise IllegalAction("not_friendly", f"{cp.to_locale} not Friendly to defender")
 
     # SMOKE-054 (Round 63 follow-up): Withdraw capacity also respects
