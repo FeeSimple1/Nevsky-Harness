@@ -246,20 +246,18 @@ def _h_advance_step(
     # pending_draw always has a resolving move available; advancing
     # past it would orphan the card.
     if (state.meta.levy_step == "arts_of_war"
-            and not state.meta.first_levy_done
             and _side_deck(state, sd).pending_draw):
-        # R199 (SMOKE-131): scoped to the FIRST Levy, where drawn cards
-        # are Capabilities (3.1.2) and can ALWAYS be cleared -- either
-        # implemented on an eligible Lord or auto-discarded when none is
-        # eligible (Q-R190-A). Subsequent-Levy Events are intentionally
-        # NOT gated here: some immediate Events have no no-op-discard
-        # path yet, so blocking advance on them could deadlock. Closing
-        # that gap (Event no-op-discard so pending_draw always clears)
-        # is a separate follow-up; see SMOKE_TEST_FINDINGS R199.
+        # R199/R201 (SMOKE-131): a side may not advance Arts of War
+        # while it still owes implementation of drawn cards (SoP
+        # 3.1.2/3.1.3). Now applies at ALL Levies: first-Levy
+        # Capabilities clear via implement-or-auto-discard (Q-R190-A),
+        # and subsequent-Levy Events clear via resolve-with-target OR
+        # bare-implement no-op-discard (R201), so pending_draw can
+        # always be cleared -- no deadlock.
         raise IllegalAction(
             "pending_draw_nonempty",
-            "cannot advance: implement first-Levy Capability cards first "
-            "(SoP 3.1.2)",
+            "cannot advance: implement (or resolve/discard) pending AoW "
+            "cards first (SoP 3.1.2/3.1.3)",
         )
 
     if sd == "teutonic":
@@ -453,6 +451,15 @@ def _h_aow_draw(
     return ({"drawn": drawn, "deck_remaining": len(deck.deck)}, [])
 
 
+def _has_target_args(args: dict[str, Any]) -> bool:
+    """R201: True if the caller supplied any implement arg beyond the
+    bare card_id (target / targets / locale / direction / boxes / etc.).
+    A bare implement ({card_id} only) of an immediate Event that cannot
+    resolve is treated as reveal-and-discard (no effect); an explicit
+    but invalid target still raises so genuine arg errors surface."""
+    return any(k != "card_id" for k in args)
+
+
 def _h_aow_implement_card(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -607,9 +614,20 @@ def _h_aow_implement_card(
         # leave a tracking entry in this_levy_events so end-of-Levy
         # discard (3.5.3) cleans the block list.
         from nevsky.events import resolve_immediate_event
-        # SMOKE-010: resolver may raise; if it does, leave pending_draw
-        # untouched so the agent can retry with corrected args.
-        result = resolve_immediate_event(state, cid, args)
+        # SMOKE-010: resolver may raise on bad args; if an explicit
+        # target was given, leave pending_draw untouched so the agent
+        # can retry with corrected args. R201: a BARE implement (no
+        # target supplied) of an Event that cannot resolve reveals and
+        # discards with no effect, so pending_draw always clears.
+        try:
+            result = resolve_immediate_event(state, cid, args)
+        except IllegalAction as e:
+            if e.code in ("missing_arg", "ineligible_target") and not _has_target_args(args):
+                deck.pending_draw = deck.pending_draw[1:]
+                deck.this_levy_events.append(cid)
+                return ({"card": cid, "outcome": "this_levy_event_no_target_discarded",
+                         "reason": "no_resolvable_target"}, [])
+            raise
         deck.pending_draw = deck.pending_draw[1:]
         deck.this_levy_events.append(cid)
         return ({"card": cid, "outcome": "this_levy_event", "effect": result}, [])
@@ -620,7 +638,20 @@ def _h_aow_implement_card(
     # immediate -- resolve effect FIRST (may raise; then card stays
     # in pending_draw for retry) then commit pop and discard.
     from nevsky.events import resolve_immediate_event
-    result = resolve_immediate_event(state, cid, args)
+    # R201: a BARE implement (no target supplied) of an immediate Event
+    # that cannot resolve reveals and discards with no effect, so
+    # pending_draw always clears (lets the SMOKE-131 advance-block
+    # apply at all Levies without deadlocking on un-targetable Events).
+    # An explicit invalid target still raises (genuine error surfaces).
+    try:
+        result = resolve_immediate_event(state, cid, args)
+    except IllegalAction as e:
+        if e.code in ("missing_arg", "ineligible_target") and not _has_target_args(args):
+            deck.pending_draw = deck.pending_draw[1:]
+            deck.discard.append(cid)
+            return ({"card": cid, "outcome": "immediate_event_no_target_discarded",
+                     "reason": "no_resolvable_target"}, [])
+        raise
     deck.pending_draw = deck.pending_draw[1:]
     # SMOKE-117 (Round 182): if the event resolver placed the card
     # into capabilities_in_play (T11 Pope Gregory: card becomes

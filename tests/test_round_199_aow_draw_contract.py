@@ -126,20 +126,59 @@ def test_markers_present_in_source():
 # ----- SMOKE-131 scoping: subsequent-Levy events NOT blocked --------------
 
 
-def test_advance_not_blocked_for_subsequent_levy_event():
-    """SMOKE-131 is scoped to the FIRST Levy (Capabilities, always
-    clearable). At a subsequent Levy (first_levy_done=True) the drawn
-    cards are Events, some of which have no no-op-discard path yet, so
-    advance is intentionally NOT blocked there (would deadlock)."""
+def test_advance_blocked_for_subsequent_levy_event_r201():
+    """R201 extended SMOKE-131 to ALL Levies. At a subsequent Levy a
+    side may not advance while a drawn Event is pending; the Event is
+    cleared either by resolving it with a target or by a bare-implement
+    no-op-discard (un-targetable Event)."""
     s = _fresh_aow()
     s.meta.first_levy_done = True  # subsequent Levy
     apply_action(s, {"type": "aow_draw", "side": "teutonic", "args": {}})
     assert len(s.decks.teutonic.pending_draw) >= 1
-    # advance_step IS offered (not gated) at subsequent Levy.
+    # advance_step is now suppressed and rejected while a card is pending.
     moves = [m["type"] for m in legal_moves(s, with_previews=False)]
-    assert "advance_step" in moves
-    # And it applies (does not raise pending_draw_nonempty).
+    assert "advance_step" not in moves
+    with pytest.raises(IllegalAction) as e:
+        apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
+    assert e.value.code == "pending_draw_nonempty"
+    # Clear every pending card via bare implement (resolve-or-no-op-discard),
+    # then advance becomes available.
+    for cid in list(s.decks.teutonic.pending_draw):
+        apply_action(s, {"type": "aow_implement_card", "side": "teutonic",
+                         "args": {"card_id": cid}})
+    assert s.decks.teutonic.pending_draw == []
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
+
+
+def test_r201_bare_implement_untargetable_event_discards():
+    """A bare implement (only card_id) of an immediate Event with no
+    resolvable target reveals-and-discards with no effect, so
+    pending_draw always clears."""
+    s = load_scenario("watland", seed=1)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "arts_of_war"
+    s.meta.active_player = "russian"
+    s.meta.first_levy_done = True
+    s.decks.russian.pending_draw = ["R10"]  # Batu Khan: needs a target
+    res = apply_action(s, {"type": "aow_implement_card", "side": "russian",
+                           "args": {"card_id": "R10"}})
+    assert res["outcome"] == "immediate_event_no_target_discarded"
+    assert "R10" in s.decks.russian.discard
+    assert s.decks.russian.pending_draw == []
+
+
+def test_r201_explicit_bad_target_still_raises():
+    """An explicit but invalid target still raises (genuine arg error
+    surfaces) -- only a BARE implement no-op-discards."""
+    s = load_scenario("watland", seed=1)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "arts_of_war"
+    s.meta.active_player = "russian"
+    s.meta.first_levy_done = True
+    s.decks.russian.pending_draw = ["R10"]
+    with pytest.raises(IllegalAction):
+        apply_action(s, {"type": "aow_implement_card", "side": "russian",
+                         "args": {"card_id": "R10", "target": "not_a_real_lord"}})
 
 
 # ----- SMOKE-133: muster enumeration excludes block-listed Lords ----------
