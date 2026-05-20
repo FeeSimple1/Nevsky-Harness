@@ -78,6 +78,13 @@ def test_fpd_at_limit_disband_counts_from_next_box_during_campaign() -> None:
     s.lords[teu].moved_fought = False  # only Disband path matters
     s.lords[teu].assets.pop("provender", None)
     s.lords[teu].assets.pop("loot", None)
+    # R203 (BUG-4): zero all Teutonic Coin/Loot so the 4.8.2 Pay window
+    # does NOT open -- this test exercises the Disband box math under the
+    # no-recourse path (Feed -> Disband in a single fpd_resolve).
+    for _l in s.lords.values():
+        if _l.side == "teutonic" and _l.state == "mustered":
+            _l.assets.pop("coin", None)
+            _l.assets.pop("loot", None)
     _enter_fpd(s)
     res = apply_action(s, {"type": "fpd_resolve", "side": "teutonic", "args": {}})
     from nevsky.static_data import load_lords

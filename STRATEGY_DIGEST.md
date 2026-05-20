@@ -764,3 +764,32 @@ the map before he can crack it. In the Peipus game, Hermann (alone,
 rules-correct play, had Withdraw worked, was to shelter inside Pskov
 and let Andrey starve. Hold your conquests from within when you can't
 win the open field.
+
+## 14. Lessons from the Crusade-on-Novgorod seed-1 playthrough (R203)
+
+The first (partial) play of the longest scenario surfaced four rules
+gaps; the three with strategic weight:
+
+- **Pay to avert a mid-campaign Disband (4.8.2).** A Lord pushed to his
+  Service limit by an Unfed penalty is now offered a Pay window before
+  the Disband check — spend 1 Coin/Loot (or Veche Coin) per box to shift
+  his Service marker right and keep him. This matters most under Famine
+  and on long scenarios where Unfed penalties accumulate; banking a
+  little Coin specifically as Disband insurance for a key Lord (e.g. a
+  2-capability Lord) is now worthwhile. Previously such Lords were culled
+  with no recourse, so prior strategy under-valued holding Coin late.
+- **Stone Kremlin (R18) is now usable in play.** Gavrilo (or any Lord
+  holding R18) can spend a full Command card at his own Fort/City/
+  Novgorod to add Walls +1, strengthening a defensive bastion (e.g.
+  Pskov) — it was previously unreachable through the move enumerator.
+  Costs the whole card and the Lord may be Besieged when he does it.
+- **Sail/Supply are visible to the LLM palette again.** The Danish Lords'
+  entire mobility model (Sail Seaport→Seaport) and Supply provisioning
+  were silently missing from the enumerated palette; LLM play can now use
+  them without hand-written JSON.
+
+Tempo note: an attacker can no longer March a 2nd Lord into an existing
+siege and Storm the same card (entire-card = sole Action, D-R203). A
+siege a Lord did not begin this card now resolves on a later card, so
+storming a strong Stronghold genuinely costs tempo — factor that into
+whether to commit to a siege at all.

@@ -674,6 +674,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         return out
     if cstep == "command":
         if state.campaign_turn.in_feed_pay_disband:
+            # BUG-4 (R203): during this side's 4.8.2 Pay window, offer Pay
+            # (3.2 mechanics) to shift Service right and avert a pending
+            # mid-campaign Disband. fpd_resolve then runs the Disband check.
+            if state.campaign_turn.fpd_pay_window_side == side:
+                out.extend(_pay_moves(state, side))
             out.append({"type": "fpd_resolve", "side": side, "args": {}})
             return out
         if state.campaign_turn.actions_remaining == 0:
@@ -688,6 +693,14 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # Enumerate reachable destinations via Ways from active Lord's Locale.
         # Per 4.3.x: 1 Locale per March action.
         active = state.lords[active_lord]
+        # BUG-2 (R203): entire-card Commands (Siege/Storm/Sally/Tax/Sail,
+        # plus Stone Kremlin) require a pristine Command card. At reveal
+        # actions_remaining == _effective_command_rating(lord); once the
+        # Lord has Marched/acted it drops below, so these moves must be
+        # suppressed (the handlers now raise must_be_full_card).
+        from nevsky.campaign import _effective_command_rating as _ecr_lm
+        pristine = (state.campaign_turn.actions_remaining
+                    >= _ecr_lm(state, active_lord))
         try:
             from nevsky.static_data import load_ways
             ways = load_ways()
@@ -766,7 +779,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         if active.location is not None:
             sh = _effective_stronghold(state, active.location)
             sm = state.locales[active.location].siege_markers
-            if sh is not None and sm > 0 and not _ib(state, active_lord) and sh.get("side") != side:
+            if pristine and sh is not None and sm > 0 and not _ib(state, active_lord) and sh.get("side") != side:
                 out.append({"type": "cmd_siege", "side": side,
                             "args": {"lord_id": active_lord},
                             "note": "Siege (4.5.1) -- entire card; surrender or siegeworks"})
@@ -780,7 +793,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     out.append({"type": "cmd_storm", "side": side,
                                 "args": {"lord_id": active_lord},
                                 "note": storm_note})
-            if _ib(state, active_lord):
+            if pristine and _ib(state, active_lord):
                 sally_note = _maybe_preview_note(
                     state,
                     {"type": "cmd_sally", "side": side,
@@ -791,6 +804,32 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 out.append({"type": "cmd_sally", "side": side,
                             "args": {"lord_id": active_lord},
                             "note": sally_note})
+            # BUG-1 (R203): R18 Stone Kremlin is a Campaign Command
+            # action (entire card) and was never enumerated, so a player
+            # driving off legal_actions could never use the capability.
+            # Mirror _h_cmd_stone_kremlin preconditions (pristine card;
+            # own Russian Fort/City/Novgorod; no Castle; no existing
+            # Walls +1; < 4 markers in play). A Besieged Lord may use it.
+            if pristine and side == "russian":
+                try:
+                    from nevsky.capabilities import has_lord_capability as _hlc_sk
+                    from nevsky.static_data import load_locales as _ll_sk
+                    _sl_sk = _ll_sk().get(active.location)
+                    _ls_sk = state.locales.get(active.location)
+                    if (_sl_sk is not None and _ls_sk is not None
+                            and _hlc_sk(state, active_lord, "Stone Kremlin")
+                            and _sl_sk.get("territory") == "russian"
+                            and _sl_sk.get("type") in ("fort", "city", "novgorod")
+                            and not _ls_sk.teutonic_castle
+                            and not _ls_sk.russian_castle
+                            and not _ls_sk.walls_plus_one
+                            and sum(1 for _l in state.locales.values()
+                                    if _l.walls_plus_one) < 4):
+                        out.append({"type": "cmd_stone_kremlin", "side": side,
+                                    "args": {"lord_id": active_lord},
+                                    "note": "Stone Kremlin (R18): Walls +1 (entire card)"})
+                except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                    pass
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})
@@ -800,6 +839,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # Lord is anywhere but his Seat -- which is most of the game.
         from nevsky.campaign import _is_own_seat
         if (active.location is not None
+                and pristine
                 and _is_own_seat(state, active_lord, active.location)
                 and active.assets.get("coin", 0) < 8):
             out.append({"type": "cmd_tax", "side": side,
@@ -876,9 +916,10 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         out.append({"type": "cmd_supply", "side": side,
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
                     "note": "Supply (1 action)"})
-        out.append({"type": "cmd_sail", "side": side,
-                    "args_template": {"lord_id": "<id>", "destination": "<seaport_id>", "group": "[<id>]"},
-                    "note": "Sail Seaport->Seaport (entire card)"})
+        if pristine:
+            out.append({"type": "cmd_sail", "side": side,
+                        "args_template": {"lord_id": "<id>", "destination": "<seaport_id>", "group": "[<id>]"},
+                        "note": "Sail Seaport->Seaport (entire card)"})
         out.append({"type": "end_card", "side": side, "args": {},
                     "note": "voluntarily end this Command card"})
         return out

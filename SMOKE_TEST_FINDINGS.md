@@ -10163,3 +10163,90 @@ roundtrip 23, property_invariants 66, round_199 (R202) 11. Integration:
 round-trip sweep 0 findings. (Hypothesis property_advanced /
 action_sequences are unaffected general-invariant tests and were green
 in R201; slow in a loaded sandbox this round.) SMOKE total 133.
+
+## Round 203 — Crusade-on-Novgorod seed-1 playthrough batch (SMOKE-134/135/136/137)
+
+Source: a partial LLM self-play of Crusade on Novgorod (seed 1) surfaced
+four findings in rarely-walked corners. All verified against the code
+and the authoritative `reference/*.txt` before fixing. One round, one
+branch (`round-203-playthrough-bugs`); BUG-2 was adjudicated by the user
+(see RULES_DECISIONS "entire_card = sole action").
+
+### SMOKE-134 — R18 Stone Kremlin never enumerated (legal-move under-enumeration)
+
+`_h_cmd_stone_kremlin` (campaign.py) exists, is dispatched, and works,
+but `legal_moves.py` never emitted `cmd_stone_kremlin` — so a player
+driving solely off `legal_actions()` could never use R18, the
+capability's entire purpose (a Campaign Command action, 4.5.2 / AoW
+l.358-361). Inverse of CROSS_PROJECT_LESSONS §1. Fix: emit
+`cmd_stone_kremlin` in the command step when the active Russian Lord
+holds the capability, the card is pristine, and the locale is an own
+Fort/City/Novgorod without a Castle or existing Walls +1 and < 4 markers
+in play (mirrors the handler preconditions). Sibling gap noted:
+T17 Stonemasons is likewise un-enumerated (deferred — see below).
+
+### SMOKE-135 — entire-card Commands lacked the "no other action" guard
+
+Siege/Storm/Sally/Tax/Sail are `action_cost: entire_card` (Commands.txt)
+but only the two AoW capability actions (Stone Kremlin R18, Stonemasons
+T17) enforced a pristine card; the five base handlers set
+`actions_remaining = 0` without checking the card was untouched, so a
+2nd Lord could March into an existing siege and Storm the SAME card,
+collapsing a 2-turn siege→storm into one turn. The repo `reference/*.txt`
+tag these `entire_card` but lacked the explicit "may take no other
+Action" clause, so this was adjudicated by the user (entire_card = sole
+action; see RULES_DECISIONS). Fix: a single shared predicate
+`_require_full_command_card(state, lord_id, label)` (defined once,
+reused by all seven entire-card handlers incl. the two capabilities,
+which were refactored off their inline duplicates — §1). The enumerator
+suppresses these moves when `actions_remaining < _effective_command_rating`.
+
+### SMOKE-136 — CLI/LLM palette silently dropped cmd_sail and cmd_supply
+
+`legal_moves.py` emits `cmd_sail` / `cmd_supply` as templated moves
+(`args_template`, no concrete args). `scripts/llm_self_play._concrete_actions`
+expands templates via `self_play._instantiate_templated_move`, which
+only handles `pay_with_coin` / `pay_with_loot`; for any other type it
+returns an EMPTY list (not an exception), so `out.extend([])` added
+nothing and the `except → keep template` fallback never fired. Sail
+(the entire Danish mobility model) and Supply vanished from the palette
+for an index/template-driven player. Fix: `_concrete_actions` now keeps
+the raw template when expansion yields zero concretes.
+
+### SMOKE-137 — per-card 4.8 cycle skipped the 4.8.2 Pay sub-step (MATERIAL)
+
+`_h_fpd_resolve` ran Feed (with Unfed left-shifts) and the Disband check
+in one atomic call; the enumerator offered only `fpd_resolve` during the
+sub-step. So a Lord pushed to his Service limit by an Unfed penalty was
+Disbanded with no chance to Pay and retain him — contrary to
+Sequence_of_Play 4.8.2 (`pay: same_as levy.pay`, sitting between Feed and
+Disband). The handler docstring's "queue pay before fpd_resolve"
+workaround was itself mis-ordered (you cannot know who needs rescuing
+until Feed's shifts resolve). Fix: split the resolve into
+Feed → Pay-window → Disband. New `CampaignTurn.fpd_pay_window_side`; when
+Feed leaves a pending Disband AND the side has payable Coin/Loot/Veche,
+`fpd_resolve` pauses and records the side; the enumerator then offers
+Pay (3.2 mechanics, via `_pay_moves`) plus `fpd_resolve` (proceed). The
+pay handlers' levy-only guard was relaxed via a shared
+`_require_pay_context` (Levy Pay step OR campaign FPD Pay window). The
+common no-rescuable-disband path stays a single `fpd_resolve` call
+(behaviour unchanged), so only disband-with-payable-resource scenarios
+take two calls.
+
+### Deferred (related, not in R203 scope)
+
+- T17 Stonemasons is un-enumerated (same class as SMOKE-134); other
+  capability Command actions (e.g. R4 Smerdi muster) likely similar.
+  Candidate for a follow-up "enumerate all capability Command actions"
+  round.
+
+### Verification
+
+Full battery green at the R203 tip: pytest 1287 passed / 1 skipped
+(+9 new `test_round_203_playthrough_bugs.py`); self_play_sweep 300/300
+terminal, 0 real errors; llm_tournament (pleskau, watland) 24/24
+terminal; roundtrip_sweep (seeds 1,2,3) 9281 probes, 0 findings.
+Three pre-existing tests updated for the new pristine/Pay-window rules
+(sail-discard, veliky-knyaz tax setups → pristine card; fpd disband test
+→ no-recourse path; the 16-turn driver loops fpd_resolve through the Pay
+window). SMOKE total 137.

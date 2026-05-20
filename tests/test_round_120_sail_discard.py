@@ -33,7 +33,9 @@ def _setup_sail_state(prov, loot, ships):
     s.meta.campaign_step = "command"
     s.meta.active_player = "teutonic"
     s.campaign_turn.active_lord = teu
-    s.campaign_turn.actions_remaining = 1
+    # Sail is an entire-card Command (R203): requires a pristine full
+    # Command card, so set the budget to the Lord's full command rating.
+    s.campaign_turn.actions_remaining = camp._effective_command_rating(s, teu)
     s.campaign_turn.next_to_reveal = "teutonic"
     s.campaign_turn.in_feed_pay_disband = False
     return s, teu

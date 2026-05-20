@@ -36,7 +36,10 @@ def _setup_tax_state(scenario="watland", seed=1, lord_caps=("R17",)):
     s.lords[rus].location = seat
     s.campaign_turn.active_card = rus
     s.campaign_turn.active_lord = rus
-    s.campaign_turn.actions_remaining = 1
+    # Tax is an entire-card Command (R203): requires a pristine full
+    # Command card, so set the budget to the Lord's full command rating.
+    import nevsky.campaign as _camp
+    s.campaign_turn.actions_remaining = _camp._effective_command_rating(s, rus)
     s.lords[rus].assets["coin"] = 0  # ensure room
     s.lords[rus].assets["cart"] = 0
     s.lords[rus].assets["boat"] = 0

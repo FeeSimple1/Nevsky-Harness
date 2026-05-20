@@ -802,3 +802,42 @@ permitted ONLY when no legal target exists (the deadlock-relief case
 (targetable-Event-bare-implement-raises, untargetable-no-op-discards,
 legal_moves offers arg-populated implements, advance-block satisfiable
 + clears).
+
+---
+
+## D-R203 — "entire_card" Commands are the Lord's sole Action on that card
+*Adjudicated 2026-05-20. Encoded in commit (R203 merge).*
+
+**Context.** Commands.txt tags Siege (4.5.1), Storm (4.5.2), Sally
+(4.5.3), Tax (4.7.4), and Sail (4.7.3) as `action_cost: "entire_card"`.
+The harness enforced a pristine-card precondition only for the two Arts
+of War capability actions (Stone Kremlin R18, Stonemasons T17), whose
+card text explicitly reads "expends his entire Command card to do
+nothing except ..." (AoW Reference l.361). The five base handlers merely
+set `actions_remaining = 0`, so a Lord who had already Marched on the
+card could still Storm/Siege/Sally/Tax/Sail with it — e.g. a 2nd Lord
+marching into an existing siege and Storming the same turn. The repo's
+`reference/*.txt` tag these `entire_card` but do not contain the printed
+rulebook's explicit "may take no other Action" clause (4.2/4.5), so the
+question was put to the user.
+
+**Question.** Should an `entire_card` Command be forbidden once the Lord
+has already Marched or taken any other Action on that card (i.e. require
+a pristine full Command card)?
+
+**User adjudication (verbatim):** "Yes — require pristine card."
+
+**Rationale recorded.** Consistent with the harness's own cost model
+(`entire_card` = the full Command rating, so it cannot be paid after any
+action is spent) and with the existing Stone Kremlin / Stonemasons
+guards. `[HOUSE RULE]`-adjacent: the repo reference files were silent on
+the "no other Action" clause; the printed rulebook (4.2/4.5) states it,
+and the user confirmed.
+
+**Encoding.** Shared predicate `_require_full_command_card(state,
+lord_id, label)` in campaign.py, reused by all seven entire-card
+handlers (Siege/Storm/Sally/Tax/Sail + Stone Kremlin + Stonemasons). The
+enumerator (`legal_moves.py`) suppresses these moves when the active
+Lord's card is not pristine (`actions_remaining < _effective_command_rating`).
+Regression: `tests/test_round_203_playthrough_bugs.py`
+(test_bug2_*). See SMOKE-135.
