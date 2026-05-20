@@ -2017,6 +2017,44 @@ def _take_legate_along(
     return {"from": src, "to": dest, "took_legate": True}
 
 
+_VALID_UNIT_TYPES = {
+    "knights", "sergeants", "men_at_arms", "serfs",
+    "militia", "light_horse", "asiatic_horse",
+}
+
+
+def _validate_absorption_policy(value: Any) -> "str | list[str]":
+    """R198: validate an owner-supplied casualty-absorption policy.
+
+    Accepts "weakest_first" (default), "armored_first", or a custom
+    priority list of valid unit-type strings (highest sacrifice
+    priority first). Raises IllegalAction on anything else.
+    """
+    if value is None:
+        return "weakest_first"
+    if isinstance(value, str):
+        if value not in ("weakest_first", "armored_first"):
+            raise IllegalAction(
+                "bad_absorption_policy",
+                "absorption_policy must be 'weakest_first', 'armored_first', "
+                "or a list of unit types",
+            )
+        return value
+    if isinstance(value, (list, tuple)):
+        bad = [u for u in value if u not in _VALID_UNIT_TYPES]
+        if bad:
+            raise IllegalAction(
+                "bad_absorption_policy",
+                f"custom absorption_policy has unknown unit types: {bad}; "
+                f"valid: {sorted(_VALID_UNIT_TYPES)}",
+            )
+        return list(value)
+    raise IllegalAction(
+        "bad_absorption_policy",
+        "absorption_policy must be a string or a list of unit types",
+    )
+
+
 def _h_cmd_march(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -2171,6 +2209,8 @@ def _h_cmd_march(
         state.combat_pending = CombatPending(
             attacker_side=sd,
             attacker_group=list(group),
+            attacker_absorption_policy=_validate_absorption_policy(
+                args.get("absorption_policy")),
             from_locale=src,
             to_locale=dest,
             way_type=way_type,
@@ -2643,6 +2683,11 @@ def _h_stand_battle(
     concede = args.get("concede")
     if concede not in (None, "attacker", "defender"):
         raise IllegalAction("bad_concede", "concede must be 'attacker' or 'defender'")
+
+    # R198: defender's casualty-absorption policy (validated). The
+    # attacker's was captured on cmd_march into combat_pending.
+    cp.defender_absorption_policy = _validate_absorption_policy(
+        args.get("absorption_policy"))
     # Tier 2 holds (Phase 4d): args.holds passes Hold-event modifiers to
     # the battle resolver. Each hold consumed (moved from holds to
     # discard) at the start of resolution. Hold cards expected on this
@@ -2700,6 +2745,8 @@ def _h_stand_battle(
         defender_positions=pre_def_pos,
         sallying_lords=sallying_lords or None,
         siegeworks_for_sally=siegeworks_for_sally,
+        attacker_absorption_policy=cp.attacker_absorption_policy,
+        defender_absorption_policy=cp.defender_absorption_policy,
     )
     if sallying_lords:
         result["relief_sally"] = {
@@ -3410,6 +3457,9 @@ def _h_cmd_sally(
         defender_lords=defenders,
         siegeworks_for_sally=siege_markers_at_locale,
         simple_sally=True,
+        # R198: the sallying side is the attacker in resolve_battle.
+        attacker_absorption_policy=_validate_absorption_policy(
+            args.get("absorption_policy")),
     )
     aftermath: dict[str, Any] = {"battle": result, "siegeworks_walls": siege_markers_at_locale}
 

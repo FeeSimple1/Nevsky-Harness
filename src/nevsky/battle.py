@@ -214,7 +214,8 @@ def _absorb_hit(
 
 
 def _assign_hit_owner_pick(
-    units: ForceCounts, routed: ForceCounts, policy: str = "weakest_first"
+    units: ForceCounts, routed: ForceCounts,
+    policy: "str | list[str]" = "weakest_first",
 ) -> str | None:
     """Pick which unit type to assign the next Hit to.
 
@@ -251,6 +252,15 @@ def _assign_hit_owner_pick(
     eligible = [u for u, n in units.items() if n > 0]
     if not eligible:
         return None
+    # R198: a custom absorption order may be supplied as a list of
+    # unit-type strings (highest sacrifice priority first). Unit types
+    # not named in the list fall back to weakest-first ordering after
+    # the named ones, so an incomplete list is still well-defined.
+    if isinstance(policy, (list, tuple)):
+        order = {u: i for i, u in enumerate(policy)}
+        big = len(order)
+        eligible.sort(key=lambda u: (order.get(u, big), classify(u)))
+        return eligible[0]
     if policy == "armored_first":
         # 4.5.2: Storm Attacker absorbs with ARMORED units first. Sort by
         # class descending (armor before evade before unarmored before
@@ -304,7 +314,7 @@ def _resolve_hits(
     state: GameState, lord_id: str, hits: int, strike_kind: str,
     striker_has_armor_minus_2: bool = False,
     step_state: dict | None = None,
-    assignment_policy: str = "weakest_first",
+    assignment_policy: "str | list[str]" = "weakest_first",
     hit_flags: list[bool] | None = None,
     in_storm: bool = False,
 ) -> dict[str, Any]:
@@ -1089,6 +1099,8 @@ def resolve_battle(
     siegeworks_for_sally: int = 0,
     simple_sally: bool = False,
     concede_decisions: dict[int, str] | None = None,
+    attacker_absorption_policy: "str | list[str]" = "weakest_first",
+    defender_absorption_policy: "str | list[str]" = "weakest_first",
 ) -> dict[str, Any]:
     """Run Battle rounds until one side loses (4.4.2).
 
@@ -1521,10 +1533,18 @@ def resolve_battle(
                 eff_cb_hits = min(cb_hits, hits)
                 eff_norm_hits = hits - eff_cb_hits
                 hit_flags_list = [True] * eff_cb_hits + [False] * eff_norm_hits
+                # R198: the absorbing owner's chosen policy. tlid is
+                # the Lord taking Hits; pick the policy for HIS side.
+                _absorb_policy = (
+                    attacker_absorption_policy
+                    if state.lords[tlid].side == attacker_side
+                    else defender_absorption_policy
+                )
                 tres = _resolve_hits(
                     state, tlid, hits, strike_kind,
                     hit_flags=hit_flags_list,
                     step_state=step_state,
+                    assignment_policy=_absorb_policy,
                 )
                 distribution.append({"lord": tlid, **tres})
             if distribution or per_striker_log:
@@ -1555,6 +1575,12 @@ def resolve_battle(
                 "defender_positions": dict(def_pos),
                 "log": log,
                 "decisions": list(decision_ctx.log),
+                # R198: record each side's casualty-absorption policy so
+                # the choice is auditable in the transcript / post-mortem.
+                "absorption_policies": {
+                    "attacker": attacker_absorption_policy,
+                    "defender": defender_absorption_policy,
+                },
             }
             r.update(extra)
             return r

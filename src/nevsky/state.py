@@ -213,6 +213,13 @@ class CombatPending(BaseModel):
     pending_response_by: Side
     laden: bool = False
 
+    # R198: per-combat casualty-absorption policy chosen by each owner.
+    # Either "weakest_first" (default), "armored_first", or a custom
+    # unit-type priority list. The attacker declares theirs on
+    # cmd_march (captured here); the defender on stand_battle / sally.
+    attacker_absorption_policy: "str | list[str]" = "weakest_first"
+    defender_absorption_policy: "str | list[str]" = "weakest_first"
+
     # Q-005 (4.4.1 2E): per-Lord position in the Battle Array.
     # Maps lord_id -> "left" | "center" | "right" | "reserve".
     # Empty until resolve_battle has run _init_battle_array. Populated
