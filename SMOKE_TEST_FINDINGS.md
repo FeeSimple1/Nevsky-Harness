@@ -9951,3 +9951,46 @@ before-marching under Famine/Rasputitsa, defend-conquest-from-inside
 post-SMOKE-130).
 
 Tests: 1250 → 1255. SMOKE total: 129 → 130.
+
+---
+
+## Round 198 — Per-combat casualty-absorption policy (feature, not a SMOKE)
+
+Follow-up to the R197 casualty-selection investigation. The Battle &
+Storm reference makes ordinary Battle casualty assignment an owner
+choice ("owner picks unit per Hit"); the harness had been
+auto-resolving it as a fixed weakest-first. R198 exposes the choice
+as an owner-supplied per-combat policy (design Option 1 of three
+considered — per-combat policy, chosen over per-step and per-Hit
+interactive for capturing ~all the strategic value at one extra
+parameter without restructuring atomic combat into a PendingDecision
+machine).
+
+Policies: `"weakest_first"` (default — unchanged behavior),
+`"armored_first"` (pile Hits onto armored units; higher-variance,
+can minimize total losses), or a custom unit-type priority list.
+
+Threading: attacker declares on `cmd_march` (captured into
+`combat_pending.attacker_absorption_policy`); defender on
+`stand_battle`; sallying side on `cmd_sally`. Both sides default to
+weakest_first. `resolve_battle` gained `attacker_absorption_policy` /
+`defender_absorption_policy` params and selects the absorbing owner's
+policy per Hit by `state.lords[tlid].side`. `_assign_hit_owner_pick`
+gained custom-list support. Validated via `_validate_absorption_policy`
+(raises `bad_absorption_policy`).
+
+Scope: applies to the field Battle path. Storm absorption stays
+rule-mandated (Storm Attacker armored-first per 4.5.2; Storm Defender
+garrison-before-front-lord structural) — the arg is accepted but has
+no effect in a Storm, by rule. Logged in the battle result under
+`absorption_policies` for post-mortem auditability.
+
+Verified the policy changes outcomes, not just logs: same seed/battle,
+defender weakest_first routs militia→sergeants→MaA→knights;
+armored_first routs knights→sergeants→MaA→militia.
+
+LLM_PLAY_GUIDE.md updated with the new arg under the Combat section.
+
+Tests: 1255 → 1267 (12 new in test_round_198_absorption_policy.py).
+Targeted combat suite (289) green; scaled self-play sweep 300/300.
+SMOKE total unchanged at 130 (this is a feature).

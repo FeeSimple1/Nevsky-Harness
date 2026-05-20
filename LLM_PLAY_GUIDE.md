@@ -236,6 +236,23 @@ locales in a quiet Campaign.
 ### Approach segment / Combat (4.3.4-4.4)
 - Defender chooses: Avoid Battle / Withdraw / Stand Battle / Concede.
 - Now also: attacker may interrupt Avoid with T6/R6 Ambush (block-mode).
+- **Casualty-absorption policy (per combat).** When you commit to a
+  Battle you may declare how your Lords absorb Hits, via an
+  `absorption_policy` arg — the attacker on `cmd_march`, the defender
+  on `stand_battle`, the sallying side on `cmd_sally`. Options:
+    - `"weakest_first"` (default): shield your strong units; serfs and
+      militia rout first, Knights last. Predictable, near-always
+      optimal — omit the arg to get this.
+    - `"armored_first"`: pile Hits onto armored units, which may absorb
+      multiple via Protection rolls — can mean fewer total losses, but
+      risks your best units. A higher-variance posture.
+    - a custom list of unit types (highest sacrifice priority first),
+      e.g. `["militia","light_horse","sergeants"]` — unit types you
+      don't name fall back to weakest-first after the named ones.
+  Storm absorption stays rule-mandated (Storm Attacker always absorbs
+  armored-first per 4.5.2), so the arg has no effect in a Storm. The
+  chosen policy is recorded in the battle result under
+  `absorption_policies` for the post-mortem.
 
 ### Storm / Sally / Siege (4.5)
 - Entire-card actions. Plan for them in advance — they need full
