@@ -1659,6 +1659,9 @@ def _h_end_campaign_resolve(
             state.meta.levy_step = "arts_of_war"
             state.meta.levy_step_completed_t = False
             state.meta.levy_step_completed_r = False
+            # R199 (SMOKE-132): new Levy -> each side may draw again.
+            state.meta.aow_drawn_t = False
+            state.meta.aow_drawn_r = False
             state.meta.first_levy_done = True  # post-first-Levy
             state.meta.active_player = "teutonic"
             state.meta.campaign_step = "plan"  # ready for next Campaign

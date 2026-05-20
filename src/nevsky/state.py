@@ -86,6 +86,12 @@ class Meta(BaseModel):
     levy_step_completed_t: bool = False
     levy_step_completed_r: bool = False
     first_levy_done: bool = False
+    # R199 (SMOKE-132): per-side "already drew this Levy" flags. SoP
+    # 3.1 draws exactly 2 AoW cards per Levy (one draw_two_and_implement
+    # sub-step). Set True when a side draws; reset at each Levy's
+    # arts_of_war entry. Blocks a second aow_draw in the same Levy.
+    aow_drawn_t: bool = False
+    aow_drawn_r: bool = False
     campaign_step: CampaignStep = "plan"
     plan_complete_t: bool = False
     plan_complete_r: bool = False

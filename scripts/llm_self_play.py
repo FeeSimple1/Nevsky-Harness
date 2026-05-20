@@ -127,7 +127,7 @@ def cmd_status(args):
     terminal = is_terminal(state)
     print(f"scenario:        {scenario_id}")
     print(f"phase:           {state.meta.phase}")
-    print(f"step:            {state.meta.levy_step or state.meta.campaign_step}")
+    print(f"step:            {(state.meta.campaign_step if state.meta.phase == 'campaign' else state.meta.levy_step)}")
     print(f"box:             {state.meta.box}")
     print(f"active side:     {side}")
     print(f"VP (teu/rus):    {state.calendar.teutonic_vp:.1f} / {state.calendar.russian_vp:.1f}")
@@ -201,7 +201,7 @@ def cmd_apply(args):
         "action": action,
         "reasoning": args.reasoning,
         "phase": state.meta.phase,
-        "step": state.meta.levy_step or state.meta.campaign_step,
+        "step": (state.meta.campaign_step if state.meta.phase == "campaign" else state.meta.levy_step),
         "result": result if isinstance(result, dict) else str(result),
     })
     save_state(state, scenario_id, history, Path(args.state))
@@ -229,7 +229,7 @@ def cmd_fallback(args):
         "action": fb,
         "reasoning": "safe_fallback",
         "phase": state.meta.phase,
-        "step": state.meta.levy_step or state.meta.campaign_step,
+        "step": (state.meta.campaign_step if state.meta.phase == "campaign" else state.meta.levy_step),
         "result": result if isinstance(result, dict) else str(result),
     })
     save_state(state, scenario_id, history, Path(args.state))

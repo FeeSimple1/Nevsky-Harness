@@ -238,6 +238,30 @@ def _h_advance_step(
     _require_levy_phase(state)
     _require_active(state, sd)
 
+    # R199 (SMOKE-131): during Arts of War, a side may not advance while
+    # it still owes implementation of drawn cards. SoP 3.1.2/3.1.3:
+    # "draw 2 cards; implement in order drawn" -- implementation is
+    # mandatory. The aow_implement_card handler already auto-discards
+    # cards with no eligible target (Q-R190-A), so a non-empty
+    # pending_draw always has a resolving move available; advancing
+    # past it would orphan the card.
+    if (state.meta.levy_step == "arts_of_war"
+            and not state.meta.first_levy_done
+            and _side_deck(state, sd).pending_draw):
+        # R199 (SMOKE-131): scoped to the FIRST Levy, where drawn cards
+        # are Capabilities (3.1.2) and can ALWAYS be cleared -- either
+        # implemented on an eligible Lord or auto-discarded when none is
+        # eligible (Q-R190-A). Subsequent-Levy Events are intentionally
+        # NOT gated here: some immediate Events have no no-op-discard
+        # path yet, so blocking advance on them could deadlock. Closing
+        # that gap (Event no-op-discard so pending_draw always clears)
+        # is a separate follow-up; see SMOKE_TEST_FINDINGS R199.
+        raise IllegalAction(
+            "pending_draw_nonempty",
+            "cannot advance: implement first-Levy Capability cards first "
+            "(SoP 3.1.2)",
+        )
+
     if sd == "teutonic":
         if state.meta.levy_step_completed_t:
             raise IllegalAction("already_done", "Teutonic side already finished this step")
@@ -407,10 +431,25 @@ def _h_aow_draw(
             "pending_draw_nonempty",
             "cannot draw: implement existing pending_draw cards first",
         )
+    # R199 (SMOKE-132): SoP 3.1 draws exactly 2 AoW cards per Levy
+    # (one draw_two_and_implement sub-step). Block a second draw in
+    # the same Levy. The flag resets at each Levy's arts_of_war entry.
+    already = (state.meta.aow_drawn_t if sd == "teutonic"
+               else state.meta.aow_drawn_r)
+    if already:
+        raise IllegalAction(
+            "already_drawn_this_levy",
+            "already drew 2 AoW cards this Levy (SoP 3.1); implement them "
+            "then advance",
+        )
     n_draw = min(2, len(deck.deck))
     drawn = deck.deck[:n_draw]
     deck.deck = deck.deck[n_draw:]
     deck.pending_draw.extend(drawn)
+    if sd == "teutonic":
+        state.meta.aow_drawn_t = True
+    else:
+        state.meta.aow_drawn_r = True
     return ({"drawn": drawn, "deck_remaining": len(deck.deck)}, [])
 
 

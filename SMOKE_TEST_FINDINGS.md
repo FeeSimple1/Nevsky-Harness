@@ -9994,3 +9994,69 @@ LLM_PLAY_GUIDE.md updated with the new arg under the Combat section.
 Tests: 1255 → 1267 (12 new in test_round_198_absorption_policy.py).
 Targeted combat suite (289) green; scaled self-play sweep 300/300.
 SMOKE total unchanged at 130 (this is a feature).
+
+---
+
+## Round 199 — AoW draw/implement contract (SMOKE-131/132/133) + CLI fix
+
+Three findings from the Crusade-on-Novgorod LLM playthrough. SoP 3.1
+`draw_two_and_implement` is one sub-step per Levy: "draw 2 cards;
+implement in order drawn."
+
+### SMOKE-131 — advance_step skipped a mandatory first-Levy Capability
+
+advance_step was offered/accepted during arts_of_war while pending_draw
+still held an implementable card, orphaning it (the Crusade case left
+T12 Ordensburgen — side_wide, always implementable — stuck in
+pending_draw).
+
+Fix is **scoped to the first Levy** (first_levy_done=False), where drawn
+cards are Capabilities that can ALWAYS be cleared: implemented on an
+eligible Lord, or auto-discarded when none is eligible (Q-R190-A).
+advance_step is now suppressed in legal_moves and rejected by
+_h_advance_step (pending_draw_nonempty) in that case.
+
+It is deliberately NOT applied to subsequent Levies: drawn Events
+include immediate Events whose resolvers raise (missing_arg / no valid
+target) rather than no-op-discarding, so blocking advance on them would
+DEADLOCK (demonstrated: an over-broad guard hung the tournament on
+T1/T10 and a self-play game on un-targetable Events). Closing that gap
+— a no-op-discard path for every immediate Event so pending_draw can
+always be cleared — is a ~12-resolver audit with per-card mandatory/
+optional rules judgment, deferred to a dedicated follow-up (likely
+needs RULES_QUESTIONs). Until then, subsequent-Levy advance stays
+permissive (the pre-existing behavior).
+
+### SMOKE-132 — no per-Levy cap on aow_draw
+
+_h_aow_draw drew 2 but only blocked while pending_draw was non-empty,
+so draw-2 → implement → draw-2 again = 4 cards/Levy (violating SoP
+3.1). Added per-side meta flags aow_drawn_t/aow_drawn_r, set on draw,
+reset at each Levy's arts_of_war entry (end_campaign next-Levy
+transition + scenario-load default False). Second draw now raises
+already_drawn_this_levy; legal_moves stops offering aow_draw/aow_shuffle
+once a side has drawn.
+
+### SMOKE-133 — muster offered for a levy-blocked Lord
+
+Surfaced when R199's trajectory change reached a Levy with an R11/R17
+block-listed Lord still holding Lordship budget. _muster_moves built
+by_with_budget without excluding block_lords_this_levy_* (which
+levy_capability already filters via SMOKE-118), so muster_lord /
+muster_vassal were offered for a blocked Lord and rejected with
+blocked_this_levy. Pre-existing enumerator/handler asymmetry, unchanged
+by R199. Fix: exclude block-listed Lords from by_with_budget.
+
+### Finding 3 — CLI status showed stale levy_step during Campaign
+
+scripts/llm_self_play.py printed `state.meta.levy_step or campaign_step`,
+which shows "done" all through the Campaign phase (levy_step stays
+"done" after the Levy→Campaign transition). Now prefers campaign_step
+when phase=="campaign". Cosmetic; no state effect.
+
+### Verification
+
+Full suite 1273 → 1275 (8 in test_round_199 incl. scoping +
+SMOKE-133 + subsequent-Levy-not-blocked). Scaled self-play sweep
+300/300. Tournament (24 games) 0 non-terminal. Round-trip sweep 0
+findings. SMOKE total: 130 → 133.
