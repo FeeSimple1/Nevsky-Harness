@@ -9905,3 +9905,49 @@ March-lead vs Storm-lead in a 2-action siege plan) and the
 SMOKE-129 corollary (12.3).
 
 Tests: 1247 → 1250. SMOKE total: 128 → 129.
+
+---
+
+## Round 197 — SMOKE-130 Withdraw into own-Conquered Stronghold
+
+Surfaced by the Peipus seed-1 LLM self-play. A defender holding a
+Stronghold he Conquered (Teuton-held Pskov, in russian territory)
+was wrongly denied a Withdraw into it and forced to Stand.
+
+Root cause: `_h_withdraw` (campaign.py) falls to a fallback Friendly
+check during Approach because `_is_friendly_locale` always returns
+False then (the attacking Lord is present at the Locale). The
+fallback's inline comment said "require defender's territory OR
+defender's Conquered Stronghold" but the code only tested
+`own_terr` — the `own_conq` half was never implemented. Per 1.3.1
+(Misc Rules Reference: "A Lord at a Stronghold Conquered FROM the
+enemy ... is Friendly to this side") an own-Conquered Stronghold is
+Friendly even in enemy territory, so Withdraw there is legal.
+
+Double bug: legal_moves already OFFERED withdraw at the conquered
+Stronghold, so this was also an enumerator/handler asymmetry. The
+R190/R191 round-trip sweep missed it because the greedy/strategic
+agents never engineer "my Lord defends a Stronghold I conquered and
+gets approached" — only the LLM playthrough reached it. Third
+distinct bug an LLM game has surfaced that scripted sweeps missed
+(after SMOKE-122 and SMOKE-129).
+
+Fix: extend the fallback to accept `own_terr OR own_conq`, still
+rejecting on `enemy_conq` (enemy Conquered marker) or active siege.
+
+Consequence for the Peipus game: none to the winner. The Teutons
+won by Rule 5.2 when Russia hit zero Mustered Lords; that ending was
+verified correct against the Scenario / Sequence-of-Play references.
+The bug only worsened the Teuton board — Hermann was needlessly lost
+Standing at turn 194 when Withdraw-and-shelter was the correct play.
+
+Regression: `tests/test_round_197_smoke_130_withdraw_conquered.py`
+(5 tests: conquered-Stronghold withdraw accepted, own-territory
+positive control, enemy-conquered negative control, enumerator/
+handler round-trip aligned, source marker). STRATEGY_DIGEST §13
+added with the five Peipus lessons (5.2 aggressor risk, chokepoint
+concentration, no solo assault on a multi-Lord garrison, Provender-
+before-marching under Famine/Rasputitsa, defend-conquest-from-inside
+post-SMOKE-130).
+
+Tests: 1250 → 1255. SMOKE total: 129 → 130.

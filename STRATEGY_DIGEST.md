@@ -694,3 +694,73 @@ stacks alongside the existing besieger without giving the
 defender a free re-Withdraw cycle. Plan around the fact that
 once a Lord is besieged inside a Stronghold, the only way out
 is Sally (4.5.3) or Surrender (4.5.1).
+
+---
+
+## 13. Lessons from the Peipus self-play
+
+The Peipus seed-1 LLM-vs-LLM playthrough (Late Winter 1242, Russian
+aggressor, 4 turns) ended in a Teutonic Campaign Victory (Rule 5.2)
+when the Russian army was reduced to zero Mustered Lords — despite
+Russia leading on raw VP, 5.0 to 4.5. Transcript:
+`docs/self_play_peipus_seed1.state.json`. The game and the rules it
+turned on yield five durable lessons.
+
+### 13.1 Rule 5.2 is the aggressor's real failure mode
+
+Campaign Victory (5.2): if at any moment during a Campaign one side
+has zero Mustered Lords on the map, the game ends immediately and the
+OTHER side wins, **regardless of VP**. For the aggressor (Russia in
+Peipus, who must attack to close a VP gap) this is the dominant
+constraint, ahead of VP itself. Throwing the whole army forward and
+losing it — to Battle, to Storm, or to attrition — is an instant loss
+even from a winning VP position. Husband Lords. Never let the on-map
+count reach zero while the enemy still has one.
+
+### 13.2 Concentrate the defense on the high-VP chokepoint
+
+The Teutons won by stacking three Lords on Pskov (a 2-VP City that
+also sits astride the only practical approach). A frontal assault on
+a 3-Lord garrison is suicidal, and holding the chokepoint shielded
+the Teuton rear (Dorpat, the Livonian castles) so the defenders never
+had to spread out. The defensive principle: identify the one Locale
+whose loss would swing the most VP, mass there, and make the attacker
+come to you on bad terms.
+
+### 13.3 Never assault a multi-Lord garrison alone
+
+Russia lost Aleksandr (their best Lord — 8 units, Command 4) by
+marching him alone into the 3-Lord Pskov garrison and Standing 3-v-1.
+The lone spearhead was annihilated for nothing. Mass before you
+strike, and time the strike for when the garrison weakens — Teuton
+Lords disband as Service expires, so a City defended by three Lords
+this turn may be defended by one next turn. Wait for that turn.
+
+### 13.4 The aggressor must solve Provender before marching far
+
+The single most lethal thing to the Russian horde was not combat but
+logistics. T16 Famine (Russian Supply capped at 1 Provender/card,
+Forage yields none) plus Rasputitsa (Boats-only on waterways, no
+Sleds) starved three Russian Lords — Domash, Karelians, Andrey — off
+the map after they marched and fought far from Novgorod with empty
+mats. Under Famine especially, plan the supply line first: Levy Boats
+for Rasputitsa-legal transport, keep stacks lean enough to Feed,
+spend Veche Coin to hold Service, and don't march a heavy stack
+beyond your ability to feed it. Mass without logistics is a corpse
+in waiting.
+
+### 13.5 Defend a conquest from inside it (post-SMOKE-130)
+
+R197 fixed SMOKE-130: a defender holding a Stronghold he Conquered
+may now Withdraw into it (it is Friendly to him per 1.3.1, even in
+enemy territory). This changes the correct play for a lone or
+outmatched defender of a conquered City. Rather than Stand against a
+stronger attacker and risk removal, **Withdraw inside**: the attacker
+must then place a Siege and Storm a Lord-defended Stronghold (very
+hard, and a full-card action), while the besieger — if he is an
+over-extended aggressor under Famine/Rasputitsa — often starves off
+the map before he can crack it. In the Peipus game, Hermann (alone,
+4 units) Stood against Andrey (7 units) and was removed; the
+rules-correct play, had Withdraw worked, was to shelter inside Pskov
+and let Andrey starve. Hold your conquests from within when you can't
+win the open field.
