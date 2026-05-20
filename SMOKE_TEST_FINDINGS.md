@@ -10123,3 +10123,43 @@ new R201 tests: untargetable-event discard, explicit-bad-target still
 raises). Scaled self-play sweep 300/300. Tournament 0 non-terminal.
 Round-trip sweep 0 findings. SMOKE total unchanged at 133 (this
 completes SMOKE-131 rather than adding a new number).
+
+---
+
+## Round 202 — mandatory-when-targetable Events (Q-R201-A adjudicated)
+
+User adjudicated Q-R201-A as Option (a) (RULES_DECISIONS.md): per
+3.1.4 Greed + 3.1.3 + 1.9.1 + the Playbook Death-of-the-Pope ruling,
+immediate Events are mandatory when a legal target exists; the R201
+blanket bare-implement-discard was too permissive (let an agent shed
+an inconvenient Event).
+
+Changes:
+- New `src/nevsky/event_args.py` — single source of truth for
+  event-implement candidate generation (ported from self_play, which
+  now imports it) + `applicable_event_implements` (snapshot-tests
+  candidates → "does a legal target exist?"). R10 "up to 2" gains a
+  boxes=0 candidate (shift-0 is an arg-populated implement, NOT a bare
+  decline).
+- `_h_aow_implement_card`: a BARE implement now RAISES when a legal
+  target exists (mandatory); reveal-and-discards only when none. Gated
+  by `_event_mandatory_when_targetable` (per-card flag, default True;
+  documented opt-out hook for a future/sibling optional Event).
+- `legal_moves`: subsequent-Levy Events now enumerate the
+  arg-populated implements that actually resolve, so the SMOKE-131
+  advance-block stays satisfiable; bare reveal-and-discard offered only
+  when no legal target exists.
+- Target-routing audit (3.1.4): drawing side chooses the target even
+  on enemy-hurting Events (T1, R10 verified). Routed by active_player,
+  args-driven; no side-helped routing. No fix needed.
+
+Q-R201-A moved from RULES_QUESTIONS to RULES_DECISIONS.
+
+### Verification
+
+Affected-surface tests green: non-property bulk 1168, tournament +
+roundtrip 23, property_invariants 66, round_199 (R202) 11. Integration:
+12/12 self-play terminal across crusade / nicolle / peipus / watland;
+round-trip sweep 0 findings. (Hypothesis property_advanced /
+action_sequences are unaffected general-invariant tests and were green
+in R201; slow in a loaded sandbox this round.) SMOKE total 133.

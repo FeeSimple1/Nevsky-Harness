@@ -704,3 +704,101 @@ it visually reads like it belongs to 3.1.3.
   and the LLM-play interface have a legal move to pick rather
   than stalling on `pending_draw`.
 - Regression: `tests/test_round_193_no_eligible_lord_auto_discard.py`.
+
+
+---
+
+## Q-R201-A — May a player decline a *targetable* immediate Event?
+*Adjudicated 2026-05-19. Encoded in Round 202.*
+
+**User adjudication (verbatim):**
+
+> Option (a), and the per-card flag will be heavily skewed toward
+> "mandatory." Here's the rules chain:
+>
+> 3.1.4 Greed is the dispositive rule for this question: "Players may
+> not discard (as opposed to use) cards unless permitted by a rule.
+> EXAMPLE: Hold Events only return to their deck once used per the text
+> on the card or if selected for discard at the end of a Campaign
+> (4.9.5). NOTE: A side's Events can affect the opposing side. The side
+> playing an Event card makes any decisions allowed unless otherwise
+> specified." Reveal-and-discard with no effect is exactly the kind of
+> discard 3.1.4 prohibits. The "decisions allowed" carve-out is limited
+> to choices the card actually offers (which target, which direction,
+> which magnitude when "up to N" is printed) — it does not include
+> opting out wholesale.
+>
+> 3.1.3 reinforces this with the verb choice: each side "draws and
+> implements two cards' Events." Not "may implement."
+>
+> 1.9.1 CARD USE narrows player discretion: "The player of an Event or
+> owner of a Capability decides how to implement card text within what
+> is specified."
+>
+> And the Playbook is on the nose for this exact concern, in the Death
+> of the Pope worked example: "Players may NOT decline Events to keep
+> the Capability available (1.9.1, 3.4.4)." That citation chain
+> explicitly forbids the most common reason a player would want to
+> decline — keeping the underlying Capability eligible. If declining
+> were permitted, that sentence makes no sense.
+>
+> So option (b) — the current harness behavior — is too permissive and
+> is wrong on the rules. [...] Option (c) is almost right, but it's
+> slightly too strong if applied literally. A handful of immediate
+> Events use "up to N boxes" language (R10 Batu Khan ...; R11 Valdemar
+> ...). On those, the player legally may shift 0, which is functionally
+> a decline of the magnitude. But that should be modeled as
+> `aow_implement_card {card_id, shift=0}` — an arg-populated implement
+> with N=0 — not as a bare implement. The bare-implement-discard
+> pathway should stay reserved for the genuine no-legal-target case.
+>
+> [Recommendation: (1) tag each immediate Event mandatory_when_targetable
+> — true for essentially all; (2) "up to N" events keep mandatory but
+> model magnitude in [0,N], bare implement still raises; (3) legal_moves
+> enumerates arg-populated implements for mandatory targetable Events;
+> (4) bare-implement-discard reachable only when no legal target.]
+>
+> One adjacent thing: the "side playing an Event card makes any
+> decisions allowed" clause means the DRAWING side picks
+> targets/directions even when the Event hurts them ... If the harness
+> routes target-selection by "side helped," that'll need a sweep too.
+
+**Citations.** Rules of Play 3.1.4 (Greed), 3.1.3, 1.9.1 (Card Use);
+Playbook Death-of-the-Pope worked example.
+
+**Decision: Option (a).** Immediate / this_levy Events are mandatory
+when a legal target exists; reveal-and-discard with no effect is
+permitted ONLY when no legal target exists (the deadlock-relief case
+3.1.4 Greed allows).
+
+**Implementation (R202).**
+
+- `src/nevsky/event_args.py` (new): single source of truth for
+  event-implement candidate generation (`_expand_event_variants` /
+  `_populate_event_args`, ported from self_play which now imports them)
+  plus `applicable_event_implements(state, side, card_id)`, which
+  snapshot-tests candidates and returns those that resolve — i.e.
+  answers "does a legal target exist now?". R10's "up to 2" now
+  includes a boxes=0 candidate (R11 already had boxes 0).
+- `_h_aow_implement_card` (immediate + this_levy branches): a BARE
+  implement (only card_id) raises when a legal target exists
+  (mandatory); reveal-and-discards only when none exists. An explicit
+  invalid target still raises. Gated by `_event_mandatory_when_targetable`
+  (per-card flag, default True) so a future optional Event can opt out
+  via card data with no code change.
+- `legal_moves` (`_aow_moves`): for a pending subsequent-Levy Event,
+  enumerates the arg-populated implements that actually resolve (one
+  per legal target/direction/magnitude), so the SMOKE-131 advance-block
+  stays satisfiable; falls back to a bare reveal-and-discard only when
+  no legal target exists.
+- Target-routing audit (3.1.4 "drawing side decides"): verified the
+  drawing side is offered the Event and chooses the target even when it
+  moves an opponent's piece — T1 (Teuton draws, targets Russian
+  Aleksandr/Andrey), R10 (Russian draws, targets Teuton Andreas).
+  Routing is by `active_player` (drawer), args-driven; no "side-helped"
+  routing found. No fix needed.
+
+**Regression:** tests in `tests/test_round_199_aow_draw_contract.py`
+(targetable-Event-bare-implement-raises, untargetable-no-op-discards,
+legal_moves offers arg-populated implements, advance-block satisfiable
++ clears).

@@ -127,12 +127,41 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                             f"— no Mustered own-side Lord matches "
                             f"coats of arms (3.1.2 bullet)",
                 })
+        elif not is_capability_phase:
+            # R202: subsequent Levy -> the pending card implements as an
+            # Event (3.1.3). Events are mandatory when targetable
+            # (Q-R201-A, 3.1.4 Greed), so offer the arg-populated
+            # implements that actually resolve (one per legal
+            # target/direction/magnitude). The advance-block stays
+            # satisfiable with a concrete legal move. If NONE resolve
+            # (no legal target), offer the bare implement, which the
+            # handler reveal-and-discards with no effect.
+            from nevsky.event_args import applicable_event_implements
+            try:
+                applicable = applicable_event_implements(state, side, cid_pending)
+            except Exception:
+                applicable = []
+            for act in applicable:
+                out.append({
+                    "type": "aow_implement_card", "side": side,
+                    "args": act["args"],
+                    "note": f"implements Event {cid_pending} (3.1.3)",
+                })
+            if not applicable:
+                out.append({
+                    "type": "aow_implement_card", "side": side,
+                    "args": {"card_id": cid_pending},
+                    "note": f"reveal-and-discard {cid_pending} "
+                            f"— no legal target (3.1.4 Greed)",
+                })
         else:
+            # First-Levy side_wide Capability: implement needs no
+            # lord_id (3.1.2).
             out.append({
                 "type": "aow_implement_card",
                 "side": side,
                 "args": {"card_id": cid_pending},
-                "note": "implements next pending_draw card per 3.1.2 / 3.1.3",
+                "note": "implements side-wide Capability (3.1.2)",
             })
     else:
         # R199 (SMOKE-132): SoP 3.1 draws exactly 2 cards per Levy.

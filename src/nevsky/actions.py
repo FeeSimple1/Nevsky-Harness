@@ -451,6 +451,33 @@ def _h_aow_draw(
     return ({"drawn": drawn, "deck_remaining": len(deck.deck)}, [])
 
 
+def _event_mandatory_when_targetable(card_id: str) -> bool:
+    """R202 (Q-R201-A): per-card hook for whether an Event must be
+    resolved when a legal target exists (vs may be declined). Defaults
+    True for every Event, which is rules-correct for the current deck
+    (3.1.4 Greed + the Death-of-the-Pope Playbook ruling: players may
+    not decline Events). A future/optional Event (or a sibling-harness
+    port) can opt out by setting `mandatory_when_targetable: false` in
+    its card data, with no code change."""
+    from nevsky.static_data import load_cards
+    return bool(load_cards().get(card_id, {}).get("mandatory_when_targetable", True))
+
+
+def _event_has_legal_target(state: GameState, side: str, card_id: str) -> bool:
+    """R202: True if at least one arg-populated implement of this Event
+    resolves against the current state (a legal target exists). Used to
+    decide whether a bare implement is mandatory (raise) or may
+    reveal-and-discard with no effect (3.1.4 Greed -- only when no
+    legal target)."""
+    from nevsky.event_args import applicable_event_implements
+    try:
+        return bool(applicable_event_implements(state, side, card_id))
+    except Exception:
+        # Conservative: if we can't enumerate, treat as targetable so
+        # the player is required to act (never silently discard).
+        return True
+
+
 def _has_target_args(args: dict[str, Any]) -> bool:
     """R201: True if the caller supplied any implement arg beyond the
     bare card_id (target / targets / locale / direction / boxes / etc.).
@@ -622,11 +649,18 @@ def _h_aow_implement_card(
         try:
             result = resolve_immediate_event(state, cid, args)
         except IllegalAction as e:
-            if e.code in ("missing_arg", "ineligible_target") and not _has_target_args(args):
+            if (e.code in ("missing_arg", "ineligible_target")
+                    and not _has_target_args(args)
+                    and not (_event_mandatory_when_targetable(cid)
+                             and _event_has_legal_target(state, side, cid))):
+                # R202 (Q-R201-A, 3.1.4 Greed): reveal-and-discard with
+                # no effect is permitted ONLY when no legal target
+                # exists. With a legal target the Event is mandatory, so
+                # a bare implement raises -- the player must pick.
                 deck.pending_draw = deck.pending_draw[1:]
                 deck.this_levy_events.append(cid)
                 return ({"card": cid, "outcome": "this_levy_event_no_target_discarded",
-                         "reason": "no_resolvable_target"}, [])
+                         "reason": "no_legal_target"}, [])
             raise
         deck.pending_draw = deck.pending_draw[1:]
         deck.this_levy_events.append(cid)
@@ -646,11 +680,17 @@ def _h_aow_implement_card(
     try:
         result = resolve_immediate_event(state, cid, args)
     except IllegalAction as e:
-        if e.code in ("missing_arg", "ineligible_target") and not _has_target_args(args):
+        if (e.code in ("missing_arg", "ineligible_target")
+                and not _has_target_args(args)
+                and not (_event_mandatory_when_targetable(cid)
+                         and _event_has_legal_target(state, side, cid))):
+            # R202 (Q-R201-A, 3.1.4 Greed): no-effect discard only when
+            # NO legal target exists; otherwise the Event is mandatory
+            # and the bare implement raises (player must pick a target).
             deck.pending_draw = deck.pending_draw[1:]
             deck.discard.append(cid)
             return ({"card": cid, "outcome": "immediate_event_no_target_discarded",
-                     "reason": "no_resolvable_target"}, [])
+                     "reason": "no_legal_target"}, [])
         raise
     deck.pending_draw = deck.pending_draw[1:]
     # SMOKE-117 (Round 182): if the event resolver placed the card
