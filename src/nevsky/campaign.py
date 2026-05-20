@@ -454,6 +454,29 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
     return base + bonus
 
 
+def _require_full_command_card(state: GameState, lord_id: str, label: str) -> None:
+    """Guard for entire-card Commands (4.2): the action requires the Lord's
+    full, untouched Command card. A Lord who has already Marched or taken
+    any other Action on this card may take no entire-card Command with it.
+
+    Implemented once and reused by every ``action_cost: entire_card`` handler
+    (Siege, Storm, Sally, Tax, Sail per Commands.txt; plus the AoW capability
+    actions Stone Kremlin R18 and Stonemasons T17, whose card text reads
+    "expends his entire Command card to do nothing except ..."). At card
+    reveal ``actions_remaining == _effective_command_rating(lord)``, so
+    ``actions_remaining < full_command`` means the Lord has already acted.
+
+    Adjudication: RULES_DECISIONS "entire_card = sole action" (R203).
+    """
+    full_command = _effective_command_rating(state, lord_id)
+    if state.campaign_turn.actions_remaining < full_command:
+        raise IllegalAction(
+            "must_be_full_card",
+            f"{label} requires full Command card; "
+            f"{state.campaign_turn.actions_remaining}/{full_command} actions remain",
+        )
+
+
 def _enter_feed_pay_disband(state: GameState) -> None:
     """Helper: transition to per-card 4.8 sub-step."""
     state.campaign_turn.in_feed_pay_disband = True
@@ -487,6 +510,109 @@ def _h_end_card(
     return ({"ended": True}, [])
 
 
+def _fpd_pending_disband(state: GameState, sd: str) -> bool:
+    """True if any Lord on side sd is at-or-left-of the Levy box after
+    Feed -- i.e. a Disband (3.3) would fire."""
+    levy_box = _find_levy_marker_box(state)
+    for lord_id, lord in state.lords.items():
+        if lord.side != sd or lord.state != "mustered":
+            continue
+        sm_box = _find_service_marker_box(state, lord_id)
+        if sm_box is not None and sm_box <= levy_box:
+            return True
+    return False
+
+
+def _fpd_can_pay(state: GameState, sd: str) -> bool:
+    """True if side sd has any payable resource to shift Service right
+    (3.2 mechanics): Coin on a Mustered Lord, Loot on a Mustered Lord at a
+    Friendly Locale, or (Russian) Veche Coin. Mirrors legal_moves._pay_moves
+    so the Pay window only opens when a Pay option will actually be offered."""
+    for lord in state.lords.values():
+        if lord.side != sd or lord.state != "mustered":
+            continue
+        if lord.assets.get("coin", 0) > 0:
+            return True
+        if (lord.assets.get("loot", 0) > 0 and lord.location is not None
+                and _is_friendly_locale(state, lord.location, sd)):
+            return True
+    if sd == "russian" and state.veche.coin > 0:
+        return True
+    return False
+
+
+def _fpd_finalize(
+    state: GameState, sd: str, feed_results: list[dict[str, Any]]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.8.2 Disband check + 4.8.3 marker removal + side-complete/advance.
+    Runs after Feed (and after any Pay step). Clears this side's Pay window.
+    """
+    state.campaign_turn.fpd_pay_window_side = None
+    # 4.8.2 Disband check: any Lord whose Service marker is at-or-left-of Levy.
+    static = load_lords()
+    levy_box = _find_levy_marker_box(state)
+    permanently_removed: list[str] = []
+    disbanded: list[dict[str, Any]] = []
+    for lord_id, lord in list(state.lords.items()):
+        if lord.side != sd or lord.state != "mustered":
+            continue
+        sm_box = _find_service_marker_box(state, lord_id)
+        if sm_box is None:
+            continue
+        if sm_box < levy_box:
+            _remove_lord_permanently(state, lord_id, static[lord_id])
+            permanently_removed.append(lord_id)
+        elif sm_box == levy_box:
+            srating = int(static[lord_id]["ratings"]["service"])
+            new_box = sm_box + 1 + srating  # 4.8.2 + 3.3.2 (2E): count from NEXT box
+            _disband_at_limit(state, lord_id, new_box)
+            disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
+
+    # 4.8.3: remove MOVED_FOUGHT markers.
+    for lord in state.lords.values():
+        if lord.side == sd and lord.moved_fought:
+            lord.moved_fought = False
+
+    # Mark side complete.
+    if sd == "teutonic":
+        state.campaign_turn.fpd_completed_t = True
+        state.meta.active_player = "russian"
+    else:
+        state.campaign_turn.fpd_completed_r = True
+
+    advanced = False
+    if state.campaign_turn.fpd_completed_t and state.campaign_turn.fpd_completed_r:
+        # 4.8.3 done; ready for next reveal or end campaign.
+        state.campaign_turn.in_feed_pay_disband = False
+        state.campaign_turn.active_card = None
+        state.campaign_turn.active_lord = None
+        # Alternate reveal pointer: if last card was T's, R reveals next
+        # and vice versa. SoP 4.2: alternating T-R-T-R-... regardless of
+        # outcome of the card itself.
+        next_side: Side = "russian" if state.campaign_turn.next_to_reveal == "teutonic" else "teutonic"
+        state.campaign_turn.next_to_reveal = next_side
+        # Check if both Plan stacks are empty -> end of Campaign.
+        if not state.decks.teutonic.plan and not state.decks.russian.plan:
+            state.meta.campaign_step = "end_campaign"
+            state.meta.active_player = "teutonic"
+            state.meta.end_campaign_completed_t = False
+            state.meta.end_campaign_completed_r = False
+        else:
+            # If next_side has empty plan but other still has cards, the
+            # other side keeps revealing alternately by skipping.
+            # Implementation: if next_side's plan is empty and other has
+            # cards, other side reveals; we just set active_player to
+            # whichever has plan remaining.
+            if not _side_deck(state, next_side).plan:
+                next_side = "russian" if next_side == "teutonic" else "teutonic"
+                state.campaign_turn.next_to_reveal = next_side
+            state.meta.active_player = next_side
+        advanced = True
+
+    return ({"side": sd, "feed": feed_results, "permanently_removed": permanently_removed,
+             "disbanded": disbanded, "advanced": advanced}, [])
+
+
 def _h_fpd_resolve(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -515,6 +641,11 @@ def _h_fpd_resolve(
     if not state.campaign_turn.in_feed_pay_disband:
         raise IllegalAction("not_in_fpd", "not in 4.8 sub-step")
     _require_active(state, sd)
+
+    # BUG-4 (R203): second call for this side -- Feed already applied and
+    # the Pay window has been offered; complete the Disband check now.
+    if state.campaign_turn.fpd_pay_window_side == sd:
+        return _fpd_finalize(state, sd, [])
 
     # Feed every MOVED_FOUGHT Lord on this side. Hillforts (T8) skips
     # one eligible Teutonic Lord in Livonia per Feed.
@@ -603,69 +734,18 @@ def _h_fpd_resolve(
             "unfed": unfed,
         })
 
-    # 4.8.2 Disband check: any Lord whose Service marker is at-or-left-of Levy.
-    static = load_lords()
-    levy_box = _find_levy_marker_box(state)
-    permanently_removed: list[str] = []
-    disbanded: list[dict[str, Any]] = []
-    for lord_id, lord in list(state.lords.items()):
-        if lord.side != sd or lord.state != "mustered":
-            continue
-        sm_box = _find_service_marker_box(state, lord_id)
-        if sm_box is None:
-            continue
-        if sm_box < levy_box:
-            _remove_lord_permanently(state, lord_id, static[lord_id])
-            permanently_removed.append(lord_id)
-        elif sm_box == levy_box:
-            srating = int(static[lord_id]["ratings"]["service"])
-            new_box = sm_box + 1 + srating  # 4.8.2 + 3.3.2 (2E): count from NEXT box
-            _disband_at_limit(state, lord_id, new_box)
-            disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
-
-    # 4.8.3: remove MOVED_FOUGHT markers.
-    for lord in state.lords.values():
-        if lord.side == sd and lord.moved_fought:
-            lord.moved_fought = False
-
-    # Mark side complete.
-    if sd == "teutonic":
-        state.campaign_turn.fpd_completed_t = True
-        state.meta.active_player = "russian"
-    else:
-        state.campaign_turn.fpd_completed_r = True
-
-    advanced = False
-    if state.campaign_turn.fpd_completed_t and state.campaign_turn.fpd_completed_r:
-        # 4.8.3 done; ready for next reveal or end campaign.
-        state.campaign_turn.in_feed_pay_disband = False
-        state.campaign_turn.active_card = None
-        state.campaign_turn.active_lord = None
-        # Alternate reveal pointer: if last card was T's, R reveals next
-        # and vice versa. SoP 4.2: alternating T-R-T-R-... regardless of
-        # outcome of the card itself.
-        next_side: Side = "russian" if state.campaign_turn.next_to_reveal == "teutonic" else "teutonic"
-        state.campaign_turn.next_to_reveal = next_side
-        # Check if both Plan stacks are empty -> end of Campaign.
-        if not state.decks.teutonic.plan and not state.decks.russian.plan:
-            state.meta.campaign_step = "end_campaign"
-            state.meta.active_player = "teutonic"
-            state.meta.end_campaign_completed_t = False
-            state.meta.end_campaign_completed_r = False
-        else:
-            # If next_side has empty plan but other still has cards, the
-            # other side keeps revealing alternately by skipping.
-            # Implementation: if next_side's plan is empty and other has
-            # cards, other side reveals; we just set active_player to
-            # whichever has plan remaining.
-            if not _side_deck(state, next_side).plan:
-                next_side = "russian" if next_side == "teutonic" else "teutonic"
-                state.campaign_turn.next_to_reveal = next_side
-            state.meta.active_player = next_side
-        advanced = True
-
-    return ({"side": sd, "feed": feed_results, "permanently_removed": permanently_removed,
-             "disbanded": disbanded, "advanced": advanced}, [])
+    # 4.8.2 Pay window (BUG-4, R203): the per-card cycle is
+    # Feed -> Pay -> Disband (SoP 4.8.2 `pay: same_as levy.pay`). If Feed
+    # left a pending Disband on this side and the side can Pay, pause here
+    # so the player may shift Service right (avert a mid-campaign Disband)
+    # before the Disband check. The second fpd_resolve for this side (with
+    # the window open) runs _fpd_finalize via the early branch above.
+    if (state.campaign_turn.fpd_pay_window_side != sd
+            and _fpd_pending_disband(state, sd)
+            and _fpd_can_pay(state, sd)):
+        state.campaign_turn.fpd_pay_window_side = sd
+        return ({"side": sd, "feed": feed_results, "pay_window": True}, [])
+    return _fpd_finalize(state, sd, feed_results)
 
 
 # ---------------------------------------------------------------------------
@@ -748,6 +828,7 @@ def _h_cmd_tax(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
+    _require_full_command_card(state, lord_id, "Tax (4.7.4)")  # entire_card (R203)
 
     lord = state.lords[lord_id]
     if _is_besieged(state, lord_id):
@@ -980,6 +1061,7 @@ def _h_cmd_sail(
     if not (isinstance(lord_id, str) and isinstance(dest, str) and isinstance(group, list)):
         raise IllegalAction("missing_arg", "args: lord_id, destination, group(optional)")
     _require_active_lord_command(state, sd, lord_id)
+    _require_full_command_card(state, lord_id, "Sail (4.7.3)")  # entire_card (R203)
 
     static_locales = load_locales()
     if static_locales[dest].get("seaport") is not True:
@@ -3153,6 +3235,7 @@ def _h_cmd_siege(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
+    _require_full_command_card(state, lord_id, "Siege (4.5.1)")  # entire_card (R203)
     lord = state.lords[lord_id]
     if _is_besieged(state, lord_id):
         raise IllegalAction("besieged", "Active Lord is Besieged; use sally/pass")
@@ -3239,6 +3322,7 @@ def _h_cmd_storm(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
+    _require_full_command_card(state, lord_id, "Storm (4.5.2)")  # entire_card (R203)
     lord = state.lords[lord_id]
     if _is_besieged(state, lord_id):
         raise IllegalAction("besieged", "Active Lord is Besieged; use sally/pass")
@@ -3422,6 +3506,7 @@ def _h_cmd_sally(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
+    _require_full_command_card(state, lord_id, "Sally (4.5.3)")  # entire_card (R203)
     lord = state.lords[lord_id]
     if not _is_besieged(state, lord_id):
         raise IllegalAction("not_besieged", "Sally requires Besieged Lord (4.5.3)")
@@ -3713,13 +3798,7 @@ def _h_cmd_stone_kremlin(
     if in_play >= 4:
         raise IllegalAction("walls_max", "four Walls +1 markers already in play")
     # Active Lord must not have taken any actions on his current card.
-    static = load_lords()
-    full_command = _effective_command_rating(state, lord_id)
-    if state.campaign_turn.actions_remaining < full_command:
-        raise IllegalAction(
-            "must_be_full_card",
-            f"Stone Kremlin requires full Command card; {state.campaign_turn.actions_remaining}/{full_command} actions remain",
-        )
+    _require_full_command_card(state, lord_id, "Stone Kremlin (R18)")
 
     state.locales[loc].walls_plus_one = True
     lord.moved_fought = True
@@ -3778,12 +3857,7 @@ def _h_cmd_stonemasons(
     if state.locales[loc].siege_markers > 0:
         raise IllegalAction("under_siege", f"{loc} is Besieged")
     # Full card untouched.
-    full_command = _effective_command_rating(state, lord_id)
-    if state.campaign_turn.actions_remaining < full_command:
-        raise IllegalAction(
-            "must_be_full_card",
-            f"Stonemasons requires full Command card; {state.campaign_turn.actions_remaining}/{full_command} actions remain",
-        )
+    _require_full_command_card(state, lord_id, "Stonemasons (T17)")
     # 6 Provender (own + shared from co-located own-side Lords).
     own_p = lord.assets.get("provender", 0)
     shared = sum(
@@ -4082,6 +4156,7 @@ def _h_cmd_tax_veliky_knyaz_aware(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
+    _require_full_command_card(state, lord_id, "Tax (4.7.4)")  # entire_card (R203)
 
     lord = state.lords[lord_id]
     if _is_besieged(state, lord_id):

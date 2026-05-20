@@ -398,8 +398,16 @@ def test_full_16_turn_crusade_run_no_invariant_violation() -> None:
             side = s.campaign_turn.next_to_reveal
             if not s.campaign_turn.in_feed_pay_disband:
                 apply_action(s, {"type": "command_reveal", "side": side, "args": {}})
-            apply_action(s, {"type": "fpd_resolve", "side": "teutonic", "args": {}})
-            apply_action(s, {"type": "fpd_resolve", "side": "russian", "args": {}})
+            # R203 (BUG-4): a side may pause in its 4.8.2 Pay window;
+            # resolving again (window open) proceeds to the Disband check.
+            # This fast driver pays nothing, so just resolve the active
+            # side until the FPD sub-step closes.
+            _guard = 0
+            while s.campaign_turn.in_feed_pay_disband:
+                _guard += 1
+                assert _guard < 20, "FPD did not converge"
+                apply_action(s, {"type": "fpd_resolve",
+                                 "side": s.meta.active_player, "args": {}})
         if s.meta.campaign_step == "end_campaign":
             apply_action(s, {"type": "end_campaign_resolve", "side": "teutonic", "args": {}})
             apply_action(s, {"type": "end_campaign_resolve", "side": "russian", "args": {}})

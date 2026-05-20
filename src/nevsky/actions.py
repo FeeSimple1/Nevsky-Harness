@@ -178,6 +178,29 @@ def _require_levy_step(state: GameState, step: str) -> None:
         )
 
 
+def _require_pay_context(state: GameState, side: Side) -> None:
+    """Pay (3.2 mechanics) is legal in two contexts:
+      - the Levy Pay step (3.2), or
+      - the campaign per-card 4.8.2 Pay window (BUG-4, R203), i.e. after
+        Feed has run for `side` and fpd_resolve has paused for the Pay step
+        before the Disband check.
+    Reused by pay_with_coin / pay_with_loot so the same Service-shift
+    mechanics serve both Levy and Campaign Feed/Pay/Disband.
+    """
+    m = state.meta
+    if m.phase == "levy" and m.levy_step == "pay":
+        return
+    if (m.phase == "campaign" and m.campaign_step == "command"
+            and state.campaign_turn.in_feed_pay_disband
+            and state.campaign_turn.fpd_pay_window_side == side):
+        return
+    raise IllegalAction(
+        "wrong_step",
+        "Pay is only legal during the Levy Pay step or the campaign "
+        "4.8.2 Feed/Pay/Disband Pay window",
+    )
+
+
 def _require_muster_or_legate_2c_extra(state: GameState, by_lord_id: str) -> None:
     """SMOKE-106 (Round 152) + SMOKE-107 (Round 153): Muster handlers
     normally require levy_step == 'muster'. Legate Use sub-option 2c
@@ -849,8 +872,7 @@ def _h_pay_with_coin(
     by his own Coin or Coin from another Lord besieged TOGETHER.
     """
     sd = _require_side_player(state, side)
-    _require_levy_phase(state)
-    _require_levy_step(state, "pay")
+    _require_pay_context(state, sd)  # Levy Pay step OR campaign FPD Pay window (R203)
     _require_active(state, sd)
 
     src = args.get("from")
@@ -948,8 +970,7 @@ def _h_pay_with_loot(
     or Service of another Lord at SAME Friendly Locale. Sieges excluded.
     """
     sd = _require_side_player(state, side)
-    _require_levy_phase(state)
-    _require_levy_step(state, "pay")
+    _require_pay_context(state, sd)  # Levy Pay step OR campaign FPD Pay window (R203)
     _require_active(state, sd)
 
     payer_id = args.get("from_lord")

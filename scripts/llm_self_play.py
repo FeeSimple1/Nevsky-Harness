@@ -90,12 +90,24 @@ def _concrete_actions(state: GameState, side: str) -> list[dict]:
     for m in raw:
         if "args" in m and isinstance(m["args"], dict):
             out.append(m)
+            continue
+        # Templated move: expand to concrete candidates where possible.
+        expanded = []
+        try:
+            expanded = sp._instantiate_templated_move(state, m)
+        except Exception:
+            expanded = []
+        if expanded:
+            out.extend(expanded)
         else:
-            try:
-                out.extend(sp._instantiate_templated_move(state, m))
-            except Exception:
-                # Leave the templated form as-is for the LLM to fill in.
-                out.append(m)
+            # BUG-3 (R203): _instantiate_templated_move only knows
+            # pay_with_coin / pay_with_loot; for any other templated move
+            # (notably cmd_sail and cmd_supply) it returns an EMPTY list,
+            # not an exception, so the old `except` fallback never fired
+            # and those moves were silently dropped from the palette. Keep
+            # the templated form so the LLM still sees the move and can
+            # fill args via the JSON apply path.
+            out.append(m)
     return out
 
 
