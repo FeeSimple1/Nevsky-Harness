@@ -141,30 +141,70 @@ def test_advance_blocked_for_subsequent_levy_event_r201():
     with pytest.raises(IllegalAction) as e:
         apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     assert e.value.code == "pending_draw_nonempty"
-    # Clear every pending card via bare implement (resolve-or-no-op-discard),
-    # then advance becomes available.
-    for cid in list(s.decks.teutonic.pending_draw):
+    # R202: clear each pending card via the arg-populated implement that
+    # legal_moves offers (targetable Events are mandatory, so a bare
+    # implement raises). Pick the first offered aow_implement_card each
+    # time until pending_draw is empty.
+    guard = 0
+    while s.decks.teutonic.pending_draw and guard < 10:
+        guard += 1
+        impl = [m for m in legal_moves(s, with_previews=False)
+                if m["type"] == "aow_implement_card"]
+        assert impl, "no implement move offered for pending Event"
         apply_action(s, {"type": "aow_implement_card", "side": "teutonic",
-                         "args": {"card_id": cid}})
+                         "args": dict(impl[0]["args"])})
     assert s.decks.teutonic.pending_draw == []
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
 
 
-def test_r201_bare_implement_untargetable_event_discards():
-    """A bare implement (only card_id) of an immediate Event with no
-    resolvable target reveals-and-discards with no effect, so
-    pending_draw always clears."""
+def test_r202_bare_implement_untargetable_event_discards():
+    """R202: a bare implement of an immediate Event with NO legal target
+    reveal-and-discards (3.1.4 Greed). R10 Batu Khan targets Andreas;
+    remove Andreas from the Calendar so no legal target exists, then a
+    bare implement clears with no effect."""
     s = load_scenario("watland", seed=1)
     s.meta.phase = "levy"
     s.meta.levy_step = "arts_of_war"
     s.meta.active_player = "russian"
     s.meta.first_levy_done = True
-    s.decks.russian.pending_draw = ["R10"]  # Batu Khan: needs a target
+    cal = s.calendar
+    for cb in cal.boxes:
+        if "andreas" in cb.cylinders:
+            cb.cylinders.remove("andreas")
+        if "andreas" in cb.service_markers:
+            cb.service_markers.remove("andreas")
+    for lst in (cal.off_left, cal.off_right, cal.off_left_service,
+                cal.off_right_service):
+        if "andreas" in lst:
+            lst.remove("andreas")
+    if "andreas" in s.lords:
+        s.lords["andreas"].location = None
+    s.decks.russian.pending_draw = ["R10"]
     res = apply_action(s, {"type": "aow_implement_card", "side": "russian",
                            "args": {"card_id": "R10"}})
-    assert res["outcome"] == "immediate_event_no_target_discarded"
     assert "R10" in s.decks.russian.discard
     assert s.decks.russian.pending_draw == []
+
+
+def test_r202_bare_implement_targetable_event_raises():
+    """R202 (Q-R201-A, 3.1.4 Greed): a bare implement of an immediate
+    Event that HAS a legal target raises -- the Event is mandatory, the
+    player must pick a target. Andreas is on watland's Calendar, so R10
+    is targetable."""
+    s = load_scenario("watland", seed=1)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "arts_of_war"
+    s.meta.active_player = "russian"
+    s.meta.first_levy_done = True
+    s.decks.russian.pending_draw = ["R10"]
+    with pytest.raises(IllegalAction):
+        apply_action(s, {"type": "aow_implement_card", "side": "russian",
+                         "args": {"card_id": "R10"}})
+    # And legal_moves offers arg-populated implements so it's clearable.
+    impl = [m for m in legal_moves(s, with_previews=False)
+            if m["type"] == "aow_implement_card"]
+    assert impl and all("target" in m["args"] or "lord_id" in m["args"]
+                        for m in impl)
 
 
 def test_r201_explicit_bad_target_still_raises():
