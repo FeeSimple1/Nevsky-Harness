@@ -54,7 +54,15 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
             moves.extend(_muster_moves(state, side))
         elif step == "call_to_arms":
             moves.extend(_call_to_arms_moves(state, side))
-        moves.append({"type": "advance_step", "side": side, "args": {}})
+        # R199 (SMOKE-131): in Arts of War, advance_step is illegal
+        # while this side still owes implementation of drawn cards.
+        _sd_deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
+        # R199 (SMOKE-131): suppress advance only at first Levy with a
+        # pending Capability (always clearable). Subsequent-Levy Events
+        # are not gated (no universal no-op-discard yet).
+        if not (step == "arts_of_war" and not state.meta.first_levy_done
+                and _sd_deck.pending_draw):
+            moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))
     return moves
@@ -126,11 +134,17 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 "note": "implements next pending_draw card per 3.1.2 / 3.1.3",
             })
     else:
-        # Allow shuffle + draw in same Levy.
-        if sd.deck or sd.discard:
-            out.append({"type": "aow_shuffle", "side": side, "args": {}})
-        if sd.deck:
-            out.append({"type": "aow_draw", "side": side, "args": {}})
+        # R199 (SMOKE-132): SoP 3.1 draws exactly 2 cards per Levy.
+        # Only offer shuffle/draw if this side hasn't already drawn
+        # this Levy; once drawn (and implemented), the only AoW move
+        # left is advance_step.
+        already_drawn = (state.meta.aow_drawn_t if side == "teutonic"
+                         else state.meta.aow_drawn_r)
+        if not already_drawn:
+            if sd.deck or sd.discard:
+                out.append({"type": "aow_shuffle", "side": side, "args": {}})
+            if sd.deck:
+                out.append({"type": "aow_draw", "side": side, "args": {}})
     return out
 
 
@@ -212,9 +226,20 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     ]
     static = load_lords()
     cards = load_cards()
+    # R199 (SMOKE-133): exclude Lords blocked from using Lordship this
+    # Levy (R11 Valdemar / R17 Dietrich set block_lords_this_levy_*).
+    # _h_muster_lord / _h_muster_vassal reject these with
+    # blocked_this_levy; levy_capability already filters them
+    # (SMOKE-118) but the muster enumeration did not, so muster_lord /
+    # muster_vassal were offered for a blocked Lord -- an
+    # enumerator/handler asymmetry. Surfaced when a trajectory reached
+    # a Levy with a blocked Lord still holding Lordship budget.
+    _block = (state.meta.block_lords_this_levy_t if side == "teutonic"
+              else state.meta.block_lords_this_levy_r)
     by_with_budget = [
         lid for lid in own_mustered
         if state.lords[lid].lordship_used < int(static[lid]["ratings"]["lordship"])
+        and lid not in _block
     ]
 
     # Muster Lord: identify Ready own-side Lords with Free Seats (Aleksandr excluded).

@@ -48,12 +48,24 @@ def test_state_view_for_side_no_op_when_hidden_mats_off():
 def test_state_view_masks_pending_aow_for_opponent():
     s = _setup_pleskau(optional={"hidden_mats": True})
     # Force a Russian draw to populate pending_draw.
+    # R199 (SMOKE-131): a side must implement its drawn AoW cards
+    # before advancing, so empty the Teutonic pending_draw first.
+    from nevsky.static_data import load_cards as _lc
     apply_action(s, {"type": "aow_shuffle", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "aow_draw", "side": "teutonic", "args": {}})
+    for _cid in list(s.decks.teutonic.pending_draw):
+        _a = {"card_id": _cid}
+        if _lc()[_cid].get("capability_scope") == "this_lord":
+            for _lid, _l in s.lords.items():
+                if (_l.side == "teutonic" and _l.state == "mustered"
+                        and len(_l.this_lord_capabilities) < 2):
+                    _a["lord_id"] = _lid
+                    break
+        apply_action(s, {"type": "aow_implement_card", "side": "teutonic", "args": _a})
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "aow_shuffle", "side": "russian", "args": {}})
     apply_action(s, {"type": "aow_draw", "side": "russian", "args": {}})
-    # Now both sides have pending draws.
+    # Russian now has pending draws; Teutonic implemented + advanced.
     teu_view = state_view_for_side(s, "teutonic")
     # Russian pending should be masked from Teu view.
     assert all(c == "<hidden>" for c in teu_view.decks.russian.pending_draw)
