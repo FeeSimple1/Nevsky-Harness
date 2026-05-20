@@ -57,11 +57,12 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
         # R199 (SMOKE-131): in Arts of War, advance_step is illegal
         # while this side still owes implementation of drawn cards.
         _sd_deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
-        # R199 (SMOKE-131): suppress advance only at first Levy with a
-        # pending Capability (always clearable). Subsequent-Levy Events
-        # are not gated (no universal no-op-discard yet).
-        if not (step == "arts_of_war" and not state.meta.first_levy_done
-                and _sd_deck.pending_draw):
+        # R199/R201 (SMOKE-131): suppress advance whenever this side
+        # still owes implementation of drawn AoW cards (all Levies).
+        # Pending cards always have a clearing move: implement (cap or
+        # event-with-target), auto-discard (no eligible Lord, Q-R190-A),
+        # or bare-implement no-op-discard (un-targetable Event, R201).
+        if not (step == "arts_of_war" and _sd_deck.pending_draw):
             moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))

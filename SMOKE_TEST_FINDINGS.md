@@ -10086,3 +10086,40 @@ sub-points, evidence-backed by the playthrough SMOKEs:
 
 Also refreshed the stale "188 rounds" vantage references to "~200".
 No code change; SMOKE total unchanged at 133.
+
+---
+
+## Round 201 — Event no-op-discard; SMOKE-131 extended to all Levies
+
+Closes the R199 deferral. Made a BARE implement (`aow_implement_card`
+with only card_id, no target) of an immediate Event that cannot resolve
+reveal-and-discard with no effect, so pending_draw can always be
+cleared. An explicit-but-invalid target still raises (genuine arg
+errors surface). Applied to both the `immediate` and `this_levy`
+resolver paths in `_h_aow_implement_card` via `_has_target_args`.
+
+With every pending card now guaranteed clearable (implement, Q-R190-A
+auto-discard, or R201 no-op-discard), the SMOKE-131 advance-block was
+extended from first-Levy-only to ALL Levies, in both _h_advance_step
+and legal_moves. The Finding-1 orphaning (advance past a pending card)
+is now fully closed, not just for first-Levy Capabilities.
+
+Deadlock-safety verified: the over-broad guard that hung the tournament
+and a self-play game in R199 no longer deadlocks, because un-targetable
+Events now clear via bare-implement no-op-discard.
+
+One fidelity nuance deliberately NOT guessed: whether a player may
+*decline* a targetable immediate Event (vs must resolve it). The R201
+behavior allows declining (bare-implement-discard) for any targetable
+Event, which is correct for optional Events but too permissive for
+mandatory ones. Logged as Q-R201-A in RULES_QUESTIONS.md (not blocking;
+the no-legal-target case that caused the deadlock is unambiguously
+correct).
+
+### Verification
+
+Full suite 1275 → 1277 (test_round_199 updated for all-Levy block + 2
+new R201 tests: untargetable-event discard, explicit-bad-target still
+raises). Scaled self-play sweep 300/300. Tournament 0 non-terminal.
+Round-trip sweep 0 findings. SMOKE total unchanged at 133 (this
+completes SMOKE-131 rather than adding a new number).
