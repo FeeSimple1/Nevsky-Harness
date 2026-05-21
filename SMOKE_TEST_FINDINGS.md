@@ -10741,3 +10741,39 @@ self_play_sweep 300 games (0 stuck / 0 err); llm_tournament 24/24 terminal;
 roundtrip_sweep seeds 1,2,3 0 findings.
 
 SMOKE total 152 -> 153.
+
+## Round 216 — Q-009 adjudicated: Feed only for Moved/Fought (SMOKE-154)
+
+The Crusade seed-1 LLM self-play surfaced Q-009 (logged on the
+crusade-seed1-playthrough branch): the harness set `moved_fought = True`
+in every stationary Command handler, so a Lord who only Taxed/Foraged/
+Ravaged/Supplied/Muster-Serfed/Stone-Kremlined/Stonemasoned still had to
+Feed at end of card -- producing a mid-game starvation spiral (a 9-unit
+garrison couldn't Tax its own city without Unfed->Disband; a 7+ stack
+couldn't self-sustain by Foraging, +1 Provender < 2 Feed).
+
+User adjudicated (D-Q009): Feed applies only to Moved/Fought Lords, and
+Moved/Fought is the closed list March / Avoid Battle / Battle / Siege /
+Storm / Sail (SoP glossary L38; Misc Rules L451-452). The lone broader
+phrasing (Commands.txt L21 "acted") was a loose note, now aligned.
+
+### SMOKE-154 — stationary Commands wrongly triggered Feed
+
+Fix: removed `lord.moved_fought = True` from the nine stationary handlers
+(tax x2 incl. veliky-knyaz wrapper, forage, ravage, raiders_ravage,
+supply, muster_serf, stone_kremlin, stonemasons). The eight Moved/Fought
+handlers (march x2, sail, avoid_battle, stand_battle, siege, storm, sally)
+are unchanged. Verified: a Lord that only Taxes is not Moved/Fought (no
+Feed); a Lord that Marches is (Feeds).
+
+Note: this builds on R214 (SMOKE-152 Ordensburgen) and R215 (SMOKE-153
+orphaned siege), both found by the same playthrough. R214's Ordensburgen
++1 over-grant at non-Commandery seats was a bug the R206 base-rules audit
+read past -- live play caught it.
+
+### Verification
+
+pytest 1326 passed / 0 skipped (+5 new test_round_216_q009_feed_scope.py;
+no existing test relied on stationary commands setting Moved/Fought);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal. SMOKE total 154.

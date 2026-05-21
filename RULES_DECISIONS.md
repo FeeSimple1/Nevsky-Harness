@@ -841,3 +841,43 @@ enumerator (`legal_moves.py`) suppresses these moves when the active
 Lord's card is not pristine (`actions_remaining < _effective_command_rating`).
 Regression: `tests/test_round_203_playthrough_bugs.py`
 (test_bug2_*). See SMOKE-135.
+
+---
+
+## D-Q009 — Feed (4.8.1) applies only to Moved/Fought Lords, not stationary Commands
+*Adjudicated 2026-05-21. Encoded in R216 (this PR).*
+
+**Context.** The Crusade seed-1 LLM self-play hit a starvation spiral: a
+9-unit Pskov garrison (gavrilo) and a 7+-unit reserve could not even Tax
+their own city or Muster-Serf without being marked Unfed (units>=7 needs
+2 Provender, had 0) -> Service shift left -> Disband. The harness set
+`lord.moved_fought = True` in the stationary Command handlers (Tax,
+Forage, Ravage, Raiders-Ravage, Supply, Muster-Serf, Stone Kremlin,
+Stonemasons) and `_enter_feed_pay_disband` Feeds every MOVED_FOUGHT Lord.
+
+**Question (Q-009).** Does Feed apply to a Lord who took only a stationary
+Command this card?
+
+**References.** The SoP glossary (Nevsky_Sequence_of_Play.txt L38) and the
+Misc Rules Reference (L451-452) both define the Moved/Fought marker with
+the SAME closed list -- placed when a Lord "conducts March, Avoid Battle,
+Battle, Siege, Storm, or Sail" -- which excludes the stationary Commands.
+Misc Rules L571 glossary: "Feed -- Eat after Marched/Fought." Only
+Commands.txt L21 used the loose word "acted" (a one-line purpose note,
+not a definition). Feed (4.8.1) applies to "Lords marked MOVED_FOUGHT."
+
+**User adjudication (verbatim):** "No — Feed only for Moved/Fought."
+
+**Rationale.** Two authoritative sources give the explicit enumerated
+list; one paraphrases loosely. Feed represents the supply cost of
+campaigning (moving/fighting), not of garrisoning. The starvation spiral
+(a garrison that cannot Tax its own city without starving; a stack that
+cannot out-Forage its own Feed cost) is the symptom of the wrong reading.
+
+**Encoding (R216).** Removed `lord.moved_fought = True` from the nine
+stationary handlers (`_h_cmd_tax`, `_h_cmd_tax_veliky_knyaz_aware`,
+`_h_cmd_forage`, `_h_cmd_ravage`, `_h_cmd_raiders_ravage`, `_h_cmd_supply`,
+`_h_cmd_muster_serf`, `_h_cmd_stone_kremlin`, `_h_cmd_stonemasons`).
+Moved/Fought (and thus Feed) is now set only by March, Avoid Battle,
+Battle, Siege, Storm, Sail. Commands.txt L21 note aligned. Regression:
+tests/test_round_216_q009_feed_scope.py. See SMOKE-154.
