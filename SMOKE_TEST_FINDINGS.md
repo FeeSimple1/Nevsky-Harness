@@ -10250,3 +10250,75 @@ Three pre-existing tests updated for the new pristine/Pay-window rules
 (sail-discard, veliky-knyaz tax setups → pristine card; fpd disband test
 → no-recourse path; the 16-turn driver loops fpd_resolve through the Pay
 window). SMOKE total 137.
+
+## Round 204 — enumerate every remaining un-enumerated action (SMOKE-138..142)
+
+Follow-up to R203's deferred note: a full audit of `HANDLERS` vs
+`legal_moves.py` found that several working handlers were never emitted
+by the move enumerator, so a player driving off `legal_actions()` could
+never use them (the inverse of CROSS_PROJECT_LESSONS §1, same class as
+SMOKE-134). All five fixed here; "defer nothing." Each enumeration
+mirrors its handler's preconditions exactly; the roundtrip sweep
+(enumerator/handler alignment probe) stays at 0 findings, confirming no
+over-enumeration was introduced.
+
+Audit method: enumerate `HANDLERS` keys, cross-check each against
+`legal_moves.py`. Command-step `cmd_*` actions confirmed emitted:
+march, forage, ravage, tax, pass, supply, sail, siege, storm, sally,
+stone_kremlin (R203). Flow/battle/plan actions confirmed emitted:
+command_reveal, end_card, finalize_plan, plan_add_card,
+end_campaign_resolve, fpd_resolve, stand_battle, avoid_battle, withdraw.
+The gaps below were the remainder.
+
+### SMOKE-138 — T17 Stonemasons not enumerated
+
+Entire-card Teutonic capability that converts an Unbesieged Russian
+Fort/Town in Rus into a Castle for 6 Provender (own + co-located
+shared), cap 2 per game. Handler `_h_cmd_stonemasons` worked but was
+never emitted (the sibling gap flagged in R203). Now emitted in the
+command step (pristine-gated, like Stone Kremlin) when the active
+Teutonic Lord holds T17, is Unbesieged at an eligible Locale with no
+Castle/Siege and < 2 Castles built, with >= 6 reachable Provender.
+
+### SMOKE-139 — R4 Smerdi (cmd_muster_serf) not enumerated
+
+1-action Russian capability to Muster 1 Serf (pool of 6) at an
+Unbesieged Russian Lord in Rus. Now emitted when Smerdi is in play, the
+active Lord is Unbesieged in Russian territory, and < 6 Serfs are on the
+map.
+
+### SMOKE-140 — Raiders (cmd_raiders_ravage, T2/R12/R14) not enumerated
+
+1-action Ravage of an adjacent enemy Locale via an eligible Way with the
+right Horse (T2: Knight/Sergeant/Light Horse, Trackway only, once per
+card; R12/R14: Light/Asiatic Horse, any Way, repeatable). Now emitted
+one move per legal target Locale, mirroring the handler's adjacency,
+Way-type, horse, and 4.7.2 Ravage-eligibility checks.
+
+### SMOKE-141 — Ambush response window (play/decline) not enumerated
+
+When a defender declares Avoid Battle and the attacker holds the T6/R6
+Ambush (SMOKE-115, R180), `combat_pending.ambush_block_pending` opens an
+interrupt window owed by the attacker — but `legal_moves` did not
+special-case it, so it offered the attacker stand/avoid/withdraw
+(wrong) and never offered `play_ambush_block` / `decline_ambush_block`
+(the only legal responses). Now the combat-pending branch detects the
+ambush window and emits exactly those two, suppressing the battle
+options.
+
+### SMOKE-142 — 4.1.3 Lieutenant pairing (place_lieutenant) not enumerated
+
+Optional Plan-time action pairing a Lieutenant with one co-located Lower
+Lord. Handler `_h_place_lieutenant` worked but was never emitted, so the
+pairing was unreachable through `legal_actions()`. Now the Plan step
+emits one `place_lieutenant` per eligible (Lieutenant, Lower Lord) pair
+(co-located, Unbesieged, neither currently a Marshal, no chains, the
+Lieutenant not already carrying a Lower Lord).
+
+### Verification
+
+Full battery green: pytest 1294 passed / 1 skipped (+7 new
+`test_round_204_capability_enumeration.py`); self_play_sweep 300/300
+terminal, 0 real errors; roundtrip_sweep (seeds 1,2,3) 9329 probes,
+0 findings; llm_tournament (pleskau, watland) 24/24 terminal. No tests
+required updating (pure additive enumeration). SMOKE total 142.
