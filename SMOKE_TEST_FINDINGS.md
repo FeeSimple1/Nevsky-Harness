@@ -10630,3 +10630,24 @@ bug exposed by our changes; batch 2 found 1 (a follow-on); batch 3 found
 pytest 1311 passed / 0 skipped (unchanged; no src change);
 llm_tournament 24/24 terminal; batch-3 20/20 terminal with 0
 over-enumeration after the test-agent fix.
+
+## Round 212 — smoke batch 4 (20 fresh seeds): COMPLETELY CLEAN first pass (no SMOKE, docs only)
+
+Fourth 20-game strategic-agent smoke batch, all fresh seeds (10-12 for
+pleskau/watland/peipus/rotp/nicolle; 16-20 for crusade). Result on the
+FIRST pass: 20/20 terminal, ZERO exceptions / stalls / non-terminal,
+ZERO concrete-move over-enumeration. No fix of any kind required.
+
+New paths still well exercised (place_lieutenant x31, cmd_muster_serf
+x48, cmd_stone_kremlin x6, FPD Pay window x71), so "clean" reflects
+exercised-and-correct, not unexercised. Two crusade games (seeds 18,19)
+ended early via Campaign Victory 5.2 (a side eliminated) -- legitimate
+terminal states.
+
+Smoke-batch progression R209-R212: 5 over-enums + 1 exposed bug -> 1
+follow-on -> 0 engine issues (1 test-agent fix) -> 0 of anything. The
+bug-discovery rate has reached zero across 80 strategic-agent games on
+this trajectory class. (Environment note: the sandbox was re-cloned from
+origin/main 7a3b7de before this batch; no work lost.)
+
+SMOKE total unchanged at 151.
