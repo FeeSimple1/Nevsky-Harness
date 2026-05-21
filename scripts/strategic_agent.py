@@ -381,6 +381,15 @@ def _populate_event_args(state, cid, args):
         else:
             new.setdefault("target", "service:andreas")
         new.setdefault("direction", "left")
+    # R211 fix (test-agent): never emit a `direction` (or other action
+    # args) without an accompanying target/targets/locale. When an
+    # immediate Event has NO legal target the enumerator offers a BARE
+    # reveal-and-discard ({card_id} only, 3.1.4 Greed); adding a bare
+    # `direction` turned that into an implement the handler correctly
+    # rejects with missing_arg target, stalling the game (pleskau seed 9,
+    # T1 with neither Aleksandr nor Andrey on the Calendar).
+    if "direction" in new and not ({"target", "targets", "locale"} & set(new)):
+        new.pop("direction", None)
     return new
 
 
