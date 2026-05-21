@@ -10511,3 +10511,56 @@ faithful.
 pytest 1305 passed / 0 skipped (+4 new test_round_208_friendly_trade_route.py);
 self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
 findings; llm_tournament 24/24 terminal. SMOKE total 145.
+
+## Round 209 — 20-game smoke test of R203-R208; enumerator/handler alignment (SMOKE-146..150)
+
+Ran a 20-game strategic-agent smoke test (all 6 scenarios x multiple
+seeds) to shake out bugs from the R203-R208 changes. Instrumented to flag
+any step where a CONCRETE enumerated move (one from legal_moves, not a
+templated-expander candidate) was rejected by its handler -- a precise
+enumerator/handler-asymmetry (over-enumeration) detector.
+
+Result: 20/20 games terminal, ZERO exceptions / stalls / non-terminal.
+The new R203-R206 paths were heavily exercised with no errors (across the
+20 games: place_lieutenant x41, cmd_muster_serf x57, cmd_stone_kremlin x4,
+FPD 4.8.2 Pay window x118). None of the new enumerations over-enumerated.
+
+The detector surfaced 5 over-enumeration findings -- one exposed by R204,
+four pre-existing -- all now fixed (each emitted a guaranteed-illegal move
+the agent had to recover from via fallback):
+
+- **SMOKE-146 (exposed by R204)** — a Lieutenant's March was enumerated
+  without the required Lower-Lord group, so the handler raised
+  lower_lord_required (4.1.3 "move together as if Marshal"). Latent until
+  R204 made place_lieutenant reachable in agent play. Fix: the cmd_march
+  enumeration sets `group=[lieutenant, lower_lord]` when the active Lord
+  has a Lower Lord.
+- **SMOKE-147** — a Lord blocked this Levy (R11 House of Suzdal / R17
+  Dietrich) was offered as a Muster TARGET. The by_lord (levyer) was
+  filtered (SMOKE-133) but the target was not. Fix: exclude blocked Lords
+  from `ready_targets`.
+- **SMOKE-148** — veche sea_trade (R8/R9) was offered when already used
+  this Call to Arms or blocked (Novgorod/Lovat/Neva Conquered; R9 ship
+  parity / Winter). The enumeration checked only capability-in-play,
+  coin<8, and R9-Winter. Fix: mirror all of _veche_sea_trade's reject
+  conditions.
+- **SMOKE-149** — T13 William of Modena was offered while R15 Death of the
+  Pope had blocked it this Levy. Fix: extend the existing T13 enumeration
+  guard (SMOKE-123 Heinrich-on-map) to also honor
+  block_william_of_modena_this_levy.
+- **SMOKE-150** — cmd_ravage was offered when it costs 2 actions (an
+  Unbesieged enemy Lord adjacent, 4.7.2 2E) but the Lord had only 1
+  action. The SMOKE-122 ravage filter checked eligibility but not the
+  action-cost. Fix: compute the adjacency cost and suppress when
+  actions_remaining < cost.
+
+All five are over-enumeration (the handler was already correct); fixes are
+in legal_moves.py except none touched handlers. After the fixes, a re-run
+of the 20-game diagnostic shows ZERO concrete-move rejections.
+
+### Verification
+
+pytest 1310 passed / 0 skipped (+5 new test_round_209_overenum_fixes.py);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal; 20-game smoke diagnostic 0
+over-enumeration. SMOKE total 150.

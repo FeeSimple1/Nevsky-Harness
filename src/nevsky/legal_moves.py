@@ -279,6 +279,13 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             continue
         if state.lords[lid].state != "ready":
             continue
+        # SMOKE-147 (R209): a Lord blocked this Levy (R11/R17) cannot be a
+        # Muster TARGET either -- _h_muster_lord rejects target_id in block
+        # with blocked_this_levy. The enumerator filtered the by_lord
+        # (SMOKE-133) but not the target, so a blocked Ready Lord was still
+        # offered as a Muster target. Exclude blocked targets.
+        if lid in _block:
+            continue
         cyl = _find_cylinder_box(state, lid)
         if cyl is None or cyl > levy_box:
             continue
@@ -381,6 +388,11 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 h = state.lords.get("heinrich")
                 if h is None or h.state != "mustered" or h.location is None:
                     continue
+                # SMOKE-149 (R209): R15 Death of the Pope blocks Levy of
+                # T13 William of Modena for the rest of this Levy
+                # (handler raises capability_blocked). Mirror it here.
+                if state.meta.special_rules.get("block_william_of_modena_this_levy"):
+                    continue
             out.append({
                 "type": "levy_capability", "side": side,
                 "args": {"by_lord": by_lid, "card_id": cid},
@@ -459,18 +471,44 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         out.append({"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     else:  # russian
         levy_box = _find_levy_marker_box(state)
-        # Sea-trade
+        # Sea-trade (R8 Black Sea / R9 Baltic). SMOKE-148 (R209): mirror
+        # ALL of _veche_sea_trade's reject conditions so the enumerator
+        # does not offer a guaranteed-illegal sea_trade. Pre-fix it
+        # checked only capability-in-play, coin<8, and R9-winter; it
+        # omitted the once-per-CtA flag (sea_trade_blocked already_used)
+        # and the Conquered/ship-parity blocks.
         for cid in ("R8", "R9"):
-            if cid in state.decks.russian.capabilities_in_play and state.veche.coin < 8:
-                if cid == "R9":
-                    season = _season_of_box(state.meta.box)
-                    if season in ("early_winter", "late_winter"):
-                        continue
-                out.append({
-                    "type": "veche_action",
-                    "side": "russian",
-                    "args": {"option": "sea_trade", "card_id": cid},
-                })
+            if cid not in state.decks.russian.capabilities_in_play:
+                continue
+            if state.veche.coin >= 8:
+                continue
+            if state.meta.special_rules.get(f"sea_trade_{cid.lower()}_used_this_cta"):
+                continue
+            _nov = state.locales["novgorod"]
+            if cid == "R8":
+                if _nov.teutonic_conquered > 0 or state.locales["lovat"].teutonic_conquered > 0:
+                    continue
+            else:  # R9
+                if _nov.teutonic_conquered > 0 or state.locales["neva"].teutonic_conquered > 0:
+                    continue
+                if _season_of_box(state.meta.box) in ("early_winter", "late_winter"):
+                    continue
+                from nevsky.campaign import effective_ship_count, effective_boat_count
+                _teu = sum(effective_ship_count(state, lid)
+                           for lid, l in state.lords.items()
+                           if l.side == "teutonic" and l.state == "mustered")
+                _rus = sum(effective_ship_count(state, lid)
+                           + (effective_boat_count(state, lid)
+                              - state.lords[lid].assets.get("boat", 0))
+                           for lid, l in state.lords.items()
+                           if l.side == "russian" and l.state == "mustered")
+                if _teu > _rus:
+                    continue
+            out.append({
+                "type": "veche_action",
+                "side": "russian",
+                "args": {"option": "sea_trade", "card_id": cid},
+            })
         if not state.veche.acted_this_call_to_arms:
             if state.veche.vp_markers > 0:
                 # Option A: shift Aleksandr/Andrey cylinder LEFT 2 boxes (1 VP marker each).
@@ -780,6 +818,14 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 excess_mr = _mdme_mr(state, active_lord, way_type=way_type)
                 base_note = f"March {active_lord} {here}->{dest} via {way_type} (cost={march_cost})"
                 args_mr: dict[str, Any] = {"lord_id": active_lord, "to": dest}
+                # SMOKE-146 (R209): an active Lieutenant MUST March together
+                # with his Lower Lord (4.1.3; handler raises
+                # lower_lord_required otherwise). Emit the group so the
+                # enumerated March is legal. (Surfaced once R204 made
+                # place_lieutenant reachable in agent play.)
+                _lower = state.lords[active_lord].has_lower_lord
+                if _lower is not None:
+                    args_mr["group"] = [active_lord, _lower]
                 if excess_mr > 0:
                     args_mr["discard_excess_provender"] = True
                     base_note += f" | NOTE: discards {excess_mr} excess Provender (4.3.2)"
@@ -989,6 +1035,28 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                         and not _loc_state_rv.teutonic_ravaged
                     ):
                         ravage_ok = True
+                        # SMOKE-150 (R209): Ravage costs 2 actions if an
+                        # Unbesieged enemy Lord is adjacent to the target
+                        # (4.7.2 2E); _h_cmd_ravage raises
+                        # insufficient_actions otherwise. Suppress when the
+                        # active Lord can't afford the cost.
+                        from nevsky.static_data import load_ways as _lw_rv
+                        from nevsky.campaign import _is_besieged as _ib_rv
+                        _adj_rv = set()
+                        for _w in _lw_rv():
+                            if _w["a"] == active.location:
+                                _adj_rv.add(_w["b"])
+                            elif _w["b"] == active.location:
+                                _adj_rv.add(_w["a"])
+                        _rv_cost = 1
+                        for _ol, _olst in state.lords.items():
+                            if (_olst.state == "mustered" and _olst.side != side
+                                    and _olst.location in _adj_rv
+                                    and not _ib_rv(state, _ol)):
+                                _rv_cost = 2
+                                break
+                        if state.campaign_turn.actions_remaining < _rv_cost:
+                            ravage_ok = False
             except (ImportError, KeyError, AttributeError, FileNotFoundError):
                 # On static-data load failure, conservatively suppress
                 # the option rather than offer a likely-illegal one.
