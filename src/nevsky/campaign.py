@@ -401,13 +401,11 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
       - House of Suzdal (R11): this Lord -> +1 while Aleksandr AND Andrey on map
       - Treaty of Stensby (T1, side-wide): Heinrich and Knud&Abel -> +1
       - Ordensburgen (T12, side-wide): Teutonic Lord starts at a
-        Commandery -> +1 for that card. (Phase 3a already encoded
-        Commanderies as Lord Seats; Phase 4a adds the Command +1.
-        We treat 'Commandery' as any Lord Seat that is in the lord's
-        primary_seats list of type bishopric / castle (Teuton-built
-        strongholds) OR fort -- the rules use Commandery as a label;
-        for the harness we trigger Ordensburgen +1 when the Lord is
-        at one of his own primary_seats AND side has Ordensburgen.)
+        Commandery -> +1 for that card. Commanderies are the four
+        Order-symbol Strongholds (Wenden, Fellin, Adsel, Leal), all
+        flagged `commandery: true` in locales.json (Q-004). The +1
+        applies ONLY at those Locales, never at a non-Commandery home
+        Seat (R214 fix).
       - Archbishopric (R15, side-wide): Russian Lord starts at
         Novgorod -> +1.
 
@@ -443,13 +441,13 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
         and has_side_capability(state, "teutonic", "Treaty of Stensby")
     ):
         bonus += 1
-    # Ordensburgen (T12): Teutonic Lord starts a Command card at any
-    # Commandery -> +1 (Playbook page 36). Pre-Round-9 the harness
-    # checked primary_seats (too restrictive — would miss a Lord at a
-    # non-primary Commandery). AUDIT-006 broadens to any Locale flagged
-    # `commandery` plus the Lord's own primary_seats (which still
-    # includes Wenden for Andreas/Rudolf etc., where the +1 applies
-    # naturally).
+    # Ordensburgen (T12): Teutonic Lord starts a Command card at a
+    # Commandery -> +1 (Playbook page 36; AoW T12 tips; Map 226-236).
+    # Commanderies are exactly the four Order-symbol Strongholds
+    # (Wenden, Fellin, Adsel, Leal), all flagged `commandery: true`
+    # (Q-004). R214: gate purely on that flag — Wenden (Andreas/Rudolf)
+    # and Leal (Heinrich) are covered as Commanderies; non-Commandery
+    # home Seats (Dorpat, Odenpah, Reval, Riga) correctly get NO +1.
     from nevsky.static_data import load_locales as _load_locales
     if (
         lord.side == "teutonic"
@@ -457,7 +455,13 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
         and lord.location is not None
     ):
         loc_static = _load_locales().get(lord.location, {})
-        if loc_static.get("commandery") or lord.location in sl.get("primary_seats", []):
+        # R214 fix: Ordensburgen +1 applies ONLY at a Commandery
+        # (Order-symbol Stronghold: Wenden, Fellin, Adsel, Leal — all
+        # flagged `commandery: true`). The prior `or lord.location in
+        # primary_seats` clause over-granted +1 at non-Commandery home
+        # Seats (Dorpat, Odenpah, Reval, Riga), contradicting AoW T12
+        # tips, Map ref 226-236, and Q-004 (RULES_DECISIONS.md).
+        if loc_static.get("commandery"):
             bonus += 1
     # Archbishopric: Russian Lord starts at Novgorod.
     if (

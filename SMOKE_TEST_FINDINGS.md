@@ -10668,3 +10668,40 @@ Smoke-batch tally R209-R213 (100 strategic-agent games): 5 over-enums +
 1 exposed bug -> 1 follow-on -> 0 (1 test-agent fix) -> 0 -> 0. Two
 consecutive completely-clean batches; discovery rate is zero on this
 trajectory class. SMOKE total unchanged at 151.
+
+## Round 214 — Crusade seed-1 LLM self-play; SMOKE-152 (Ordensburgen +1 over-grant)
+
+First bug from the full Crusade-on-Novgorod seed-1 LLM self-play (Claude
+playing both sides). Surfaced at box 1 Summer, Campaign command: yaroslav
+(Command 2) revealed his card at Odenpah and received a **3-action** card.
+
+### SMOKE-152 — Ordensburgen (T12) Command +1 over-granted at non-Commandery home Seats
+
+`_effective_command_rating` (campaign.py) granted the T12 Ordensburgen
++1 whenever a Teutonic Lord started his Command card at any of his own
+`primary_seats`, in addition to flagged Commanderies:
+
+```
+if loc_static.get("commandery") or lord.location in sl.get("primary_seats", []):
+    bonus += 1
+```
+
+Per the authoritative rules the +1 applies ONLY when starting at a
+**Commandery** (Order-symbol Stronghold). The confirmed Commandery set
+(Q-004 / RULES_DECISIONS.md; AoW T12 tips; Map ref 226-236) is exactly
+Wenden, Fellin, Adsel, Leal — all already flagged `commandery: true`.
+The legitimate +1 (Andreas/Rudolf at Wenden, Heinrich at Leal) is fully
+covered by that flag; the `or ... primary_seats` clause additionally and
+wrongly granted +1 at the non-Commandery home Seats Dorpat, Odenpah,
+Reval, and Riga — inflating Teutonic Command actions.
+
+**Fix:** gate the +1 purely on `loc_static.get("commandery")`. Regression
+test `tests/test_round_214_ordensburgen_commandery_only.py` (4 tests):
+no +1 at Dorpat/Odenpah, +1 at all four Commanderies, the exact yaroslav@
+Odenpah Command-2 (not 3) case, and no +1 without T12 in play.
+
+Verification battery (all clean): pytest 1315 passed / 0 skipped;
+self_play_sweep 300 games (0 stuck / 0 err); llm_tournament 24/24
+terminal; roundtrip_sweep seeds 1,2,3 0 findings.
+
+SMOKE total 151 -> 152.
