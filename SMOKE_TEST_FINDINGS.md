@@ -10651,3 +10651,20 @@ this trajectory class. (Environment note: the sandbox was re-cloned from
 origin/main 7a3b7de before this batch; no work lost.)
 
 SMOKE total unchanged at 151.
+
+## Round 213 — smoke batch 5 (20 fresh seeds): COMPLETELY CLEAN first pass (no SMOKE, docs only)
+
+Fifth 20-game strategic-agent smoke batch, all fresh seeds (21-23 for
+pleskau/watland/peipus/rotp/nicolle; 21-25 for crusade). FIRST pass:
+20/20 terminal, ZERO exceptions / stalls / non-terminal, ZERO
+concrete-move over-enumeration. No fix required (second consecutive
+fully-clean batch).
+
+New paths still well exercised (place_lieutenant x55, cmd_muster_serf
+x37, cmd_stone_kremlin x6, FPD Pay window x89). All five crusade games
+ran the full 16 boxes.
+
+Smoke-batch tally R209-R213 (100 strategic-agent games): 5 over-enums +
+1 exposed bug -> 1 follow-on -> 0 (1 test-agent fix) -> 0 -> 0. Two
+consecutive completely-clean batches; discovery rate is zero on this
+trajectory class. SMOKE total unchanged at 151.
