@@ -10705,3 +10705,39 @@ self_play_sweep 300 games (0 stuck / 0 err); llm_tournament 24/24
 terminal; roundtrip_sweep seeds 1,2,3 0 findings.
 
 SMOKE total 151 -> 152.
+
+## Round 215 — Crusade seed-1 LLM self-play; SMOKE-153 (orphaned Siege on besieger removal)
+
+Second bug from the Crusade-on-Novgorod seed-1 LLM self-play. At box 3,
+Gavrilo withdrew inside Pskov (4.3.4) when Hermann (Pskov's sole besieger)
+approached. At the ensuing FPD, Hermann was Unfed (marched with 0 Provender),
+shifted Service left, and Disbanded.
+
+### SMOKE-153 — Siege not lifted when the last besieger departs/is removed
+
+After Hermann's Disband, `pskov.siege_markers` stayed 1 and Gavrilo stayed
+`in_stronghold`, so `_is_besieged(gavrilo)` returned True with **zero besiegers
+present**. The engine lifted Sieges only in combat aftermath (Sally/Storm,
+campaign.py); nothing lifted a Siege when the last besieger left by Marching
+away or was removed (Disband / permanent removal — e.g. an Unfed besieger).
+A Stronghold is Besieged only while enemy besiegers are present (4.3.5), so the
+defender was wrongly treated as Besieged (actions restricted to
+Sally/Stone-Kremlin/Pass). Masked in the live game only because Rudolf
+re-besieged Pskov before Gavrilo's next card, but reachable and incorrect.
+
+**Fix:** new helper `_lift_siege_if_no_besiegers(state, locale_id)` (actions.py)
+— if a Locale has siege_markers>0, a defender inside, and no enemy besiegers
+outside, remove the markers and clear the defenders' `in_stronghold`. Called
+from `_disband_at_limit`, `_remove_lord_permanently` (using each function's
+captured pre-removal location), and the March handler (on the source Locale
+after a group departs). No-op for empty-Stronghold sieges (conquest path).
+
+Regression test `tests/test_round_215_orphaned_siege_lift.py` (6 tests):
+helper lifts/keeps correctly, disband-of-sole-besieger lifts, permanent-removal
+lifts, second-besieger keeps siege, no-defender-inside untouched.
+
+Verification battery (all clean): pytest 1317 passed / 0 skipped;
+self_play_sweep 300 games (0 stuck / 0 err); llm_tournament 24/24 terminal;
+roundtrip_sweep seeds 1,2,3 0 findings.
+
+SMOKE total 152 -> 153.

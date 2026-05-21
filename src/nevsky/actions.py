@@ -1176,6 +1176,47 @@ def _find_service_marker_box(state: GameState, lord_id: str) -> int | None:
     return None
 
 
+def _lift_siege_if_no_besiegers(state: GameState, locale_id: str | None) -> bool:
+    """R215 (SMOKE-153): lift a Stronghold's Siege when no enemy besiegers
+    remain at the Locale.
+
+    A Stronghold is Besieged only while enemy Lords besiege it (4.3.5). When
+    the last besieger departs (March away) or is removed (Disband / permanent
+    removal — e.g. an Unfed besieger), the Siege ends: remove the Siege
+    markers and clear the formerly-Besieged defenders' in_stronghold flag so
+    they are no longer treated as Besieged. Pre-R215 the markers and the
+    defender's Besieged status persisted with no besieger present (surfaced in
+    the Crusade seed-1 LLM self-play: Hermann, Pskov's sole besieger, was
+    Unfed and Disbanded, leaving Gavrilo `_is_besieged` with 0 besiegers).
+
+    Returns True if a Siege was lifted. No-op for empty-Stronghold sieges
+    (no defender inside) — those resolve via the conquest path.
+    """
+    if locale_id is None:
+        return False
+    loc = state.locales.get(locale_id)
+    if loc is None or loc.siege_markers <= 0:
+        return False
+    inside = [
+        L for L in state.lords.values()
+        if L.state == "mustered" and L.location == locale_id and L.in_stronghold
+    ]
+    if not inside:
+        return False
+    defender_side = inside[0].side
+    besiegers = [
+        L for L in state.lords.values()
+        if L.state == "mustered" and L.location == locale_id
+        and not L.in_stronghold and L.side != defender_side
+    ]
+    if besiegers:
+        return False
+    loc.siege_markers = 0
+    for L in inside:
+        L.in_stronghold = False
+    return True
+
+
 def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any]) -> None:
     """3.3.1: permanent removal of a Lord.
 
@@ -1314,6 +1355,8 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
             state.campaign_turn.active_card = None
             state.campaign_turn.active_lord = None
             state.campaign_turn.in_feed_pay_disband = False
+    # R215: lift orphaned Siege if this departing besieger was the last one.
+    _lift_siege_if_no_besiegers(state, _smoke087_removed_location)
 
 
 def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]:
@@ -1537,6 +1580,10 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
             state.legate.william_of_modena_in_play = False
             state.legate.location = "card"
             state.legate.locale_id = None
+
+
+    # R215: lift orphaned Siege if this departing besieger was the last one.
+    _lift_siege_if_no_besiegers(state, _smoke088_disband_location)
 
 
 # ---------------------------------------------------------------------------
