@@ -57,3 +57,8 @@ Playthrough restarted from a fresh seed-1 game on the fixed engine; Levy+Plan (t
 - Rus Muster: domash Luchniki (militia/LH archery) + novgorod_1; gavrilo borderland + Black Sea Trade (R8, +1 Veche coin/CtA); vladislav ingrian_aux + sled.
 - **STORM IZBORSK (hermann+Trebuchets, rudolf reserve):** beat the fort garrison (MAA+knights wiped), **Izborsk CONQUERED (teutonic_conquered=1), +1 VP, spoils loot/prov/coin to hermann.** VERIFIED: conquest recorded via locale.teutonic_conquered (not a conquered_by field); forts have inherent garrisons; all consistent — no bug.
 - **Score: Teu 1.0 / Rus 0.0.**
+
+### Box 2 end — KNUD DISBANDED (Unfed cascade) — VERIFIED CORRECT (not a bug)
+At box-2 FPD after knud's march to Uzmen, knud's 9-unit stack needed **2 Provender** to Feed (units>=7 -> 2; rule 4.8.1) but had only 1 (the Uzmen waterway march discarded excess provender; an earlier end-of-campaign wastage cost a ship). Engine: Unfed penalty = shift Service 1 box LEFT (box3->2) -> service == campaign marker (box2) -> at-limit Disband (4.8.2->3.3.2) -> cylinder placed SERVICE_RATING(3) right of NEXT box (3) = **box 6**. All steps match the rules. **STRATEGIC LESSON (my blunder): do not field a 7+ unit stack (2 provender/Feed) while marching away from friendly supply; the "discard_excess_provender" prompt on knud's Uzmen march was the warning sign.** knud lost; Teutonic Pskov assault now relies on hermann+rudolf.
+
+**Box 3 (Early Winter) start:** Teu hermann+rudolf @ Izborsk (conquered), knud disbanded->box6. Rus gavrilo holds Pskov(walls+1, 9-unit garrison), domash @ Dubrovno (Luchniki +2 serfs), vladislav @ Novgorod (paid to box4, +2 serfs). VP Teu 1.0 / Rus 0.0. Aleksandr box7, Andrey box5, Andreas box5.
