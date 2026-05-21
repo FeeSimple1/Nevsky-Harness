@@ -816,3 +816,16 @@ JSON, i.e. unreachable for an index/palette-driven or LLM player):
 - **Ambush (T6/R6) block of Avoid Battle:** the attacker is now properly
   offered Play/Decline when a defender tries to Avoid — use it to pin a
   defender who would otherwise slip away.
+
+## 16. Legate as a tempo lever (R206, SMOKE-143)
+
+The Legate (William of Modena) now does more than ride along and grant
+Call-to-Arms Musters: during Campaign, a Teutonic Lord who starts his
+card co-located with the on-map Legate can spend it for **+1 Command
+action on that card** (offered as `legate_command_bonus`). The pawn only
+leaves when the extra action is actually used, so there's no downside to
+electing it on a card you'll fully spend. Practical use: carry the Legate
+with your main striker (Lords can take the Legate on a March, 4.1.1) and
+cash the +1 on a turn that needs the extra reach -- e.g. March-then-act,
+or an extra March to close on a target. It returns next Call to Arms if
+William of Modena is still in play.

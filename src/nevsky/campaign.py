@@ -377,6 +377,19 @@ def _h_command_reveal(
     # Reset per-card capability flags (Phase 4b).
     state.lords[card].first_march_used_this_card = False
     state.lords[card].raiders_used_this_card = False
+    # SMOKE-143 (R206): reset per-card Legate-bonus tracking on each reveal.
+    # The +1 bonus is available only if the Lord STARTS his Activation (this
+    # reveal) co-located with the on-map Legate (4.2); qualification is
+    # fixed here so marching away later does not revoke it.
+    state.campaign_turn.legate_bonus_elected = False
+    state.campaign_turn.legate_bonus_base = 0
+    state.campaign_turn.actions_used_this_card = 0
+    state.campaign_turn.legate_bonus_available = (
+        state.lords[card].side == "teutonic"
+        and state.legate.william_of_modena_in_play
+        and state.legate.location == "locale"
+        and state.legate.locale_id == state.lords[card].location
+    )
     return ({"revealed": card, "outcome": "active", "actions": state.campaign_turn.actions_remaining}, [])
 
 
@@ -398,10 +411,12 @@ def _effective_command_rating(state: GameState, lord_id: str) -> int:
       - Archbishopric (R15, side-wide): Russian Lord starts at
         Novgorod -> +1.
 
-    Note: there is no separate "Legate +1 Command" rule. The Legate's
-    effects (3.5.1) are limited to USE options 2a/2b/2c (auto-Muster,
-    cylinder-shift-left, extra Muster); none of them grants a Command
-    bonus.
+    Note: the Legate Command +1 (4.2) is NOT applied here. It is an
+    optional, player-elected in-card action grant (handler
+    _h_legate_command_bonus, SMOKE-143), not a passive rating modifier:
+    the player elects it during the card and the pawn returns to William
+    of Modena only if the extra action is used. This function returns the
+    Lord's intrinsic Command rating plus passive capability modifiers only.
     """
     from nevsky.capabilities import any_capability, has_side_capability
     from nevsky.static_data import load_lords as _load
@@ -477,12 +492,69 @@ def _require_full_command_card(state: GameState, lord_id: str, label: str) -> No
         )
 
 
+def _resolve_legate_command_bonus(state: GameState) -> None:
+    """SMOKE-143 (R206): at the end of a Command card, if the Teutonic
+    player elected the Legate +1 bonus, return the Legate pawn to the
+    William of Modena card IF the extra action was actually used (the Lord
+    consumed more actions than his base Command rating). If the bonus was
+    elected but the extra action went unused, the pawn stays on the map
+    (4.2: "remove ... if and when the Lord uses the extra action").
+    """
+    ct = state.campaign_turn
+    if ct.legate_bonus_elected:
+        if ct.actions_used_this_card > ct.legate_bonus_base:
+            state.legate.location = "card"
+            state.legate.locale_id = None
+        ct.legate_bonus_elected = False
+        ct.legate_bonus_base = 0
+
+
 def _enter_feed_pay_disband(state: GameState) -> None:
     """Helper: transition to per-card 4.8 sub-step."""
+    _resolve_legate_command_bonus(state)
     state.campaign_turn.in_feed_pay_disband = True
     state.campaign_turn.fpd_completed_t = False
     state.campaign_turn.fpd_completed_r = False
     state.meta.active_player = "teutonic"  # T-then-R for 4.8
+
+
+def _h_legate_command_bonus(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """SMOKE-143 (R206): Legate Command bonus (4.2 LEGATE).
+
+    A Teutonic Lord who STARTS his Activation (his card was revealed)
+    co-located with the on-map Legate pawn may add +1 Command action for
+    the current card. Per the rule, the pawn returns to the William of
+    Modena Capability card only "if and when the Lord uses the extra
+    action" -- so removal is deferred to card end (_resolve_legate_command_
+    bonus), and a wasted election leaves the pawn on the map. Only once per
+    appearance: once removed the Legate is off-map until the next Call to
+    Arms re-places it (3.5.1).
+    """
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "Legate Command bonus is Teutonic (4.2)")
+    if state.meta.phase != "campaign" or state.meta.campaign_step != "command":
+        raise IllegalAction("wrong_step", "Legate bonus only during Command (4.2)")
+    if state.campaign_turn.in_feed_pay_disband:
+        raise IllegalAction("in_feed_pay_disband", "card is concluding")
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    if not state.campaign_turn.legate_bonus_available:
+        raise IllegalAction(
+            "legate_unavailable",
+            "active Lord did not start his card co-located with the on-map Legate (4.2)",
+        )
+    if state.campaign_turn.legate_bonus_elected:
+        raise IllegalAction("already_elected", "Legate +1 already taken this card")
+    state.campaign_turn.legate_bonus_base = _effective_command_rating(state, lord_id)
+    state.campaign_turn.actions_remaining += 1
+    state.campaign_turn.legate_bonus_elected = True
+    return ({"legate_bonus": True, "lord_id": lord_id,
+             "actions_remaining": state.campaign_turn.actions_remaining}, [])
 
 
 def _h_end_card(
@@ -726,6 +798,25 @@ def _h_fpd_resolve(
                     state.calendar.off_left_service.append(lord_id)
                 else:
                     state.calendar.boxes[sm_box - 2].service_markers.append(lord_id)
+                # SMOKE-144 (R206): 3.4.2 advanced rule -- any shift of a
+                # Lord's Service cascades to his on-Calendar Vassal markers
+                # (same direction, same boxes). _shift_service_right does
+                # this for rightward Pay shifts; the Unfed leftward shift
+                # (4.8.1) omitted it. Only active when advanced_vassal_service
+                # is enabled (off by default).
+                if state.meta.optional_rules.get("advanced_vassal_service", False):
+                    for vid, vstate in state.lords[lord_id].vassals.items():
+                        if not vstate.on_calendar or vstate.calendar_box is None:
+                            continue
+                        ob = vstate.calendar_box
+                        if 1 <= ob <= 16 and vid in state.calendar.boxes[ob - 1].vassal_service_markers:
+                            state.calendar.boxes[ob - 1].vassal_service_markers.remove(vid)
+                        tgt = ob - 1
+                        if tgt < 1:
+                            vstate.calendar_box = 0
+                        else:
+                            state.calendar.boxes[tgt - 1].vassal_service_markers.append(vid)
+                            vstate.calendar_box = tgt
         feed_results.append({
             "lord_id": lord_id,
             "units": n_units,
@@ -774,6 +865,9 @@ def _consume_actions(state: GameState, n: int) -> None:
     state.campaign_turn.actions_remaining -= n
     if state.campaign_turn.actions_remaining < 0:
         state.campaign_turn.actions_remaining = 0
+    # SMOKE-143 (R206): track actions actually consumed this card so the
+    # Legate Command bonus can tell whether its extra action was used.
+    state.campaign_turn.actions_used_this_card += n
     # SMOKE-110 (Round 172): per rule 4.8, Feed/Pay/Disband fires after
     # every Command card. Pre-fix the harness only fired FPD when an
     # action explicitly called _enter_feed_pay_disband (Pass, entire-
@@ -1836,6 +1930,7 @@ HANDLERS = {
     "cmd_ravage": _h_cmd_ravage,
     "cmd_pass": _h_cmd_pass,
     "cmd_sail": _h_cmd_sail,
+    "legate_command_bonus": _h_legate_command_bonus,
     # 4.6 supply
     "cmd_supply": _h_cmd_supply,
     # 4.9 end campaign
