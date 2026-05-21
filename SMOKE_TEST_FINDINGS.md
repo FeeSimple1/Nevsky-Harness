@@ -10594,3 +10594,39 @@ pytest 1311 passed / 0 skipped (+1 new
 test_round_210_lieutenant_march_group.py); self_play_sweep 300/300
 terminal, 0 real errors; roundtrip_sweep 0 findings; llm_tournament 24/24;
 post-fix smoke diagnostic 0 over-enumeration. SMOKE total 151.
+
+## Round 211 — smoke batch 3 (20 fresh seeds): CLEAN (test-agent fix only, no SMOKE)
+
+Third 20-game strategic-agent smoke batch, all fresh seeds (7-9 for
+pleskau/watland/peipus/rotp/nicolle; 11-15 for crusade). Goal: a fully
+clean batch. Final result: 20/20 terminal, ZERO exceptions / stalls /
+non-terminal, ZERO concrete-move over-enumeration. New paths still well
+exercised (place_lieutenant x41, cmd_muster_serf x54, cmd_stone_kremlin
+x7, FPD Pay window x89).
+
+The first pass surfaced one stall (pleskau seed 9, non-terminal). Root
+cause was in the SMOKE-TEST AGENT, not the rules engine: when an
+immediate Event (T1) has NO legal target, legal_moves correctly offers a
+BARE reveal-and-discard `{card_id: T1}` (3.1.4 Greed), which the harness
+applies cleanly (outcome immediate_event_no_target_discarded). But
+scripts/strategic_agent.py's `_populate_event_args` unconditionally added
+`direction: "left"` for T1/T12, turning the bare move into an implement
+the handler then correctly rejected with missing_arg target -- and since
+T1 was the only legal move and the fallback re-populated identically, the
+game stalled. NOT a harness defect (verified: the bare move applies
+cleanly); the rules engine and enumerator were correct.
+
+Fix (test tooling only, scripts/strategic_agent.py): a guard at the end
+of `_populate_event_args` drops a bare `direction` when no
+target/targets/locale is present, so a no-legal-target Event stays a bare
+reveal-and-discard. No src/ change; SMOKE total unchanged at 151.
+
+Smoke-batch trend across R209-R211: batch 1 found 5 over-enums + 1 real
+bug exposed by our changes; batch 2 found 1 (a follow-on); batch 3 found
+0 rules-engine issues (1 test-agent fix). Converging.
+
+### Verification
+
+pytest 1311 passed / 0 skipped (unchanged; no src change);
+llm_tournament 24/24 terminal; batch-3 20/20 terminal with 0
+over-enumeration after the test-agent fix.
