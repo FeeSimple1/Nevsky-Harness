@@ -937,7 +937,9 @@ def _h_cmd_tax(
     if lord.assets.get("coin", 0) >= 8:
         raise IllegalAction("coin_max", f"{lord_id} at Coin cap (1.7.3)")
     lord.assets["coin"] = lord.assets.get("coin", 0) + 1
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     # Tax consumes the entire card.
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
@@ -1001,7 +1003,9 @@ def _h_cmd_forage(
     )
     delta = 0 if famine_against_us else 1
     lord.assets["provender"] = lord.assets.get("provender", 0) + delta
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     _consume_actions(state, 1)
     return ({"lord_id": lord_id, "added": "provender",
              "new_count": lord.assets["provender"], "delta": delta,
@@ -1089,7 +1093,9 @@ def _h_cmd_ravage(
     # +1 Loot if non-Region.
     if static["type"] != "region":
         lord.assets["loot"] = min(8, lord.assets.get("loot", 0) + 1)
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     _consume_actions(state, cost)
     return (
         {
@@ -1556,7 +1562,9 @@ def _h_cmd_supply(
     # Add provender (cap 8).
     final_added = min(added, 8 - lord.assets.get("provender", 0))
     lord.assets["provender"] = lord.assets.get("provender", 0) + final_added
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     _consume_actions(state, 1)
     return ({"lord_id": lord_id, "added": final_added,
              "lost_to_cap": added + famine_seats_dropped - final_added,
@@ -3905,7 +3913,9 @@ def _h_cmd_stone_kremlin(
     _require_full_command_card(state, lord_id, "Stone Kremlin (R18)")
 
     state.locales[loc].walls_plus_one = True
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
     return ({"locale": loc, "walls_plus_one": True}, [])
@@ -4015,7 +4025,9 @@ def _h_cmd_stonemasons(
     _refresh_vp_markers(state)
     sr["stonemasons_castles_built"] = built + 1
 
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
     return ({"locale": loc, "castle_built": True, "castles_built_total": built + 1}, [])
@@ -4059,7 +4071,9 @@ def _h_cmd_muster_serf(
         raise IllegalAction("insufficient_actions", "Smerdi muster costs 1 action")
 
     lord.forces["serfs"] = lord.forces.get("serfs", 0) + 1
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     _consume_actions(state, 1)
     return ({"lord_id": lord_id, "serfs_added": 1, "in_play_after": in_play + 1}, [])
 
@@ -4173,7 +4187,9 @@ def _h_cmd_raiders_ravage(
 
     if has_t2:
         lord.raiders_used_this_card = True
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     _consume_actions(state, 1)
     return ({"lord_id": lord_id, "target": target, "loot_added": has_t2 and static["type"] != "region"}, [])
 
@@ -4348,7 +4364,9 @@ def _h_cmd_tax_veliky_knyaz_aware(
                 restored[k] = n - cur
         extra["veliky_knyaz_restored"] = restored
 
-    lord.moved_fought = True
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
     return ({"lord_id": lord_id, "added": "coin", **extra}, [])

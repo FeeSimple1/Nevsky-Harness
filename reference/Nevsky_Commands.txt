@@ -18,7 +18,7 @@
       "rule": "Any Assets among Lords at the same Locale may be shared (Provender, Loot, Transport, Coin)."
     },
     "moved_fought_marker": {
-      "purpose": "Tracks Lords that acted on the current Command card; required for Feed at end of card.",
+      "purpose": "Marks Lords that conducted a Moved/Fought Command this card -- March, Avoid Battle, Battle, Siege, Storm, or Sail (SoP glossary; Misc Rules L451). Stationary Commands (Tax, Forage, Ravage, Supply, Muster-Serf, Stone Kremlin, Stonemasons) do NOT set it. Required for Feed (4.8.1) at end of card. (Q-009 adjudication, R216.)",
       "rule_refs": [
         "4.3",
         "4.8.1"
