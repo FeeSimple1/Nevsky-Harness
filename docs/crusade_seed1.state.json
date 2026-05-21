@@ -1,0 +1,964 @@
+{
+  "scenario_id": "crusade_on_novgorod",
+  "state_json": "{\"meta\":{\"scenario_id\":\"crusade_on_novgorod\",\"scenario_display_name\":\"Crusade on Novgorod\",\"edition\":\"2\",\"schema_version\":\"0.17.0\",\"seed\":1,\"sequence\":51,\"rng_state\":7,\"box\":1,\"phase\":\"campaign\",\"levy_step\":\"done\",\"levy_step_completed_t\":false,\"levy_step_completed_r\":false,\"first_levy_done\":false,\"aow_drawn_t\":true,\"aow_drawn_r\":true,\"campaign_step\":\"command\",\"plan_complete_t\":true,\"plan_complete_r\":true,\"end_campaign_completed_t\":false,\"end_campaign_completed_r\":false,\"block_lords_this_levy_t\":[],\"block_lords_this_levy_r\":[],\"lordship_bonus\":{},\"active_player\":\"teutonic\",\"span_start_box\":1,\"span_end_box\":16,\"aggressor\":\"both\",\"special_rules\":{\"keep_no_event_cards\":true,\"keep_no_event_cards_notes\":\"Per Second Edition Changes: Crusade on Novgorod retains the three No Event/No Capability cards in each deck for the entire scenario; the standard 3.1.2-3.1.3 removal rule is suspended.\"},\"optional_rules\":{}},\"calendar\":{\"boxes\":[{\"box\":1,\"cylinders\":[\"heinrich\"],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":true,\"levy_campaign_face\":\"levy\",\"russian_victory_marker\":true,\"teutonic_victory_marker\":false},{\"box\":2,\"cylinders\":[],\"service_markers\":[\"yaroslav\"],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":3,\"cylinders\":[\"andreas\",\"karelians\"],\"service_markers\":[\"knud_and_abel\",\"vladislav\",\"rudolf\"],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":4,\"cylinders\":[],\"service_markers\":[\"hermann\",\"gavrilo\"],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":5,\"cylinders\":[\"aleksandr\",\"andrey\"],\"service_markers\":[\"domash\"],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":6,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":7,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":8,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":9,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":10,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":11,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":12,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":13,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":14,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":15,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false},{\"box\":16,\"cylinders\":[],\"service_markers\":[],\"vassal_service_markers\":[],\"has_levy_campaign_marker\":false,\"levy_campaign_face\":null,\"russian_victory_marker\":false,\"teutonic_victory_marker\":false}],\"off_left\":[],\"off_right\":[],\"off_left_service\":[],\"off_right_service\":[],\"russian_vp\":0.0,\"teutonic_vp\":0.0,\"pleskau_lords_removed_russian\":0,\"pleskau_lords_removed_teutonic\":0},\"veche\":{\"coin\":0,\"vp_markers\":0,\"novgorod_conquered\":false,\"acted_this_call_to_arms\":true,\"extra_muster_target_lord\":null},\"lords\":{\"andreas\":{\"lord_id\":\"andreas\",\"side\":\"teutonic\",\"location\":null,\"state\":\"ready\",\"moved_fought\":false,\"forces\":{},\"routed_units\":{},\"assets\":{},\"vassals\":{\"andreas_teutonic_vassals\":{\"vassal_id\":\"andreas_teutonic_vassals\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"andreas_lettgallian_aux\":{\"vassal_id\":\"andreas_lettgallian_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"andreas_summer_crusaders_1\":{\"vassal_id\":\"andreas_summer_crusaders_1\",\"ready\":false,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"hermann\":{\"lord_id\":\"hermann\",\"side\":\"teutonic\",\"location\":\"dorpat\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"knights\":1,\"sergeants\":1,\"men_at_arms\":1,\"militia\":1},\"routed_units\":{},\"assets\":{\"coin\":1,\"provender\":1,\"cart\":1},\"vassals\":{\"hermann_helmold_von_luneburg\":{\"vassal_id\":\"hermann_helmold_von_luneburg\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"hermann_ugaunian_aux\":{\"vassal_id\":\"hermann_ugaunian_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"hermann_johannes_von_dolen\":{\"vassal_id\":\"hermann_johannes_von_dolen\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[\"T14\"],\"lordship_used\":3,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"rudolf\":{\"lord_id\":\"rudolf\",\"side\":\"teutonic\",\"location\":\"fellin\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"knights\":1,\"sergeants\":1,\"men_at_arms\":1},\"routed_units\":{},\"assets\":{\"provender\":1,\"cart\":1},\"vassals\":{\"rudolf_ex_sword_brethren\":{\"vassal_id\":\"rudolf_ex_sword_brethren\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"rudolf_jerwen_teutonic_vassals\":{\"vassal_id\":\"rudolf_jerwen_teutonic_vassals\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"rudolf_summer_crusaders\":{\"vassal_id\":\"rudolf_summer_crusaders\",\"ready\":false,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":true,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"heinrich\":{\"lord_id\":\"heinrich\",\"side\":\"teutonic\",\"location\":null,\"state\":\"ready\",\"moved_fought\":false,\"forces\":{},\"routed_units\":{},\"assets\":{},\"vassals\":{\"heinrich_odward_von_lode\":{\"vassal_id\":\"heinrich_odward_von_lode\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"heinrich_heinrich_von_lode\":{\"vassal_id\":\"heinrich_heinrich_von_lode\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"yaroslav\":{\"lord_id\":\"yaroslav\",\"side\":\"teutonic\",\"location\":\"odenpah\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"knights\":1,\"men_at_arms\":1,\"light_horse\":1},\"routed_units\":{},\"assets\":{\"provender\":1,\"cart\":1},\"vassals\":{\"yaroslav_mstislavich_partisans\":{\"vassal_id\":\"yaroslav_mstislavich_partisans\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[\"T3\"],\"lordship_used\":1,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"knud_and_abel\":{\"lord_id\":\"knud_and_abel\",\"side\":\"teutonic\",\"location\":\"reval\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"knights\":1,\"sergeants\":1,\"men_at_arms\":2,\"militia\":1},\"routed_units\":{},\"assets\":{\"coin\":1,\"provender\":2,\"ship\":2},\"vassals\":{\"knud_and_abel_estonian_aux\":{\"vassal_id\":\"knud_and_abel_estonian_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"knud_and_abel_dietrich_von_kivel\":{\"vassal_id\":\"knud_and_abel_dietrich_von_kivel\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"knud_and_abel_otto_von_luneburg\":{\"vassal_id\":\"knud_and_abel_otto_von_luneburg\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[\"T4\",\"T18\"],\"lordship_used\":3,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"aleksandr\":{\"lord_id\":\"aleksandr\",\"side\":\"russian\",\"location\":null,\"state\":\"ready\",\"moved_fought\":false,\"forces\":{},\"routed_units\":{},\"assets\":{},\"vassals\":{\"aleksandr_pereyaslavl\":{\"vassal_id\":\"aleksandr_pereyaslavl\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"aleksandr_rostov\":{\"vassal_id\":\"aleksandr_rostov\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"aleksandr_yaroslavl\":{\"vassal_id\":\"aleksandr_yaroslavl\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"aleksandr_mongols_1\":{\"vassal_id\":\"aleksandr_mongols_1\",\"ready\":false,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"aleksandr_mongols_2\":{\"vassal_id\":\"aleksandr_mongols_2\",\"ready\":false,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"andrey\":{\"lord_id\":\"andrey\",\"side\":\"russian\",\"location\":null,\"state\":\"ready\",\"moved_fought\":false,\"forces\":{},\"routed_units\":{},\"assets\":{},\"vassals\":{\"andrey_vladimir\":{\"vassal_id\":\"andrey_vladimir\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"andrey_suzdal\":{\"vassal_id\":\"andrey_suzdal\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"andrey_kipchaqs_1\":{\"vassal_id\":\"andrey_kipchaqs_1\",\"ready\":false,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"andrey_kipchaqs_2\":{\"vassal_id\":\"andrey_kipchaqs_2\",\"ready\":false,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"domash\":{\"lord_id\":\"domash\",\"side\":\"russian\",\"location\":\"novgorod\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"sergeants\":1,\"men_at_arms\":2,\"light_horse\":1,\"militia\":1},\"routed_units\":{},\"assets\":{\"provender\":1,\"boat\":1},\"vassals\":{\"domash_novgorod_1\":{\"vassal_id\":\"domash_novgorod_1\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"domash_novgorod_2\":{\"vassal_id\":\"domash_novgorod_2\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"domash_novgorod_3\":{\"vassal_id\":\"domash_novgorod_3\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":true,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"gavrilo\":{\"lord_id\":\"gavrilo\",\"side\":\"russian\",\"location\":\"pskov\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"knights\":1,\"men_at_arms\":2,\"light_horse\":1,\"militia\":3},\"routed_units\":{},\"assets\":{\"coin\":1,\"provender\":2,\"cart\":1},\"vassals\":{\"gavrilo_pskov_1\":{\"vassal_id\":\"gavrilo_pskov_1\",\"ready\":true,\"mustered\":true,\"on_calendar\":false,\"calendar_box\":null},\"gavrilo_pskov_2\":{\"vassal_id\":\"gavrilo_pskov_2\",\"ready\":true,\"mustered\":true,\"on_calendar\":false,\"calendar_box\":null},\"gavrilo_borderland_russians\":{\"vassal_id\":\"gavrilo_borderland_russians\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[\"R12\",\"R18\"],\"lordship_used\":3,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"vladislav\":{\"lord_id\":\"vladislav\",\"side\":\"russian\",\"location\":\"neva\",\"state\":\"mustered\",\"moved_fought\":false,\"forces\":{\"sergeants\":1,\"light_horse\":1,\"men_at_arms\":2},\"routed_units\":{},\"assets\":{\"provender\":1,\"boat\":1},\"vassals\":{\"vladislav_izhoran_aux\":{\"vassal_id\":\"vladislav_izhoran_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"vladislav_ingrian_aux\":{\"vassal_id\":\"vladislav_ingrian_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"vladislav_vodian_aux\":{\"vassal_id\":\"vladislav_vodian_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null},\"vladislav_vepsian_aux\":{\"vassal_id\":\"vladislav_vepsian_aux\",\"ready\":true,\"mustered\":false,\"on_calendar\":false,\"calendar_box\":null}},\"this_lord_capabilities\":[\"R13\"],\"lordship_used\":2,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null},\"karelians\":{\"lord_id\":\"karelians\",\"side\":\"russian\",\"location\":null,\"state\":\"ready\",\"moved_fought\":false,\"forces\":{},\"routed_units\":{},\"assets\":{},\"vassals\":{},\"this_lord_capabilities\":[],\"lordship_used\":0,\"just_arrived_this_levy\":false,\"in_stronghold\":false,\"first_march_used_this_card\":false,\"raiders_used_this_card\":false,\"lieutenant_of\":null,\"has_lower_lord\":null}},\"locales\":{\"warbola\":{\"locale_id\":\"warbola\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"harrien\":{\"locale_id\":\"harrien\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"wierland\":{\"locale_id\":\"wierland\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"revala\":{\"locale_id\":\"revala\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"reval\":{\"locale_id\":\"reval\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"wesenberg\":{\"locale_id\":\"wesenberg\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"narwia\":{\"locale_id\":\"narwia\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"leal\":{\"locale_id\":\"leal\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"pernau\":{\"locale_id\":\"pernau\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"fellin\":{\"locale_id\":\"fellin\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"jerwen\":{\"locale_id\":\"jerwen\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"waiga\":{\"locale_id\":\"waiga\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"dorpat\":{\"locale_id\":\"dorpat\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"odenpah\":{\"locale_id\":\"odenpah\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"ugaunia\":{\"locale_id\":\"ugaunia\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"kirrumpah\":{\"locale_id\":\"kirrumpah\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"adsel\":{\"locale_id\":\"adsel\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"wenden\":{\"locale_id\":\"wenden\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"sackala\":{\"locale_id\":\"sackala\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"metsepole\":{\"locale_id\":\"metsepole\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"riga\":{\"locale_id\":\"riga\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"rositten\":{\"locale_id\":\"rositten\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"tolowa\":{\"locale_id\":\"tolowa\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"lettgallia\":{\"locale_id\":\"lettgallia\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"luga\":{\"locale_id\":\"luga\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"kaibolovo\":{\"locale_id\":\"kaibolovo\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"koporye\":{\"locale_id\":\"koporye\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"neva\":{\"locale_id\":\"neva\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"karelia\":{\"locale_id\":\"karelia\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"ladoga\":{\"locale_id\":\"ladoga\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"volkhov\":{\"locale_id\":\"volkhov\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"izhora\":{\"locale_id\":\"izhora\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"vod\":{\"locale_id\":\"vod\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"ingria\":{\"locale_id\":\"ingria\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"tesovo\":{\"locale_id\":\"tesovo\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"zheltsy\":{\"locale_id\":\"zheltsy\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"sablia\":{\"locale_id\":\"sablia\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"plyussa_river\":{\"locale_id\":\"plyussa_river\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"gdov\":{\"locale_id\":\"gdov\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"zhelcha_river\":{\"locale_id\":\"zhelcha_river\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"uzmen\":{\"locale_id\":\"uzmen\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"shelon_river\":{\"locale_id\":\"shelon_river\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"novgorod\":{\"locale_id\":\"novgorod\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"rusa\":{\"locale_id\":\"rusa\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"lovat\":{\"locale_id\":\"lovat\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"velikiye_luki\":{\"locale_id\":\"velikiye_luki\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"porkhov\":{\"locale_id\":\"porkhov\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"sorot_river\":{\"locale_id\":\"sorot_river\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"velikaya_river\":{\"locale_id\":\"velikaya_river\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"ostrov\":{\"locale_id\":\"ostrov\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"pskov\":{\"locale_id\":\"pskov\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"izborsk\":{\"locale_id\":\"izborsk\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0},\"dubrovno\":{\"locale_id\":\"dubrovno\",\"russian_conquered\":0,\"teutonic_conquered\":0,\"russian_ravaged\":false,\"teutonic_ravaged\":false,\"russian_castle\":false,\"teutonic_castle\":false,\"walls_plus_one\":false,\"siege_markers\":0}},\"decks\":{\"teutonic\":{\"deck\":[\"T16\",\"T13\",\"T6\",\"T17\",\"T1\",\"T_no_event_2\",\"T11\",\"T2\",\"T5\",\"T10\",\"T15\",\"T8\",\"T_no_event_3\",\"T9\",\"T7\",\"T_no_event_1\"],\"discard\":[],\"removed\":[],\"capabilities_in_play\":[\"T12\"],\"holds\":[],\"pending_draw\":[],\"this_levy_events\":[],\"this_campaign_events\":[],\"plan\":[\"hermann\",\"rudolf\",\"knud_and_abel\",\"pass\",\"pass\"]},\"russian\":{\"deck\":[\"R2\",\"R16\",\"R_no_event_3\",\"R3\",\"R7\",\"R14\",\"R15\",\"R5\",\"R_no_event_1\",\"R17\",\"R8\",\"R1\",\"R11\",\"R_no_event_2\",\"R6\",\"R9\",\"R10\"],\"discard\":[],\"removed\":[],\"capabilities_in_play\":[\"R4\"],\"holds\":[],\"pending_draw\":[],\"this_levy_events\":[],\"this_campaign_events\":[],\"plan\":[\"gavrilo\",\"domash\",\"vladislav\",\"pass\",\"pass\",\"pass\"]}},\"legate\":{\"william_of_modena_in_play\":false,\"location\":\"card\",\"locale_id\":null,\"acted_this_call_to_arms\":true,\"extra_muster_target_lord\":null},\"campaign_turn\":{\"next_to_reveal\":\"teutonic\",\"active_card\":\"yaroslav\",\"active_lord\":\"yaroslav\",\"actions_remaining\":2,\"in_feed_pay_disband\":false,\"fpd_completed_t\":false,\"fpd_completed_r\":false,\"fpd_pay_window_side\":null,\"seat_supply_this_card\":0,\"legate_bonus_available\":false,\"legate_bonus_elected\":false,\"legate_bonus_base\":0,\"actions_used_this_card\":0},\"combat_pending\":null,\"pending_decisions\":[],\"history\":[{\"sequence\":1,\"actor\":\"teutonic\",\"action\":{\"type\":\"confirm_all_setup_transports\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"side\":\"teutonic\",\"confirmed\":[{\"lord_id\":\"hermann\",\"slot_index\":0,\"value\":\"cart\"},{\"lord_id\":\"yaroslav\",\"slot_index\":0,\"value\":\"cart\"}]}},{\"sequence\":2,\"actor\":\"russian\",\"action\":{\"type\":\"confirm_all_setup_transports\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"side\":\"russian\",\"confirmed\":[{\"lord_id\":\"gavrilo\",\"slot_index\":0,\"value\":\"cart\"},{\"lord_id\":\"vladislav\",\"slot_index\":0,\"value\":\"boat\"}]}},{\"sequence\":3,\"actor\":\"teutonic\",\"action\":{\"type\":\"aow_shuffle\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"deck_size\":21}},{\"sequence\":4,\"actor\":\"teutonic\",\"action\":{\"type\":\"aow_draw\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"drawn\":[\"T4\",\"T12\"],\"deck_remaining\":19}},{\"sequence\":5,\"actor\":\"teutonic\",\"action\":{\"type\":\"aow_implement_card\",\"side\":\"teutonic\",\"args\":{\"card_id\":\"T4\",\"lord_id\":\"knud_and_abel\"}},\"dice\":[],\"result\":{\"card\":\"T4\",\"outcome\":\"tucked_under_lord\",\"lord_id\":\"knud_and_abel\"}},{\"sequence\":6,\"actor\":\"teutonic\",\"action\":{\"type\":\"aow_implement_card\",\"side\":\"teutonic\",\"args\":{\"card_id\":\"T12\"}},\"dice\":[],\"result\":{\"card\":\"T12\",\"outcome\":\"side_capability_in_play\"}},{\"sequence\":7,\"actor\":\"teutonic\",\"action\":{\"type\":\"advance_step\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"arts_of_war\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"russian\"}},{\"sequence\":8,\"actor\":\"russian\",\"action\":{\"type\":\"aow_shuffle\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"deck_size\":21}},{\"sequence\":9,\"actor\":\"russian\",\"action\":{\"type\":\"aow_draw\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"drawn\":[\"R13\",\"R12\"],\"deck_remaining\":19}},{\"sequence\":10,\"actor\":\"russian\",\"action\":{\"type\":\"aow_implement_card\",\"side\":\"russian\",\"args\":{\"card_id\":\"R13\",\"lord_id\":\"vladislav\"}},\"dice\":[],\"result\":{\"card\":\"R13\",\"outcome\":\"tucked_under_lord\",\"lord_id\":\"vladislav\"}},{\"sequence\":11,\"actor\":\"russian\",\"action\":{\"type\":\"aow_implement_card\",\"side\":\"russian\",\"args\":{\"card_id\":\"R12\",\"lord_id\":\"gavrilo\"}},\"dice\":[],\"result\":{\"card\":\"R12\",\"outcome\":\"tucked_under_lord\",\"lord_id\":\"gavrilo\"}},{\"sequence\":12,\"actor\":\"russian\",\"action\":{\"type\":\"advance_step\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"pay\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"teutonic\"}},{\"sequence\":13,\"actor\":\"teutonic\",\"action\":{\"type\":\"advance_step\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"pay\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"russian\"}},{\"sequence\":14,\"actor\":\"russian\",\"action\":{\"type\":\"advance_step\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"disband\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"teutonic\"}},{\"sequence\":15,\"actor\":\"teutonic\",\"action\":{\"type\":\"disband_resolve\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"permanently_removed\":[],\"disbanded\":[],\"vassal_advanced\":{\"side\":\"teutonic\",\"removed\":[],\"to_mat_unready\":[],\"lord_disbanded_due_to_no_forces\":[]}}},{\"sequence\":16,\"actor\":\"teutonic\",\"action\":{\"type\":\"advance_step\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"disband\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"russian\"}},{\"sequence\":17,\"actor\":\"russian\",\"action\":{\"type\":\"disband_resolve\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"permanently_removed\":[],\"disbanded\":[],\"vassal_advanced\":{\"side\":\"russian\",\"removed\":[],\"to_mat_unready\":[],\"lord_disbanded_due_to_no_forces\":[]}}},{\"sequence\":18,\"actor\":\"russian\",\"action\":{\"type\":\"advance_step\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"muster\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"teutonic\"}},{\"sequence\":19,\"actor\":\"teutonic\",\"action\":{\"type\":\"muster_lord\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"hermann\",\"target_lord\":\"heinrich\",\"seat\":\"fellin\"}},\"dice\":[{\"d6\":5,\"vs_fealty\":3,\"success\":false}],\"result\":{\"outcome\":\"fealty_failed\",\"by_lord\":\"hermann\",\"target_lord\":\"heinrich\",\"seat\":\"fellin\",\"roll\":5,\"fealty\":3}},{\"sequence\":20,\"actor\":\"teutonic\",\"action\":{\"type\":\"muster_lord\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"hermann\",\"target_lord\":\"heinrich\",\"seat\":\"fellin\"}},\"dice\":[{\"d6\":5,\"vs_fealty\":3,\"success\":false}],\"result\":{\"outcome\":\"fealty_failed\",\"by_lord\":\"hermann\",\"target_lord\":\"heinrich\",\"seat\":\"fellin\",\"roll\":5,\"fealty\":3}},{\"sequence\":21,\"actor\":\"teutonic\",\"action\":{\"type\":\"levy_capability\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"hermann\",\"card_id\":\"T14\"}},\"dice\":[],\"result\":{\"by_lord\":\"hermann\",\"card_id\":\"T14\",\"scope\":\"this_lord\",\"target_lord\":\"hermann\",\"from\":\"deck\"}},{\"sequence\":22,\"actor\":\"teutonic\",\"action\":{\"type\":\"levy_capability\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"yaroslav\",\"card_id\":\"T3\"}},\"dice\":[],\"result\":{\"by_lord\":\"yaroslav\",\"card_id\":\"T3\",\"scope\":\"this_lord\",\"target_lord\":\"yaroslav\",\"from\":\"deck\"}},{\"sequence\":23,\"actor\":\"teutonic\",\"action\":{\"type\":\"muster_lord\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"knud_and_abel\",\"target_lord\":\"rudolf\",\"seat\":\"fellin\"}},\"dice\":[{\"d6\":6,\"vs_fealty\":5,\"success\":false}],\"result\":{\"outcome\":\"fealty_failed\",\"by_lord\":\"knud_and_abel\",\"target_lord\":\"rudolf\",\"seat\":\"fellin\",\"roll\":6,\"fealty\":5}},{\"sequence\":24,\"actor\":\"teutonic\",\"action\":{\"type\":\"muster_lord\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"knud_and_abel\",\"target_lord\":\"rudolf\",\"seat\":\"fellin\"}},\"dice\":[{\"d6\":5,\"vs_fealty\":5,\"success\":true}],\"result\":{\"outcome\":\"mustered\",\"by_lord\":\"knud_and_abel\",\"target_lord\":\"rudolf\",\"seat\":\"fellin\",\"roll\":5,\"fealty\":5}},{\"sequence\":25,\"actor\":\"teutonic\",\"action\":{\"type\":\"levy_capability\",\"side\":\"teutonic\",\"args\":{\"by_lord\":\"knud_and_abel\",\"card_id\":\"T18\"}},\"dice\":[],\"result\":{\"by_lord\":\"knud_and_abel\",\"card_id\":\"T18\",\"scope\":\"this_lord\",\"target_lord\":\"knud_and_abel\",\"from\":\"deck\",\"_auto_confirmed_setup_transports\":[{\"lord_id\":\"rudolf\",\"slot_index\":0,\"value\":\"cart\"}]}},{\"sequence\":26,\"actor\":\"teutonic\",\"action\":{\"type\":\"advance_step\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"muster\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"russian\"}},{\"sequence\":27,\"actor\":\"russian\",\"action\":{\"type\":\"levy_capability\",\"side\":\"russian\",\"args\":{\"by_lord\":\"gavrilo\",\"card_id\":\"R18\"}},\"dice\":[],\"result\":{\"by_lord\":\"gavrilo\",\"card_id\":\"R18\",\"scope\":\"this_lord\",\"target_lord\":\"gavrilo\",\"from\":\"deck\"}},{\"sequence\":28,\"actor\":\"russian\",\"action\":{\"type\":\"muster_vassal\",\"side\":\"russian\",\"args\":{\"by_lord\":\"gavrilo\",\"vassal_id\":\"gavrilo_pskov_1\"}},\"dice\":[],\"result\":{\"by_lord\":\"gavrilo\",\"vassal_id\":\"gavrilo_pskov_1\",\"added_forces\":{\"men_at_arms\":1}}},{\"sequence\":29,\"actor\":\"russian\",\"action\":{\"type\":\"muster_vassal\",\"side\":\"russian\",\"args\":{\"by_lord\":\"gavrilo\",\"vassal_id\":\"gavrilo_pskov_2\"}},\"dice\":[],\"result\":{\"by_lord\":\"gavrilo\",\"vassal_id\":\"gavrilo_pskov_2\",\"added_forces\":{\"militia\":2}}},{\"sequence\":30,\"actor\":\"russian\",\"action\":{\"type\":\"muster_lord\",\"side\":\"russian\",\"args\":{\"by_lord\":\"vladislav\",\"target_lord\":\"domash\",\"seat\":\"novgorod\"}},\"dice\":[{\"d6\":5,\"vs_fealty\":4,\"success\":false}],\"result\":{\"outcome\":\"fealty_failed\",\"by_lord\":\"vladislav\",\"target_lord\":\"domash\",\"seat\":\"novgorod\",\"roll\":5,\"fealty\":4}},{\"sequence\":31,\"actor\":\"russian\",\"action\":{\"type\":\"levy_capability\",\"side\":\"russian\",\"args\":{\"by_lord\":\"vladislav\",\"card_id\":\"R4\"}},\"dice\":[],\"result\":{\"by_lord\":\"vladislav\",\"card_id\":\"R4\",\"scope\":\"side_wide\",\"from\":\"deck\"}},{\"sequence\":32,\"actor\":\"russian\",\"action\":{\"type\":\"advance_step\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"call_to_arms\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"teutonic\"}},{\"sequence\":33,\"actor\":\"teutonic\",\"action\":{\"type\":\"legate_skip\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"outcome\":\"skipped\"}},{\"sequence\":34,\"actor\":\"teutonic\",\"action\":{\"type\":\"advance_step\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"call_to_arms\",\"phase\":\"levy\",\"campaign_step\":null,\"active_player\":\"russian\"}},{\"sequence\":35,\"actor\":\"russian\",\"action\":{\"type\":\"veche_action\",\"side\":\"russian\",\"args\":{\"option\":\"B\",\"target_lord\":\"domash\",\"seat\":\"novgorod\"}},\"dice\":[],\"result\":{\"option\":\"B\",\"target_lord\":\"domash\",\"seat\":\"novgorod\"}},{\"sequence\":36,\"actor\":\"russian\",\"action\":{\"type\":\"advance_step\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"new_step\":\"done\",\"phase\":\"campaign\",\"campaign_step\":\"plan\",\"active_player\":\"teutonic\",\"_auto_confirmed_setup_transports\":[{\"lord_id\":\"domash\",\"slot_index\":0,\"value\":\"boat\"}]}},{\"sequence\":37,\"actor\":\"teutonic\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"teutonic\",\"args\":{\"card\":\"yaroslav\"}},\"dice\":[],\"result\":{\"appended\":\"yaroslav\",\"plan_size\":1}},{\"sequence\":38,\"actor\":\"teutonic\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"teutonic\",\"args\":{\"card\":\"hermann\"}},\"dice\":[],\"result\":{\"appended\":\"hermann\",\"plan_size\":2}},{\"sequence\":39,\"actor\":\"teutonic\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"teutonic\",\"args\":{\"card\":\"rudolf\"}},\"dice\":[],\"result\":{\"appended\":\"rudolf\",\"plan_size\":3}},{\"sequence\":40,\"actor\":\"teutonic\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"teutonic\",\"args\":{\"card\":\"knud_and_abel\"}},\"dice\":[],\"result\":{\"appended\":\"knud_and_abel\",\"plan_size\":4}},{\"sequence\":41,\"actor\":\"teutonic\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"teutonic\",\"args\":{\"card\":\"pass\"}},\"dice\":[],\"result\":{\"appended\":\"pass\",\"plan_size\":5}},{\"sequence\":42,\"actor\":\"teutonic\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"teutonic\",\"args\":{\"card\":\"pass\"}},\"dice\":[],\"result\":{\"appended\":\"pass\",\"plan_size\":6}},{\"sequence\":43,\"actor\":\"teutonic\",\"action\":{\"type\":\"finalize_plan\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"plan_complete\":true,\"advanced_to_activation\":false}},{\"sequence\":44,\"actor\":\"russian\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"russian\",\"args\":{\"card\":\"gavrilo\"}},\"dice\":[],\"result\":{\"appended\":\"gavrilo\",\"plan_size\":1}},{\"sequence\":45,\"actor\":\"russian\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"russian\",\"args\":{\"card\":\"domash\"}},\"dice\":[],\"result\":{\"appended\":\"domash\",\"plan_size\":2}},{\"sequence\":46,\"actor\":\"russian\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"russian\",\"args\":{\"card\":\"vladislav\"}},\"dice\":[],\"result\":{\"appended\":\"vladislav\",\"plan_size\":3}},{\"sequence\":47,\"actor\":\"russian\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"russian\",\"args\":{\"card\":\"pass\"}},\"dice\":[],\"result\":{\"appended\":\"pass\",\"plan_size\":4}},{\"sequence\":48,\"actor\":\"russian\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"russian\",\"args\":{\"card\":\"pass\"}},\"dice\":[],\"result\":{\"appended\":\"pass\",\"plan_size\":5}},{\"sequence\":49,\"actor\":\"russian\",\"action\":{\"type\":\"plan_add_card\",\"side\":\"russian\",\"args\":{\"card\":\"pass\"}},\"dice\":[],\"result\":{\"appended\":\"pass\",\"plan_size\":6}},{\"sequence\":50,\"actor\":\"russian\",\"action\":{\"type\":\"finalize_plan\",\"side\":\"russian\",\"args\":{}},\"dice\":[],\"result\":{\"plan_complete\":true,\"advanced_to_activation\":true}},{\"sequence\":51,\"actor\":\"teutonic\",\"action\":{\"type\":\"command_reveal\",\"side\":\"teutonic\",\"args\":{}},\"dice\":[],\"result\":{\"revealed\":\"yaroslav\",\"outcome\":\"active\",\"actions\":2}}]}",
+  "history": [
+    {
+      "turn": 1,
+      "side": "teutonic",
+      "action": {
+        "type": "aow_shuffle",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: First Levy Arts of War (3.1.1): shuffle Teutonic AoW deck before drawing 2 capabilities.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "deck_size": 21
+      }
+    },
+    {
+      "turn": 2,
+      "side": "teutonic",
+      "action": {
+        "type": "aow_draw",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: First Levy (3.1.2): draw 2 AoW; implement as Capabilities.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "drawn": [
+          "T4",
+          "T12"
+        ],
+        "deck_remaining": 19
+      }
+    },
+    {
+      "turn": 3,
+      "side": "teutonic",
+      "action": {
+        "type": "aow_implement_card",
+        "args": {
+          "card_id": "T4",
+          "lord_id": "knud_and_abel"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Balistarii (T4) -> knud_and_abel: he has 2 Men-at-Arms (most beneficiaries of crossbow Archery -2 Armor) and the largest Teutonic force; campaign-long combat bo",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "card": "T4",
+        "outcome": "tucked_under_lord",
+        "lord_id": "knud_and_abel"
+      }
+    },
+    {
+      "turn": 4,
+      "side": "teutonic",
+      "action": {
+        "type": "aow_implement_card",
+        "args": {
+          "card_id": "T12"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Ordensburgen (T12) side-wide capability: extra Seats at Commanderies + Command +1 there. Strengthens Teutonic muster/logistics for the campaign.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "card": "T12",
+        "outcome": "side_capability_in_play"
+      }
+    },
+    {
+      "turn": 5,
+      "side": "teutonic",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Teutonic Arts of War complete; advance step.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "new_step": "arts_of_war",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "russian"
+      }
+    },
+    {
+      "turn": 6,
+      "side": "russian",
+      "action": {
+        "type": "aow_shuffle",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian first Levy Arts of War: shuffle deck.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "deck_size": 21
+      }
+    },
+    {
+      "turn": 7,
+      "side": "russian",
+      "action": {
+        "type": "aow_draw",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian: draw 2 AoW, implement as capabilities.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "drawn": [
+          "R13",
+          "R12"
+        ],
+        "deck_remaining": 19
+      }
+    },
+    {
+      "turn": 8,
+      "side": "russian",
+      "action": {
+        "type": "aow_implement_card",
+        "args": {
+          "card_id": "R13",
+          "lord_id": "vladislav"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Streltsy (R13) -> vladislav: 2 Men-at-Arms (double crossbow Archery) and highest mustered Russian Command (3); strongest combat lord to anchor the decisive batt",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "card": "R13",
+        "outcome": "tucked_under_lord",
+        "lord_id": "vladislav"
+      }
+    },
+    {
+      "turn": 9,
+      "side": "russian",
+      "action": {
+        "type": "aow_implement_card",
+        "args": {
+          "card_id": "R12",
+          "lord_id": "gavrilo"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Raiders (R12) -> gavrilo@pskov: front-line lord with light horse; scorched-earth ravaging of locales around Pskov denies the advancing Teutons forage/supply.",
+      "phase": "levy",
+      "step": "arts_of_war",
+      "result": {
+        "card": "R12",
+        "outcome": "tucked_under_lord",
+        "lord_id": "gavrilo"
+      }
+    },
+    {
+      "turn": 10,
+      "side": "russian",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian Arts of War complete; advance.",
+      "phase": "levy",
+      "step": "pay",
+      "result": {
+        "new_step": "pay",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "turn": 11,
+      "side": "teutonic",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Teutonic Pay: no lord at disband risk at box 1 (earliest service marker box 2); conserve coin. Advance.",
+      "phase": "levy",
+      "step": "pay",
+      "result": {
+        "new_step": "pay",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "russian"
+      }
+    },
+    {
+      "turn": 12,
+      "side": "russian",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian Pay: no lord at disband risk at box 1; conserve coin. Advance.",
+      "phase": "levy",
+      "step": "disband",
+      "result": {
+        "new_step": "disband",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "turn": 13,
+      "side": "teutonic",
+      "action": {
+        "type": "disband_resolve",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Teutonic Disband resolve (no lord at-or-left of box 1; no-op).",
+      "phase": "levy",
+      "step": "disband",
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [],
+        "vassal_advanced": {
+          "side": "teutonic",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "turn": 14,
+      "side": "teutonic",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Teutonic disband done; advance.",
+      "phase": "levy",
+      "step": "disband",
+      "result": {
+        "new_step": "disband",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "russian"
+      }
+    },
+    {
+      "turn": 15,
+      "side": "russian",
+      "action": {
+        "type": "disband_resolve",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian Disband resolve (no-op at box 1).",
+      "phase": "levy",
+      "step": "disband",
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "turn": 16,
+      "side": "russian",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian disband done; advance.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "new_step": "muster",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "turn": 17,
+      "side": "teutonic",
+      "action": {
+        "type": "muster_lord",
+        "args": {
+          "by_lord": "hermann",
+          "target_lord": "heinrich",
+          "seat": "fellin"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: hermann Musters heinrich at Fellin (adjacent to Dorpat+Odenpah, forward staging for Pskov thrust). Heinrich brings ships2, svc4, Treaty of Stensby synergy.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "outcome": "fealty_failed",
+        "by_lord": "hermann",
+        "target_lord": "heinrich",
+        "seat": "fellin",
+        "roll": 5,
+        "fealty": 3
+      }
+    },
+    {
+      "turn": 18,
+      "side": "teutonic",
+      "action": {
+        "type": "muster_lord",
+        "args": {
+          "by_lord": "hermann",
+          "target_lord": "heinrich",
+          "seat": "fellin"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Retry: hermann Musters heinrich at Fellin (2nd Lordship action; Fealty 3).",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "outcome": "fealty_failed",
+        "by_lord": "hermann",
+        "target_lord": "heinrich",
+        "seat": "fellin",
+        "roll": 5,
+        "fealty": 3
+      }
+    },
+    {
+      "turn": 19,
+      "side": "teutonic",
+      "action": {
+        "type": "levy_capability",
+        "args": {
+          "by_lord": "hermann",
+          "card_id": "T14"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: hermanns 3rd Lordship action: Trebuchets (T14) - hermann leads the Dorpat->Izborsk->Pskov thrust; -1 Russian Walls/Siegeworks at Storm is decisive for taking P",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "hermann",
+        "card_id": "T14",
+        "scope": "this_lord",
+        "target_lord": "hermann",
+        "from": "deck"
+      }
+    },
+    {
+      "turn": 20,
+      "side": "teutonic",
+      "action": {
+        "type": "levy_capability",
+        "args": {
+          "by_lord": "yaroslav",
+          "card_id": "T3"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: yaroslav (lordship 1): Converts (T3). yaroslav has light_horse, so his marching group reaches 1st locale each card for 0 actions - big mobility for the Pskov ad",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "yaroslav",
+        "card_id": "T3",
+        "scope": "this_lord",
+        "target_lord": "yaroslav",
+        "from": "deck"
+      }
+    },
+    {
+      "turn": 21,
+      "side": "teutonic",
+      "action": {
+        "type": "muster_lord",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "target_lord": "rudolf",
+          "seat": "fellin"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: knud Musters rudolf at Fellin (forward, near Dorpat/Odenpah). rudolf cmd3, Fealty 5 reliable; adds knights/sergeants/MAA for the Summer thrust.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "outcome": "fealty_failed",
+        "by_lord": "knud_and_abel",
+        "target_lord": "rudolf",
+        "seat": "fellin",
+        "roll": 6,
+        "fealty": 5
+      }
+    },
+    {
+      "turn": 22,
+      "side": "teutonic",
+      "action": {
+        "type": "muster_lord",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "target_lord": "rudolf",
+          "seat": "fellin"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Retry rudolf muster at Fellin (knud 2nd action; Fealty 5).",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "knud_and_abel",
+        "target_lord": "rudolf",
+        "seat": "fellin",
+        "roll": 5,
+        "fealty": 5
+      }
+    },
+    {
+      "turn": 23,
+      "side": "teutonic",
+      "action": {
+        "type": "levy_capability",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "card_id": "T18"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: knud 3rd action: Cogs (T18). knud has ships2 -> 4 effective, shareable anywhere, weather Tempest. Mobility to bring his strong Balistarii stack to the front via",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "knud_and_abel",
+        "card_id": "T18",
+        "scope": "this_lord",
+        "target_lord": "knud_and_abel",
+        "from": "deck",
+        "_auto_confirmed_setup_transports": [
+          {
+            "lord_id": "rudolf",
+            "slot_index": 0,
+            "value": "cart"
+          }
+        ]
+      }
+    },
+    {
+      "turn": 24,
+      "side": "teutonic",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Teutonic Muster complete; advance to Russian Muster.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "new_step": "muster",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "russian"
+      }
+    },
+    {
+      "turn": 25,
+      "side": "russian",
+      "action": {
+        "type": "levy_capability",
+        "args": {
+          "by_lord": "gavrilo",
+          "card_id": "R18"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: gavrilo: Stone Kremlin (R18) - mark Pskov (City) Walls +1, directly countering Teutonic Trebuchets. Pskov is the prime target; harden it.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "gavrilo",
+        "card_id": "R18",
+        "scope": "this_lord",
+        "target_lord": "gavrilo",
+        "from": "deck"
+      }
+    },
+    {
+      "turn": 26,
+      "side": "russian",
+      "action": {
+        "type": "muster_vassal",
+        "args": {
+          "by_lord": "gavrilo",
+          "vassal_id": "gavrilo_pskov_1"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: gavrilo: muster pskov_1 (MAA1, svc4) - durable foot garrison for Pskov.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "gavrilo",
+        "vassal_id": "gavrilo_pskov_1",
+        "added_forces": {
+          "men_at_arms": 1
+        }
+      }
+    },
+    {
+      "turn": 27,
+      "side": "russian",
+      "action": {
+        "type": "muster_vassal",
+        "args": {
+          "by_lord": "gavrilo",
+          "vassal_id": "gavrilo_pskov_2"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: gavrilo: muster pskov_2 (militia2) - foot bodies to absorb Storm losses defending Pskov.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "gavrilo",
+        "vassal_id": "gavrilo_pskov_2",
+        "added_forces": {
+          "militia": 2
+        }
+      }
+    },
+    {
+      "turn": 28,
+      "side": "russian",
+      "action": {
+        "type": "muster_lord",
+        "args": {
+          "by_lord": "vladislav",
+          "target_lord": "domash",
+          "seat": "novgorod"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: vladislav Musters domash@novgorod - central reserve army (sergeants1,MAA2,LH1,militia1 + 3 militia vassals) for defense in depth.",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "outcome": "fealty_failed",
+        "by_lord": "vladislav",
+        "target_lord": "domash",
+        "seat": "novgorod",
+        "roll": 5,
+        "fealty": 4
+      }
+    },
+    {
+      "turn": 29,
+      "side": "russian",
+      "action": {
+        "type": "levy_capability",
+        "args": {
+          "by_lord": "vladislav",
+          "card_id": "R4"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: vladislav: Smerdi (R4) side-wide - 6 Serfs; each Russian Command action Unbesieged in Rus Musters 1 Serf. Sustained free defensive bodies all campaign (guarante",
+      "phase": "levy",
+      "step": "muster",
+      "result": {
+        "by_lord": "vladislav",
+        "card_id": "R4",
+        "scope": "side_wide",
+        "from": "deck"
+      }
+    },
+    {
+      "turn": 30,
+      "side": "russian",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian Muster complete; advance.",
+      "phase": "levy",
+      "step": "call_to_arms",
+      "result": {
+        "new_step": "call_to_arms",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "turn": 31,
+      "side": "teutonic",
+      "action": {
+        "type": "legate_skip",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: 3.5.1 Papal Legate: William of Modena not in play -> skip.",
+      "phase": "levy",
+      "step": "call_to_arms",
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "turn": 32,
+      "side": "teutonic",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Teutonic Call to Arms done (no legate, no This-Levy events); advance.",
+      "phase": "levy",
+      "step": "call_to_arms",
+      "result": {
+        "new_step": "call_to_arms",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "russian"
+      }
+    },
+    {
+      "turn": 33,
+      "side": "russian",
+      "action": {
+        "type": "veche_action",
+        "args": {
+          "option": "B",
+          "target_lord": "domash",
+          "seat": "novgorod"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Veche B: spend 1 VP marker to auto-Muster domash@novgorod (no roll). Closes the lord gap (Teu 4 lords vs Rus 2) in the box1-4 window before Aleksandr; my fealty",
+      "phase": "levy",
+      "step": "call_to_arms",
+      "result": {
+        "option": "B",
+        "target_lord": "domash",
+        "seat": "novgorod"
+      }
+    },
+    {
+      "turn": 34,
+      "side": "russian",
+      "action": {
+        "type": "advance_step",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian Call to Arms complete; advance to Campaign.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "new_step": "done",
+        "phase": "campaign",
+        "campaign_step": "plan",
+        "active_player": "teutonic",
+        "_auto_confirmed_setup_transports": [
+          {
+            "lord_id": "domash",
+            "slot_index": 0,
+            "value": "boat"
+          }
+        ]
+      }
+    },
+    {
+      "turn": 35,
+      "side": "teutonic",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "yaroslav"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Plan: add yaroslav to activation order.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "yaroslav",
+        "plan_size": 1
+      }
+    },
+    {
+      "turn": 36,
+      "side": "teutonic",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "hermann"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Plan: add hermann to activation order.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "hermann",
+        "plan_size": 2
+      }
+    },
+    {
+      "turn": 37,
+      "side": "teutonic",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "rudolf"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Plan: add rudolf to activation order.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "rudolf",
+        "plan_size": 3
+      }
+    },
+    {
+      "turn": 38,
+      "side": "teutonic",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "knud_and_abel"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Plan: add knud_and_abel to activation order.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "knud_and_abel",
+        "plan_size": 4
+      }
+    },
+    {
+      "turn": 39,
+      "side": "teutonic",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "pass"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Plan slot 5: Pass (only 4 lords).",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "pass",
+        "plan_size": 5
+      }
+    },
+    {
+      "turn": 40,
+      "side": "teutonic",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "pass"
+        },
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Plan slot 6: Pass. Teutonic plan: yaroslav, hermann, rudolf, knud, pass, pass.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "pass",
+        "plan_size": 6
+      }
+    },
+    {
+      "turn": 41,
+      "side": "teutonic",
+      "action": {
+        "type": "finalize_plan",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Finalize Teutonic plan.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "plan_complete": true,
+        "advanced_to_activation": false
+      }
+    },
+    {
+      "turn": 42,
+      "side": "russian",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "gavrilo"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian plan: add gavrilo.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "gavrilo",
+        "plan_size": 1
+      }
+    },
+    {
+      "turn": 43,
+      "side": "russian",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "domash"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian plan: add domash.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "domash",
+        "plan_size": 2
+      }
+    },
+    {
+      "turn": 44,
+      "side": "russian",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "vladislav"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian plan: add vladislav.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "vladislav",
+        "plan_size": 3
+      }
+    },
+    {
+      "turn": 45,
+      "side": "russian",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "pass"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian plan pass slot.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "pass",
+        "plan_size": 4
+      }
+    },
+    {
+      "turn": 46,
+      "side": "russian",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "pass"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian plan pass slot.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "pass",
+        "plan_size": 5
+      }
+    },
+    {
+      "turn": 47,
+      "side": "russian",
+      "action": {
+        "type": "plan_add_card",
+        "args": {
+          "card": "pass"
+        },
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Russian plan pass slot.",
+      "phase": "campaign",
+      "step": "plan",
+      "result": {
+        "appended": "pass",
+        "plan_size": 6
+      }
+    },
+    {
+      "turn": 48,
+      "side": "russian",
+      "action": {
+        "type": "finalize_plan",
+        "args": {},
+        "side": "russian"
+      },
+      "reasoning": "REPLAY: Finalize Russian plan: gavrilo, domash, vladislav, pass, pass, pass.",
+      "phase": "campaign",
+      "step": "command",
+      "result": {
+        "plan_complete": true,
+        "advanced_to_activation": true
+      }
+    },
+    {
+      "turn": 49,
+      "side": "teutonic",
+      "action": {
+        "type": "command_reveal",
+        "args": {},
+        "side": "teutonic"
+      },
+      "reasoning": "REPLAY: Reveal Campaign plan slot 1.",
+      "phase": "campaign",
+      "step": "command",
+      "result": {
+        "revealed": "yaroslav",
+        "outcome": "active",
+        "actions": 2
+      }
+    }
+  ]
+}
