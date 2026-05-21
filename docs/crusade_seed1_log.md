@@ -40,3 +40,12 @@ Playthrough restarted from a fresh seed-1 game on the fixed engine; Levy+Plan (t
 
 ### Box 1 (Summer) — Campaign command (fixed engine)
 - T slot1 yaroslav (Cmd 2, Converts+LH): Odenpah->Dorpat (free, Converts), Dorpat->Ugaunia (1), Forage (1). Forward screen on Izborsk approach, +1 provender.
+- T slot2 hermann (Cmd 3, base — fix confirms no +1 at Dorpat): Dorpat->Ugaunia->Izborsk, **besieged Izborsk** (undefended fort).
+- R slot2 gavrilo: **Stone Kremlin** -> Pskov Walls +1.
+- T slot3 rudolf (Cmd 3 +1 Fellin Commandery = 4, fix confirms legit +1): Fellin->Dorpat->Ugaunia->Izborsk, joined hermann's siege; Forage. (Verified: joining an already-besieged stronghold does NOT end the card — Commands.txt L60 "begin Siege" only on UNbesieged. Not a bug.)
+- R slot3 vladislav: Neva->Ladoga->Volkhov->Novgorod (consolidate strongest Russian centrally for the Aleksandr counterstroke; abandons Neva).
+- T slot4 knud: Sail Reval->Narwia (Cogs) — stage the Balistarii stack toward the Dorpat axis.
+- Slots 5-6 pass both sides. End box 1.
+
+**Box 1 end state:** Teu hermann+rudolf besiege Izborsk (siege 1), yaroslav@Ugaunia, knud@Narwia. Rus gavrilo holds Pskov(walls+1), domash@Dubrovno, vladislav@Novgorod. VP 0-0.
+**Box 2 plan:** Teu storm Izborsk (Trebuchets) for first VP; bring knud up. Rus hold Pskov; domash supports; await Aleksandr (box 5).
