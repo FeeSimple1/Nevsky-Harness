@@ -102,12 +102,15 @@ def test_smoke_104_invalid_type_rejected():
                                    "transport_choices": {"cart": 1, "horse": 1}}})
 
 
-def test_smoke_104_ship_requires_authorization():
+def test_smoke_104_ship_requires_authorization(monkeypatch):
     s, rus = _setup_tax_state()
-    # Most Russian Lords are not ships_authorized.
+    # R205: every Russian Lord is ships_authorized, so this guard's
+    # rejection path was unreachable for any real Lord and the test
+    # always skipped. Force this Lord non-authorized (auto-restored by
+    # monkeypatch) to deterministically exercise the ship_unauthorized
+    # guard in _h_cmd_tax_veliky_knyaz_aware.
     from nevsky.static_data import load_lords
-    if load_lords()[rus].get("ships_authorized", False):
-        pytest.skip(f"{rus} is ships_authorized")
+    monkeypatch.setitem(load_lords()[rus], "ships_authorized", False)
     with pytest.raises(IllegalAction):
         apply_action(s, {"type": "cmd_tax", "side": "russian",
                           "args": {"lord_id": rus,
