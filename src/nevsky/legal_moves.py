@@ -557,6 +557,17 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
     if state.combat_pending is not None:
         cp = state.combat_pending
         if cp.pending_response_by == side:
+            if cp.ambush_block_pending:
+                # R204: Ambush response window (SMOKE-115). The attacker
+                # (response owed) holds T6/R6 and may Play it to block the
+                # defender's Avoid, or Decline. No stand/avoid/withdraw
+                # here -- those were previously (wrongly) the only options
+                # offered, and play/decline were not enumerated at all.
+                out.append({"type": "play_ambush_block", "side": side, "args": {},
+                            "note": "Play T6/R6 Ambush to block the defender's Avoid Battle"})
+                out.append({"type": "decline_ambush_block", "side": side, "args": {},
+                            "note": "Decline Ambush; the defender's Avoid Battle resolves as declared"})
+                return out
             stand_note = _maybe_preview_note(
                 state,
                 {"type": "stand_battle", "side": side, "args": {}},
@@ -650,6 +661,37 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         target = _plan_target_size(state.meta.box)
         already = (state.meta.plan_complete_t if side == "teutonic" else state.meta.plan_complete_r)
         if not already:
+            # R204: 4.1.3 Lieutenant pairing -- an optional Plan-time action
+            # (a Lieutenant carries one co-located Lower Lord). Mirror
+            # _h_place_lieutenant; was never enumerated.
+            try:
+                from nevsky.campaign import (
+                    _is_currently_marshal as _icm_lt, _is_besieged as _ib_lt,
+                )
+                _own_lt = [
+                    lid for lid, l in state.lords.items()
+                    if l.side == side and l.state == "mustered"
+                    and l.location is not None and not _ib_lt(state, lid)
+                    and not _icm_lt(state, lid)
+                    and not l.lieutenant_of
+                ]
+                for _lt in _own_lt:
+                    if state.lords[_lt].has_lower_lord:
+                        continue  # already carrying a Lower Lord
+                    for _ll in _own_lt:
+                        if _ll == _lt:
+                            continue
+                        if state.lords[_ll].location != state.lords[_lt].location:
+                            continue
+                        if state.lords[_ll].has_lower_lord:
+                            continue  # _ll is itself a Lieutenant (no chains)
+                        out.append({
+                            "type": "place_lieutenant", "side": side,
+                            "args": {"lieutenant": _lt, "lower_lord": _ll},
+                            "note": f"Pair {_ll} as Lower Lord under Lieutenant {_lt} (4.1.3)",
+                        })
+            except (ImportError, KeyError, AttributeError):
+                pass
             if len(deck.plan) < target:
                 mustered = [lid for lid, l in state.lords.items()
                             if l.side == side and l.state == "mustered"]
@@ -830,6 +872,39 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                                     "note": "Stone Kremlin (R18): Walls +1 (entire card)"})
                 except (ImportError, KeyError, AttributeError, FileNotFoundError):
                     pass
+            # R204: T17 Stonemasons -- entire-card Teutonic capability that
+            # converts an Unbesieged Russian Fort/Town in Rus into a Castle
+            # for 6 Provender (own + co-located shared). Mirror
+            # _h_cmd_stonemasons preconditions; was never enumerated.
+            if pristine and side == "teutonic":
+                try:
+                    from nevsky.capabilities import has_lord_capability as _hlc_sm
+                    from nevsky.static_data import load_locales as _ll_sm
+                    _sl_sm = _ll_sm().get(active.location)
+                    _ls_sm = state.locales.get(active.location)
+                    _built = int(state.meta.special_rules.get("stonemasons_castles_built", 0))
+                    if (_sl_sm is not None and _ls_sm is not None
+                            and _hlc_sm(state, active_lord, "Stonemasons")
+                            and not _ib(state, active_lord)
+                            and _sl_sm.get("territory") == "russian"
+                            and _sl_sm.get("type") in ("fort", "town")
+                            and not _ls_sm.teutonic_castle
+                            and not _ls_sm.russian_castle
+                            and _ls_sm.siege_markers == 0
+                            and _built < 2):
+                        _own_p = active.assets.get("provender", 0)
+                        _shared = sum(
+                            ol.assets.get("provender", 0)
+                            for olid, ol in state.lords.items()
+                            if olid != active_lord and ol.side == side
+                            and ol.state == "mustered"
+                            and ol.location == active.location)
+                        if _own_p + _shared >= 6:
+                            out.append({"type": "cmd_stonemasons", "side": side,
+                                        "args": {"lord_id": active_lord},
+                                        "note": "Stonemasons (T17): build Castle, 6 Provender (entire card)"})
+                except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                    pass
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})
@@ -913,6 +988,73 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             out.append({"type": "cmd_ravage", "side": side,
                         "args": {"lord_id": active_lord, "locale_id": active.location},
                         "note": ravage_note})
+        # R204: R4 Smerdi -- 1-action Russian capability to Muster 1 Serf
+        # (pool of 6) at an Unbesieged Russian Lord in Rus. Mirror
+        # _h_cmd_muster_serf; was never enumerated.
+        if side == "russian" and active.location is not None:
+            try:
+                from nevsky.capabilities import has_side_capability as _hsc_sm
+                from nevsky.static_data import load_locales as _ll_serf
+                _sl_serf = _ll_serf().get(active.location)
+                _serfs_in_play = sum(
+                    l.forces.get("serfs", 0) for l in state.lords.values()
+                    if l.side == "russian" and l.state == "mustered")
+                if (_sl_serf is not None
+                        and _hsc_sm(state, "russian", "Smerdi")
+                        and not _ib(state, active_lord)
+                        and _sl_serf.get("territory") == "russian"
+                        and _serfs_in_play < 6):
+                    out.append({"type": "cmd_muster_serf", "side": side,
+                                "args": {"lord_id": active_lord},
+                                "note": "Smerdi (R4): Muster 1 Serf (1 action)"})
+            except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                pass
+        # R204: T2/R12/R14 Raiders -- 1-action Ravage of an adjacent enemy
+        # Locale via an eligible Way with the right Horse. Mirror
+        # _h_cmd_raiders_ravage; emit one move per legal target. Was never
+        # enumerated.
+        if active.location is not None:
+            try:
+                from nevsky.capabilities import has_lord_capability as _hlc_rr
+                from nevsky.static_data import (
+                    load_locales as _ll_rr, load_ways as _lw_rr,
+                )
+                if _hlc_rr(state, active_lord, "Raiders") and not _ib(state, active_lord):
+                    _is_teu_r = side == "teutonic"
+                    _elig = (["knights", "sergeants", "light_horse"] if _is_teu_r
+                             else ["light_horse", "asiatic_horse"])
+                    _has_horse = any(active.forces.get(u, 0) > 0 for u in _elig)
+                    _t2_used = _is_teu_r and active.raiders_used_this_card
+                    if _has_horse and not _t2_used:
+                        _locs_rr = _ll_rr()
+                        _here_rr = active.location
+                        _adj_rr = []
+                        for w in _lw_rr():
+                            if w["a"] == _here_rr:
+                                _adj_rr.append((w["b"], w.get("type", "?")))
+                            elif w["b"] == _here_rr:
+                                _adj_rr.append((w["a"], w.get("type", "?")))
+                        for _dest_rr, _wt_rr in _adj_rr:
+                            if _is_teu_r and _wt_rr != "trackway":
+                                continue
+                            _sd_rr = _locs_rr.get(_dest_rr)
+                            _ds_rr = state.locales.get(_dest_rr)
+                            if _sd_rr is None or _ds_rr is None:
+                                continue
+                            if _sd_rr.get("territory") == side:
+                                continue
+                            if _ds_rr.russian_conquered > 0 or _ds_rr.teutonic_conquered > 0:
+                                continue
+                            if _ds_rr.russian_ravaged or _ds_rr.teutonic_ravaged:
+                                continue
+                            if any(l.state == "mustered" and l.location == _dest_rr
+                                   and l.side != side for l in state.lords.values()):
+                                continue
+                            out.append({"type": "cmd_raiders_ravage", "side": side,
+                                        "args": {"lord_id": active_lord, "to": _dest_rr},
+                                        "note": f"Raiders: Ravage {_dest_rr} (1 action)"})
+            except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                pass
         out.append({"type": "cmd_supply", "side": side,
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
                     "note": "Supply (1 action)"})

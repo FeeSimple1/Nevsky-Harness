@@ -793,3 +793,26 @@ siege and Storm the same card (entire-card = sole Action, D-R203). A
 siege a Lord did not begin this card now resolves on a later card, so
 storming a strong Stronghold genuinely costs tempo — factor that into
 whether to commit to a siege at all.
+
+## 15. Capability actions now reachable through the move palette (R204)
+
+R204 closed the last under-enumeration gaps, so the following are now
+offered by `legal_actions()` (previously usable only via hand-written
+JSON, i.e. unreachable for an index/palette-driven or LLM player):
+
+- **Stonemasons (T17):** Teutons can convert a captured Russian
+  Fort/Town in Rus into a Castle (+1 VP, stronger Walls, denies the
+  Russians re-use) for a full card + 6 Provender — a real option when a
+  Teutonic Lord sits on a conquered strongpoint with provender to spare.
+- **Smerdi (R4):** Russians can pump Serfs (pool of 6) onto Lords in Rus
+  for 1 action each — cheap mass to absorb Hits / hold Strongholds.
+- **Raiders (T2 / R12 / R14):** 1-action Ravage of an adjacent enemy
+  Locale without committing the whole card — Russian horse (any Way,
+  repeatable, no Loot) is a strong VP-denial/economy harasser; Teutonic
+  Raiders are Trackway-only, once per card, and gain Loot off non-Regions.
+- **Lieutenant pairing (4.1.3):** stack a Lower Lord under a Lieutenant
+  during Plan to move them as one group and economize on activations —
+  relevant whenever two non-Marshal Lords share a Locale.
+- **Ambush (T6/R6) block of Avoid Battle:** the attacker is now properly
+  offered Play/Decline when a defender tries to Avoid — use it to pin a
+  defender who would otherwise slip away.
