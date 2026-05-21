@@ -10322,3 +10322,30 @@ Full battery green: pytest 1294 passed / 1 skipped (+7 new
 terminal, 0 real errors; roundtrip_sweep (seeds 1,2,3) 9329 probes,
 0 findings; llm_tournament (pleskau, watland) 24/24 terminal. No tests
 required updating (pure additive enumeration). SMOKE total 142.
+
+## Round 205 — eliminate the suite's one permanent skip (test hygiene, not a SMOKE)
+
+The suite had skipped exactly one test on every run:
+`test_smoke_104_ship_requires_authorization`. It guarded itself with
+`pytest.skip` when the chosen Russian Lord was `ships_authorized` — but
+ALL six Russian Lords are ship-authorized (and Veliky Knyaz R17, which
+the test exercises, is Russian-only), so its rejection path was
+unreachable for any real Lord and it skipped 100% of the time. A skipped
+test is dead coverage masquerading as a pass.
+
+Fix: the test now forces the Lord non-authorized via
+`monkeypatch.setitem(load_lords()[rus], "ships_authorized", False)`
+(auto-restored at teardown; `load_lords` is `lru_cache`d so the handler
+sees the patched value), deterministically exercising the
+`ship_unauthorized` guard in `_h_cmd_tax_veliky_knyaz_aware`. No
+production code changed.
+
+Note: ~20 other `pytest.skip` guards exist in the suite but are dormant
+defensive fallbacks for scenario-dependent setups (their conditions are
+satisfied in the scenarios used, so they never fire). Audited; none
+skip in a normal run.
+
+### Verification
+
+Test-only change. pytest now **1295 passed, 0 skipped** (was 1294
+passed + 1 skipped). Sweeps unchanged from R204 (no `src/` edits).
