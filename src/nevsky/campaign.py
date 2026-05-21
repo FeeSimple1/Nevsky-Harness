@@ -2466,6 +2466,11 @@ def _h_cmd_march(
     if not placed_siege:
         _consume_actions(state, cost)
     state.lords[lord_id].first_march_used_this_card = True
+    # R215 (SMOKE-153): if the marching group were the last besieger(s) at
+    # the source Locale, lift any now-orphaned Siege there (a Stronghold is
+    # Besieged only while enemy besiegers are present, 4.3.5).
+    from nevsky.actions import _lift_siege_if_no_besiegers
+    _lift_siege_if_no_besiegers(state, src)
 
     # SMOKE-043 (Round 55): Teutonic Lord may bring the Legate
     # along on March (4.1.1). args.take_legate=True opts in.
