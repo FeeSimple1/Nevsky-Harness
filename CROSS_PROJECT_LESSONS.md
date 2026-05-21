@@ -466,3 +466,9 @@ makes its findings safe to fix is the one already in §§1-7: mirror every
 handler check in the enumerator, define each predicate once, and re-run
 the full verification battery (sweep + tournament + round-trip) on every
 change before merge.
+
+## Crusade seed-1 LLM self-play (R214-R215) — lessons
+- **LLM self-play surfaces corners scripted sweeps miss.** Two real engine bugs in one partial game: SMOKE-152 (Ordensburgen +1 over-granted at non-Commandery home seats) and SMOKE-153 (Siege not lifted when the last besieger departs/is removed — found via an Unfed besieger disbanding mid-siege). Both had passed 300-game sweeps + tournaments + roundtrip; the strategic agent never reached these states.
+- **Feed/Unfed cascade is brutal and order-sensitive.** Unfed shifts Service 1 box LEFT (4.8.1), which can immediately trigger an at-limit Disband (4.8.2->3.3.2). Lost 3 lords to it (knud, vladislav, hermann). Lesson for an LLM player: ensure >= Feed-cost Provender (units>=7 -> 2) BEFORE any Feeding action, especially before Marching the key lord into an assault. A "discard_excess_provender" prompt on a march is a red flag that you're shedding supply you'll need.
+- **Whether stationary Commands (Tax/Forage/Muster) trigger Feed is rules-ambiguous (Q-009) and references conflict.** Under the harness's current reading it paralyzes large stacks — verify the rule before relying on big garrisons.
+- **Verify field-name assumptions before calling a state inconsistent.** Conquest is recorded as `locale.teutonic_conquered`/`russian_conquered`, not a `conquered_by` field; an empty check there looked like a missing-conquest bug but was just the wrong key.
