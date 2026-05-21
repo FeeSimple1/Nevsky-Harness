@@ -10564,3 +10564,33 @@ pytest 1310 passed / 0 skipped (+5 new test_round_209_overenum_fixes.py);
 self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
 findings; llm_tournament 24/24 terminal; 20-game smoke diagnostic 0
 over-enumeration. SMOKE total 150.
+
+## Round 210 — smoke batch 2 (20 fresh seeds); SMOKE-151
+
+Second 20-game strategic-agent smoke batch, all fresh seeds (none reused
+from R209): pleskau/watland/peipus/rotp/nicolle seeds 4-6, crusade seeds
+6-10. Result: 20/20 terminal, ZERO exceptions / stalls / non-terminal.
+New paths again well-exercised (place_lieutenant x46, cmd_muster_serf x56,
+cmd_stone_kremlin x3, FPD Pay window x87). The concrete-move-rejection
+detector surfaced one over-enumeration, fixed:
+
+### SMOKE-151 — Lieutenant March over-enumerated on group-member Laden/excess
+
+Follow-on to SMOKE-146. The Lieutenant March now carries the
+[lieutenant, lower_lord] group, but _h_cmd_march computes BOTH the Laden
+action-cost and the 4.3.2 excess-Provender gate across ALL group members.
+The enumerator computed them only for the active Lord, so a Lieutenant
+whose Lower Lord was Laden or carried excess Provender beyond 2x usable
+Transport was over-enumerated (rejected with insufficient_actions /
+excess_provender). Surfaced in a rotp game with heavy Lieutenant use.
+Fix: the cmd_march enumeration computes `march_laden` and `excess_mr`
+over the whole March group, sets `discard_excess_provender` when ANY
+member trips the gate, and uses the group Laden cost for the
+actions-remaining suppression.
+
+### Verification
+
+pytest 1311 passed / 0 skipped (+1 new
+test_round_210_lieutenant_march_group.py); self_play_sweep 300/300
+terminal, 0 real errors; roundtrip_sweep 0 findings; llm_tournament 24/24;
+post-fix smoke diagnostic 0 over-enumeration. SMOKE total 151.

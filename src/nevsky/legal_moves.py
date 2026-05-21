@@ -803,7 +803,18 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 # for this specific way_type -- the handler raises
                 # insufficient_actions. The enumerator already had way
                 # information per-edge, so the check is cheap.
-                march_laden = _il_mr(state, active_lord, way_type=way_type)
+                # SMOKE-146 (R209): an active Lieutenant MUST March
+                # together with his Lower Lord (4.1.3; handler raises
+                # lower_lord_required otherwise). The handler computes
+                # Laden cost and the 4.3.2 excess-Provender gate across
+                # ALL group members, so SMOKE-151 (R210) computes both
+                # over the whole March group -- not just the active Lord
+                # -- otherwise a Lieutenant whose Lower Lord is Laden /
+                # carries excess Provender is over-enumerated (rejected
+                # with insufficient_actions / excess_provender).
+                _lower = state.lords[active_lord].has_lower_lord
+                march_group = [active_lord] + ([_lower] if _lower is not None else [])
+                march_laden = any(_il_mr(state, gid, way_type=way_type) for gid in march_group)
                 march_cost = 2 if march_laden else 1
                 if state.campaign_turn.actions_remaining < march_cost:
                     continue
@@ -811,19 +822,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 # than 2x usable Transport in Provender may NOT March
                 # unless he discards the excess. The handler accepts
                 # an explicit args.discard_excess_provender=True to
-                # auto-discard (which is the only legal way through
-                # this gate without a separate action). Emit the move
-                # with the flag set when the gate would otherwise fire,
-                # so every emitted cmd_march is legal.
-                excess_mr = _mdme_mr(state, active_lord, way_type=way_type)
+                # auto-discard. Emit the flag when ANY group member
+                # would trip the gate, so every emitted cmd_march is legal.
+                excess_mr = sum(_mdme_mr(state, gid, way_type=way_type) for gid in march_group)
                 base_note = f"March {active_lord} {here}->{dest} via {way_type} (cost={march_cost})"
                 args_mr: dict[str, Any] = {"lord_id": active_lord, "to": dest}
-                # SMOKE-146 (R209): an active Lieutenant MUST March together
-                # with his Lower Lord (4.1.3; handler raises
-                # lower_lord_required otherwise). Emit the group so the
-                # enumerated March is legal. (Surfaced once R204 made
-                # place_lieutenant reachable in agent play.)
-                _lower = state.lords[active_lord].has_lower_lord
                 if _lower is not None:
                     args_mr["group"] = [active_lord, _lower]
                 if excess_mr > 0:
