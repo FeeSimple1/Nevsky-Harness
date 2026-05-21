@@ -10404,3 +10404,48 @@ terminal, 0 real errors; roundtrip_sweep 9329 probes, 0 findings;
 llm_tournament 24/24 terminal. SMOKE total 144. (Legate change touches
 core command-flow paths -- command_reveal, _consume_actions,
 _enter_feed_pay_disband -- hence the full sweep re-run.)
+
+## Round 207 — Battle/Storm + Commands audit (no SMOKE; both clean)
+
+Continued the base-rules audit. Walked Nevsky_Battle_and_Storm.txt and
+Nevsky_Commands.txt clause-by-clause against battle.py / campaign.py.
+NO gaps found in either — both subsystems are faithful to the printed 2E
+rules. Recorded here so the audit isn't repeated.
+
+Battle & Storm (4.4-4.5) — verified correct:
+- Initiative order (battle: archery def/att, melee horse def/att, melee
+  foot def/att; storm: archery def/att, melee all-def/all-att).
+- Storm 2E cap: max 6 Melee Hits per Lord (Archery unlimited) — AUDIT-001.
+- Protection: Walls rolled only in Storm/Sally/by-Event (not normal
+  Battle); Armor/Evade/Unarmored/Serf; Evade blocked vs Archery and in
+  Storm; Serf removed on any Hit (no roll).
+- Retreat Service shift = ceil(die/2) via _SERVICE_SHIFT_TABLE
+  {1:1,2:1,3:2,4:2,5:3,6:3}; applies to Retreat not Withdraw; Vassal
+  cascade only under advanced rule.
+- Losses thresholds: retreated-no-concede & storm-attacker keep on roll
+  ==1; withdrew & conceded-then-retreated keep within Protection range;
+  Asiatic Horse always Evade range.
+- Spoils modes: all_except_ships (removed / retreated-without-conceding),
+  loot_and_excess (conceded+retreated — AUDIT-004 computes excess
+  Provender beyond Unladen on the Retreat Way), none (withdrew); Ships
+  never taken; Storm Sack stronghold spoils = VP each; Novgorod Veche
+  Coin to Teutonic sackers.
+- Pursuit: conceder's Hits halved (round up at step end).
+- Q-005 Battle Array (3 front slots + reserve, flanking, reposition,
+  center-fill), Sally array, Garrison MaA Archery target-Armor -2,
+  multi-round Concede (SMOKE-116).
+
+Commands (4.3-4.7) — verified correct:
+- Entire-card cost + pristine guard (R203 D-R203); march ends-card on
+  began_siege/battled; Ravage 2 actions if Unbesieged enemy Lord
+  adjacent; Forage not-Ravaged + Friendly-Stronghold-or-Summer.
+- Supply 2E: <=2 Seat sources, <=2 Ship sources, Novgorod-Ship up to 2,
+  1 usable Transport per Provender per Way with no double-duty (SMOKE-048),
+  Transport-Way/season compatibility (SMOKE-047/078), route-blocking,
+  Famine seat cap (SMOKE-030).
+- Sail ship requirements: Teuton horse x1, Russian horse x2, Provender
+  x1, Loot x2 per unit/asset; Winter forbidden; Siege on Sail-into enemy
+  Stronghold; entire-card.
+- Besieged Lord limited to Sally / Stone Kremlin / Pass.
+
+SMOKE total unchanged at 144.
