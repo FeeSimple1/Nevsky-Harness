@@ -49,3 +49,11 @@ Playthrough restarted from a fresh seed-1 game on the fixed engine; Levy+Plan (t
 
 **Box 1 end state:** Teu hermann+rudolf besiege Izborsk (siege 1), yaroslav@Ugaunia, knud@Narwia. Rus gavrilo holds Pskov(walls+1), domash@Dubrovno, vladislav@Novgorod. VP 0-0.
 **Box 2 plan:** Teu storm Izborsk (Trebuchets) for first VP; bring knud up. Rus hold Pskov; domash supports; await Aleksandr (box 5).
+
+### Box 2 (Summer) — Levy + Campaign highlights
+- AoW Events: Teu T1 "Grand Prince favors a son" -> shift **Aleksandr box5->7** (delay Russian hammer a season). Rus R10 "Batu Khan" -> shift **Andreas box3->5** (delay Teutonic Marshal). T6/R15 no-target reveal-discard.
+- Disband: **yaroslav disbanded** (svc box2, no coin/payer at Ugaunia).
+- Teu Muster (knud only able; besiegers can't muster): knud mustered dietrich+otto (knights+MAA) -> stack knights3/MAA4 + Balistarii; +1 cart.
+- Rus Muster: domash Luchniki (militia/LH archery) + novgorod_1; gavrilo borderland + Black Sea Trade (R8, +1 Veche coin/CtA); vladislav ingrian_aux + sled.
+- **STORM IZBORSK (hermann+Trebuchets, rudolf reserve):** beat the fort garrison (MAA+knights wiped), **Izborsk CONQUERED (teutonic_conquered=1), +1 VP, spoils loot/prov/coin to hermann.** VERIFIED: conquest recorded via locale.teutonic_conquered (not a conquered_by field); forts have inherent garrisons; all consistent — no bug.
+- **Score: Teu 1.0 / Rus 0.0.**
