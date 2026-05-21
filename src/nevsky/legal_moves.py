@@ -905,6 +905,16 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                                         "note": "Stonemasons (T17): build Castle, 6 Provender (entire card)"})
                 except (ImportError, KeyError, AttributeError, FileNotFoundError):
                     pass
+        # SMOKE-143 (R206): Legate Command bonus (4.2). Offer the +1 when
+        # the active Teutonic Lord started his card co-located with the
+        # on-map Legate and has not already taken it this card.
+        if (side == "teutonic"
+                and state.campaign_turn.legate_bonus_available
+                and not state.campaign_turn.legate_bonus_elected):
+            out.append({"type": "legate_command_bonus", "side": side,
+                        "args": {"lord_id": active_lord},
+                        "note": "Legate (4.2): +1 Command action this card "
+                                "(pawn returns to William of Modena when the extra action is used)"})
         out.append({"type": "cmd_pass", "side": side,
                     "args": {"lord_id": active_lord},
                     "note": "forfeit remaining actions"})

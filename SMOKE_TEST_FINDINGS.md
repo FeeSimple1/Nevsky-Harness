@@ -10349,3 +10349,58 @@ skip in a normal run.
 
 Test-only change. pytest now **1295 passed, 0 skipped** (was 1294
 passed + 1 skipped). Sweeps unchanged from R204 (no `src/` edits).
+
+## Round 206 — Sequence-of-Play audit, batch 1 (SMOKE-143/144)
+
+Start of the full clause-by-clause base-rules audit (the AoW cards were
+diffed in R178-184; the base rulebook never got an equivalent pass).
+Walked Nevsky_Sequence_of_Play.txt against code+tests. Confirmed correct:
+3.1 Arts of War draw/implement/No-card removal; 3.2 Pay incl. the
+besieged-pay constraint; 3.3 Disband origin (Levy=current, Campaign=next
+box); 3.4.1 "newly-arrived Lord cannot use Lordship same segment";
+4.1.3 Lieutenant capacity (Withdraw enforces Stronghold capacity);
+4.8.1 partial-feed Unfed; 4.9.1 Grow rounding (remove floor, keep ceil);
+4.9.3 Plow/Reap; 4.9.4 Wastage; 4.9.5 Reset (Serfs->Smerdi, This-Campaign
+events, Crusade/Summer Crusaders). Two genuine gaps found:
+
+### SMOKE-143 — Legate Command bonus (4.2) was entirely missing (MATERIAL)
+
+The Misc Rules Reference (4.2 LEGATE) and Sequence of Play both specify:
+when a Teutonic Lord STARTS his Activation co-located with the on-map
+Legate pawn, the Teutonic player may add +1 Command action for that card;
+the pawn returns to the William of Modena card "if and when the Lord uses
+the extra action," and only once per appearance. The harness implemented
+none of it -- and campaign.py's `_effective_command_rating` docstring
+even asserted "there is no separate 'Legate +1 Command' rule," which is
+simply wrong. (The Legate's movement-with-Lords and Call-to-Arms USE
+options were implemented; only this Campaign-phase bonus was absent.)
+
+Fix: new elected action `legate_command_bonus` (handler
+`_h_legate_command_bonus`), enumerated in the command step when the
+active Teutonic Lord qualified at reveal (`legate_bonus_available`, set in
+`_h_command_reveal` from start-of-card co-location) and hasn't taken it
+this card. Electing adds +1 to `actions_remaining`. Deferred removal is
+faithful: `_consume_actions` counts `actions_used_this_card`, and at card
+end `_resolve_legate_command_bonus` (called from `_enter_feed_pay_disband`)
+returns the pawn only if the Lord used more actions than his base Command
+rating; a wasted election leaves the pawn on the map. The incorrect
+docstring was corrected.
+
+### SMOKE-144 — Unfed Service shift didn't cascade to Calendar Vassals
+
+Under the advanced_vassal_service optional rule (3.4.2), "any shift of a
+Lord's Service shifts all his Calendar Vassals the same direction and
+number of boxes." `_shift_service_right` (Pay) did this; the 4.8.1 Unfed
+leftward shift in `_h_fpd_resolve` did not. Dormant by default
+(advanced_vassal_service is off and no scenario enables it) but a real
+divergence when enabled. Fix: the Unfed shift now cascades the Lord's
+on-Calendar Vassal markers one box left, mirroring `_shift_service_right`.
+
+### Verification
+
+Full battery green: pytest 1301 passed / 0 skipped (+6 new
+`test_round_206_sequence_of_play_audit.py`); self_play_sweep 300/300
+terminal, 0 real errors; roundtrip_sweep 9329 probes, 0 findings;
+llm_tournament 24/24 terminal. SMOKE total 144. (Legate change touches
+core command-flow paths -- command_reveal, _consume_actions,
+_enter_feed_pay_disband -- hence the full sweep re-run.)

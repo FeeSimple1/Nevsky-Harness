@@ -203,6 +203,18 @@ class CampaignTurn(BaseModel):
     # against Teutonic) caps this at 1 per Command card. Reset to 0
     # at each command_reveal.
     seat_supply_this_card: int = 0
+    # SMOKE-143 (R206): Legate Command bonus (4.2). When a Teutonic Lord
+    # starts his card co-located with the Legate pawn, the Teutonic player
+    # MAY add +1 Command action; the pawn returns to William of Modena
+    # only if/when the extra action is actually used. `legate_bonus_elected`
+    # records the election for the current card; `legate_bonus_base` is the
+    # Lord's base Command rating at election; `actions_used_this_card`
+    # counts actions consumed (incremented in _consume_actions) so card-end
+    # can tell whether the extra action was spent. All reset at reveal.
+    legate_bonus_available: bool = False
+    legate_bonus_elected: bool = False
+    legate_bonus_base: int = 0
+    actions_used_this_card: int = 0
 
 
 class CombatPending(BaseModel):
