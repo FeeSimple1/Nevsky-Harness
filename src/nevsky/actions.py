@@ -764,7 +764,17 @@ def _is_friendly_locale(state: GameState, locale_id: str, side: Side) -> bool:
     if loc.siege_markers > 0:
         return False
     own_terr = static["territory"] == ("teutonic" if side == "teutonic" else "russian")
-    own_conquered = (
+    # SMOKE-145 (R208): Friendly Condition 1 (1.3.1) requires a STRONGHOLD
+    # Conquered by this side -- not merely any Conquered marker. A
+    # conquered Trade Route (a boxed but non-Stronghold Locale, no_storm)
+    # is Friendly to NEITHER side (rules example: "Neva with a Conquered
+    # marker: Friendly to NEITHER side"). So a Conquered marker only
+    # satisfies Condition 1 when the Locale is an actual Stronghold
+    # (base type, or a Castle overlay built by Stonemasons on a Fort/Town).
+    is_stronghold_type = static.get("type") in (
+        "fort", "castle", "bishopric", "city", "novgorod"
+    ) or loc.teutonic_castle or loc.russian_castle
+    own_conquered = is_stronghold_type and (
         loc.teutonic_conquered > 0 if side == "teutonic" else loc.russian_conquered > 0
     )
     if not (own_terr or own_conquered):

@@ -10449,3 +10449,65 @@ Commands (4.3-4.7) — verified correct:
 - Besieged Lord limited to Sally / Stone Kremlin / Pass.
 
 SMOKE total unchanged at 144.
+
+## Round 208 — base-rules audit batch 3: Calendar/Veche, Forces/Strongholds/Map, Misc/Scenario/2E (SMOKE-145)
+
+Completed the full clause-by-clause base-rules audit. Three reference
+file groups walked this round; one genuine gap found and fixed.
+
+### SMOKE-145 — conquered Trade Route wrongly treated as Friendly
+
+Friendly Locale (1.3.1) Condition 1 requires a **Stronghold** Conquered
+by the side, not merely any Conquered marker. The rules give the explicit
+example "Neva [a Trade Route] with a Conquered marker: Friendly to
+NEITHER side" — a Trade Route is a boxed, conquerable, but non-Stronghold
+Locale (no Walls/Garrison, no_storm). `_is_friendly_locale` treated any
+own Conquered marker as satisfying Condition 1, so a Teuton-conquered Rus
+Trade Route (e.g. Neva, which Teutons can flip by Sailing in — seen in
+the Crusade seed-1 playthrough) was wrongly Friendly to the Teutons,
+enabling e.g. Pay-with-Loot there. Fix: a Conquered marker satisfies
+Condition 1 only when the Locale is an actual Stronghold (base type
+fort/castle/bishopric/city/novgorod, or a Castle overlay built by
+Stonemasons). Own-territory and conquered-Stronghold friendliness are
+unchanged. Only Rus Trade Routes exist, so this affects only Teutons
+standing on a conquered Rus Trade Route.
+
+### Audited clean this round (no code change)
+
+- **Calendar & Veche**: Veche caps (8 Coin / 8 VP, excess forfeit), full
+  VP accounting (Actions A/B/C decrement russian_vp on spend, D increments
+  on gain, _compute_vp includes Veche markers), Aleksandr Veche-only
+  Muster exception, Novgorod-Conquered Coin removal, season->box / plan
+  sizes / transport-by-season, Grow/Plow&Reap/Wastage/Reset.
+- **Forces / Strongholds / Map**: forces.json matches the Forces table
+  exactly (incl. 2E Men-at-Arms Melee=1, Asiatic Evade-melee-only);
+  strongholds.json matches (incl. 2E Bishopric 2 MaA+1K, Castle 1 MaA+1K);
+  map locale types/territory, Lord Seats, and Way counts (51 trackway +
+  34 waterway) all match. (The Map reference's summary header counts "51
+  locales / Estonia (6) / Rus (28)" are internal typos -- its own lists
+  enumerate 53 / 7 / 29, which the data matches; no code bug.)
+- **Scenario Reference**: victory logic correct -- universal 5.1 VP
+  (1/Conquered, 1/Castle, 0.5/Ravaged, 17.5 cap), Campaign Victory 5.2
+  (0 Mustered Lords = loss), end 5.3 (tie=draw), Watland 2E override
+  (T wins iff >=7 VP AND >=2x R, else R, no tie), Pleskau enemy-Lord-
+  removed +1 VP.
+- **Second Edition Changes**: every listed change applied (No-card
+  removal, Disband next-box, Andrey exception deleted, Vassal-Calendar
+  placement, Storm 6-cap, Supply 1-Transport/Provender, Ravage 2-action,
+  Grow, Bidding option, Pleskau No-Event removal, Watland victory, Lord-mat
+  Forces incl. Hermann/Knud&Abel Militia swap and Knud&Abel +Coin).
+
+### Audit complete
+
+All six reference-file groups now audited clause-by-clause (SoP R206,
+Battle/Storm + Commands R207, the three above R208). Total base-rules
+audit yield: SMOKE-143 (Legate Command bonus, material), SMOKE-144 (Unfed
+Vassal cascade), SMOKE-145 (Friendly Trade Route). Battle/Storm, Commands,
+Calendar/Veche, Forces/Strongholds/Map, Scenario, and 2E Changes were all
+faithful.
+
+### Verification
+
+pytest 1305 passed / 0 skipped (+4 new test_round_208_friendly_trade_route.py);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal. SMOKE total 145.
