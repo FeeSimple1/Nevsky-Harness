@@ -171,7 +171,13 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         already_drawn = (state.meta.aow_drawn_t if side == "teutonic"
                          else state.meta.aow_drawn_r)
         if not already_drawn:
-            if sd.deck or sd.discard:
+            # R223 (GPT-5.5 self-play): only offer aow_shuffle when it
+            # actually enables a draw -- i.e. the deck is empty but
+            # discards exist to reconstitute it. When the deck already has
+            # cards, shuffle is a repeatable no-op that traps naive/
+            # index-driven drivers (they spin on it forever). Draw is the
+            # meaningful move whenever the deck is non-empty.
+            if not sd.deck and sd.discard:
                 out.append({"type": "aow_shuffle", "side": side, "args": {}})
             if sd.deck:
                 out.append({"type": "aow_draw", "side": side, "args": {}})
@@ -468,7 +474,10 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                         "note": f"Legate 2c: give {tgt} extra Muster at full Lordship (3.5.1)",
                     })
         out.append({"type": "legate_skip", "side": "teutonic", "args": {}})
-        out.append({"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
+        # R223: only offer the 3.5.3 discard when there is actually a
+        # This-Levy event to discard; otherwise it is a repeatable no-op.
+        if state.decks.teutonic.this_levy_events:
+            out.append({"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     else:  # russian
         levy_box = _find_levy_marker_box(state)
         # Sea-trade (R8 Black Sea / R9 Baltic). SMOKE-148 (R209): mirror
@@ -576,7 +585,10 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 "args": {"option": "skip"},
                 "note": "Veche skip: take no Veche action this Call to Arms",
             })
-        out.append({"type": "aow_discard_this_levy", "side": "russian", "args": {}})
+        # R223: only offer the 3.5.3 discard when there is actually a
+        # This-Levy event to discard; otherwise it is a repeatable no-op.
+        if state.decks.russian.this_levy_events:
+            out.append({"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     return out
 
 
@@ -1166,10 +1178,77 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         out.append({"type": "cmd_supply", "side": side,
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
                     "note": "Supply (1 action)"})
-        if pristine:
-            out.append({"type": "cmd_sail", "side": side,
-                        "args_template": {"lord_id": "<id>", "destination": "<seaport_id>", "group": "[<id>]"},
-                        "note": "Sail Seaport->Seaport (entire card)"})
+        # R223 (GPT-5.5 Crusade self-play, turn 82): Sail was emitted as a
+        # single TEMPLATE move (args_template, no concrete args). An
+        # index-driven LLM driver can't fill the template, so apply()
+        # raised missing_arg(IllegalAction). Concretize: emit one
+        # executable Sail per legal destination Seaport (group defaults to
+        # the solo active Lord). Ship-budget and group-composition
+        # shortfalls depend on optional discard choices, so leave those to
+        # the validated palette to filter; mirror only the handler's hard
+        # gates here (pristine, Unbesieged, not Winter, source is a
+        # Seaport, destination free of Unbesieged enemy Lords).
+        from nevsky.campaign import (
+            _is_besieged as _ib_sail,
+            effective_ship_count as _esc_sail,
+        )
+        if (pristine
+                and active.location is not None
+                and not _ib_sail(state, active_lord)
+                and _season_of_box(state.meta.box)
+                    not in ("early_winter", "late_winter")):
+            try:
+                from nevsky.static_data import load_locales as _ll_sail
+                _locs_sail = _ll_sail()
+                if _locs_sail.get(active.location, {}).get("seaport") is True:
+                    # Mirror the handler's 4.7.3 Ship budget for the solo
+                    # group (default group=[active_lord]) so we never offer
+                    # a guaranteed-illegal Sail (R223 root fix; the
+                    # roundtrip sweep otherwise flags insufficient_ships).
+                    #   horse: 1 Ship/T-horse, 2 Ship/R-horse
+                    #   provender: 1 Ship each ; loot: 2 Ship each
+                    # Discard (1.7.2) can drop cargo down to the horse need.
+                    _horse_types = ("knights", "sergeants",
+                                    "light_horse", "asiatic_horse")
+                    _hu = sum(int(active.forces.get(u, 0)) for u in _horse_types)
+                    _factor = 1 if side == "teutonic" else 2
+                    _horse_need = _hu * _factor
+                    _prov = int(active.assets.get("provender", 0))
+                    _loot = int(active.assets.get("loot", 0))
+                    _ships = _esc_sail(state, active_lord)
+                    _plain_need = _horse_need + _prov + _loot * 2
+                    if _ships >= _plain_need:
+                        _sail_extra = {}
+                        _sail_tag = ""
+                    elif _ships >= _horse_need:
+                        # cargo doesn't fit but discarding it does
+                        _sail_extra = {"discard_excess_provender": True,
+                                       "discard_excess_loot": True}
+                        _sail_tag = " (discards excess Provender/Loot)"
+                    else:
+                        _sail_extra = None  # horse units alone exceed Ships
+                    if _sail_extra is not None:
+                        for _dest_sail, _ld_sail in _locs_sail.items():
+                            if _dest_sail == active.location:
+                                continue
+                            if _ld_sail.get("seaport") is not True:
+                                continue
+                            # destination must be free of Unbesieged enemy Lords
+                            if any(ol.state == "mustered" and ol.side != side
+                                   and ol.location == _dest_sail
+                                   and not _ib_sail(state, ol_id)
+                                   for ol_id, ol in state.lords.items()):
+                                continue
+                            _sa = {"lord_id": active_lord,
+                                   "destination": _dest_sail,
+                                   "group": [active_lord]}
+                            _sa.update(_sail_extra)
+                            out.append({"type": "cmd_sail", "side": side,
+                                        "args": _sa,
+                                        "note": f"Sail {active.location}->{_dest_sail}"
+                                                f" (entire card){_sail_tag}"})
+            except (ImportError, KeyError, AttributeError, FileNotFoundError):
+                pass
         out.append({"type": "end_card", "side": side, "args": {},
                     "note": "voluntarily end this Command card"})
         # SMOKE-157 (R221, found by GPT-5.5 self-play): a Besieged active
