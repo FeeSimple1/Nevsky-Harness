@@ -10931,3 +10931,53 @@ notable. SMOKE total 158.
 Note: validated the ChatGPT-project path's value on its first real run —
 GPT-5.5's different decision policy surfaced two over-enumerations that
 ~120 strategic-agent/mock games had not.
+
+## Round 222 — validated action palette (P0 from GPT-5.5's report) + SMOKE-159 + dev-deps
+
+Acted on the broader recommendations in GPT-5.5's findings report (its two
+concrete findings were SMOKE-157/158, already fixed R221).
+
+### P0 — validated, LLM-safe action palette
+
+New `scripts/llm_self_play.py::concrete_actions_validated(state, side) ->
+(validated, rejected)`: each concrete candidate is probed by applying it to
+a deep copy of the state; any the authoritative handler rejects is filtered
+out of the menu the LLM sees and returned as a structured over-enumeration
+diagnostic. RNG-safe -- the seed + rng_state live in `meta` (no module-
+global RNG), so the discarded copy never advances the real game's dice
+(the report's critical caveat, satisfied by the architecture). Wired into
+the LLM-facing drivers (`chatgpt_play_helper.show/apply/auto`,
+`openai_self_play`), which now auto-log filtered candidates as
+`over_enum_filtered` findings. This makes the entire enumerator/handler-
+asymmetry class harmless to an agent WHILE still surfacing each root bug
+for a real fix (safety net, not substitute). It also probes EVERY
+candidate each turn (not just the one the agent picks), so it is a
+stronger over-enumeration detector than apply-time catching.
+
+### SMOKE-159 — parallel-Ways march didn't pin the Way (found by the palette)
+
+On its first validated run the palette flagged a NEW over-enum: a
+`cmd_march` to a destination reachable by PARALLEL Ways (odenpah<->dorpat
+has both a trackway and a waterway) was emitted without `way_type` in
+args. The two edges have different Laden cost / excess-Provender needs, so
+the no-discard (waterway) entry, applied without a pinned Way, could be
+resolved by `_h_cmd_march` as the trackway and rejected with
+`excess_provender`. Fix: the march enumeration now pins `args.way_type`
+to the per-edge Way it costed (the handler already honored args.way_type,
+SMOKE-067). Each parallel-Way entry is now self-consistent.
+
+### P4 — dev dependencies
+
+`hypothesis>=6` (and `pytest-xdist>=3`) added to `[project.optional-
+dependencies].dev` so `pip install -e ".[dev]" && pytest` gets the full
+advertised suite (the property tests import hypothesis).
+
+### Verification
+
+pytest 1328 passed / 0 skipped (+3 test_round_222_validated_palette.py);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal; validated mock-driver sweep of
+the short scenarios 0 notable. (Long crusade mock runs are slower with
+validation -- a deep copy per candidate per turn -- but real LLM play is
+API-latency-bound, and the fast self_play/roundtrip paths are unchanged.)
+SMOKE total 159.

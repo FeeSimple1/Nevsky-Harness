@@ -42,8 +42,22 @@ _spec = importlib.util.spec_from_file_location(
 _llm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_llm)
 _concrete_actions = _llm._concrete_actions
+_cav = _llm.concrete_actions_validated
 
 _S = {"state": None, "scenario": None, "history": [], "findings": [], "turn": 0}
+
+
+def _validated(s, side, log_rejects=True):
+    """Validated, LLM-safe action menu (P0): only actions the handler
+    accepts. Any filtered (over-enumerated) candidate is recorded as an
+    `over_enum_filtered` finding so the root enumerator bug is still
+    surfaced for the maintainer to fix."""
+    validated, rejected = _cav(s, side)
+    if log_rejects:
+        for r in rejected:
+            _S["findings"].append({"kind": "over_enum_filtered", "turn": _S["turn"],
+                                   "side": side, **r})
+    return validated
 
 
 def _terminal() -> bool:
@@ -105,7 +119,7 @@ def show():
         print("GAME OVER:", determine_scenario_winner(s))
         return []
     side = _active()
-    acts = _concrete_actions(s, side)
+    acts = _validated(s, side)
     step = s.meta.campaign_step if s.meta.phase == "campaign" else s.meta.levy_step
     print(f"\n===== turn {_S['turn']} | {side.upper()} | {s.meta.phase}/{step} | box {s.meta.box} "
           f"| VP T{s.calendar.teutonic_vp:.1f}/R{s.calendar.russian_vp:.1f} =====")
@@ -127,7 +141,7 @@ def apply(choice):
     Runs invariant checks + captures any anomaly, then shows the next state."""
     s = _S["state"]
     side = _active()
-    acts = _concrete_actions(s, side)
+    acts = _validated(s, side, log_rejects=False)
     if isinstance(choice, int):
         if not (0 <= choice < len(acts)):
             print(f"index {choice} out of range 0..{len(acts)-1}; applying safe fallback")
@@ -175,7 +189,7 @@ def auto(max_steps: int = 300):
     n = 0
     while n < max_steps and not _terminal():
         side = _active()
-        acts = _concrete_actions(s, side)
+        acts = _validated(s, side)
         if len(acts) != 1:
             break
         a = acts[0]
