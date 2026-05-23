@@ -10820,3 +10820,42 @@ invariant now excludes cp.to_locale during pending combat.)
 
 Conclusion: Nevsky does NOT have the Inferno relocation bug; the invariant
 is now a permanent regression guard. No code change; SMOKE total 154.
+
+## Round 218 — Inferno Advisory #2 (bug-class audit): Doors A/B/C; SMOKE-155
+
+Inferno Advisory #2 generalized the co-location bug into a CLASS with
+three independent "doors" into the same illegal state, and recommended
+auditing each subsystem separately. Result for Nevsky:
+
+- **Door A (combat disposition — Retreat doesn't relocate):** CLEAN
+  (verified R217; Battle + Sally relocate the loser with destination
+  rules).
+- **Door B (marker lifecycle leak):** R215 cleared Siege markers + the
+  inside defender's flag on all departure paths for a DEFENDED Stronghold,
+  but the helper no-op'd for an EMPTY besieged Stronghold. **SMOKE-155**
+  (fixed here). Per RoP 4.3.5 a besieged Stronghold free of ENEMY Lords
+  loses its Siege markers whether or not a defender is inside; a besieger
+  that marched into an undefended enemy Stronghold (placing a Siege
+  marker) then departed left a stale marker corrupting later
+  locale.siege_markers reads. Fix: `_lift_siege_if_no_besiegers` now
+  derives the besieged side from the inside defenders OR (empty) the
+  Stronghold's effective owner, and clears markers when no enemy besieger
+  remains. R215's defended-case behavior preserved (its old empty-case
+  test updated to the corrected behavior).
+- **Door C (placement onto a contested Locale):** CLEAN. Every on-board
+  placement path -- muster_lord, Legate Use 2a, Veche option B -- routes
+  through `_free_seats_for`, which excludes enemy-Conquered and
+  enemy-occupied Seats (3.4.1). Nevsky has no "Muster inside a besieged
+  Stronghold" exception (the Inferno Podesta case), so the
+  exception-placement concern does not apply. Added a guard test so the
+  gate cannot silently regress.
+
+Nevsky has no Bypass mechanic (Vol II), so the invariant needs no Bypass
+exclusion.
+
+### Verification
+
+pytest 1313 passed / 0 skipped (+5 test_round_218_door_b_empty_siege.py;
+R215 empty-case test updated); siege/combat property invariants pass;
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal. SMOKE total 155.
