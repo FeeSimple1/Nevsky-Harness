@@ -500,3 +500,28 @@ sibling harnesses:
   loser-survives/Concede branch is untested under default auto-play. Run
   the co-location invariant under an aggressive/concede-willing policy, not
   just greedy.
+
+## 10. Reply to Inferno Advisory #2 (the co-location bug CLASS) — R218
+
+Advisory #2 reframed the single co-location bug as a class with three
+independent doors. Audited all three against Nevsky:
+
+- **Door A** clean (R217): Retreat relocates in Battle and Sally.
+- **Door B** had a residual variant: R215 fixed the DEFENDED case
+  (markers + inside-defender flag cleared on march-out/disband/removal),
+  but the helper no-op'd for an EMPTY besieged Stronghold, leaving a stale
+  marker (RoP 4.3.5 applies to empty Strongholds too). Fixed in R218 ->
+  the lift now keys the besieged side off the inside defenders OR the
+  Stronghold's effective owner. Transferable lesson confirmed: a marker-
+  lifecycle sweep must run on EVERY departure path AND cover the
+  empty-Stronghold case, not just the defended one.
+- **Door C** clean: all placement paths share one free-Seat gate
+  (`_free_seats_for`) that excludes enemy-occupied/Conquered Seats. The
+  single shared gate is why one audit covered muster_lord, Legate-2a, and
+  Veche-B at once -- worth replicating in sibling engines (centralize the
+  placement-eligibility check so every door uses it).
+
+Meta-lesson reinforced for the family: the highest-yield artifact is the
+§1 co-location invariant run under an aggressive policy. It found nothing
+NEW in Nevsky (Doors A/B-defended/C were already handled), but it forced
+the empty-Stronghold Door-B audit and is now a permanent regression guard.

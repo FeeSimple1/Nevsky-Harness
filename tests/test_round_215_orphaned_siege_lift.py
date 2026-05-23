@@ -47,14 +47,19 @@ def test_helper_no_lift_while_besieger_present():
     assert _is_besieged(s, "gavrilo") is True
 
 
-def test_helper_no_lift_when_no_defender_inside():
-    # Empty-Stronghold siege (no defender inside) is untouched by this helper.
+def test_helper_lifts_empty_stronghold_free_of_enemies():
+    # R218 (Inferno Advisory #2, Door B): RoP 4.3.5 -- a besieged
+    # Stronghold free of ENEMY Lords loses its Siege markers whether or not
+    # a defender is inside. With the sole besieger (hermann) gone and only
+    # the owner's Lord (gavrilo, in the open) present, the Siege lifts.
+    # (Pre-R218 this no-op'd, leaving a stale marker; R215's original test
+    # encoded that now-corrected behavior.)
     s = _setup_besieged_pskov()
     s.lords["gavrilo"].in_stronghold = False
     s.lords["hermann"].location = None
     lifted = _lift_siege_if_no_besiegers(s, "pskov")
-    assert lifted is False
-    assert s.locales["pskov"].siege_markers == 1
+    assert lifted is True
+    assert s.locales["pskov"].siege_markers == 0
 
 
 def test_disband_of_sole_besieger_lifts_siege():

@@ -1201,9 +1201,23 @@ def _lift_siege_if_no_besiegers(state: GameState, locale_id: str | None) -> bool
         L for L in state.lords.values()
         if L.state == "mustered" and L.location == locale_id and L.in_stronghold
     ]
-    if not inside:
-        return False
-    defender_side = inside[0].side
+    # R218 (Inferno Advisory #2, Door B): per RoP 4.3.5, a besieged
+    # Stronghold becomes free of Siege whenever it is free of ENEMY Lords
+    # -- this applies to EMPTY besieged Strongholds too (a besieger that
+    # marched into an undefended enemy Stronghold, placed a Siege marker,
+    # then departed). Pre-R218 the helper no-op'd without an inside
+    # defender, leaving a stale Siege marker that corrupts later reads of
+    # locale.siege_markers (Forage/Supply/Tax legality, join-vs-besiege).
+    # The besieged side is the inside defenders' side, or (empty) the
+    # Stronghold's effective owner.
+    if inside:
+        defender_side = inside[0].side
+    else:
+        from nevsky.campaign import _effective_stronghold
+        sh = _effective_stronghold(state, locale_id)
+        if sh is None or sh.get("side") is None:
+            return False
+        defender_side = sh["side"]
     besiegers = [
         L for L in state.lords.values()
         if L.state == "mustered" and L.location == locale_id
