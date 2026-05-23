@@ -10777,3 +10777,46 @@ pytest 1326 passed / 0 skipped (+5 new test_round_216_q009_feed_scope.py;
 no existing test relied on stationary commands setting Moved/Fought);
 self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
 findings; llm_tournament 24/24 terminal. SMOKE total 154.
+
+## Round 217 — Inferno Retreat-relocation advisory checked: Nevsky CLEAN; co-location invariant added (no SMOKE)
+
+Inferno-Harness (L&C Vol. III) sent a cross-project advisory: their
+post-battle Retreat applied the Service penalty but never relocated the
+loser, leaving opposing un-besieged Lords stacked in the battle Locale.
+It hid because (a) the auto-resolver never Concedes (so "loser survives
+-> Retreat" is a cold path) and (b) no invariant forbade the illegal
+state.
+
+Checked Nevsky against all five advisory self-checks:
+1. **Relocation present.** Battle aftermath sets `lord.location = target`
+   (campaign.py ~3055) AND applies the Service shift; Sally aftermath sets
+   `l.location = target` (~3776) for losing besiegers. Not penalty-only.
+2. **Destination rules enforced.** Attacker-loser retreats to `from_locale`
+   via the approach Way; defender-loser picks a legal neighbor EXCLUDING
+   the approach Way (AUDIT-005), with no enemy Lord/Stronghold and not
+   into an enemy-Conquered Locale; no Sail Way (ways.json has no sea
+   edges). No-retreat-possible -> permanent removal (+ Ransom).
+3. **Sally analogue correct.** Losing besieger Retreats (relocates) and
+   siege reduces/lifts; losing sallying Lord Withdraws back inside
+   (in_stronghold re-set True); winning sallying Lord's in_stronghold was
+   never cleared (intact). Storm: losing attacker not retreated (siege
+   persists) -- correct.
+4. **Concede path exercised.** Verified directly via a forced-Concede 1v1
+   battle (the cold path): a conceding defender that survives the loss
+   DOES relocate out of the battle Locale.
+5. **Co-location invariant was MISSING -> added.** The advisory recommends
+   it even absent the bug. Added `colocation_violations` +
+   tests/test_round_217_colocation_invariant.py: no two opposing MUSTERED
+   Lords, both outside a Stronghold, share a Locale -- excluding (i)
+   in_stronghold=True besieged Lords and (ii) the active combat Locale
+   while a battle is pending (legal transient Approach co-location).
+
+Verification of cleanliness: a strategic-agent per-step sweep of 28 games
+(~18,800 per-step states across all six scenarios) found 0 violations
+under the corrected invariant. (An early run flagged ~co-locations at
+Pskov, but those were the LEGAL mid-Approach pending state -- combat_pending
+set, defender owed a response -- not the Inferno illegal state. The
+invariant now excludes cp.to_locale during pending combat.)
+
+Conclusion: Nevsky does NOT have the Inferno relocation bug; the invariant
+is now a permanent regression guard. No code change; SMOKE total 154.

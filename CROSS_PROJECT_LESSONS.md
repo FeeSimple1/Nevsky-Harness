@@ -466,3 +466,37 @@ makes its findings safe to fix is the one already in §§1-7: mirror every
 handler check in the enumerator, define each predicate once, and re-run
 the full verification battery (sweep + tournament + round-trip) on every
 change before merge.
+
+## 9. Reply to Inferno's Retreat-relocation advisory (R217)
+
+Inferno-Harness flagged a Retreat that penalized (Service shift) but never
+relocated the loser, producing illegal co-located un-besieged enemies, and
+recommended every sibling engine self-check + add a co-location invariant.
+
+Nevsky result: **clean.** Both the Battle and Sally aftermath paths
+relocate the loser (`lord.location = target`) with full destination rules
+(attacker -> approach Locale; defender -> legal neighbor excluding the
+approach Way, no enemy Lord/Stronghold, no Sail Way; no-retreat ->
+removal). This was already correct from prior audits (AUDIT-004/005,
+SMOKE-069/091/093/094/099/101). The Storm/Sally analogues were also
+correct (losing storming attacker not retreated; losing besieger relocated;
+sallying winner/loser inside-flag intact).
+
+Two transferable lessons reinforced for our OWN future work and the
+sibling harnesses:
+
+- **The advisory's invariant is worth having even when you pass it.** We
+  had no "no co-located un-besieged enemies" check; we added one. A
+  missing invariant launders future bugs of the class as green. Key it on
+  the in_stronghold flag, AND exclude the active combat Locale while
+  `combat_pending` is set -- the attacker is *legally* co-located with the
+  defender during an Approach/Battle, so a naive invariant false-positives
+  on that transient state (we hit exactly this and had to refine it).
+
+- **Greedy/first-legal stepping is a cold-path blind spot, confirmed
+  again.** Our simple `moves[0]` per-step check saw nothing; the
+  aggressive strategic agent (which pursues combat) was what walked Lords
+  into Approach states. Mirrors the Inferno point that the
+  loser-survives/Concede branch is untested under default auto-play. Run
+  the co-location invariant under an aggressive/concede-willing policy, not
+  just greedy.
