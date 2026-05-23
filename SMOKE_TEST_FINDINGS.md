@@ -10891,3 +10891,43 @@ pytest 1317 passed / 0 skipped (+4 test_round_219_veche_option_a_cylinder.py);
 self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
 findings; llm_tournament 24/24 terminal; 10-game mock-driver sweep 0
 notable findings after the fix. SMOKE total 156.
+
+## Round 221 — two over-enumerations found by GPT-5.5 self-play (SMOKE-157/158)
+
+First findings from the ChatGPT-project play path (GPT-5.5 driving the
+harness in its own sandbox, docs/CHATGPT_PROJECT_PLAY.md). Both are
+enumerator/handler asymmetries — a concrete enumerated action the handler
+rejected — surfaced by trajectories the strategic agent and mock decider
+did not walk. Same class as R209/R219.
+
+### SMOKE-157 — Besieged Lord offered non-Besieged Commands
+
+A Besieged active Lord may take ONLY Sally / Stone Kremlin / Pass
+(Commands.txt global_rules.besieged_lord_allowed_commands; the March /
+Tax / Forage / Ravage / Supply / Sail handlers each raise `besieged`).
+The command-step enumerator emitted the full palette regardless. GPT-5.5
+was offered `cmd_march` for the Besieged Gavrilo and got `besieged` on
+apply. Fix: after building the active-Lord palette, if the active Lord is
+Besieged, filter to {cmd_sally, cmd_stone_kremlin, cmd_pass, end_card}.
+
+### SMOKE-158 — Withdraw offered into a non-Friendly Stronghold
+
+Withdraw (4.3.4) requires the Battle-Locale Stronghold be Friendly /
+own-territory / own-Conquered to the defender (not enemy-Conquered),
+within Capacity. The combat-pending enumerator offered `withdraw`
+unconditionally, so a Teutonic defender at Russian Izborsk was offered a
+Withdraw the handler rejects with `not_friendly`. Fix: new predicate
+`_can_withdraw_into(state, locale, side, n_lords)` mirroring `_h_withdraw`
+eligibility (effective Stronghold, Friendly/own/own-Conquered, capacity);
+the enumerator gates Withdraw on it.
+
+### Verification
+
+pytest 1325 passed / 0 skipped (+6 test_round_221_chatgpt_overenum.py);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal; 9-game mock-driver sweep 0
+notable. SMOKE total 158.
+
+Note: validated the ChatGPT-project path's value on its first real run —
+GPT-5.5's different decision policy surfaced two over-enumerations that
+~120 strategic-agent/mock games had not.
