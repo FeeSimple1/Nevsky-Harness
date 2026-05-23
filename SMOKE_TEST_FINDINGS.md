@@ -10981,3 +10981,63 @@ the short scenarios 0 notable. (Long crusade mock runs are slower with
 validation -- a deep copy per candidate per turn -- but real LLM play is
 API-latency-bound, and the fast self_play/roundtrip paths are unchanged.)
 SMOKE total 159.
+
+---
+
+## Round 223 — LLM-play interface fixes (GPT-5.5 Crusade self-play)
+
+GPT-5.5 played Crusade-on-Novgorod to a draw in its own sandbox via
+`scripts/chatgpt_play_helper.py` and reported two interface defects that
+trap an index-driven driver, plus a perf observation.
+
+### SMOKE-160 — `cmd_sail` emitted as a TEMPLATE, not concrete moves
+
+At command step the enumerator offered a single
+`{"type":"cmd_sail", "args_template":{lord_id,destination,group}}` entry.
+An index-driven model selects it by position; the helper's apply path
+then builds an action with no `args`, and `_h_cmd_sail` raises
+`IllegalAction("missing_arg")` (observed turn 82, teutonic). Root cause:
+a templated move in an otherwise concrete palette.
+
+Fix (`legal_moves.py`, command step): enumerate one CONCRETE Sail per
+legal destination Seaport, args `{lord_id, destination, group:[lord_id]}`.
+Mirror the handler's hard gates so the menu stays tight: pristine card,
+Unbesieged Lord, not Winter, source is a Seaport, destination free of
+Unbesieged enemy Lords. Also mirror the 4.7.3 Ship budget for the solo
+group so we never offer a guaranteed-illegal Sail: if the Lord's effective
+Ships cover horse(+factor)+provender+2*loot, emit a plain Sail; if Ships
+cover only the horse need, emit a Sail carrying
+`discard_excess_provender/loot=True` (1.7.2); if even the horse units
+exceed Ships, offer no Sail. (Without the budget mirror the roundtrip
+sweep flagged 5 `cmd_sail insufficient_ships` over-enums.)
+
+### SMOKE-161 — repeatable AoW no-ops trap naive drivers
+
+`aow_shuffle` was offered whenever `deck or discard` and undrawn; with a
+non-empty deck it is a pure no-op (re-orders cards you can already draw),
+so a naive driver spins on it forever. `aow_discard_this_levy` (3.5.3)
+was offered unconditionally at both the Teutonic Legate step and the
+Russian Veche step even with no This-Levy events to discard — another
+repeatable no-op.
+
+Fix (`legal_moves.py`): offer `aow_shuffle` only when the deck is empty
+AND discards exist (the one case where shuffling enables a draw); offer
+`aow_discard_this_levy` only when that side has `this_levy_events`.
+
+### P-note — validated-palette cost over a full campaign
+
+GPT-5.5 also noted the validated palette (a deep copy per candidate per
+turn) is slow over a full campaign. Not a bug; it is interactive-play
+overhead and acceptable for API-latency-bound LLM play. Concretizing Sail
+(SMOKE-160) and suppressing no-ops (SMOKE-161) also shrink the candidate
+set the validator probes, so this round modestly reduces that cost. The
+fast headless paths (self_play / roundtrip sweeps) do not validate and are
+unchanged.
+
+### Verification
+
+pytest 1334 passed / 0 skipped (+6 test_round_223_llm_play_fixes.py);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep across
+all 6 scenarios 0 findings (the 5 insufficient_ships over-enums from the
+first-cut concretization are gone after the Ship-budget mirror);
+llm_tournament all matchups terminal. SMOKE total 161.
