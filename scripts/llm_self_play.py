@@ -8,6 +8,7 @@ invocations so Cowork-Claude can run one command per turn:
   python scripts/llm_self_play.py status                # whose turn, VP, phase
   python scripts/llm_self_play.py briefing              # natural-language briefing for active side
   python scripts/llm_self_play.py actions               # numbered list of legal actions
+  python scripts/llm_self_play.py actions --raw         # unfiltered palette (debug over-enum)
   python scripts/llm_self_play.py apply 3               # apply action by index
   python scripts/llm_self_play.py apply '{"type":"...","args":{...}}'
   python scripts/llm_self_play.py history               # last 20 moves
@@ -15,6 +16,14 @@ invocations so Cowork-Claude can run one command per turn:
 
 Hidden-info filter respected per side. Each turn the briefing and
 legal-actions are computed for state.meta.active_player.
+
+R224: `actions` and `apply` use the VALIDATED palette by default (each
+candidate is probed against the authoritative handler on a deep copy;
+handler-rejected moves are removed and reported), matching
+chatgpt_play_helper. An index-driven caller is therefore never offered a
+move the engine will reject. Pass `--raw` to BOTH commands to use the
+unfiltered _concrete_actions list (the indices must match, so use the same
+flag for `actions` and `apply`).
 
 Default state path: ./nevsky_self_play.json
 """
@@ -142,6 +151,23 @@ def concrete_actions_validated(state: GameState, side: str):
     return validated, rejected
 
 
+def _cli_palette(state: GameState, side: str, raw: bool):
+    """Resolve the action list the CLI presents/indexes against.
+
+    R224 (Eric's reliability note): by DEFAULT the CLI mirrors
+    chatgpt_play_helper -- it shows the VALIDATED palette, so an
+    index-driven caller is never offered a move the authoritative handler
+    rejects. `--raw` restores the unfiltered _concrete_actions list (useful
+    for debugging over-enumeration). `actions` and `apply` MUST agree on
+    this flag or indices drift, so both read it the same way.
+
+    Returns (palette, rejected) where rejected is the list of filtered
+    over-enum candidates ([] when raw)."""
+    if raw:
+        return _concrete_actions(state, side), []
+    return concrete_actions_validated(state, side)
+
+
 # ---------- subcommands ---------------------------------------------------
 
 
@@ -194,22 +220,35 @@ def cmd_briefing(args):
 def cmd_actions(args):
     state, _, _ = load_state(Path(args.state))
     side = active_side(state)
-    actions = _concrete_actions(state, side)
-    print(f"=== {len(actions)} legal action(s) for {side.upper()} ===")
+    raw = getattr(args, "raw", False)
+    actions, rejected = _cli_palette(state, side, raw)
+    mode = "raw" if raw else "validated"
+    print(f"=== {len(actions)} legal action(s) for {side.upper()} [{mode}] ===")
     for i, a in enumerate(actions):
         note = a.get("note", "")
         atype = a.get("type", "?")
         argspart = json.dumps(a.get("args") or a.get("args_template") or {},
                               default=str)
-        print(f"  [{i}] {atype:<25} args={argspart}")
+        tmpl = "  (template: fill args via JSON apply)" if a.get("_unvalidated_template") else ""
+        print(f"  [{i}] {atype:<25} args={argspart}{tmpl}")
         if note:
             print(f"       note: {note}")
+    if rejected:
+        # Surface the root enumerator bug rather than silently hiding it.
+        print(f"--- filtered {len(rejected)} over-enumerated candidate(s) "
+              f"(handler-rejected; run with --raw to see them) ---")
+        for r in rejected:
+            print(f"    REJECT {r.get('action', {}).get('type', '?'):<22} "
+                  f"{r.get('code') or r.get('exception')}")
 
 
 def cmd_apply(args):
     state, scenario_id, history = load_state(Path(args.state))
     side = active_side(state)
-    actions = _concrete_actions(state, side)
+    # R224: index resolves against the SAME palette `actions` prints, so
+    # `actions` + `apply N` stay consistent. Default validated; --raw opts
+    # out. (JSON-dict applies are unaffected — they carry their own args.)
+    actions, _ = _cli_palette(state, side, getattr(args, "raw", False))
 
     target = args.action
     # Parse: either a numeric index into the legal-actions list, or
@@ -327,10 +366,16 @@ def main():
     p_briefing.set_defaults(func=cmd_briefing)
 
     p_actions = sub.add_parser("actions", help="legal actions for active side")
+    p_actions.add_argument("--raw", action="store_true",
+                           help="show the unfiltered _concrete_actions palette "
+                                "(default: validated — handler-rejected moves removed)")
     p_actions.set_defaults(func=cmd_actions)
 
     p_apply = sub.add_parser("apply", help="apply an action")
     p_apply.add_argument("action", help="index (int) or JSON action dict")
+    p_apply.add_argument("--raw", action="store_true",
+                         help="resolve the index against the unfiltered palette "
+                              "(must match how `actions` was listed)")
     p_apply.add_argument("--reasoning", default=None,
                          help="optional rationale recorded in history")
     p_apply.set_defaults(func=cmd_apply)

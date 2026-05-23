@@ -11041,3 +11041,21 @@ self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep across
 all 6 scenarios 0 findings (the 5 insufficient_ships over-enums from the
 first-cut concretization are gone after the Ship-budget mirror);
 llm_tournament all matchups terminal. SMOKE total 161.
+
+---
+
+## Round 224 — CLI defaults to the validated palette (reliability note)
+
+Eric flagged that `chatgpt_play_helper` validates its menu but the raw
+`scripts/llm_self_play.py` CLI printed `_concrete_actions` unfiltered, so
+an index-driven caller using the CLI could still be offered (and then
+apply) a handler-rejected move. Fix (`llm_self_play.py`): a shared
+`_cli_palette()` routes both `actions` and `apply` through
+`concrete_actions_validated()` by DEFAULT, so the printed menu and the
+index `apply` resolves against are the same validated list. `--raw` (on
+both subcommands) restores the unfiltered palette for over-enum debugging.
+`actions` now tags its output `[validated]`/`[raw]` and, when validating,
+prints the count and types of any filtered over-enum candidates rather
+than hiding them. Tests: tests/test_round_224_cli_validated.py (palette
+filtering, the diagnostic footer, and CLI default/--raw/index-apply).
+Not a SMOKE finding — a harness-ergonomics hardening. SMOKE total 161.
