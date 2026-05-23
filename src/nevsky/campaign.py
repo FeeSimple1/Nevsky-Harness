@@ -2765,6 +2765,29 @@ def _h_decline_ambush_block(
     return _h_avoid_battle(state, cp.defender_side, avoid_args)
 
 
+def _can_withdraw_into(state: GameState, locale_id: str, side: Side, n_lords: int) -> bool:
+    """SMOKE-158 (R221): enumerator-side mirror of _h_withdraw eligibility
+    (4.3.4). True iff `side` could Withdraw n_lords into the Stronghold at
+    locale_id: an effective (non-Trade-Route) Stronghold there, Friendly /
+    own-territory / own-Conquered to `side` (not enemy-Conquered), with
+    Capacity >= n_lords. Keep in sync with _h_withdraw."""
+    eff = _effective_stronghold(state, locale_id)
+    if eff is None or eff.get("no_storm"):
+        return False
+    if not _is_friendly_locale(state, locale_id, side):
+        static = load_locales()[locale_id]
+        loc = state.locales[locale_id]
+        own_terr = ((side == "teutonic" and static["territory"] in ("teutonic", "crusader"))
+                    or (side == "russian" and static["territory"] == "russian"))
+        own_conq = ((side == "teutonic" and loc.teutonic_conquered > 0)
+                    or (side == "russian" and loc.russian_conquered > 0))
+        enemy_conq = ((side == "teutonic" and loc.russian_conquered > 0)
+                      or (side == "russian" and loc.teutonic_conquered > 0))
+        if not (own_terr or own_conq) or enemy_conq:
+            return False
+    return n_lords <= int(eff.get("capacity", 1))
+
+
 def _h_withdraw(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:

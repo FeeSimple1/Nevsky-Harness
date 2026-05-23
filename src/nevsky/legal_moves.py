@@ -698,8 +698,17 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 "Besieged; Tax/Forage and most actions blocked while "
                 "Besieged (4.3.5)."
             )
-            out.append({"type": "withdraw", "side": side, "args": {},
-                        "note": withdraw_note})
+            # SMOKE-158 (R221, found by GPT-5.5 self-play): only offer
+            # Withdraw when the defender could actually Withdraw into the
+            # Battle-Locale Stronghold (4.3.4) -- effective Stronghold,
+            # Friendly/own/own-Conquered (not enemy-Conquered), Capacity
+            # >= defender count. Pre-fix it was offered unconditionally,
+            # so a defender at an enemy-owned Stronghold (e.g. a Teuton at
+            # Russian Izborsk) got `not_friendly` on apply.
+            from nevsky.campaign import _can_withdraw_into as _cwi
+            if _cwi(state, cp.to_locale, side, len(cp.defender_lords)):
+                out.append({"type": "withdraw", "side": side, "args": {},
+                            "note": withdraw_note})
             return out
         return out
     cstep = state.meta.campaign_step
@@ -1154,6 +1163,15 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                         "note": "Sail Seaport->Seaport (entire card)"})
         out.append({"type": "end_card", "side": side, "args": {},
                     "note": "voluntarily end this Command card"})
+        # SMOKE-157 (R221, found by GPT-5.5 self-play): a Besieged active
+        # Lord may take ONLY Sally / Stone Kremlin / Pass (Commands.txt
+        # global_rules.besieged_lord_allowed_commands; the March/Tax/Forage/
+        # Ravage/Supply/Sail handlers all raise `besieged`). Filter the
+        # palette down so none of those guaranteed-illegal moves is offered.
+        from nevsky.campaign import _is_besieged as _ib_besf
+        if active_lord is not None and _ib_besf(state, active_lord):
+            _allowed = {"cmd_sally", "cmd_stone_kremlin", "cmd_pass", "end_card"}
+            out = [m for m in out if m.get("type") in _allowed]
         return out
     if cstep == "end_campaign":
         out.append({"type": "end_campaign_resolve", "side": side, "args": {}})
