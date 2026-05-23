@@ -10859,3 +10859,35 @@ pytest 1313 passed / 0 skipped (+5 test_round_218_door_b_empty_siege.py;
 R215 empty-case test updated); siege/combat property invariants pass;
 self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
 findings; llm_tournament 24/24 terminal. SMOKE total 155.
+
+## Round 219 — OpenAI/ChatGPT self-play driver + SMOKE-156 (found by it)
+
+Built scripts/openai_self_play.py: an autonomous driver that lets an
+OpenAI chat model play both sides via the existing model-agnostic LLM
+interface (briefing + concrete legal actions + apply), with the same bug
+instrumentation as our smoke batches (illegal-concrete-action / exception
+/ no-legal-moves / co-location + VP invariants) and a `--mock`
+deterministic decider so the driver loop is testable offline (no key /
+no network). Usage: docs/CHATGPT_SELF_PLAY.md. Goal: a different LLM
+walks different trajectories and surfaces different bugs.
+
+It earned its keep immediately. The `--mock` decider (which favors Veche
+actions our strategic agent deprioritized) hit:
+
+### SMOKE-156 — Veche option A over-enumerated for off-Calendar cylinders
+
+`veche_action` option A (slide a Lord's cylinder 2 boxes LEFT, 3.5.2) was
+enumerated for any Russian Lord with `_find_cylinder_box is not None`, but
+`_h_veche_action` rejects `no_cylinder` unless the cylinder is ON the
+Calendar in boxes 1..16 (it rejects None, off-left=0, and off-right>=17).
+A Lord whose cylinder was off-board (e.g. domash/andrey off-right) was
+offered option A and rejected on apply. Fix: the enumerator now filters to
+`1 <= cylinder_box <= 16`, matching the handler. Same enumerator/handler-
+alignment class as R209.
+
+### Verification
+
+pytest 1317 passed / 0 skipped (+4 test_round_219_veche_option_a_cylinder.py);
+self_play_sweep 300/300 terminal, 0 real errors; roundtrip_sweep 0
+findings; llm_tournament 24/24 terminal; 10-game mock-driver sweep 0
+notable findings after the fix. SMOKE total 156.

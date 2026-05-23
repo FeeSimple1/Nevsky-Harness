@@ -512,9 +512,18 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         if not state.veche.acted_this_call_to_arms:
             if state.veche.vp_markers > 0:
                 # Option A: shift Aleksandr/Andrey cylinder LEFT 2 boxes (1 VP marker each).
+                # SMOKE-156 (R219): Veche option A slides a cylinder LEFT;
+                # _h_veche_action rejects no_cylinder unless the cylinder is
+                # ON the Calendar in boxes 1..16 (not None, not off-left=0,
+                # not off-right>=17). Match that here -- `is not None` alone
+                # over-enumerated option A for Lords whose cylinder is
+                # off-board. (Surfaced by the OpenAI/mock self-play driver.)
+                def _on_cal(lid):
+                    cb = _find_cylinder_box(state, lid)
+                    return cb is not None and 1 <= cb <= 16
                 ru_lords_on_calendar = [
                     lid for lid, lord in state.lords.items()
-                    if lord.side == "russian" and _find_cylinder_box(state, lid) is not None
+                    if lord.side == "russian" and _on_cal(lid)
                 ]
                 for tgt in ru_lords_on_calendar:
                     out.append({
