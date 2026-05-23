@@ -111,6 +111,37 @@ def _concrete_actions(state: GameState, side: str) -> list[dict]:
     return out
 
 
+def concrete_actions_validated(state: GameState, side: str):
+    """P0 (Inferno/GPT-5.5 advisory): return (validated, rejected).
+
+    Each concrete candidate from _concrete_actions is PROBED by applying it
+    to a deep copy of the state; any the authoritative handler rejects is
+    filtered out of the menu the LLM sees and returned in `rejected` as a
+    structured over-enumeration diagnostic (so the root enumerator bug is
+    still surfaced and fixed -- this is a safety net, not a substitute).
+
+    RNG-safe: the seed + rng_state live in meta (no module-global RNG), so
+    the discarded copy never advances the real game's dice. Templated moves
+    (no concrete args) can't be probed and are kept, marked unvalidated.
+    """
+    cands = _concrete_actions(state, side)
+    validated, rejected = [], []
+    for a in cands:
+        if not isinstance(a.get("args"), dict):
+            validated.append({**a, "_unvalidated_template": True})
+            continue
+        minimal = {k: v for k, v in a.items() if k in ("type", "side", "args")}
+        probe = state.model_copy(deep=True)
+        try:
+            apply_action(probe, minimal)
+            validated.append(a)
+        except IllegalAction as e:
+            rejected.append({"action": minimal, "code": str(e.args[0])[:160]})
+        except Exception as e:  # a candidate that CRASHES on apply is a worse bug
+            rejected.append({"action": minimal, "exception": f"{type(e).__name__}: {e}"[:180]})
+    return validated, rejected
+
+
 # ---------- subcommands ---------------------------------------------------
 
 

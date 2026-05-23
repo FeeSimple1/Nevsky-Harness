@@ -845,6 +845,15 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 excess_mr = sum(_mdme_mr(state, gid, way_type=way_type) for gid in march_group)
                 base_note = f"March {active_lord} {here}->{dest} via {way_type} (cost={march_cost})"
                 args_mr: dict[str, Any] = {"lord_id": active_lord, "to": dest}
+                # SMOKE-159 (R222, surfaced by the validated palette): pin
+                # the Way. odenpah<->dorpat (and other pairs) have parallel
+                # trackway + waterway edges with DIFFERENT Laden cost /
+                # excess-Provender requirements; the per-edge discard flag
+                # and cost computed here only hold for THIS way_type. Pass
+                # it so _h_cmd_march resolves the same Way (else the
+                # no-discard waterway entry could be applied as the trackway
+                # and rejected with excess_provender).
+                args_mr["way_type"] = way_type
                 if _lower is not None:
                     args_mr["group"] = [active_lord, _lower]
                 if excess_mr > 0:

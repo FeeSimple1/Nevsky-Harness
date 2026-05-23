@@ -46,6 +46,7 @@ _LLM_SP = importlib.util.spec_from_file_location(
 _llm = importlib.util.module_from_spec(_LLM_SP)
 _LLM_SP.loader.exec_module(_llm)
 _concrete_actions = _llm._concrete_actions
+_cav = _llm.concrete_actions_validated
 
 
 def is_terminal(state: GameState) -> bool:
@@ -180,7 +181,9 @@ def play(scenario: str, seed: int, model: str, max_turns: int, mock: bool,
     turn = 0
     while turn < max_turns and not is_terminal(state):
         side = state.meta.active_player or "teutonic"
-        actions = _concrete_actions(state, side)
+        actions, _rejected = _cav(state, side)  # validated, LLM-safe menu (P0)
+        for _r in _rejected:
+            findings.append({"kind": "over_enum_filtered", "turn": turn, "side": side, **_r})
         if not actions:
             findings.append({"kind": "no_legal_moves", "turn": turn,
                              "phase": state.meta.phase,
@@ -273,7 +276,7 @@ def main():
              Path(args.findings) if args.findings else None)
     real = [f for f in r["findings"]
             if f["kind"] in ("exception", "illegal_concrete_action", "invariant",
-                             "no_legal_moves", "fallback_failed")]
+                             "no_legal_moves", "fallback_failed", "over_enum_filtered")]
     print(json.dumps({k: v for k, v in r.items() if k != "findings"}, indent=2, default=str))
     print(f"\nfindings: {len(r['findings'])} total, {len(real)} notable")
     for f in real[:20]:
