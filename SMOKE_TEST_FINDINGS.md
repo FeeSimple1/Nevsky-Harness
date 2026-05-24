@@ -11059,3 +11059,30 @@ prints the count and types of any filtered over-enum candidates rather
 than hiding them. Tests: tests/test_round_224_cli_validated.py (palette
 filtering, the diagnostic footer, and CLI default/--raw/index-apply).
 Not a SMOKE finding — a harness-ergonomics hardening. SMOKE total 161.
+
+---
+
+## Round 225 — SMOKE-162: muster_vassal over-enumerated special Vassals
+
+GPT-5.5 self-play (turn 297/298, Crusade) was offered
+`muster_vassal {by_lord: andreas, vassal_id: andreas_summer_crusaders_1}`
+outside Summer; `_h_muster_vassal` rejected it with `vassal_season`
+("Summer Crusaders may Muster only in Summer", T11 Tip / SMOKE-059). The
+handler was correct — the ENUMERATOR (`legal_moves._muster_moves`) offered
+every Ready/unmustered Vassal without mirroring the special-Vassal gates.
+
+Fix (`legal_moves.py`): a `_vassal_special_ok(by_lid, vid)` predicate now
+gates the Vassal-muster enumeration, mirroring `_h_muster_vassal`:
+  - `summer_crusaders`: requires T11 Crusade in `decks.teutonic.
+    capabilities_in_play` AND `_season_of_box(box) == "summer"`.
+  - `steppe_warriors` (Mongols/Kipchaqs): requires R10 in
+    `decks.russian.capabilities_in_play`.
+Both gates were already enforced by the handler; only the season gate was
+in the live finding, but per "defer nothing" the capability gates are
+mirrored too (a non-Summer or capability-less Muster is now never offered).
+
+Tests: tests/test_round_225_vassal_season_enum.py — Summer Crusaders not
+offered in winter/rasputitsa or without T11, offered in Summer with T11;
+Steppe Warriors gated on R10. Verification: pytest 1276 passed/0 skipped;
+self_play_sweep 300/300 terminal 0 errors; roundtrip_sweep 0 findings
+(crusade/watland/pleskau/peipus x3 seeds, 6518 probes). SMOKE total 162.
