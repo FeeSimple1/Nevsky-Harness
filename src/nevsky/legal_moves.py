@@ -309,10 +309,30 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     })
 
     # Muster Vassal.
+    # SMOKE-162 (R225, found by GPT-5.5 self-play turn 297/298): mirror the
+    # special-Vassal gates _h_muster_vassal enforces, so the enumerator
+    # never offers a guaranteed-illegal Muster:
+    #   - summer_crusaders: needs T11 Crusade in play AND Summer season
+    #     (T11 Tip / SMOKE-059 — "Crusader Forces ... Muster only in Summer").
+    #   - steppe_warriors (Mongols/Kipchaqs): needs R10 Steppe Warriors in play.
+    _season_now = _season_of_box(state.meta.box)
+
+    def _vassal_special_ok(by_lid: str, vid: str) -> bool:
+        vdata = next((v for v in static[by_lid].get("vassals", [])
+                      if v["vassal_id"] == vid), None)
+        special = (vdata or {}).get("special")
+        if special == "summer_crusaders":
+            return ("T11" in state.decks.teutonic.capabilities_in_play
+                    and _season_now == "summer")
+        if special == "steppe_warriors":
+            return "R10" in state.decks.russian.capabilities_in_play
+        return True
+
     vassal_options: dict[str, list[str]] = {}
     for lid in by_with_budget:
         lord = state.lords[lid]
-        opts = [vid for vid, vst in lord.vassals.items() if vst.ready and not vst.mustered]
+        opts = [vid for vid, vst in lord.vassals.items()
+                if vst.ready and not vst.mustered and _vassal_special_ok(lid, vid)]
         if opts:
             vassal_options[lid] = opts
     for by_lid, vlist in vassal_options.items():
