@@ -678,9 +678,8 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             })
             # Avoid Battle: per-destination forecast (just no battle).
             if not cp.laden:
-                from nevsky.static_data import load_ways, load_locales
+                from nevsky.static_data import load_ways
                 _ways = load_ways()
-                _locs = load_locales()
                 here = cp.to_locale  # defenders are at to_locale
                 # Note: defender retreats one Locale away. They may
                 # not Avoid into a Locale containing enemy Lords.

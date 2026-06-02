@@ -175,7 +175,7 @@ def storm_preview(
     Returns the same shape as battle_preview plus garrison loss stats:
       avg_garrison_units_pre, avg_garrison_units_lost, avg_garrison_loss_pct.
     """
-    from nevsky.static_data import load_locales, load_strongholds
+    from nevsky.static_data import load_locales
 
     if not attacker_lords:
         return {"trials": 0, "error": "no attacker lords"}

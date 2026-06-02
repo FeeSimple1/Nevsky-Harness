@@ -435,7 +435,7 @@ def _build_lords(
             for slot in sl.get("starting_transport_choice", []):
                 allowed = list(slot["options"])
                 count = int(slot["count"])
-                for sub_idx in range(count):
+                for _sub_idx in range(count):
                     if slot_idx_global < len(scenario_defaults):
                         chosen = scenario_defaults[slot_idx_global]
                     elif slot_idx_global < len(heuristic):

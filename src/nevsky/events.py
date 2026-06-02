@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nevsky.actions import IllegalAction, _shift_service_right
+from nevsky.actions import IllegalAction
 from nevsky.state import GameState
 from nevsky.static_data import load_locales, load_lords
 
@@ -566,7 +566,6 @@ def _ev_prussian_revolt(state: GameState, args: dict[str, Any]) -> dict[str, Any
         raise IllegalAction("no_andreas", "Andreas not in state")
     a = state.lords["andreas"]
     riga = state.locales.get("riga")
-    riga_static = load_locales()["riga"]
     riga_empty = (
         riga is not None
         and riga.siege_markers == 0
@@ -778,7 +777,6 @@ def apply_lordship_plus_2(state: GameState, card_id: str, lord_id: str) -> dict[
     if card_id not in _LORDSHIP_PLUS_2_TARGETS:
         raise IllegalAction("bad_card", f"{card_id} is not a Lordship +2 hold")
     spec = _LORDSHIP_PLUS_2_TARGETS[card_id]
-    side: str = spec["side"]  # type: ignore[assignment]
     lords = spec["lords"]
     if lords == "any_russian":
         if state.lords[lord_id].side != "russian":
@@ -1077,7 +1075,7 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     # 0). Previously the BFS only registered Lords as it expanded
     # outward; a Teutonic Lord standing at the target Fort itself was
     # silently missed, producing wrong teu_dist or no_teutonic_lord.
-    for lid, l in state.lords.items():
+    for _lid, l in state.lords.items():
         if l.state == "mustered" and l.location == target:
             if l.side == "teutonic" and teu_dist is None:
                 teu_dist = 0
@@ -1092,7 +1090,7 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
                 visited[m] = visited[n] + 1
                 nxt.append(m)
                 # Check Lords here.
-                for lid, l in state.lords.items():
+                for _lid, l in state.lords.items():
                     if l.state == "mustered" and l.location == m:
                         if l.side == "teutonic" and teu_dist is None:
                             teu_dist = visited[m]
@@ -1123,8 +1121,6 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
               and totals 4 per recipient. If not provided, default:
               4 Coin to each.
     """
-    from nevsky.actions import _remove_lord_permanently
-    from nevsky.static_data import load_lords
 
     if "heinrich" not in state.lords:
         raise IllegalAction("no_heinrich", "heinrich not in state")

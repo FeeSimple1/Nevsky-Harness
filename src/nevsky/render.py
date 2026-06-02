@@ -20,6 +20,7 @@ from nevsky.state import (
     Decks,
     GameState,
     Locale,
+    Side,
     Veche,
 )
 from nevsky.static_data import load_cards, load_locales, load_lords
@@ -611,7 +612,7 @@ def paths_from(
     while frontier and hops < max_hops:
         new_front = []
         for n in frontier:
-            for m, way_type in adj.get(n, []):
+            for m, _way_type in adj.get(n, []):
                 if m not in visited:
                     visited[m] = visited[n] + [m]
                     new_front.append(m)
@@ -688,7 +689,7 @@ def state_view_for_side(state: GameState, side: Side) -> GameState:
     if not s2.meta.optional_rules.get("hidden_mats", False):
         return s2
     other: Side = "russian" if side == "teutonic" else "teutonic"
-    for lid, lord in s2.lords.items():
+    for _lid, lord in s2.lords.items():
         if lord.side != other:
             continue
         if lord.state != "mustered":
