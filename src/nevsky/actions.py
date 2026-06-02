@@ -62,6 +62,9 @@ from nevsky.state import (
     GameState,
     HistoryEntry,
     Side,
+    detach_vassal_marker,
+    move_vassal_marker,
+    vassal_marker_box,
 )
 
 # ---------------------------------------------------------------------------
@@ -841,26 +844,12 @@ def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
     if state.meta.optional_rules.get("advanced_vassal_service", False):
         if lord_id in state.lords:
             for vid, vstate in state.lords[lord_id].vassals.items():
-                if not vstate.on_calendar or vstate.calendar_box is None:
+                cur = vassal_marker_box(cal, vid, vstate)
+                if cur is None:
                     continue
-                # Find and remove from current calendar box.
-                old_box = vstate.calendar_box
-                if 1 <= old_box <= 16:
-                    cb = cal.boxes[old_box - 1]
-                    if vid in cb.vassal_service_markers:
-                        cb.vassal_service_markers.remove(vid)
-                # Compute new box (same shift amount, may go off-right).
-                target = old_box + boxes
-                if target > 16:
-                    # Per rule 2.2.3, vassal markers off-right are still
-                    # tracked. We don't have an off_right_vassal list;
-                    # use calendar_box=17 as a sentinel.
-                    vstate.calendar_box = 17
-                elif target < 1:
-                    vstate.calendar_box = 0
-                else:
-                    cal.boxes[target - 1].vassal_service_markers.append(vid)
-                    vstate.calendar_box = target
+                # 2.2.3: shift the marker the same amount; off-edge lands
+                # in the off_left_vassal / off_right_vassal roster.
+                move_vassal_marker(cal, vid, vstate, cur + boxes)
     return result_box
 
 
@@ -1284,10 +1273,8 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     # Calendar before clearing the vassals dict, mirroring the
     # _disband_at_limit treatment.
     for vid, v in lord.vassals.items():
-        if v.on_calendar and v.calendar_box is not None:
-            if 1 <= v.calendar_box <= 16:
-                if vid in cal.boxes[v.calendar_box - 1].vassal_service_markers:
-                    cal.boxes[v.calendar_box - 1].vassal_service_markers.remove(vid)
+        if v.on_calendar:
+            detach_vassal_marker(cal, vid, v)
     lord.vassals = {}
     lord.state = "removed"
     lord.location = None
@@ -1404,9 +1391,11 @@ def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]
             continue
         sl = static.get(lord_id, {})
         for vid, vstate in list(lord.vassals.items()):
-            if not vstate.on_calendar or vstate.calendar_box is None:
+            if not vstate.on_calendar:
                 continue
-            box = vstate.calendar_box
+            box = vassal_marker_box(cal, vid, vstate)
+            if box is None:
+                continue
             vdata = next((v for v in sl.get("vassals", [])
                            if v["vassal_id"] == vid), None)
             if vdata is None:
@@ -1414,9 +1403,8 @@ def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]
             v_forces = vdata.get("forces", {}) or {}
             if box < levy_box:
                 # Permanent removal.
-                # Remove marker from calendar (could be on a box or off-right=17).
-                if 1 <= box <= 16 and vid in cal.boxes[box - 1].vassal_service_markers:
-                    cal.boxes[box - 1].vassal_service_markers.remove(vid)
+                # Remove marker from calendar (a box or an off-edge roster).
+                detach_vassal_marker(cal, vid, vstate)
                 # Return Forces to pool: subtract from Lord's force totals
                 # to the degree able.
                 returned = {}
@@ -1442,8 +1430,7 @@ def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]
             elif box == levy_box:
                 # At Service limit: move to mat face-down (Unready) and
                 # return Forces.
-                if vid in cal.boxes[box - 1].vassal_service_markers:
-                    cal.boxes[box - 1].vassal_service_markers.remove(vid)
+                detach_vassal_marker(cal, vid, vstate)
                 returned = {}
                 for k, v in v_forces.items():
                     avail = lord.forces.get(k, 0)
@@ -1510,10 +1497,8 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     # on_calendar=False, which breaks later Vassal-marker reads (3.4.2
     # Advanced Vassal Service).
     for vid, v in lord.vassals.items():
-        if v.on_calendar and v.calendar_box is not None:
-            if 1 <= v.calendar_box <= 16:
-                if vid in cal.boxes[v.calendar_box - 1].vassal_service_markers:
-                    cal.boxes[v.calendar_box - 1].vassal_service_markers.remove(vid)
+        if v.on_calendar:
+            detach_vassal_marker(cal, vid, v)
         v.ready = True
         v.mustered = False
         v.on_calendar = False
