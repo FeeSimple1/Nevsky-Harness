@@ -3575,6 +3575,9 @@ def _h_cmd_storm(
         scripted=list(args.get("scripted_decisions") or []),
         callback=args.get("decision_callback"),
     )
+    # 4.5.2 Storm Concede (attacker only): args.concede = true/'attacker'
+    # or a Round int at which the attacker Concedes the Storm.
+    storm_concede_round = _parse_concede_round(args.get("concede"), who="attacker")
     result = resolve_storm(
         state, attacker_side=sd,
         attacker_lords=attackers,
@@ -3584,6 +3587,7 @@ def _h_cmd_storm(
         siege_markers=state.locales[locale_id].siege_markers,
         garrison=dict(sh["garrison"]),
         decision_ctx=storm_ctx,
+        attacker_concede_round=storm_concede_round,
     )
 
     aftermath: dict[str, Any] = {"battle": result}
