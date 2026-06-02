@@ -912,6 +912,20 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     "args": args_mr,
                     "note": base_note,
                 })
+                # 4.4.2 Concede: the attacker may declare a Concede of
+                # the Battle this March triggers. Captured on
+                # combat_pending and applied in stand_battle; without
+                # this the attacker had no way to Concede (only the
+                # responding defender did).
+                if enemy_at_dest:
+                    concede_args = dict(args_mr)
+                    concede_args["concede"] = True
+                    out.append({
+                        "type": "cmd_march", "side": side,
+                        "args": concede_args,
+                        "note": base_note + " | CONCEDE the Field (4.4.2): attacker loses the "
+                                "Battle; enemy gains Pursuit (attacker takes half Hits this Round).",
+                    })
         except (ImportError, KeyError, AttributeError, FileNotFoundError) as e:
             # Static-data load failure or shape mismatch: fall back to the
             # template form so the consumer still sees an action shape.

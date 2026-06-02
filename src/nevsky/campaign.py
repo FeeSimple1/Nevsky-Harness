@@ -2390,6 +2390,18 @@ def _h_cmd_march(
         lid for lid in _enemies_at(state, dest, sd)
         if not state.lords[lid].in_stronghold
     ]
+    # 4.4.2: the attacker may Concede the Battle this March triggers.
+    march_concede = args.get("concede")
+    if march_concede not in (None, False, True, "attacker"):
+        raise IllegalAction(
+            "bad_concede",
+            "march concede must be true / 'attacker' (the attacker Concedes the ensuing Battle)",
+        )
+    if march_concede and not enemies:
+        raise IllegalAction(
+            "no_combat_to_concede",
+            "concede is only valid when the March triggers a Battle",
+        )
     if enemies:
         # Approach: pause and request defender response.
         from nevsky.state import CombatPending
@@ -2406,6 +2418,7 @@ def _h_cmd_march(
             defender_lords=enemies,
             pending_response_by=defender_side,
             laden=laden,
+            attacker_concede=bool(march_concede),
         )
         # SMOKE-111 (Round 173): switch active_player to the defender
         # side so legal_moves enumerates their response options
@@ -2899,6 +2912,11 @@ def _h_stand_battle(
     concede = args.get("concede")
     if concede not in (None, "attacker", "defender"):
         raise IllegalAction("bad_concede", "concede must be 'attacker' or 'defender'")
+    # 4.4.2 concede order is attacker-then-defender: an attacker Concede
+    # declared when the Battle was initiated (cmd_march -> combat_pending)
+    # takes precedence over the defender's choice this Round.
+    if cp.attacker_concede:
+        concede = "attacker"
 
     # R198: defender's casualty-absorption policy (validated). The
     # attacker's was captured on cmd_march into combat_pending.
