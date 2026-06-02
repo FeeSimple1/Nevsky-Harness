@@ -3631,6 +3631,9 @@ def _h_cmd_storm(
                 w.assets[k] = min(8, w.assets.get(k, 0) + v)  # type: ignore[index]
         aftermath["stronghold_spoils"] = spoils
         aftermath["spoils_recipient"] = recipient
+        # Novgorod Conquered (Sacked): mark the Veche state (1.3.3).
+        if locale_id == "novgorod":
+            state.veche.novgorod_conquered = True
         # Novgorod special: all Veche Coin to attackers.
         if locale_id == "novgorod" and state.veche.coin > 0:
             if recipient:
