@@ -1151,6 +1151,17 @@ def resolve_battle(
     else:
         atk_pos = dict(attacker_positions)
         def_pos = dict(defender_positions)
+    # Trebuchets (T14): a Sallying side with an Unrouted Trebuchets Lord
+    # reduces the besiegers' Siegeworks-as-Walls by 1 (4.5.3, same as it
+    # reduces defender Walls in a Storm). The Sallying side are the
+    # attacker_lords in a (Relief) Sally.
+    _eff_siegeworks_for_sally = siegeworks_for_sally
+    from nevsky.capabilities import any_capability as _any_cap_treb
+    if siegeworks_for_sally > 0 and any(
+        _any_cap_treb(state, lid, "Trebuchets") and state.lords[lid].forces
+        for lid in attacker_lords if lid in state.lords
+    ):
+        _eff_siegeworks_for_sally = max(0, siegeworks_for_sally - 1)
     rounds = 0
     while rounds < max_rounds:
         rounds += 1
@@ -1479,12 +1490,12 @@ def resolve_battle(
                 # siegeworks_for_sally > 0, roll Walls separately on
                 # those Hits. Walls range = 1..siegeworks_for_sally.
                 sally_raw = per_target_sally_hits.get(tlid, 0.0)
-                if sally_raw > 0 and siegeworks_for_sally > 0:
+                if sally_raw > 0 and _eff_siegeworks_for_sally > 0:
                     sally_hits = _round_up(sally_raw)
                     sally_absorbed = 0
                     for _ in range(sally_hits):
                         r = roll_d6(state)
-                        if r <= siegeworks_for_sally:
+                        if r <= _eff_siegeworks_for_sally:
                             sally_absorbed += 1
                     if sally_absorbed > 0:
                         distribution.append({
@@ -1897,6 +1908,7 @@ def resolve_storm(
     siege_markers: int,
     garrison: dict[str, int],
     decision_ctx: BattleDecisionContext | None = None,
+    attacker_concede_round: int | None = None,
 ) -> dict[str, Any]:
     """Resolve a Storm at `locale_id` (4.5.2 2E).
 
@@ -1949,6 +1961,19 @@ def resolve_storm(
     # "Storm round count == siege markers" / "rounds_completed >= siege_markers").
     while rounds < max(1, siege_markers):
         rounds += 1
+        # 4.5.2 Storm Concede: the attacker may Concede at the start of
+        # any Round, ending the Storm immediately as the loser (no
+        # Pursuit; the Siege simply continues). Concede order is
+        # attacker-only in a Storm.
+        if attacker_concede_round is not None and rounds == attacker_concede_round:
+            return {
+                "rounds": rounds, "winner": "defender", "loser": "attacker",
+                "conceded": "attacker",
+                "log": log, "garrison_remaining": g_units,
+                "attacker_storm_positions": dict(atk_storm_pos),
+                "defender_storm_positions": dict(def_storm_pos),
+                "decisions": list(decision_ctx.log),
+            }
         round_log: dict[str, Any] = {
             "round": rounds, "steps": [],
             "attacker_storm_positions": dict(atk_storm_pos),
