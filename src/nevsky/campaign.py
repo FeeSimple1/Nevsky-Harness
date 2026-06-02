@@ -648,6 +648,13 @@ def _fpd_finalize(
             _disband_at_limit(state, lord_id, new_box)
             disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
 
+    # 3.4.2 Advanced Vassal Service: Vassal markers at/over their Service
+    # limit are removed/downgraded in this Campaign Disband too (parity
+    # with the Levy Disband). No-op unless the optional rule is enabled.
+    if state.meta.optional_rules.get("advanced_vassal_service", False):
+        from nevsky.actions import _advanced_vassal_disband_step
+        _advanced_vassal_disband_step(state, sd)
+
     # 4.8.3: remove MOVED_FOUGHT markers.
     for lord in state.lords.values():
         if lord.side == sd and lord.moved_fought:
@@ -1396,7 +1403,7 @@ def _h_cmd_supply(
     # in a single action (per the play note), so it counts as a
     # special exception — Novgorod-Ship can appear up to 2 times.
     _smoke089_seen_sources: set[tuple[str, str]] = set()
-    _smoke089_novgorod_ship_count = 0
+    _ship_source_count: dict[str, int] = {}
 
     for src in sources:
         sid = src.get("locale_id")
@@ -1409,12 +1416,16 @@ def _h_cmd_supply(
 
         # SMOKE-089 (Round 94): dedupe Source against printed rule.
         _smoke089_key = (sid, "ship" if ttype == "ship" else "seat")
+        # 2E Supply: a Ship Source may be listed up to 2x -- 1 Provender
+        # per Ship, up to 2 Ships -- for Russians from Novgorod OR Teutons
+        # from any Seaport. All other duplicate Sources are illegal.
+        _two_ship_source = ttype == "ship" and (
+            (sd == "russian" and sid == "novgorod")
+            or (sd == "teutonic" and static_locales.get(sid, {}).get("seaport") is True)
+        )
         if _smoke089_key in _smoke089_seen_sources:
-            # Exception: Russian Novgorod ship can be listed up to 2x
-            # (matches "Novgorod up to 2 Provender via Ships" play note).
-            if (sd == "russian" and sid == "novgorod" and ttype == "ship"
-                    and _smoke089_novgorod_ship_count < 2):
-                _smoke089_novgorod_ship_count += 1
+            if _two_ship_source and _ship_source_count.get(sid, 1) < 2:
+                _ship_source_count[sid] = _ship_source_count.get(sid, 1) + 1
             else:
                 raise IllegalAction(
                     "duplicate_source",
@@ -1423,8 +1434,8 @@ def _h_cmd_supply(
                 )
         else:
             _smoke089_seen_sources.add(_smoke089_key)
-            if sd == "russian" and sid == "novgorod" and ttype == "ship":
-                _smoke089_novgorod_ship_count = 1
+            if _two_ship_source:
+                _ship_source_count[sid] = 1
 
         # Validate transport seasonality (1.7.4).
         if ttype == "ship":
