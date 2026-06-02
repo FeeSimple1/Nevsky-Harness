@@ -461,6 +461,7 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     lid for lid, l in state.lords.items()
                     if l.side == "teutonic" and l.state == "ready"
                     and pawn_loc in _seats(state, lid)
+                    and lid not in state.meta.block_lords_this_levy_t
                 ]
                 for tgt in cand_2a:
                     out.append({
@@ -677,7 +678,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 "note": concede_note,
             })
             # Avoid Battle: per-destination forecast (just no battle).
-            if not cp.laden:
+            # 4.3.4: the AVOIDING (defender) side governs Avoid eligibility,
+            # and _h_avoid_battle discards Loot/excess Provender to satisfy
+            # Unladen, so Avoid is offered for every valid destination. (The
+            # prior gate used cp.laden = the ATTACKER's laden flag -- wrong side.)
+            if True:
                 from nevsky.static_data import load_ways
                 _ways = load_ways()
                 here = cp.to_locale  # defenders are at to_locale

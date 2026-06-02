@@ -1944,7 +1944,10 @@ def resolve_storm(
         def_storm_pos[defender_lords[0]] = "storm_front"
         for lid in defender_lords[1:]:
             def_storm_pos[lid] = "storm_reserve"
-    while rounds < max(1, siege_markers + 1):
+    # A Storm lasts exactly `siege_markers` Rounds; if the Stronghold is
+    # not Sacked within that many Rounds the attacker loses (B&S ref:
+    # "Storm round count == siege markers" / "rounds_completed >= siege_markers").
+    while rounds < max(1, siege_markers):
         rounds += 1
         round_log: dict[str, Any] = {
             "round": rounds, "steps": [],

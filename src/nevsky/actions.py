@@ -2397,6 +2397,10 @@ def _h_legate_use(
 
     if sub == "2a":
         # auto-Muster a Ready Lord at his Seat (no Fealty roll)
+        if target_id in state.meta.block_lords_this_levy_t:
+            raise IllegalAction(
+                "muster_blocked",
+                f"{target_id} may not be Mustered this Levy (R11 Valdemar / R17 Dietrich)")
         if target.state != "ready":
             raise IllegalAction("bad_target", f"{target_id} must be Ready (state={target.state})")
         cyl_box = _find_cylinder_box(state, target_id)
@@ -2424,6 +2428,10 @@ def _h_legate_use(
         state.calendar.boxes[cyl_box - 2].cylinders.append(target_id)
         result_extra = {"target_lord": target_id, "from_box": cyl_box, "to_box": cyl_box - 1}
     else:  # 2c
+        if target_id in state.meta.block_lords_this_levy_t:
+            raise IllegalAction(
+                "muster_blocked",
+                f"{target_id} may not be Mustered/use Lordship this Levy (R11 / R17)")
         if target.state != "mustered" or target.location is None:
             raise IllegalAction("bad_target", f"{target_id} must be Mustered with a location")
         if pawn_locale != target.location:
@@ -2516,6 +2524,8 @@ def _h_veche_action(
         state.calendar.boxes[new_box - 1].cylinders.append(target_id)
         state.veche.vp_markers -= 1
         state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
         state.veche.acted_this_call_to_arms = True
         return (
             {"option": "A", "target_lord": target_id, "from_box": cyl_box, "to_box": new_box},
@@ -2544,6 +2554,8 @@ def _h_veche_action(
         _place_lord_on_map(state, target_id, seat, levy_box)
         state.veche.vp_markers -= 1
         state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
         state.veche.acted_this_call_to_arms = True
         return ({"option": "B", "target_lord": target_id, "seat": seat}, [])
 
@@ -2574,6 +2586,8 @@ def _h_veche_action(
         state.veche.extra_muster_target_lord = target_id
         state.veche.vp_markers -= 1
         state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
         state.veche.acted_this_call_to_arms = True
         return ({"option": "C", "target_lord": target_id, "extra_muster": True}, [])
 
