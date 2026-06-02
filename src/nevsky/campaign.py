@@ -2390,14 +2390,11 @@ def _h_cmd_march(
         lid for lid in _enemies_at(state, dest, sd)
         if not state.lords[lid].in_stronghold
     ]
-    # 4.4.2: the attacker may Concede the Battle this March triggers.
-    march_concede = args.get("concede")
-    if march_concede not in (None, False, True, "attacker"):
-        raise IllegalAction(
-            "bad_concede",
-            "march concede must be true / 'attacker' (the attacker Concedes the ensuing Battle)",
-        )
-    if march_concede and not enemies:
+    # 4.4.2: the attacker may Concede the Battle this March triggers,
+    # at Round 1 (true / 'attacker') or a later Round (int). Captured on
+    # combat_pending and applied when the Battle resolves.
+    attacker_concede_round = _parse_concede_round(args.get("concede"), who="attacker")
+    if attacker_concede_round is not None and not enemies:
         raise IllegalAction(
             "no_combat_to_concede",
             "concede is only valid when the March triggers a Battle",
@@ -2418,7 +2415,7 @@ def _h_cmd_march(
             defender_lords=enemies,
             pending_response_by=defender_side,
             laden=laden,
-            attacker_concede=bool(march_concede),
+            attacker_concede_round=attacker_concede_round,
         )
         # SMOKE-111 (Round 173): switch active_player to the defender
         # side so legal_moves enumerates their response options
@@ -2890,6 +2887,78 @@ def _h_withdraw(
     return ({"withdrew_into": cp.to_locale, "capacity": capacity}, [])
 
 
+def _parse_concede_round(value: Any, *, who: str) -> int | None:
+    """Normalize a Concede declaration (4.4.2) to a Round number (>= 1)
+    or None. Accepts None/False (no Concede), True or the side label
+    `who` (Round 1), or an explicit int Round."""
+    if value is None or value is False:
+        return None
+    if value is True or value == who:
+        return 1
+    if isinstance(value, bool):  # defensive; True handled above
+        return None
+    if isinstance(value, int) and value >= 1:
+        return value
+    raise IllegalAction(
+        "bad_concede",
+        f"concede must be true / {who!r} / a Round int >= 1; got {value!r}",
+    )
+
+
+def _merge_concede_decisions(declarations: list[tuple[int, str]]) -> dict[int, str]:
+    """Fold (round, side) Concede declarations into one round -> side map.
+    Per 4.4.2 the concede order is attacker-then-defender, so an attacker
+    Concede wins a same-Round tie."""
+    out: dict[int, str] = {}
+    for rnd, who in declarations:
+        if out.get(rnd) == "attacker":
+            continue  # attacker already Concedes this Round; keep it
+        out[rnd] = "attacker" if who == "attacker" else "defender"
+    return out
+
+
+def _concede_decisions_from_args(
+    args: dict[str, Any], *, attacker_round: int | None = None
+) -> dict[int, str]:
+    """Build the per-Round Concede map (round -> "attacker"|"defender")
+    passed to resolve_battle, merging (with attacker precedence):
+      - an attacker's pre-declared Concede Round (e.g. from cmd_march);
+      - args.concede ("attacker"|"defender") + optional args.concede_round
+        (Round 1 by default) -- single-side sugar; and
+      - args.concede_decisions ({round_int: side}) -- an explicit
+        per-Round, per-side plan giving full control over both sides and
+        all Rounds (4.4.2: either side may Concede at the start of ANY
+        Round)."""
+    decls: list[tuple[int, str]] = []
+    if attacker_round is not None:
+        decls.append((attacker_round, "attacker"))
+    concede = args.get("concede")
+    if concede is not None:
+        if concede not in ("attacker", "defender"):
+            raise IllegalAction("bad_concede", "concede must be 'attacker' or 'defender'")
+        cr = args.get("concede_round", 1)
+        if not isinstance(cr, int) or isinstance(cr, bool) or cr < 1:
+            raise IllegalAction("bad_concede", "concede_round must be a Round int >= 1")
+        decls.append((cr, concede))
+    raw = args.get("concede_decisions")
+    if raw is not None:
+        if not isinstance(raw, dict):
+            raise IllegalAction("bad_concede", "concede_decisions must be a {round: side} map")
+        for k, v in raw.items():
+            try:
+                rnd = int(k)
+            except (TypeError, ValueError):
+                raise IllegalAction(
+                    "bad_concede", f"concede_decisions round {k!r} is not an int") from None
+            if rnd < 1:
+                raise IllegalAction("bad_concede", "concede_decisions rounds must be >= 1")
+            if v not in ("attacker", "defender"):
+                raise IllegalAction(
+                    "bad_concede", f"concede_decisions[{k}] must be 'attacker' or 'defender'")
+            decls.append((rnd, v))
+    return _merge_concede_decisions(decls)
+
+
 def _h_stand_battle(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -2908,15 +2977,13 @@ def _h_stand_battle(
     if cp.pending_response_by != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
 
-    # 4.4.2: optional concede. args.concede is "attacker"|"defender" or None.
-    concede = args.get("concede")
-    if concede not in (None, "attacker", "defender"):
-        raise IllegalAction("bad_concede", "concede must be 'attacker' or 'defender'")
-    # 4.4.2 concede order is attacker-then-defender: an attacker Concede
-    # declared when the Battle was initiated (cmd_march -> combat_pending)
-    # takes precedence over the defender's choice this Round.
-    if cp.attacker_concede:
-        concede = "attacker"
+    # 4.4.2 Concede the Field: either side may Concede at the start of
+    # ANY Round. Merge the attacker's pre-declared Concede (cmd_march ->
+    # combat_pending), the defender's args.concede (+ optional
+    # concede_round), and any explicit args.concede_decisions plan into a
+    # single per-Round map; attacker wins same-Round ties (concede order).
+    concede_decisions = _concede_decisions_from_args(
+        args, attacker_round=cp.attacker_concede_round)
 
     # R198: defender's casualty-absorption policy (validated). The
     # attacker's was captured on cmd_march into combat_pending.
@@ -2971,7 +3038,7 @@ def _h_stand_battle(
         state, attacker_side=cp.attacker_side,
         attacker_lords=all_attackers,
         defender_lords=list(cp.defender_lords),
-        concede=concede,
+        concede_decisions=concede_decisions or None,
         holds=holds_arg,
         active_attacker=active_attacker,
         decision_ctx=decision_ctx,
@@ -3687,10 +3754,14 @@ def _h_cmd_sally(
     # Sally the sallying Lords are the attackers at regular Front
     # slots, not the sally_* row).
     siege_markers_at_locale = state.locales[locale_id].siege_markers
+    # 4.4.2 Concede the Field also applies in a (Relief) Sally Battle:
+    # the sallying side is the attacker, the besiegers the defender.
+    sally_concede = _concede_decisions_from_args(args)
     result = resolve_battle(
         state, attacker_side=sd,
         attacker_lords=attackers,
         defender_lords=defenders,
+        concede_decisions=sally_concede or None,
         siegeworks_for_sally=siege_markers_at_locale,
         simple_sally=True,
         # R198: the sallying side is the attacker in resolve_battle.
