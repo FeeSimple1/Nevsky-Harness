@@ -242,10 +242,12 @@ class CombatPending(BaseModel):
     # 4.4.2 Concede the Field: the attacker may Concede the ensuing
     # Battle when initiating it (declared on cmd_march). The Battle is
     # resolved synchronously inside the defender's stand_battle, so the
-    # attacker has no later decision point; the intent is captured here.
-    # Concede order is attacker-then-defender, so an attacker Concede
-    # takes precedence over a defender Concede in the same Round.
-    attacker_concede: bool = False
+    # attacker has no later decision point; the intent is captured here
+    # as the Round at which the attacker Concedes (None = no Concede,
+    # 1 = at the start, N = at the start of Round N). Concede order is
+    # attacker-then-defender, so an attacker Concede takes precedence
+    # over a defender Concede in the same Round.
+    attacker_concede_round: int | None = None
 
     # R198: per-combat casualty-absorption policy chosen by each owner.
     # Either "weakest_first" (default), "armored_first", or a custom
