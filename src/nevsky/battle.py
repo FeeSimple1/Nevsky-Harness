@@ -31,7 +31,7 @@ from typing import Any
 
 from nevsky.rng import roll_d6
 from nevsky.state import GameState, Side
-from nevsky.static_data import load_forces, load_lords, load_ways
+from nevsky.static_data import load_forces, load_ways
 
 ForceCounts = dict[str, int]
 
@@ -1282,7 +1282,7 @@ def resolve_battle(
             ambush_disable_for = None
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
         # (round up). conceder is "attacker" or "defender" or None.
-        for label, kind, striker_lords, target_lords in steps:
+        for label, kind, striker_lords, _target_lords in steps:
             step_state: dict = {}  # AUDIT-002: Warrior Monks per-step reroll budget
             striker_role = ("attacker" if striker_lords is attacker_lords
                              else "defender")
@@ -1311,7 +1311,6 @@ def resolve_battle(
             per_target_cb_raw: dict[str, float] = {}
             per_target_norm_raw: dict[str, float] = {}
             per_striker_log: list[dict[str, Any]] = []
-            forces_table = load_forces()
             for lid in striker_lords:
                 if lid not in state.lords:
                     continue
@@ -1566,7 +1565,7 @@ def resolve_battle(
 
         log.append(round_log)
         # Common return-shape helper.
-        def _ret(winner: Side, loser: Side, **extra: Any) -> dict[str, Any]:
+        def _ret(winner: Side, loser: Side, rounds: int = rounds, **extra: Any) -> dict[str, Any]:
             r = {
                 "rounds": rounds, "winner": winner, "loser": loser,
                 "attacker_lords": attacker_lords,
@@ -1965,7 +1964,7 @@ def resolve_storm(
         # Defender may swap their Front Lord with any Reserve Lord.
         if rounds >= 2:
             repo_log: dict[str, Any] = {}
-            for side_label, positions, side_lords in (
+            for side_label, positions, _side_lords in (
                 ("attacker", atk_storm_pos, attacker_lords),
                 ("defender", def_storm_pos, defender_lords),
             ):

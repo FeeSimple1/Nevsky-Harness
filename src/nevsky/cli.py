@@ -47,7 +47,7 @@ def new(
         state = load_scenario(scenario, seed=seed)
     except ScenarioPlaceholderError as e:
         typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(state.model_dump_json(indent=2) + "\n", encoding="utf-8")
     typer.echo(f"wrote {output}")
@@ -76,7 +76,7 @@ def state(
             typer.echo(render_focus(s, focus))
         except ValueError as e:
             typer.echo(f"error: {e}", err=True)
-            raise typer.Exit(code=2)
+            raise typer.Exit(code=2) from None
     else:
         typer.echo(f"error: unknown mode {mode!r} (use summary | verbose | focus)", err=True)
         raise typer.Exit(code=2)
@@ -112,12 +112,12 @@ def do(
         action = json.loads(action_text)
     except json.JSONDecodeError as e:
         typer.echo(f"error: action_file is not valid JSON: {e}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
     try:
         result = apply_action(s, action)
     except IllegalAction as e:
         typer.echo(f"illegal_action: {e}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
     target = output if output is not None else state_file
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(s.model_dump_json(indent=2) + "\n", encoding="utf-8")

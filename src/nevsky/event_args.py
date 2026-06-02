@@ -118,7 +118,6 @@ def _populate_event_args(state, cid, args):
                     break
     elif cid == "T15":
         # Russian-territory locale within 2 of ostrov, not ravaged, no Russian Lord/Stronghold
-        from nevsky.static_data import load_ways
         static = load_locales()
         ways = load_ways()
         adj = {}
@@ -147,7 +146,6 @@ def _populate_event_args(state, cid, args):
             new.setdefault("locale", "ostrov")
     elif cid == "R12":
         # Mirror of T15 with rositten
-        from nevsky.static_data import load_ways
         static = load_locales()
         ways = load_ways()
         adj = {}
@@ -230,7 +228,6 @@ def _expand_event_variants(state, move):
     cid = move.get("args", {}).get("card_id")
     if cid is None:
         return [move]
-    cal = state.calendar
     base = {k: v for k, v in move.items() if k in ("type", "side", "args")}
     variants = []
     def variant(extra_args):
@@ -274,7 +271,6 @@ def _expand_event_variants(state, move):
                 variant({"locale": lid})
     elif cid in ("T15", "R12"):
         # Try each candidate locale within 2 of ostrov/rositten.
-        from nevsky.static_data import load_ways, load_locales
         center = "ostrov" if cid == "T15" else "rositten"
         ways = load_ways()
         adj = {}

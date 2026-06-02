@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nevsky.actions import IllegalAction, apply_action
+from nevsky.actions import apply_action
 from nevsky.legal_moves import legal_moves
 
 

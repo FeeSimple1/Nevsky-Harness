@@ -111,17 +111,17 @@ def review_prompt_for_llm(session) -> str:
         f"  Final mustered T: {art['final_t_mustered']}",
         f"  Final mustered R: {art['final_r_mustered']}",
         f"  Total actions: {art['total_actions']}",
-        f"",
+        "",
         "## Action mix",
     ]
     for typ, n in art["action_counts"].items():
         lines.append(f"  {typ}: {n}")
-    lines.append(f"")
+    lines.append("")
     lines.append(f"## Key events ({len(art['key_events'])})")
     for ev in art["key_events"][:30]:
         lines.append(f"  - {ev['action_type']} ({ev['side']}, {ev.get('step')}): "
                      f"{_json.dumps(ev['summary'], default=str)[:120]}")
-    lines.append(f"")
+    lines.append("")
     lines.append(f"## Your reasoning log ({len(art['llm_reasoning_log'])} entries)")
     for r in art["llm_reasoning_log"][:20]:
         lines.append(f"  - {r['action']}: {r['reasoning'][:200]}")

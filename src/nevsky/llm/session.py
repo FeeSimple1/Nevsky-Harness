@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from nevsky.actions import IllegalAction, apply_action
-from nevsky.scenarios import (SCENARIO_IDS, determine_scenario_winner,
+from nevsky.scenarios import (determine_scenario_winner,
                               load_scenario)
 from nevsky.state import GameState
 

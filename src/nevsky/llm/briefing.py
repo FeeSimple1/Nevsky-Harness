@@ -16,9 +16,7 @@ priors stay in the system prompt; the briefing is just state.
 """
 from __future__ import annotations
 
-from typing import Any
 
-from nevsky.scenarios import determine_scenario_winner
 from nevsky.static_data import load_lords
 
 
@@ -68,14 +66,14 @@ def briefing_for_side(state, side: str) -> str:
 
     # Header
     lines.append(f"# Nevsky game state — you play {side.upper()}")
-    lines.append(f"")
+    lines.append("")
     lines.append(f"Scenario: {state.meta.scenario_id}  Seed: {state.meta.seed}  "
                  f"Calendar box: {state.meta.box} ({_season_for_box(state.meta.box)})")
     lines.append(f"Span: box {state.meta.span_start_box} → {state.meta.span_end_box}")
 
     # Phase
-    lines.append(f"")
-    lines.append(f"## Phase")
+    lines.append("")
+    lines.append("## Phase")
     if state.meta.phase == "levy":
         step = state.meta.levy_step
         active = state.meta.active_player
@@ -100,8 +98,8 @@ def briefing_for_side(state, side: str) -> str:
                              f"(next reveal: {state.campaign_turn.next_to_reveal}).")
             if state.combat_pending is not None:
                 cp = state.combat_pending
-                lines.append(f"")
-                lines.append(f"### COMBAT PENDING")
+                lines.append("")
+                lines.append("### COMBAT PENDING")
                 lines.append(f"Attacker: {cp.attacker_side} from {cp.from_locale} via "
                              f"{cp.way_type} to {cp.to_locale}.")
                 lines.append(f"Attacker group: {cp.attacker_group}.")
@@ -109,14 +107,14 @@ def briefing_for_side(state, side: str) -> str:
                 lines.append(f"Response owed by: **{cp.pending_response_by}** "
                              f"(options: avoid_battle / withdraw / stand_battle).")
                 if cp.ambush_block_pending:
-                    lines.append(f"AMBUSH BLOCK INTERRUPT: attacker has T6/R6 Ambush in holds; "
-                                 f"play_ambush_block or decline_ambush_block.")
+                    lines.append("AMBUSH BLOCK INTERRUPT: attacker has T6/R6 Ambush in holds; "
+                                 "play_ambush_block or decline_ambush_block.")
     else:
         lines.append(f"Phase: {state.meta.phase}")
 
     # VP
-    lines.append(f"")
-    lines.append(f"## Victory Points")
+    lines.append("")
+    lines.append("## Victory Points")
     lines.append(f"Teutonic: {state.calendar.teutonic_vp:.1f}  "
                  f"Russian: {state.calendar.russian_vp:.1f}")
     if state.meta.special_rules.get("victory_override") == "watland":
@@ -127,7 +125,7 @@ def briefing_for_side(state, side: str) -> str:
                      f"R removed by T: {state.calendar.pleskau_lords_removed_russian}).")
 
     # Your Lords
-    lines.append(f"")
+    lines.append("")
     lines.append(f"## Your Lords ({side})")
     for lid, lord in state.lords.items():
         if lord.side != side:
@@ -158,7 +156,7 @@ def briefing_for_side(state, side: str) -> str:
             lines.append(f"    Lieutenant of {lord.has_lower_lord}")
 
     # Opponent Lords (public info only)
-    lines.append(f"")
+    lines.append("")
     lines.append(f"## Opponent Lords ({other})")
     for lid, lord in state.lords.items():
         if lord.side != other:
@@ -179,8 +177,8 @@ def briefing_for_side(state, side: str) -> str:
 
     # Own deck
     own_deck = state.decks.teutonic if side == "teutonic" else state.decks.russian
-    lines.append(f"")
-    lines.append(f"## Your AoW deck")
+    lines.append("")
+    lines.append("## Your AoW deck")
     lines.append(f"deck: {len(own_deck.deck)} cards  discard: {len(own_deck.discard)} cards  "
                  f"removed: {len(own_deck.removed)} cards")
     if own_deck.pending_draw:
@@ -198,20 +196,20 @@ def briefing_for_side(state, side: str) -> str:
 
     # Opponent's PUBLIC deck info (capabilities only)
     other_deck = state.decks.teutonic if other == "teutonic" else state.decks.russian
-    lines.append(f"")
-    lines.append(f"## Opponent deck (public info only)")
+    lines.append("")
+    lines.append("## Opponent deck (public info only)")
     lines.append(f"side capabilities in play: {other_deck.capabilities_in_play}")
     lines.append(f"this-Campaign events: {other_deck.this_campaign_events}")
     lines.append(f"opponent hold/draw/plan counts: holds={len(other_deck.holds)} "
                  f"pending_draw={len(other_deck.pending_draw)} plan={len(other_deck.plan)}")
 
     # Veche / Legate
-    lines.append(f"")
-    lines.append(f"## Veche")
+    lines.append("")
+    lines.append("## Veche")
     lines.append(f"VP markers: {state.veche.vp_markers}  Coin: {state.veche.coin}  "
                  f"acted this CtA: {state.veche.acted_this_call_to_arms}")
-    lines.append(f"")
-    lines.append(f"## Legate (William of Modena)")
+    lines.append("")
+    lines.append("## Legate (William of Modena)")
     if state.legate.william_of_modena_in_play:
         lines.append(f"In play. Pawn at: "
                      f"{state.legate.locale_id if state.legate.location == 'locale' else 'on card'}. "
@@ -220,8 +218,8 @@ def briefing_for_side(state, side: str) -> str:
         lines.append("NOT in play (T13 William of Modena not Levied yet, or discarded).")
 
     # Key locale flags (Conquered / Ravaged / Castle / siege)
-    lines.append(f"")
-    lines.append(f"## Locale notes")
+    lines.append("")
+    lines.append("## Locale notes")
     notable = []
     for lid, loc in state.locales.items():
         markers = []

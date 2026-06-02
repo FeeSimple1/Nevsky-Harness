@@ -32,7 +32,6 @@ from nevsky.actions import (
     _require_active,
     _require_side_player,
     _season_of_box,
-    _shift_service_right,
     _side_deck,
 )
 from nevsky.state import GameState, Side
@@ -341,7 +340,6 @@ def _h_command_reveal(
     deck.plan = deck.plan[1:]
 
     state.campaign_turn.active_card = card
-    static = load_lords()
     if card == "pass":
         # 4.2.3 Pass: no actions; flip to other side; enter 4.8 (Feed/Pay/Disband)
         # for cards that did not move/fight no MOVED_FOUGHT lords -> trivial.
@@ -755,7 +753,6 @@ def _h_fpd_resolve(
             feed_results.append({"lord_id": lord_id, "units": 0, "cost": 0,
                                   "consumed": consumed, "unfed": False})
             continue
-        own_avail = lord.assets.get("provender", 0) + lord.assets.get("loot", 0)
         # try own provender first, then loot
         remaining = cost
         if remaining > 0 and lord.assets.get("provender", 0) > 0:
@@ -1250,7 +1247,6 @@ def _h_cmd_sail(
         # Greedily discard to fit budget — Loot first (2 Ships saved
         # per discard), then Provender. Honor explicit per-arg caps
         # when given as int; True means up to all available.
-        budget = ships_available - horse_ship_need
         # Distribute discards across group members (Lord may discard
         # from each own mat). The 1.7.2 rule is per-Lord; we apply
         # discard greedily across the group, recording per-Lord delta.
@@ -1527,7 +1523,7 @@ def _h_cmd_supply(
     if transport_needed:
         # Pool from active Lord + co-located own-side Lords.
         pool: dict[str, int] = {}
-        for ol_id, ol in state.lords.items():
+        for _ol_id, ol in state.lords.items():
             if ol.state != "mustered" or ol.side != sd:
                 continue
             if ol.location != lord.location:
@@ -2523,7 +2519,7 @@ def _h_avoid_battle(
 
     args.to: destination locale_id.
     """
-    from nevsky.battle import _usable_transport_count_for_way, _way_type_between
+    from nevsky.battle import _usable_transport_count_for_way
 
     sd = _require_side_player(state, side)
     cp = state.combat_pending
@@ -2648,7 +2644,7 @@ def _h_avoid_battle(
     # cmd_sail). Avoid Battle also moves a Lord onto a destination —
     # if that's a Russian trade_route and no native (Russian) Lord
     # contests, the flip should fire on the defender's arrival.
-    _trade_flip_avoid = _flip_trade_route_if_uncontested(state, dest, cp.defender_side)
+    _flip_trade_route_if_uncontested(state, dest, cp.defender_side)
 
     # 1.4.1 Legate trigger: if any Teutonic defender Avoided and the
     # Legate is at the Avoid origin (cp.to_locale, where the Lord just
@@ -3085,7 +3081,6 @@ def _h_stand_battle(
         # Loot and excess Provender beyond Unladen along the Retreat
         # Way. Retreated-without-conceding losers transfer all Assets
         # except Ships.
-        loser_side = cp.attacker_side if result["loser"] == cp.attacker_side else cp.defender_side
         conceded_side = result.get("conceded")
         if conceded_side is not None:
             # conceded_side is "attacker" or "defender" relative to combat.
@@ -3221,7 +3216,7 @@ def _effective_stronghold(state: GameState, locale_id: str) -> dict[str, Any] | 
     defender (consistent with the SMOKE-054 design; Conquered markers
     + Castle flip on Conquest jointly track ownership transitions).
     """
-    from nevsky.static_data import load_locales, load_strongholds
+    from nevsky.static_data import load_strongholds
     base = _stronghold_at(locale_id)
     loc = state.locales.get(locale_id)
     has_overlay = bool(loc and (loc.teutonic_castle or loc.russian_castle))
@@ -3390,7 +3385,7 @@ def _h_cmd_siege(
     besieged = _besieged_lords_at(state, locale_id, defending_side)
 
     # Mark all Lords at the Locale MOVED_FOUGHT (4.5.1 marking rule).
-    for lid, l in state.lords.items():
+    for _lid, l in state.lords.items():
         if l.location == locale_id:
             l.moved_fought = True
 
@@ -3482,7 +3477,7 @@ def _h_cmd_storm(
         raise IllegalAction("no_attackers", "no besieging Lords at this Stronghold")
 
     # Mark all Lords at Locale MOVED_FOUGHT (4.5.2 marking).
-    for lid, l in state.lords.items():
+    for _lid, l in state.lords.items():
         if l.location == locale_id:
             l.moved_fought = True
 
@@ -3663,7 +3658,7 @@ def _h_cmd_sally(
         raise IllegalAction("no_defenders", "no besieging enemy Lords to Sally against")
 
     # Mark all Lords at Locale MOVED_FOUGHT.
-    for lid, l in state.lords.items():
+    for _lid, l in state.lords.items():
         if l.location == locale_id:
             l.moved_fought = True
 
