@@ -148,6 +148,12 @@ class Calendar(BaseModel):
     # from one whose SERVICE marker did. Phase 7 split (Round 7).
     off_left_service: list[str] = Field(default_factory=list, description="Service markers past the left edge.")
     off_right_service: list[str] = Field(default_factory=list, description="Service markers past the right edge.")
+    # Vassal Service markers past either edge (3.4.2 Advanced Vassal
+    # Service). Mirrors off_*_service so off-Calendar Vassal markers are
+    # rostered (rule 2.2.3) rather than encoded as an out-of-range
+    # calendar_box sentinel.
+    off_left_vassal: list[str] = Field(default_factory=list, description="Vassal Service markers past the left edge.")
+    off_right_vassal: list[str] = Field(default_factory=list, description="Vassal Service markers past the right edge.")
     russian_vp: float = 0.0
     teutonic_vp: float = 0.0
     pleskau_lords_removed_russian: int = 0
@@ -476,3 +482,71 @@ class GameState(BaseModel):
     combat_pending: CombatPending | None = None
     pending_decisions: list[PendingDecision] = Field(default_factory=list)
     history: list[HistoryEntry] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Vassal Service marker helpers (3.4.2 Advanced Vassal Service)
+# ---------------------------------------------------------------------------
+# Off-Calendar Vassal markers are rostered in Calendar.off_left_vassal /
+# off_right_vassal (parity with Lord off_*_service, rule 2.2.3) instead of
+# being encoded as an out-of-range calendar_box. On-track markers keep
+# calendar_box in 1..16; off-edge markers set calendar_box=None and join
+# the relevant roster. The effective position is 1..16 on the track, 17
+# off the right edge, 0 off the left edge.
+
+
+def vassal_marker_box(cal: "Calendar", vid: str, vstate: "VassalState") -> int | None:
+    """Effective Calendar position of a Vassal Service marker, or None if
+    it is not on the Calendar. 1..16 on the track, 17 off-right, 0
+    off-left."""
+    if not vstate.on_calendar:
+        return None
+    if vstate.calendar_box is not None:
+        return vstate.calendar_box
+    if vid in cal.off_right_vassal:
+        return 17
+    if vid in cal.off_left_vassal:
+        return 0
+    return None
+
+
+def detach_vassal_marker(cal: "Calendar", vid: str, vstate: "VassalState") -> None:
+    """Remove a Vassal Service marker from its current Calendar location
+    (a box list or an off-edge roster). Leaves on_calendar unchanged."""
+    if vid in cal.off_right_vassal:
+        cal.off_right_vassal.remove(vid)
+    if vid in cal.off_left_vassal:
+        cal.off_left_vassal.remove(vid)
+    if vstate.calendar_box is not None and 1 <= vstate.calendar_box <= 16:
+        markers = cal.boxes[vstate.calendar_box - 1].vassal_service_markers
+        if vid in markers:
+            markers.remove(vid)
+
+
+def move_vassal_marker(cal: "Calendar", vid: str, vstate: "VassalState", new_box: int) -> int:
+    """Move a Vassal Service marker to new_box, detaching it from its
+    current location first. new_box > 16 lands off the right edge
+    (off_right_vassal); new_box < 1 off the left edge (off_left_vassal).
+    Off-edge markers keep on_calendar=True with calendar_box=None.
+    Returns the effective box (1..16, 17, or 0)."""
+    detach_vassal_marker(cal, vid, vstate)
+    vstate.on_calendar = True
+    if new_box > 16:
+        cal.off_right_vassal.append(vid)
+        vstate.calendar_box = None
+        return 17
+    if new_box < 1:
+        cal.off_left_vassal.append(vid)
+        vstate.calendar_box = None
+        return 0
+    cal.boxes[new_box - 1].vassal_service_markers.append(vid)
+    vstate.calendar_box = new_box
+    return new_box
+
+
+def clear_vassal_marker(cal: "Calendar", vid: str, vstate: "VassalState") -> None:
+    """Take a Vassal Service marker off the Calendar entirely (disband,
+    permanent removal, or return to the Lord's mat)."""
+    detach_vassal_marker(cal, vid, vstate)
+    vstate.on_calendar = False
+    vstate.calendar_box = None

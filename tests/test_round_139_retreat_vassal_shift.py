@@ -91,8 +91,10 @@ def test_smoke_103_shifts_vassal_marker_left_when_optional_rule_on():
 
 
 def test_smoke_103_vassal_off_calendar_left_sentinel():
-    """If shift takes vassal past box 1, calendar_box is set to 0
-    sentinel (matching _shift_service_right convention)."""
+    """If shift takes a Vassal marker past box 1 it lands off the left
+    edge: calendar_box is None and the marker joins the
+    calendar.off_left_vassal roster (rule 2.2.3 parity with Lord
+    off_*_service); the effective position is 0."""
     from nevsky.scenarios import load_scenario
     s = load_scenario("watland", seed=1)
     s.meta.optional_rules["advanced_vassal_service"] = True
@@ -132,7 +134,11 @@ def test_smoke_103_vassal_off_calendar_left_sentinel():
         s.calendar.boxes[1].service_markers.append(teu)
         shift = battle.apply_retreat_service_shift(s, teu)
         if shift >= 2:
-            assert s.lords[teu].vassals[vid].calendar_box == 0
+            from nevsky.state import vassal_marker_box
+            v = s.lords[teu].vassals[vid]
+            assert v.calendar_box is None
+            assert vid in s.calendar.off_left_vassal
+            assert vassal_marker_box(s.calendar, vid, v) == 0
             return
     # If we never get shift >= 2 in 20 attempts the test setup is broken.
     raise AssertionError("did not find a seed with shift >= 2")

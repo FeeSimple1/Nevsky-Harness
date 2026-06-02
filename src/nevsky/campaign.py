@@ -34,7 +34,13 @@ from nevsky.actions import (
     _season_of_box,
     _side_deck,
 )
-from nevsky.state import GameState, Side
+from nevsky.state import (
+    GameState,
+    Side,
+    detach_vassal_marker,
+    move_vassal_marker,
+    vassal_marker_box,
+)
 from nevsky.static_data import load_locales, load_lords, load_ways
 
 # ---------------------------------------------------------------------------
@@ -807,17 +813,10 @@ def _h_fpd_resolve(
                 # is enabled (off by default).
                 if state.meta.optional_rules.get("advanced_vassal_service", False):
                     for vid, vstate in state.lords[lord_id].vassals.items():
-                        if not vstate.on_calendar or vstate.calendar_box is None:
+                        cur = vassal_marker_box(state.calendar, vid, vstate)
+                        if cur is None:
                             continue
-                        ob = vstate.calendar_box
-                        if 1 <= ob <= 16 and vid in state.calendar.boxes[ob - 1].vassal_service_markers:
-                            state.calendar.boxes[ob - 1].vassal_service_markers.remove(vid)
-                        tgt = ob - 1
-                        if tgt < 1:
-                            vstate.calendar_box = 0
-                        else:
-                            state.calendar.boxes[tgt - 1].vassal_service_markers.append(vid)
-                            vstate.calendar_box = tgt
+                        move_vassal_marker(state.calendar, vid, vstate, cur - 1)
         feed_results.append({
             "lord_id": lord_id,
             "units": n_units,
@@ -1622,10 +1621,8 @@ def _disband_special_vassals(state: GameState, side: str, special_kind: str
             was_ready = vstate.ready
             vstate.mustered = False
             vstate.ready = False
-            if vstate.on_calendar and vstate.calendar_box is not None:
-                cb_idx = vstate.calendar_box - 1
-                if 0 <= cb_idx < 16 and vid in cal.boxes[cb_idx].vassal_service_markers:
-                    cal.boxes[cb_idx].vassal_service_markers.remove(vid)
+            if vstate.on_calendar:
+                detach_vassal_marker(cal, vid, vstate)
                 vstate.on_calendar = False
                 vstate.calendar_box = None
             disbanded.append({

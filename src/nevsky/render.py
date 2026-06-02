@@ -197,6 +197,10 @@ def render_summary(state: GameState) -> str:
         lines.append(f"  off-left (svc): {', '.join(state.calendar.off_left_service)}")
     if state.calendar.off_right_service:
         lines.append(f"  off-right (svc): {', '.join(state.calendar.off_right_service)}")
+    if state.calendar.off_left_vassal:
+        lines.append(f"  off-left (vassal svc): {', '.join(state.calendar.off_left_vassal)}")
+    if state.calendar.off_right_vassal:
+        lines.append(f"  off-right (vassal svc): {', '.join(state.calendar.off_right_vassal)}")
 
     # Locale markers (only non-empty)
     map_lines = _summarize_locale_markers(state.locales)
@@ -459,6 +463,10 @@ def _render_calendar(calendar: Calendar) -> str:
         lines.append(f"  off-left (service): {calendar.off_left_service}")
     if calendar.off_right_service:
         lines.append(f"  off-right (service): {calendar.off_right_service}")
+    if calendar.off_left_vassal:
+        lines.append(f"  off-left (vassal service): {calendar.off_left_vassal}")
+    if calendar.off_right_vassal:
+        lines.append(f"  off-right (vassal service): {calendar.off_right_vassal}")
     return "\n".join(lines)
 
 

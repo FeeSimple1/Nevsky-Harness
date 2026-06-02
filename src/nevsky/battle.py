@@ -30,7 +30,7 @@ import math
 from typing import Any
 
 from nevsky.rng import roll_d6
-from nevsky.state import GameState, Side
+from nevsky.state import GameState, Side, move_vassal_marker, vassal_marker_box
 from nevsky.static_data import load_forces, load_ways
 
 ForceCounts = dict[str, int]
@@ -1402,22 +1402,27 @@ def resolve_battle(
                     this_cb_raw = this_cb_raw / 2.0
                     this_norm_raw = this_norm_raw / 2.0
                 # Find target via positions.
+                # Q-008 Ambush (T6/R6 card text): in Round 1 the enemy's
+                # left/right front Lords are "uninvolved" -- they cannot
+                # absorb Hits nor Rout. The ambushing side's Lords at
+                # left/right therefore FLANK the enemy's center Lord
+                # rather than losing their Strike. Exclude the uninvolved
+                # enemy left/right from the target set so _strike_target
+                # routes onto an involved Lord (the center / a Flank
+                # target) instead of dropping the contribution.
+                target_enemy_positions = enemy_positions
+                if (ambush_disable_for is not None
+                        and ambush_disable_for != striker_role
+                        and rounds == 1):
+                    target_enemy_positions = {
+                        _l: _p for _l, _p in enemy_positions.items()
+                        if _p not in ("left", "right")
+                    }
                 target_lid = _strike_target(
-                    striker_positions[lid], enemy_positions, decision_ctx,
+                    striker_positions[lid], target_enemy_positions, decision_ctx,
                     side_label, state,
                 )
                 if target_lid is None:
-                    continue
-                # Q-008 Ambush: Round 1 disables enemy left/right Lords
-                # from being targeted (they're "uninvolved").
-                if (ambush_disable_for is not None
-                        and ambush_disable_for != striker_role
-                        and rounds == 1
-                        and enemy_positions.get(target_lid) in ("left", "right")):
-                    # Reroute via _strike_target to a non-disabled slot
-                    # if any. The simplest correct behavior: skip this
-                    # striker's contribution if the only available
-                    # target is disabled.
                     continue
                 per_target_cb_raw[target_lid] = per_target_cb_raw.get(target_lid, 0.0) + this_cb_raw
                 per_target_norm_raw[target_lid] = per_target_norm_raw.get(target_lid, 0.0) + this_norm_raw
@@ -1669,23 +1674,10 @@ def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
     if state.meta.optional_rules.get("advanced_vassal_service", False):
         if lord_id in state.lords:
             for vid, vstate in state.lords[lord_id].vassals.items():
-                if not vstate.on_calendar or vstate.calendar_box is None:
+                cur = vassal_marker_box(cal, vid, vstate)
+                if cur is None:
                     continue
-                old_v_box = vstate.calendar_box
-                if 1 <= old_v_box <= 16:
-                    vcb = cal.boxes[old_v_box - 1]
-                    if vid in vcb.vassal_service_markers:
-                        vcb.vassal_service_markers.remove(vid)
-                target_v = old_v_box - boxes
-                if target_v < 1:
-                    # Sentinel for off-left vassal position (matches
-                    # actions._shift_service_right convention).
-                    vstate.calendar_box = 0
-                elif target_v > 16:
-                    vstate.calendar_box = 17
-                else:
-                    cal.boxes[target_v - 1].vassal_service_markers.append(vid)
-                    vstate.calendar_box = target_v
+                move_vassal_marker(cal, vid, vstate, cur - boxes)
     return boxes
 
 
