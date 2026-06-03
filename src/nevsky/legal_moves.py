@@ -847,8 +847,8 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     adj.append((w["a"], w.get("type", "?")))
             from nevsky.campaign import (
                 _has_enemy_stronghold_at,
-                _is_laden as _il_mr,
-                _must_discard_to_move_excess as _mdme_mr,
+                _group_excess_provender as _grp_excess_mr,
+                _group_is_laden as _grp_laden_mr,
             )
             for dest, way_type in adj:
                 # SMOKE-128 (Round 190): cmd_march costs 1 action
@@ -868,7 +868,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 # with insufficient_actions / excess_provender).
                 _lower = state.lords[active_lord].has_lower_lord
                 march_group = [active_lord] + ([_lower] if _lower is not None else [])
-                march_laden = any(_il_mr(state, gid, way_type=way_type) for gid in march_group)
+                # 4.3.2 SHARED TRANSPORT: Laden/excess use the GROUP's
+                # combined Provender vs combined usable Transport.
+                march_laden = _grp_laden_mr(state, march_group, way_type=way_type)
                 march_cost = 2 if march_laden else 1
                 if state.campaign_turn.actions_remaining < march_cost:
                     continue
@@ -878,7 +880,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 # an explicit args.discard_excess_provender=True to
                 # auto-discard. Emit the flag when ANY group member
                 # would trip the gate, so every emitted cmd_march is legal.
-                excess_mr = sum(_mdme_mr(state, gid, way_type=way_type) for gid in march_group)
+                excess_mr = _grp_excess_mr(state, march_group, way_type=way_type)
                 base_note = f"March {active_lord} {here}->{dest} via {way_type} (cost={march_cost})"
                 args_mr: dict[str, Any] = {"lord_id": active_lord, "to": dest}
                 # SMOKE-159 (R222, surfaced by the validated palette): pin
