@@ -91,10 +91,14 @@ def test_case1_final_teutonic_disband_russia_wins() -> None:
     w = determine_scenario_winner(s)
     assert w["winner"] == "russian"
     assert w["applied_override"] == "campaign_victory"
+    # terminal outcome recorded on the single game_over flag
+    assert s.meta.game_over is True
+    assert s.meta.winner == "russian"
+    assert s.meta.victory_reason and "5.2" in s.meta.victory_reason
     # no further actions accepted
     with pytest.raises(IllegalAction) as exc:
         apply_action(s, {"type": "end_card", "side": "russian", "args": {}})
-    assert exc.value.code == "campaign_over"
+    assert exc.value.code == "game_over"
 
 
 # --------------------------------------------------------------------------
@@ -114,9 +118,11 @@ def test_case2_final_russian_disband_teutons_win() -> None:
     w = determine_scenario_winner(s)
     assert w["winner"] == "teutonic"
     assert w["applied_override"] == "campaign_victory"
+    assert s.meta.game_over is True
+    assert s.meta.winner == "teutonic"
     with pytest.raises(IllegalAction) as exc:
         apply_action(s, {"type": "end_card", "side": "teutonic", "args": {}})
-    assert exc.value.code == "campaign_over"
+    assert exc.value.code == "game_over"
 
 
 # --------------------------------------------------------------------------
@@ -169,6 +175,7 @@ def test_case4_fpd_resolve_does_not_advance_after_final_disband() -> None:
     w = determine_scenario_winner(s)
     assert w["winner"] == "russian"
     assert w["applied_override"] == "campaign_victory"
+    assert s.meta.game_over is True
 
 
 # --------------------------------------------------------------------------
@@ -273,3 +280,71 @@ def test_disband_resolve_only_offered_when_pending() -> None:
     keep = _mustered(s, "teutonic")[0]
     _service_to(s, keep, lb)
     assert "disband_resolve" in {m["type"] for m in legal_moves(s)}
+
+
+# --------------------------------------------------------------------------
+# No-op fix: disband_resolve repeat is rejected (strict reading)
+# --------------------------------------------------------------------------
+def test_disband_resolve_repeat_rejected() -> None:
+    """A side resolves Disband in one pass; a second disband_resolve in the
+    same Disband step is a no-op loop and is rejected."""
+    s = load_scenario("pleskau", seed=1)
+    s.meta.phase = "levy"                       # type: ignore[assignment]
+    s.meta.levy_step = "disband"                # type: ignore[assignment]
+    s.meta.active_player = "teutonic"
+    s.meta.disband_resolved_t = False
+
+    apply_action(s, {"type": "disband_resolve", "side": "teutonic", "args": {}})
+    assert s.meta.disband_resolved_t is True
+
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "disband_resolve", "side": "teutonic", "args": {}})
+    assert exc.value.code == "already_resolved"
+
+
+def test_disband_resolved_latch_resets_each_disband_step() -> None:
+    """Advancing into a fresh Disband step clears the per-side latch so the
+    next Levy's Disband can be resolved again."""
+    s = load_scenario("pleskau", seed=1)
+    s.meta.phase = "levy"                       # type: ignore[assignment]
+    s.meta.levy_step = "pay"                    # type: ignore[assignment]
+    s.meta.active_player = "teutonic"
+    s.meta.disband_resolved_t = True            # stale from a prior step
+    s.meta.disband_resolved_r = True
+    # advance pay -> disband (T then R) re-enters the Disband step
+    apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
+    apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
+    assert s.meta.levy_step == "disband"
+    assert s.meta.disband_resolved_t is False
+    assert s.meta.disband_resolved_r is False
+
+
+# --------------------------------------------------------------------------
+# 5.3 End of Scenario also sets the terminal flag and records the winner
+# --------------------------------------------------------------------------
+def test_end_of_scenario_sets_game_over_and_records_winner() -> None:
+    s = load_scenario("pleskau", seed=1)
+    # both sides keep Mustered Lords -> this is a 5.3 VP end, not 5.2
+    assert len(_mustered(s, "teutonic")) >= 1
+    assert len(_mustered(s, "russian")) >= 1
+    s.meta.phase = "campaign"                   # type: ignore[assignment]
+    s.meta.campaign_step = "end_campaign"       # type: ignore[assignment]
+    s.meta.box = s.meta.span_end_box            # final 40-Days
+    s.meta.active_player = "teutonic"
+    s.meta.end_campaign_completed_t = False
+    s.meta.end_campaign_completed_r = False
+    s.calendar.teutonic_vp = 3.0
+    s.calendar.russian_vp = 1.0
+
+    apply_action(s, {"type": "end_campaign_resolve", "side": "teutonic", "args": {}})
+    res = apply_action(s, {"type": "end_campaign_resolve", "side": "russian", "args": {}})
+
+    assert res.get("game_over") is True
+    assert s.meta.game_over is True
+    assert s.meta.campaign_step == "done"
+    assert s.meta.winner in ("teutonic", "russian", "draw")
+    assert s.meta.victory_reason
+    # engine is now terminal: no further actions
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "end_card", "side": "teutonic", "args": {}})
+    assert exc.value.code == "game_over"

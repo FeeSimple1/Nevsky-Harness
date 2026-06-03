@@ -85,6 +85,14 @@ class Meta(BaseModel):
     levy_step: LevyStep = "arts_of_war"
     levy_step_completed_t: bool = False
     levy_step_completed_r: bool = False
+    # Per-side "resolved Disband this Disband step" latch. Mirrors
+    # Legate.acted_this_call_to_arms: the 3.3 Disband for a side is resolved
+    # in one pass, so a second disband_resolve by the same side within the
+    # same Disband step is a pure no-op and is rejected (prevents an
+    # automated player looping on it). Reset when the Disband step is
+    # entered.
+    disband_resolved_t: bool = False
+    disband_resolved_r: bool = False
     first_levy_done: bool = False
     # R199 (SMOKE-132): per-side "already drew this Levy" flags. SoP
     # 3.1 draws exactly 2 AoW cards per Levy (one draw_two_and_implement
@@ -95,6 +103,15 @@ class Meta(BaseModel):
     campaign_step: CampaignStep = "plan"
     plan_complete_t: bool = False
     plan_complete_r: bool = False
+    # Terminal-state record. game_over is the single source of truth for
+    # "the scenario is over"; it is set the instant the game ends, by EITHER
+    # path: 5.2 Campaign Victory (a side reaches zero Mustered Lords during
+    # Campaign) or 5.3 End of Scenario (the final Campaign concludes).
+    # winner / victory_reason record the outcome at that moment (Rules 5.2,
+    # 5.3). Once game_over is True the engine accepts no further actions.
+    game_over: bool = False
+    winner: Literal["teutonic", "russian", "draw"] | None = None
+    victory_reason: str | None = None
     end_campaign_completed_t: bool = False
     end_campaign_completed_r: bool = False
     block_lords_this_levy_t: list[str] = Field(default_factory=list)

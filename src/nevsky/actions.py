@@ -116,24 +116,20 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
 
-    # Rule 5.2 Campaign Victory terminal guard: once a Campaign has ended
-    # because a side has zero Mustered Lords on the map, the engine is
-    # terminal and must reject every further action (no calendar advance,
-    # no phase change, no new card). Gated on the actual zero-Lord
-    # condition so it never trips the battle/aftermath unit tests that use
-    # campaign_step == "done" as a step-bypass sentinel with Lords still on
-    # both sides.
-    if state.meta.phase == "campaign" and state.meta.campaign_step == "done":
-        _teu = sum(1 for L in state.lords.values()
-                   if L.side == "teutonic" and L.state == "mustered")
-        _rus = sum(1 for L in state.lords.values()
-                   if L.side == "russian" and L.state == "mustered")
-        if _teu == 0 or _rus == 0:
-            raise IllegalAction(
-                "campaign_over",
-                "Campaign has ended under Rule 5.2 (a side has zero "
-                "Mustered Lords); no further actions are accepted.",
-            )
+    # Terminal guard: once the scenario is over (game_over flag set the
+    # instant a 5.2 Campaign Victory fires or the final Campaign ends under
+    # 5.3), the engine accepts no further action -- no calendar advance, no
+    # phase change, no new card. Keyed on the explicit flag, NOT on a
+    # campaign_step == "done" recount, so it is unambiguous and never trips
+    # the battle/aftermath unit tests that use "done" as a step-bypass
+    # sentinel without ever ending the game.
+    if state.meta.game_over:
+        raise IllegalAction(
+            "game_over",
+            "the scenario has ended ("
+            + (state.meta.victory_reason or "terminal")
+            + "); no further actions are accepted.",
+        )
 
     # Q-001: auto-confirm setup_transport_choice decisions for the
     # active side at first Levy action (skipping the explicit
@@ -325,6 +321,12 @@ def _h_advance_step(
         state.meta.levy_step_completed_t = False
         state.meta.levy_step_completed_r = False
         state.meta.active_player = "teutonic"
+        if next_step == "disband":
+            # Fresh Disband step: clear the per-side resolved latches so the
+            # first disband_resolve from each side runs, and any second one
+            # is rejected as a no-op (3.3).
+            state.meta.disband_resolved_t = False
+            state.meta.disband_resolved_r = False
         if next_step == "muster":
             # Reset per-Lord Lordship counters at start of Muster (3.4).
             for lord in state.lords.values():
@@ -1055,6 +1057,21 @@ def _h_disband_resolve(
     _require_levy_step(state, "disband")
     _require_active(state, sd)
 
+    # No-op-loop guard: the 3.3 Disband for a side resolves in a single
+    # pass, so a second disband_resolve by the same side in the same
+    # Disband step does nothing. Reject it so an automated player cannot
+    # spin on it.
+    if (sd == "teutonic" and state.meta.disband_resolved_t) or (
+            sd == "russian" and state.meta.disband_resolved_r):
+        raise IllegalAction(
+            "already_resolved",
+            f"{sd} already resolved Disband this Disband step (3.3)",
+        )
+    if sd == "teutonic":
+        state.meta.disband_resolved_t = True
+    else:
+        state.meta.disband_resolved_r = True
+
     static = load_lords()
     levy_box = _find_levy_marker_box(state)
 
@@ -1257,6 +1274,8 @@ def _apply_immediate_campaign_victory(state: GameState) -> bool:
     """
     if state.meta.phase != "campaign":
         return False
+    if state.meta.game_over:
+        return True
     teu = sum(1 for L in state.lords.values()
               if L.side == "teutonic" and L.state == "mustered")
     rus = sum(1 for L in state.lords.values()
@@ -1267,6 +1286,23 @@ def _apply_immediate_campaign_victory(state: GameState) -> bool:
         state.campaign_turn.active_card = None
         state.campaign_turn.active_lord = None
         state.campaign_turn.in_feed_pay_disband = False
+        # Record the terminal outcome (5.2). Both-zero is impossible in one
+        # step (only one side's Lords leave at a time), but guard anyway.
+        if rus == 0 and teu > 0:
+            state.meta.winner = "teutonic"  # type: ignore[assignment]
+            state.meta.victory_reason = (
+                "Campaign Victory 5.2 (Russia has 0 Mustered Lords)")
+        elif teu == 0 and rus > 0:
+            state.meta.winner = "russian"  # type: ignore[assignment]
+            state.meta.victory_reason = (
+                "Campaign Victory 5.2 (Teutons have 0 Mustered Lords)")
+        else:
+            # Both sides empty simultaneously: defer to the canonical 5.3
+            # tie-break on VP (the rule that applies when 5.2 names no
+            # single zero-Lord side).
+            state.meta.victory_reason = (
+                "Campaign Victory 5.2 (both sides 0 Mustered Lords; 5.3 VP)")
+        state.meta.game_over = True
         return True
     return False
 

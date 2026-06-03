@@ -1834,6 +1834,17 @@ def _h_end_campaign_resolve(
             state.meta.phase = "campaign"
             state.meta.campaign_step = "done"
             game_over = True
+            # 5.3 End of Scenario: record the terminal outcome on the single
+            # game_over flag so apply_action rejects any later action and
+            # session/winner reporting has a recorded result. (A 5.2 Campaign
+            # Victory would already have ended the game earlier via
+            # _apply_immediate_campaign_victory; this branch is the VP path.)
+            if not state.meta.game_over:
+                from nevsky.scenarios import determine_scenario_winner
+                _res = determine_scenario_winner(state)
+                state.meta.winner = _res["winner"]
+                state.meta.victory_reason = _res["reason"]
+                state.meta.game_over = True
         else:
             # 4.9.3 Plow & Reap (end of Summer / end of Late Winter only).
             # Per RoP, "end of" means the LAST 40-Days of that season,
