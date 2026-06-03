@@ -1909,6 +1909,7 @@ def resolve_storm(
     garrison: dict[str, int],
     decision_ctx: BattleDecisionContext | None = None,
     attacker_concede_round: int | None = None,
+    holds: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve a Storm at `locale_id` (4.5.2 2E).
 
@@ -1941,6 +1942,10 @@ def resolve_storm(
     """
     log: list[dict[str, Any]] = []
     rounds = 0
+    # T10 Field Organ (playable in Battle OR Storm): Round 1, the named
+    # Lord's Knights AND Sergeants Melee Strike +1.
+    _fo = (holds or {}).get("field_organ_lord") or (holds or {}).get("field_organ")
+    field_organ_lord = _fo if isinstance(_fo, str) else None
     # Local mutable garrison units (separate from Lord forces).
     g_units: dict[str, int] = dict(garrison)
     if decision_ctx is None:
@@ -2100,6 +2105,9 @@ def resolve_storm(
                 lord_melee = _storm_hits_for_units(state.lords[lid].forces, "melee")
                 # Defender Front Lord absorbs Garrison melee under the same cap.
                 lord_melee += _storm_hits_for_units(g_units, "melee")
+                if field_organ_lord == lid and rounds == 1:
+                    _u = state.lords[lid].forces
+                    lord_melee += _u.get("knights", 0) + _u.get("sergeants", 0)
                 def_melee += min(6.0, lord_melee)
         else:
             # SMOKE-015b: garrison-only defense still strikes in melee.
@@ -2107,7 +2115,11 @@ def resolve_storm(
             def_melee = min(6.0, _storm_hits_for_units(g_units, "melee"))
         atk_melee = 0.0
         for lid in atk_front_lords:
-            atk_melee += min(6.0, _storm_hits_for_units(state.lords[lid].forces, "melee"))
+            _am = _storm_hits_for_units(state.lords[lid].forces, "melee")
+            if field_organ_lord == lid and rounds == 1:
+                _u = state.lords[lid].forces
+                _am += _u.get("knights", 0) + _u.get("sergeants", 0)
+            atk_melee += min(6.0, _am)
         # Q-007: per-side Crossbow Hit count derived from raws via
         # 'round in favor of Crossbowmen'. Total stays = ceil(sum).
         def_arch_total = _round_up(def_arch)

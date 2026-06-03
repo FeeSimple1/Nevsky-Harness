@@ -1727,8 +1727,24 @@ def _h_end_campaign_resolve(
         ]
         # Reduce to half rounded UP -> we REMOVE half rounded DOWN so half-up remain.
         to_remove = len(ravaged) // 2
-        # Remove from a deterministic order: sorted by locale id.
-        ravaged_sorted = sorted(ravaged)
+        # 4.9.1: the removing side SELECTS which Enemy Ravaged markers to
+        # reduce. args.grow_remove may name exactly `to_remove` of them;
+        # otherwise fall back to a deterministic sort (which Locales stay
+        # Ravaged is VP-neutral but affects future Forage legality).
+        ravaged_set = set(ravaged)
+        chosen = args.get("grow_remove")
+        if chosen is not None:
+            if not isinstance(chosen, list) or any(c not in ravaged_set for c in chosen):
+                raise IllegalAction(
+                    "bad_grow_remove",
+                    f"grow_remove must list Enemy ({target_color}) Ravaged Locales")
+            if len(set(chosen)) != to_remove:
+                raise IllegalAction(
+                    "bad_grow_remove",
+                    f"grow_remove must name exactly {to_remove} Locale(s) to reduce to half")
+            ravaged_sorted = list(dict.fromkeys(chosen))
+        else:
+            ravaged_sorted = sorted(ravaged)
         for rid in ravaged_sorted[:to_remove]:
             if target_color == "russian":
                 state.locales[rid].russian_ravaged = False
@@ -3129,6 +3145,43 @@ def _h_stand_battle(
         if state.locales[cp.to_locale].siege_markers > 1:
             state.locales[cp.to_locale].siege_markers = 1
             aftermath["sally_raid_siege_to_1"] = True
+    # 4.4.3: a losing DEFENDER may Withdraw into that side's Stronghold at
+    # the Battle Locale (if it has one) instead of Retreating -- keeping
+    # all Assets and becoming Besieged inside. The owning player selects
+    # which losers Withdraw via args.withdraw_losers (True = all eligible,
+    # or a list of lord_ids). Marching/Sallying Attackers cannot Withdraw
+    # this way (handled elsewhere).
+    withdraw_into_sh: set[str] = set()
+    _wl = args.get("withdraw_losers")
+    if _wl and result["loser"] == cp.defender_side:
+        _eff_sh = _effective_stronghold(state, cp.to_locale)
+        _sloc = load_locales()[cp.to_locale]
+        _lst = state.locales[cp.to_locale]
+        _own_terr = ((cp.defender_side == "teutonic" and _sloc["territory"] in ("teutonic", "crusader"))
+                     or (cp.defender_side == "russian" and _sloc["territory"] == "russian"))
+        _own_conq = ((cp.defender_side == "teutonic" and _lst.teutonic_conquered > 0)
+                     or (cp.defender_side == "russian" and _lst.russian_conquered > 0))
+        _enemy_conq = ((cp.defender_side == "teutonic" and _lst.russian_conquered > 0)
+                       or (cp.defender_side == "russian" and _lst.teutonic_conquered > 0))
+        if _eff_sh is not None and not _eff_sh.get("no_storm") and (_own_terr or _own_conq) and not _enemy_conq:
+            _cap = int(_eff_sh.get("capacity", 1))
+            _cands = [lid for lid in loser_lords
+                      if lid in state.lords and state.lords[lid].forces]
+            if _wl is True:
+                _chosen = list(_cands)
+            elif isinstance(_wl, list):
+                _chosen = [lid for lid in _cands if lid in _wl]
+            else:
+                raise IllegalAction("bad_withdraw_losers",
+                                    "withdraw_losers must be true or a list of lord_ids")
+            if len(_chosen) > _cap:
+                raise IllegalAction(
+                    "over_capacity",
+                    f"{cp.to_locale} Stronghold capacity {_cap}; {len(_chosen)} Lords cannot all Withdraw")
+            withdraw_into_sh = set(_chosen)
+        elif isinstance(_wl, list) and _wl:
+            raise IllegalAction("no_withdraw_stronghold",
+                                f"no Friendly Stronghold at {cp.to_locale} to Withdraw into (4.4.3)")
     for lid in list(loser_lords):
         if lid not in state.lords:
             continue
@@ -3145,6 +3198,14 @@ def _h_stand_battle(
                 aftermath.setdefault("ransom", []).append(r)
             _rem(state, lid, load_lords()[lid])
             aftermath["removed"].append(lid)
+            continue
+        if lid in withdraw_into_sh:
+            # 4.4.3 Withdraw: keep all Assets (no Spoils), no Service shift,
+            # Besieged inside the Stronghold at the Battle Locale.
+            lord.in_stronghold = True
+            if state.locales[cp.to_locale].siege_markers == 0:
+                state.locales[cp.to_locale].siege_markers = 1
+            aftermath.setdefault("withdrew", []).append(lid)
             continue
         # Default Phase 3b behavior: loser Retreats to from_locale (attackers)
         # or stays at to_locale (defenders auto-retreat to a random friendly
@@ -3623,6 +3684,23 @@ def _h_cmd_storm(
     # 4.5.2 Storm Concede (attacker only): args.concede = true/'attacker'
     # or a Round int at which the attacker Concedes the Storm.
     storm_concede_round = _parse_concede_round(args.get("concede"), who="attacker")
+    # T10 Field Organ in Storm (playable on Attack OR Defense): consume the
+    # Teutonic hold and pass the target Lord (Knights+Sergeants Melee +1,
+    # Round 1). field_organ_lord must be a Storm participant.
+    storm_holds: dict[str, Any] = {}
+    fo_lord = args.get("field_organ_lord")
+    if fo_lord:
+        if (not isinstance(fo_lord, str) or fo_lord not in (attackers + besieged)
+                or state.lords[fo_lord].side != "teutonic"):
+            raise IllegalAction(
+                "bad_field_organ",
+                "field_organ_lord must be a Teutonic Storm participant (T10)")
+        cid = (args.get("holds") or {}).get("field_organ") or "T10"
+        if cid not in state.decks.teutonic.holds:
+            raise IllegalAction("not_in_holds", f"{cid} not in Teutonic holds")
+        state.decks.teutonic.holds.remove(cid)
+        state.decks.teutonic.discard.append(cid)
+        storm_holds["field_organ_lord"] = fo_lord
     result = resolve_storm(
         state, attacker_side=sd,
         attacker_lords=attackers,
@@ -3633,6 +3711,7 @@ def _h_cmd_storm(
         garrison=dict(sh["garrison"]),
         decision_ctx=storm_ctx,
         attacker_concede_round=storm_concede_round,
+        holds=storm_holds or None,
     )
 
     aftermath: dict[str, Any] = {"battle": result}
