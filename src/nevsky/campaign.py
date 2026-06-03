@@ -660,6 +660,18 @@ def _fpd_finalize(
         if lord.side == sd and lord.moved_fought:
             lord.moved_fought = False
 
+    # Rule 5.2 Campaign Victory: if the Disband check above left either
+    # side with zero Mustered Lords, _disband_at_limit /
+    # _remove_lord_permanently have already marked the campaign terminal
+    # (campaign_step == "done"). Stop here so we do NOT mark the side
+    # complete, advance the reveal pointer, transition to end_campaign, or
+    # advance the calendar past a game that should already be over.
+    if state.meta.campaign_step == "done":
+        return ({"side": sd, "feed": feed_results,
+                 "permanently_removed": permanently_removed,
+                 "disbanded": disbanded, "advanced": False,
+                 "game_over": True}, [])
+
     # Mark side complete.
     if sd == "teutonic":
         state.campaign_turn.fpd_completed_t = True

@@ -116,6 +116,25 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
 
+    # Rule 5.2 Campaign Victory terminal guard: once a Campaign has ended
+    # because a side has zero Mustered Lords on the map, the engine is
+    # terminal and must reject every further action (no calendar advance,
+    # no phase change, no new card). Gated on the actual zero-Lord
+    # condition so it never trips the battle/aftermath unit tests that use
+    # campaign_step == "done" as a step-bypass sentinel with Lords still on
+    # both sides.
+    if state.meta.phase == "campaign" and state.meta.campaign_step == "done":
+        _teu = sum(1 for L in state.lords.values()
+                   if L.side == "teutonic" and L.state == "mustered")
+        _rus = sum(1 for L in state.lords.values()
+                   if L.side == "russian" and L.state == "mustered")
+        if _teu == 0 or _rus == 0:
+            raise IllegalAction(
+                "campaign_over",
+                "Campaign has ended under Rule 5.2 (a side has zero "
+                "Mustered Lords); no further actions are accepted.",
+            )
+
     # Q-001: auto-confirm setup_transport_choice decisions for the
     # active side at first Levy action (skipping the explicit
     # confirm/set/confirm_all actions and system actions). This lets
@@ -1220,6 +1239,38 @@ def _lift_siege_if_no_besiegers(state: GameState, locale_id: str | None) -> bool
     return True
 
 
+def _apply_immediate_campaign_victory(state: GameState) -> bool:
+    """Rule 5.2 Campaign Victory: "If at any moment during a Campaign one
+    side has zero Mustered Lords on the map, the game ends immediately and
+    the other side wins."
+
+    Shared post-removal check funnelled through by EVERY path that can take
+    a Lord off the map (permanent removal 3.3.1, at-limit Disband 3.3.2,
+    Battle/Storm aftermath, etc.). Marks the campaign terminal
+    (campaign_step == "done") and freezes the turn so no further actions
+    are accepted. The canonical winner/reason is derived on demand by
+    scenarios.determine_scenario_winner, which reads the same live state.
+
+    The rule is Campaign-only, so this is a no-op during Levy (where
+    3.3.1 / 3.3.2 Disband also runs). Idempotent: returns True whenever the
+    campaign is (now or already) terminal due to a zero-Lord side.
+    """
+    if state.meta.phase != "campaign":
+        return False
+    teu = sum(1 for L in state.lords.values()
+              if L.side == "teutonic" and L.state == "mustered")
+    rus = sum(1 for L in state.lords.values()
+              if L.side == "russian" and L.state == "mustered")
+    if teu == 0 or rus == 0:
+        state.meta.campaign_step = "done"  # type: ignore[assignment]
+        state.campaign_turn.actions_remaining = 0
+        state.campaign_turn.active_card = None
+        state.campaign_turn.active_lord = None
+        state.campaign_turn.in_feed_pay_disband = False
+        return True
+    return False
+
+
 def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any]) -> None:
     """3.3.1: permanent removal of a Lord.
 
@@ -1339,23 +1390,9 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
             state.legate.location = "card"
             state.legate.locale_id = None
 
-    # SMOKE-055 (Round 64): Rule 5.2 Campaign Victory — "If at any
-    # moment during a Campaign one side has zero Mustered Lords on
-    # the map, the game ends immediately." Check after each
-    # permanent removal during Campaign and short-circuit the game
-    # state. Skip during Levy (Disband at 3.3.1 also calls this
-    # helper; the rule specifies Campaign-only).
-    if state.meta.phase == "campaign":
-        teu = sum(1 for L in state.lords.values()
-                  if L.side == "teutonic" and L.state == "mustered")
-        rus = sum(1 for L in state.lords.values()
-                  if L.side == "russian" and L.state == "mustered")
-        if teu == 0 or rus == 0:
-            state.meta.campaign_step = "done"
-            state.campaign_turn.actions_remaining = 0
-            state.campaign_turn.active_card = None
-            state.campaign_turn.active_lord = None
-            state.campaign_turn.in_feed_pay_disband = False
+    # SMOKE-055 (Round 64) / Rule 5.2 Campaign Victory: shared check after
+    # any Lord leaves the map. See _apply_immediate_campaign_victory.
+    _apply_immediate_campaign_victory(state)
     # R215: lift orphaned Siege if this departing besieger was the last one.
     _lift_siege_if_no_besiegers(state, _smoke087_removed_location)
 
@@ -1581,6 +1618,10 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
             state.legate.locale_id = None
 
 
+    # Rule 5.2 Campaign Victory: an at-limit Disband that empties one
+    # side's mustered roster ends the Campaign immediately, identically to
+    # a permanent removal. Funnel through the shared check (no-op in Levy).
+    _apply_immediate_campaign_victory(state)
     # R215: lift orphaned Siege if this departing besieger was the last one.
     _lift_siege_if_no_besiegers(state, _smoke088_disband_location)
 
@@ -2466,6 +2507,14 @@ def _h_legate_skip(
     _require_levy_phase(state)
     _require_levy_step(state, "call_to_arms")
     _require_active(state, sd)
+    # No-op guard: the Legate gets at most one option per Call to Arms
+    # (3.5.1). Once it has acted (used or skipped), a second legate_skip is
+    # a pure no-op that could loop an automated player; reject it.
+    if state.legate.acted_this_call_to_arms:
+        raise IllegalAction(
+            "already_acted",
+            "Legate has already acted this Call to Arms (3.5.1)",
+        )
     state.legate.acted_this_call_to_arms = True
     return ({"outcome": "skipped"}, [])
 

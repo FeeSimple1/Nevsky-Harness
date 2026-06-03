@@ -20,6 +20,7 @@ from nevsky.actions import (
     _BISHOPRICS,
     _find_cylinder_box,
     _find_levy_marker_box,
+    _find_service_marker_box,
     _free_seats_for,
     _is_besieged,
     _is_friendly_locale,
@@ -241,6 +242,22 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
 
 
 def _disband_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
+    # Only offer disband_resolve while a Disband would actually fire, i.e.
+    # this side has a Mustered Lord whose Service marker is at-or-left-of
+    # the Levy box. Once resolved (or if none was ever pending) the action
+    # is a pure no-op; suppressing it keeps an automated player from
+    # looping on it. The side advances via advance_step instead.
+    levy_box = _find_levy_marker_box(state)
+    pending = False
+    for lid, lord in state.lords.items():
+        if lord.side != side or lord.state != "mustered":
+            continue
+        sm_box = _find_service_marker_box(state, lid)
+        if sm_box is not None and sm_box <= levy_box:
+            pending = True
+            break
+    if not pending:
+        return []
     return [{
         "type": "disband_resolve",
         "side": side,
@@ -494,7 +511,8 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                         "args": {"sub_option": "2c", "target_lord": tgt},
                         "note": f"Legate 2c: give {tgt} extra Muster at full Lordship (3.5.1)",
                     })
-        out.append({"type": "legate_skip", "side": "teutonic", "args": {}})
+        if not state.legate.acted_this_call_to_arms:
+            out.append({"type": "legate_skip", "side": "teutonic", "args": {}})
         # R223: only offer the 3.5.3 discard when there is actually a
         # This-Levy event to discard; otherwise it is a repeatable no-op.
         if state.decks.teutonic.this_levy_events:

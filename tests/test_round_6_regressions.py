@@ -431,5 +431,27 @@ def test_full_16_turn_crusade_run_no_invariant_violation() -> None:
                 assert lord.location in s.locales
                 for k, v in lord.assets.items():
                     assert 0 <= v <= 8, f"{lid} {k}={v} out of range"
-    # Game ended at scenario.span_end_box.
-    assert s.meta.box == 16
+    # Game ended. With both sides Passing every card and never re-Mustering
+    # disbanded Lords, one side\'s roster empties at a Campaign FPD before
+    # the scenario\'s span_end_box (box 16) is reached. Per Rule 5.2 the
+    # engine ends the game immediately at that moment (the other side wins),
+    # so this all-Pass run terminates at-or-before box 16 -- never after.
+    # (Before the 5.2-on-Disband fix the engine ignored the empty roster and
+    # always coasted to box 16; that masked the defect described in the
+    # Rule 5.2 bug report.)
+    assert s.meta.phase == "campaign" and s.meta.campaign_step == "done"
+    assert s.meta.box <= 16
+    from nevsky.scenarios import determine_scenario_winner
+    _teu = sum(1 for l in s.lords.values()
+               if l.side == "teutonic" and l.state == "mustered")
+    _rus = sum(1 for l in s.lords.values()
+               if l.side == "russian" and l.state == "mustered")
+    _w = determine_scenario_winner(s)
+    assert _w["winner"] in ("teutonic", "russian", "draw")
+    # If the game ended early (before span_end_box) it must be because a
+    # side hit zero Mustered Lords during the Campaign (Rule 5.2).
+    if s.meta.box < 16:
+        assert _teu == 0 or _rus == 0, (
+            "early termination must be a Rule 5.2 zero-Lord Campaign Victory"
+        )
+        assert _w["applied_override"] == "campaign_victory"
