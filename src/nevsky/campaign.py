@@ -2006,6 +2006,33 @@ def _must_discard_to_move_excess(
     return max(0, prov - 2 * usable)
 
 
+def _group_usable_transport(state: GameState, group: list[str], way_type: "str | None" = None) -> int:
+    return sum(_usable_transport_count_for_lord(state, g, way_type)
+               for g in group if g in state.lords)
+
+
+def _group_provender(state: GameState, group: list[str]) -> int:
+    return sum(int(state.lords[g].assets.get("provender", 0))
+               for g in group if g in state.lords)
+
+
+def _group_is_laden(state: GameState, group: list[str], way_type: "str | None" = None) -> bool:
+    """4.3.2 SHARED TRANSPORT: Lords moving as a group Share Transport.
+    Count all Provender and usable Transport of Lords moving together to
+    determine Laden status (any Loot in the group is also Laden)."""
+    if any(int(state.lords[g].assets.get("loot", 0)) > 0
+           for g in group if g in state.lords):
+        return True
+    return _group_provender(state, group) > _group_usable_transport(state, group, way_type)
+
+
+def _group_excess_provender(state: GameState, group: list[str], way_type: "str | None" = None) -> int:
+    """4.3.2: the group may not move with combined Provender exceeding 2x
+    its combined usable Transport unless it discards the excess."""
+    return max(0, _group_provender(state, group)
+               - 2 * _group_usable_transport(state, group, way_type))
+
+
 def _usable_transport_count_for_lord(
     state: GameState, lord_id: str, way_type: str | None = None,
 ) -> int:
@@ -2346,28 +2373,35 @@ def _h_cmd_march(
             raise IllegalAction("bad_group", f"{gid} not at {src}")
         if _is_besieged(state, gid):
             raise IllegalAction("besieged", f"{gid} is Besieged; cannot March")
-        # SMOKE-012 (4.3.2): a Lord with more than twice usable Transport
-        # in Provender may NOT move unless they discard the excess. The
-        # caller can pass args.discard_excess_provender = True to
-        # auto-discard before March (1.7.2 Greed permits discard for
-        # March/Avoid Battle/Retreat/Sail).
-        excess = _must_discard_to_move_excess(state, gid, way_type=way_type)
-        if excess > 0:
-            if args.get("discard_excess_provender"):
-                state.lords[gid].assets["provender"] = max(
-                    0, state.lords[gid].assets.get("provender", 0) - excess
-                )
-                if state.lords[gid].assets.get("provender") == 0:
-                    state.lords[gid].assets.pop("provender", None)
-            else:
-                raise IllegalAction(
-                    "excess_provender",
-                    f"{gid} has {excess} more Provender than 2x usable Transport "
-                    f"(4.3.2); pass args.discard_excess_provender=True to discard"
-                )
 
-    # Action cost: 2 if any group member is Laden, else 1.
-    laden = any(_is_laden(state, gid, way_type=way_type) for gid in group)
+    # 4.3.2 SHARED TRANSPORT: Lords moving together Share Transport;
+    # the GROUP's combined Provender vs combined usable Transport governs
+    # both the excess-discard gate and Laden status (not per-Lord). The
+    # caller may pass args.discard_excess_provender=True to auto-discard
+    # (1.7.2 Greed permits discard for March/Avoid/Retreat/Sail).
+    excess = _group_excess_provender(state, group, way_type=way_type)
+    if excess > 0:
+        if args.get("discard_excess_provender"):
+            remaining = excess
+            for gid in group:
+                if remaining <= 0:
+                    break
+                have = int(state.lords[gid].assets.get("provender", 0))
+                take = min(have, remaining)
+                if take > 0:
+                    state.lords[gid].assets["provender"] = have - take
+                    if state.lords[gid].assets.get("provender") == 0:
+                        state.lords[gid].assets.pop("provender", None)
+                    remaining -= take
+        else:
+            raise IllegalAction(
+                "excess_provender",
+                f"group has {excess} more Provender than 2x combined usable "
+                f"Transport (4.3.2); pass args.discard_excess_provender=True to discard"
+            )
+
+    # Action cost: 2 if the moving group is Laden (combined), else 1.
+    laden = _group_is_laden(state, group, way_type=way_type)
     cost = 2 if laden else 1
     # Converts (T3): first March of this card with Light Horse in the
     # group costs 0 actions. The active Lord need not have Converts
