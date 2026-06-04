@@ -348,3 +348,75 @@ def test_end_of_scenario_sets_game_over_and_records_winner() -> None:
     with pytest.raises(IllegalAction) as exc:
         apply_action(s, {"type": "end_card", "side": "teutonic", "args": {}})
     assert exc.value.code == "game_over"
+
+
+# --------------------------------------------------------------------------
+# Levy -> Campaign boundary: a side that lost its last Lord during Levy must
+# not enter a live Campaign. Rule 5.2 fires the instant Campaign begins.
+# --------------------------------------------------------------------------
+def _drive_levy_cta_into_campaign(s: GameState) -> None:
+    """Resolve the Call-to-Arms step (T then R) which transitions Levy ->
+    Campaign via the advance_step 'done' branch."""
+    s.meta.phase = "levy"                       # type: ignore[assignment]
+    s.meta.levy_step = "call_to_arms"           # type: ignore[assignment]
+    s.meta.levy_step_completed_t = False
+    s.meta.levy_step_completed_r = False
+    s.meta.active_player = "teutonic"
+    apply_action(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
+    apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
+    apply_action(s, {"type": "veche_action", "side": "russian",
+                     "args": {"option": "skip"}})
+    apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
+
+
+def test_levy_to_campaign_zero_teutonic_lords_russia_wins() -> None:
+    s = load_scenario("pleskau", seed=1)
+    # Teutons enter Campaign with no Mustered Lords (all left during Levy).
+    for lid, l in s.lords.items():
+        if l.side == "teutonic" and l.state == "mustered":
+            l.state = "ready"                   # type: ignore[assignment]
+    _drive_levy_cta_into_campaign(s)
+
+    assert s.meta.phase == "campaign"
+    assert s.meta.campaign_step == "done"       # terminated at the boundary
+    assert s.meta.game_over is True
+    assert s.meta.winner == "russian"
+    assert determine_scenario_winner(s)["applied_override"] == "campaign_victory"
+    # no Plan (or any) action accepted in the dead Campaign
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "plan_add_card", "side": "teutonic",
+                         "args": {"card": "pass"}})
+    assert exc.value.code == "game_over"
+
+
+def test_levy_to_campaign_zero_russian_lords_teutons_win() -> None:
+    s = load_scenario("pleskau", seed=1)
+    for lid, l in s.lords.items():
+        if l.side == "russian" and l.state == "mustered":
+            l.state = "ready"                   # type: ignore[assignment]
+    _drive_levy_cta_into_campaign(s)
+
+    assert s.meta.phase == "campaign"
+    assert s.meta.campaign_step == "done"
+    assert s.meta.game_over is True
+    assert s.meta.winner == "teutonic"
+    assert determine_scenario_winner(s)["applied_override"] == "campaign_victory"
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "plan_add_card", "side": "teutonic",
+                         "args": {"card": "pass"}})
+    assert exc.value.code == "game_over"
+
+
+def test_levy_to_campaign_both_sides_have_lords_stays_live() -> None:
+    """Control: when both sides keep Mustered Lords, the transition into
+    Campaign proceeds normally to the Plan step (no false 5.2)."""
+    s = load_scenario("pleskau", seed=1)
+    assert len(_mustered(s, "teutonic")) >= 1
+    assert len(_mustered(s, "russian")) >= 1
+    _drive_levy_cta_into_campaign(s)
+    assert s.meta.phase == "campaign"
+    assert s.meta.campaign_step == "plan"
+    assert s.meta.game_over is False
+    # Plan actions are accepted
+    apply_action(s, {"type": "plan_add_card", "side": "teutonic",
+                     "args": {"card": "pass"}})

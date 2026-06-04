@@ -423,6 +423,17 @@ def _h_advance_step(
                     cid_to_drop = deck.capabilities_in_play[-1]
                     rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_to_drop))
 
+            # Rule 5.2 Campaign Victory at the Levy -> Campaign boundary. The
+            # rule applies "during Campaign", so a side that lost its last
+            # Mustered Lord during Levy (Disband 3.3) and did not re-Muster
+            # is at zero the instant Campaign begins -- the first moment of
+            # the new Campaign. Check here, before any Plan action is
+            # offered, so the engine never enters a live Campaign with a
+            # zero-Lord side. (The shared helper is a no-op during Levy, so
+            # this boundary call is the one that catches the Levy-disband
+            # case; mid-Campaign disbands are caught at the removal site.)
+            _apply_immediate_campaign_victory(state)
+
     return ({"new_step": state.meta.levy_step,
              "phase": state.meta.phase,
              "campaign_step": state.meta.campaign_step if state.meta.phase == "campaign" else None,
