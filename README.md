@@ -69,8 +69,19 @@ Run it directly for a bigger sweep:
 PYTHONPATH=src python scripts/fuzz_invariants.py --seeds 1-50
 ```
 
-A small bounded version (`tests/test_fuzz_invariants.py`) runs inside the
-normal `pytest`; scale it with `FUZZ_SEEDS=1-30 pytest -k fuzz`. For larger machines,
+In addition, `scripts/fuzz_subsystems.py` hammers individual subsystems
+with far more variety than reachable self-play produces: randomized
+Storms/Sallies/Battles, every Arts-of-War Event card (T1-T18, R1-R18)
+implemented with and without a target, and every Veche option -- all
+audited against the same I1-I12 invariants. Run the deep sweep:
+
+```
+PYTHONPATH=src python scripts/fuzz_subsystems.py --combat 500 --seeds 1-5
+```
+
+Bounded versions of both fuzzers (`tests/test_fuzz_invariants.py`,
+`tests/test_fuzz_subsystems.py`) run inside the normal `pytest`; scale
+them with `FUZZ_SEEDS=1-30 pytest -k fuzz`. For larger machines,
 install the `parallel` extra (`pip install -e ".[parallel]"`) and run
 `pytest -n auto` for parallel execution. On a 2-core VM xdist's
 worker-startup overhead exceeds the parallelism benefit, but on 4+

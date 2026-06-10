@@ -21,6 +21,11 @@ Invariants checked after every action and at game end:
   I6  No Mustered Lord carries a stranded Routed-units pile while no combat is
       pending (4.4.4 Losses must have resolved it).
   I7  VP markers stay within the legal 0..17.5 band.
+  I8  No Lord occupies two cylinder or two Service-marker slots.
+  I9  Mustered Lords are on the map; removed Lords are not.
+  I10 Forces/Routed counts non-negative; assets within 0..8.
+  I11 Exactly one Levy/Campaign marker; no both-side Castle/Ravaged; siege 0..4.
+  I12 Veche coin and VP markers within 0..8.
 
 Usage:
     python scripts/fuzz_invariants.py                 # default sweep
@@ -99,6 +104,51 @@ def check_invariants(state) -> str | None:
         return f"I7 teutonic_vp out of band: {state.calendar.teutonic_vp}"
     if not (0.0 <= state.calendar.russian_vp <= VP_CAP):
         return f"I7 russian_vp out of band: {state.calendar.russian_vp}"
+    cal = state.calendar
+    for lid, l in state.lords.items():
+        # I8 a Lord occupies at most one cylinder and one Service-marker slot
+        cyl = (int(lid in cal.off_left) + int(lid in cal.off_right)
+               + sum(1 for cb in cal.boxes if lid in cb.cylinders))
+        if cyl > 1:
+            return f"I8 {lid} in {cyl} cylinder positions"
+        svc = (int(lid in cal.off_left_service) + int(lid in cal.off_right_service)
+               + sum(1 for cb in cal.boxes if lid in cb.service_markers))
+        if svc > 1:
+            return f"I8 {lid} in {svc} Service-marker positions"
+        # I9 Mustered Lords are on the map; removed Lords are not
+        if l.state == "mustered":
+            if l.location is None:
+                return f"I9 Mustered {lid} has no location"
+            if l.location not in state.locales:
+                return f"I9 Mustered {lid} at unknown locale {l.location}"
+        if l.state == "removed" and l.location is not None:
+            return f"I9 removed {lid} still has location {l.location}"
+        # I10 force/asset bounds
+        for u, n in l.forces.items():
+            if n < 0:
+                return f"I10 {lid}.forces[{u}]={n}"
+        for u, n in l.routed_units.items():
+            if n < 0:
+                return f"I10 {lid}.routed_units[{u}]={n}"
+        for a, n in l.assets.items():
+            if not (0 <= n <= 8):
+                return f"I10 {lid}.assets[{a}]={n}"
+    # I11 board markers
+    nmark = sum(1 for cb in cal.boxes if cb.has_levy_campaign_marker)
+    if nmark != 1 and not terminal:
+        return f"I11 {nmark} Levy/Campaign markers on the Calendar"
+    for lid, loc in state.locales.items():
+        if loc.russian_castle and loc.teutonic_castle:
+            return f"I11 {lid} has both-side Castles"
+        if loc.russian_ravaged and loc.teutonic_ravaged:
+            return f"I11 {lid} has both-side Ravaged markers"
+        if not (0 <= loc.siege_markers <= 4):
+            return f"I11 {lid} siege_markers={loc.siege_markers}"
+    # I12 Veche bounds
+    if not (0 <= state.veche.coin <= 8):
+        return f"I12 veche coin={state.veche.coin}"
+    if not (0 <= state.veche.vp_markers <= 8):
+        return f"I12 veche vp_markers={state.veche.vp_markers}"
     return None
 
 
@@ -206,7 +256,7 @@ def main(argv=None) -> int:
         for v in violations[:50]:
             print("  -", v)
         return 1
-    print(f"\nOK: {total} games clean on all invariants (I1-I7).")
+    print(f"\nOK: {total} games clean on all invariants (I1-I12).")
     return 0
 
 
