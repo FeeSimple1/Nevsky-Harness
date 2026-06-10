@@ -47,8 +47,30 @@ pip install -e ".[dev]"
 PYTHONPATH=src pytest -q
 ```
 
-Test count at the current tip is 1241 (one skip). The full suite runs
-in roughly 25-40 seconds depending on machine. For larger machines,
+The full suite runs in roughly 25-40 seconds depending on machine.
+
+### Continuous integration and the self-play fuzzer
+
+Every push and pull request runs the full test suite plus a deeper
+self-play **invariant fuzzer** on Python 3.11 and 3.12 (see
+`.github/workflows/ci.yml`). The fuzzer (`scripts/fuzz_invariants.py`)
+plays many full games by choosing legal moves like an automated player
+and, after every action, asserts engine-level invariants (I1-I7): Rule
+5.2 must terminate the instant a side has no Mustered Lords, `game_over`
+must record a winner that agrees with `determine_scenario_winner`, the
+turn must stay frozen after the game ends, no Mustered Lord may carry a
+stranded Routed-units pile, and VP stays in range. This is the automated
+version of the adversarial sweeps that repeatedly caught engine bugs the
+curated unit tests missed.
+
+Run it directly for a bigger sweep:
+
+```
+PYTHONPATH=src python scripts/fuzz_invariants.py --seeds 1-50
+```
+
+A small bounded version (`tests/test_fuzz_invariants.py`) runs inside the
+normal `pytest`; scale it with `FUZZ_SEEDS=1-30 pytest -k fuzz`. For larger machines,
 install the `parallel` extra (`pip install -e ".[parallel]"`) and run
 `pytest -n auto` for parallel execution. On a 2-core VM xdist's
 worker-startup overhead exceeds the parallelism benefit, but on 4+
