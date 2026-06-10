@@ -519,6 +519,15 @@ def _resolve_legate_command_bonus(state: GameState) -> None:
 
 def _enter_feed_pay_disband(state: GameState) -> None:
     """Helper: transition to per-card 4.8 sub-step."""
+    # If a 5.2 Campaign Victory fired during this card's combat aftermath the
+    # game is already terminal (game_over) and the shared helper froze the
+    # turn (in_feed_pay_disband=False, actions_remaining=0). The command
+    # handler still runs to completion and calls us last; do NOT re-open the
+    # Feed/Pay/Disband sub-step or reassign the active player -- that would
+    # leave campaign_turn internally inconsistent ("in FPD" while the game is
+    # over). Once terminal, the turn stays frozen.
+    if state.meta.game_over:
+        return
     _resolve_legate_command_bonus(state)
     state.campaign_turn.in_feed_pay_disband = True
     state.campaign_turn.fpd_completed_t = False
@@ -3228,6 +3237,17 @@ def _h_stand_battle(
             lord.in_stronghold = True
             if state.locales[cp.to_locale].siege_markers == 0:
                 state.locales[cp.to_locale].siege_markers = 1
+            # 4.4.4 Losses: a Lord who Withdrew is in the "any other Lord
+            # (Withdrew, Conceded+Retreated, ...)" category and rolls 1d6 per
+            # Routed unit at unmodified Protection range ("withdrew"
+            # loss_state). This Battle-aftermath Withdraw path previously
+            # skipped it (the Retreat and failed-Sally Withdraw paths already
+            # roll), stranding the routed_units pile: the units were neither
+            # permanently lost per the rule nor restored, and a later combat
+            # win would hand them back for free via the winner-restore.
+            from nevsky.battle import apply_losses_rolls
+            if lord.routed_units:
+                apply_losses_rolls(state, lid, "withdrew")
             aftermath.setdefault("withdrew", []).append(lid)
             continue
         # Default Phase 3b behavior: loser Retreats to from_locale (attackers)

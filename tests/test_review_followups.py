@@ -19,7 +19,7 @@ import importlib.util
 
 import pytest
 
-from nevsky.actions import _apply_immediate_campaign_victory, apply_action
+from nevsky.actions import _apply_immediate_campaign_victory, apply_action, IllegalAction
 from nevsky.event_args import _populate_event_args
 from nevsky.scenarios import determine_scenario_winner, load_scenario
 from nevsky.static_data import load_lords
@@ -155,3 +155,86 @@ def test_selfplay_pleskau_no_t1_deadlock() -> None:
     res = mod.step_self_play("pleskau", seed=1, max_steps=600)
     assert res.get("error") is None, f"driver error: {res.get('error')}"
     assert res.get("terminal") is True
+
+
+# --------------------------------------------------------------------------
+# BUG 4: a battle loser who Withdraws into a Stronghold rolls 4.4.4 Losses
+# (the routed_units pile must be resolved, not stranded)
+# --------------------------------------------------------------------------
+from nevsky.state import CombatPending  # noqa: E402
+
+
+def _battle_at_pskov(def_forces, atk_forces, seed=1):
+    s = load_scenario("peipus", seed=seed)
+    s.meta.phase = "campaign"; s.meta.campaign_step = "done"  # type: ignore[assignment]
+    s.meta.active_player = "teutonic"
+    s.locales["pskov"].teutonic_conquered = 0
+    s.locales["pskov"].russian_conquered = 0
+    teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic")
+    rus = next(lid for lid, l in s.lords.items() if l.side == "russian")
+    for lid, f in ((rus, def_forces), (teu, atk_forces)):
+        s.lords[lid].state = "mustered"; s.lords[lid].location = "pskov"
+        s.lords[lid].in_stronghold = False; s.lords[lid].forces = dict(f)
+    s.combat_pending = CombatPending(
+        attacker_side="teutonic", attacker_group=[teu],
+        from_locale="dorpat", to_locale="pskov", way_type="trackway",
+        defender_side="russian", defender_lords=[rus],
+        pending_response_by="russian", laden=False)
+    return s, teu, rus
+
+
+@pytest.mark.parametrize("seed", [1, 3, 4, 7, 8, 9, 10])
+def test_withdrawing_loser_resolves_routed_units(seed: int) -> None:
+    # Strong attacker so the conceding defender takes Routs; defender keeps
+    # some unrouted units (does not fully Rout) and Withdraws.
+    s, teu, rus = _battle_at_pskov({"knights": 4, "men_at_arms": 4},
+                                   {"knights": 6, "sergeants": 4}, seed=seed)
+    res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                           "args": {"concede": "defender", "withdraw_losers": True}})
+    assert rus in (res.get("withdrew") or [])
+    assert s.lords[rus].in_stronghold is True
+    # 4.4.4 Losses were rolled: routed pile resolved (survivors -> forces,
+    # rest permanently lost). Previously this pile was stranded.
+    assert s.lords[rus].routed_units == {}
+    assert s.lords[rus].forces, "a withdrawing Lord retains its surviving units"
+
+
+# --------------------------------------------------------------------------
+# Freeze guarantee: when 5.2 fires during a card's combat aftermath, the
+# turn stays frozen (in_feed_pay_disband not re-opened) and no action is
+# accepted afterward.
+# --------------------------------------------------------------------------
+def test_5_2_during_battle_freezes_turn_state() -> None:
+    s = load_scenario("peipus", seed=1)
+    s.meta.phase = "campaign"; s.meta.campaign_step = "command"  # type: ignore[assignment]
+    s.meta.active_player = "teutonic"
+    teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic")
+    rus = next(lid for lid, l in s.lords.items() if l.side == "russian")
+    # Russia's last Mustered Lord; loses with no Withdraw (enemy-Conquered)
+    # and no retreat -> permanently removed -> 5.2 for Teutons.
+    for lid, l in s.lords.items():
+        if l.side == "russian" and l.state == "mustered" and lid != rus:
+            l.state = "disbanded"                       # type: ignore[assignment]
+    for lid, f in ((rus, {"militia": 1}), (teu, {"knights": 6, "sergeants": 4})):
+        s.lords[lid].state = "mustered"; s.lords[lid].location = "pskov"
+        s.lords[lid].in_stronghold = False; s.lords[lid].forces = dict(f)
+    s.locales["pskov"].teutonic_conquered = 1
+    s.combat_pending = CombatPending(
+        attacker_side="teutonic", attacker_group=[teu],
+        from_locale="dorpat", to_locale="pskov", way_type="trackway",
+        defender_side="russian", defender_lords=[rus],
+        pending_response_by="russian", laden=False)
+
+    apply_action(s, {"type": "stand_battle", "side": "russian", "args": {}})
+
+    assert s.meta.game_over is True
+    assert s.meta.campaign_step == "done"
+    assert s.meta.winner == "teutonic"
+    # turn frozen: FPD was NOT re-opened after the victory froze it
+    assert s.campaign_turn.in_feed_pay_disband is False
+    assert s.campaign_turn.actions_remaining == 0
+    from nevsky.legal_moves import legal_moves
+    assert legal_moves(s) == []
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "end_card", "side": "teutonic", "args": {}})
+    assert exc.value.code == "game_over"
