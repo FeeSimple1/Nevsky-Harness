@@ -1308,11 +1308,18 @@ def _apply_immediate_campaign_victory(state: GameState) -> bool:
             state.meta.victory_reason = (
                 "Campaign Victory 5.2 (Teutons have 0 Mustered Lords)")
         else:
-            # Both sides empty simultaneously: defer to the canonical 5.3
-            # tie-break on VP (the rule that applies when 5.2 names no
-            # single zero-Lord side).
+            # Both sides empty simultaneously (e.g. a Battle/Storm that wipes
+            # the last Lord on each side): 5.2 names no single zero-Lord
+            # winner, so resolve the outcome by the canonical 5.3 tie-break
+            # (VP, with any scenario override) and RECORD it -- previously
+            # this branch left meta.winner=None, disagreeing with
+            # determine_scenario_winner.
+            from nevsky.scenarios import determine_scenario_winner as _dsw
+            _res = _dsw(state)
+            state.meta.winner = _res["winner"]  # type: ignore[assignment]
             state.meta.victory_reason = (
-                "Campaign Victory 5.2 (both sides 0 Mustered Lords; 5.3 VP)")
+                "Campaign Victory 5.2 (both sides 0 Mustered Lords); "
+                + _res["reason"])
         state.meta.game_over = True
         return True
     return False

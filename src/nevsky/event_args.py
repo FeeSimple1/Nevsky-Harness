@@ -70,7 +70,14 @@ def _populate_event_args(state, cid, args):
             new.setdefault("target", "service:andrey")
         elif service_on_cal("aleksandr"):
             new.setdefault("target", "service:aleksandr")
-        new.setdefault("direction", "left")
+        # Only attach a direction when a target actually exists; otherwise
+        # leave args bare so the handler no-legal-target reveal-and-discard
+        # fallback (Q-R201-A) can fire. Direction was previously always set,
+        # and _has_target_args counts it as a target arg, so the bare
+        # implement got corrupted into an always-rejected move -> a hard
+        # driver deadlock when neither Aleksandr nor Andrey is on the Calendar.
+        if "target" in new:
+            new.setdefault("direction", "left")
     # T12 Khan Baty
     elif cid == "T12":
         if cyl_on_cal("andrey"):
@@ -81,7 +88,8 @@ def _populate_event_args(state, cid, args):
             new.setdefault("target", "service:andrey")
         elif service_on_cal("aleksandr"):
             new.setdefault("target", "service:aleksandr")
-        new.setdefault("direction", "left")
+        if "target" in new:  # see T1 note: don't corrupt the no-target bare implement
+            new.setdefault("direction", "left")
     elif cid == "T2":
         new.setdefault("target", "veche")
     elif cid == "T11":

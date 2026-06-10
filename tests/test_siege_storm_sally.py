@@ -147,7 +147,15 @@ def test_storm_attacker_loss_storm_ends_siege_continues() -> None:
     res = apply_action(s, {"type": "cmd_storm", "side": "teutonic", "args": {"lord_id": teu}})
     if res["battle"]["winner"] == "defender":
         assert res.get("storm_failed") is True
-        assert s.locales["pskov"].siege_markers >= 1  # siege continues
+        # 4.5.2: a failed Storm does not Sack the Stronghold. The Siege
+        # continues IF a besieger remains. With a single 1-unit attacker the
+        # Storm Losses (1.5.1 / 4.4.4 "lord_with_zero_units") wipe and
+        # permanently remove him, and R215 then lifts the now-orphaned Siege.
+        if s.lords[teu].state == "removed":
+            assert s.lords[teu].forces == {}
+            assert s.locales["pskov"].siege_markers == 0  # sole besieger gone
+        else:
+            assert s.locales["pskov"].siege_markers >= 1  # survivor keeps Siege
 
 
 # --- 4.5.3 Sally ------------------------------------------------------------

@@ -3816,6 +3816,23 @@ def _h_cmd_storm(
         for alid in attackers:
             if alid in state.lords and state.lords[alid].routed_units:
                 apply_losses_rolls(state, alid, "storm_attacker")
+        # 1.5.1 / 4.4.4 ("lord_with_zero_units": permanently remove): a
+        # failed-Storm attacker whose every unit Routed and was then lost in
+        # the Losses rolls above has zero units and must leave the game --
+        # exactly as the failed-Sally path does (SMOKE-007). This was the
+        # ONE removal site the audit missed: without it a unit-less cylinder
+        # lingers Mustered, so Rule 5.2 can never see the side reach zero.
+        # The winners of the failed Storm are the besieged defenders, so any
+        # Ransom is paid to that side (mirror of Battle/Sally aftermath).
+        from nevsky.actions import _remove_lord_permanently as _rem_storm
+        from nevsky.static_data import load_lords as _ll_storm
+        for alid in list(attackers):
+            if alid in state.lords and not state.lords[alid].forces:
+                _r = apply_ransom(state, alid, defending_side, locale_id)
+                if _r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(_r)
+                _rem_storm(state, alid, _ll_storm()[alid])
+                aftermath.setdefault("removed_after_storm", []).append(alid)
         # SMOKE-098 (Round 118): defenders won the failed Storm —
         # they're winners; restore routed → forces unconditionally
         # ("winner doesn't suffer Losses").
