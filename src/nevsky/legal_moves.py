@@ -185,6 +185,29 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     return out
 
 
+def _legal_pay_targets(state: GameState, side: Side, payer_id: str,
+                       own_lords: list[str]) -> list[str]:
+    """PLAY-4 (Fable playtest): targets a given payer can legally Pay
+    per 3.2.1/3.2.2 — own Service, or a co-located Lord's Service; a
+    Besieged target additionally requires the payer to be Besieged WITH
+    him (mirrors _h_pay_with_coin's checks). Pre-fix the candidates
+    block advertised every own Lord as a target for every payer, and
+    agents had to re-derive collocation themselves (or eat
+    pay_target_not_collocated rejections)."""
+    payer = state.lords[payer_id]
+    targets = [payer_id]
+    for lid in own_lords:
+        if lid == payer_id:
+            continue
+        lord = state.lords[lid]
+        if lord.location is None or lord.location != payer.location:
+            continue
+        if _is_besieged(state, lid) and not _is_besieged(state, payer_id):
+            continue
+        targets.append(lid)
+    return targets
+
+
 def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     own_lords = [
@@ -199,6 +222,12 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         and _is_friendly_locale(state, state.lords[lid].location, side)  # type: ignore[arg-type]
     ]
     if coin_payers:
+        coin_targets_by_payer = {
+            pid: _legal_pay_targets(state, side, pid, own_lords)
+            for pid in coin_payers
+        }
+        coin_union: list[str] = sorted(
+            {t for ts in coin_targets_by_payer.values() for t in ts})
         out.append({
             "type": "pay_with_coin",
             "side": side,
@@ -209,7 +238,8 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             },
             "candidates": {
                 "payers": coin_payers,
-                "targets": own_lords,
+                "targets": coin_union,
+                "targets_by_payer": coin_targets_by_payer,
             },
         })
     if side == "russian" and state.veche.coin > 0:
@@ -225,6 +255,12 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             },
         })
     if loot_payers:
+        loot_targets_by_payer = {
+            pid: _legal_pay_targets(state, side, pid, own_lords)
+            for pid in loot_payers
+        }
+        loot_union: list[str] = sorted(
+            {t for ts in loot_targets_by_payer.values() for t in ts})
         out.append({
             "type": "pay_with_loot",
             "side": side,
@@ -235,7 +271,8 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             },
             "candidates": {
                 "payers": loot_payers,
-                "targets": own_lords,
+                "targets": loot_union,
+                "targets_by_payer": loot_targets_by_payer,
             },
         })
     return out
@@ -937,6 +974,50 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     "args": args_mr,
                     "note": base_note,
                 })
+                # PLAY-5 (Fable playtest): 4.3.1 Marshal group March.
+                # "A Marshal may at the player's discretion bring along
+                # any or all of his side's Unbesieged Lords at his
+                # Locale." The handler has always accepted args.group,
+                # but the enumerator never emitted a group variant, so
+                # an agent restricted to the legal_actions() palette
+                # (per LLM_PLAY_GUIDE principle 3) could never March an
+                # army. Emit ONE full-group variant per destination
+                # (cost/laden/discard recomputed for the whole group);
+                # any subset of the group is likewise legal via
+                # args.group.
+                from nevsky.campaign import (_is_currently_marshal as _icm,
+                                             _is_besieged as _ib_mr)
+                if _lower is None and _icm(state, active_lord):
+                    fellows = [
+                        lid for lid, l in state.lords.items()
+                        if lid != active_lord and l.side == side
+                        and l.state == "mustered" and l.location == here
+                        and not l.in_stronghold and not _ib_mr(state, lid)
+                    ]
+                    if fellows:
+                        full_group = [active_lord] + fellows
+                        g_laden = _grp_laden_mr(state, full_group, way_type=way_type)
+                        g_cost = 2 if g_laden else 1
+                        if state.campaign_turn.actions_remaining >= g_cost:
+                            g_args: dict[str, Any] = {
+                                "lord_id": active_lord, "to": dest,
+                                "way_type": way_type, "group": full_group,
+                            }
+                            g_excess = _grp_excess_mr(state, full_group, way_type=way_type)
+                            g_note = (f"Group March {'+'.join(full_group)} "
+                                      f"{here}->{dest} via {way_type} (cost={g_cost}; "
+                                      "4.3.1 Marshal; any subset legal via args.group)")
+                            if g_excess > 0:
+                                g_args["discard_excess_provender"] = True
+                                g_note += f" | NOTE: discards {g_excess} excess Provender (4.3.2)"
+                            if enemy_at_dest:
+                                g_note += (f" | NOTE: enemy Lord(s) {enemy_at_dest} at dest; "
+                                           "triggers Approach decision (4.3.4)")
+                            out.append({
+                                "type": "cmd_march", "side": side,
+                                "args": g_args,
+                                "note": g_note,
+                            })
                 # 4.4.2 Concede: the attacker may declare a Concede of
                 # the Battle this March triggers. Captured on
                 # combat_pending and applied in stand_battle; without
@@ -1320,6 +1401,28 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             out = [m for m in out if m.get("type") in _allowed]
         return out
     if cstep == "end_campaign":
-        out.append({"type": "end_campaign_resolve", "side": side, "args": {}})
+        # PLAY-6 (Fable playtest): surface the 4.9.4 Wastage choice.
+        # For each own Mustered Lord owing Wastage (any Asset type >1
+        # or >1 This Lord Capability), the owner may pick ANY one Asset
+        # or This Lord card to discard via args.wastage =
+        # {lord_id: "<asset_type>" | "capability:<card_id>"}.
+        # Unlisted Lords fall back to a deterministic auto-discard.
+        wastage_candidates: dict[str, list[str]] = {}
+        for lid, lord in state.lords.items():
+            if lord.side != side or lord.state != "mustered":
+                continue
+            if (any(v > 1 for v in lord.assets.values())
+                    or len(lord.this_lord_capabilities) > 1):
+                wastage_candidates[lid] = sorted(
+                    k for k, v in lord.assets.items() if v > 0
+                ) + [f"capability:{c}" for c in lord.this_lord_capabilities]
+        move: dict[str, Any] = {"type": "end_campaign_resolve", "side": side,
+                                "args": {}}
+        if wastage_candidates:
+            move["candidates"] = {"wastage": wastage_candidates}
+            move["note"] = ("4.9.4 Wastage owed; optionally choose discards via "
+                            'args.wastage={lord_id: "<asset_type>" | '
+                            '"capability:<card_id>"}')
+        out.append(move)
         return out
     return out

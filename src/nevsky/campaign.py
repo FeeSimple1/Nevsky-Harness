@@ -1781,28 +1781,76 @@ def _h_end_campaign_resolve(
                 state.calendar.teutonic_vp = max(0.0, state.calendar.teutonic_vp - 0.5)
             grew.append(rid)
 
-    # 4.9.4 Wastage (per side).
+    # 4.9.4 Wastage (per side). A Lord qualifies when he has more than
+    # one of any single Asset type OR more than one This Lord
+    # Capability card; the OWNING PLAYER then selects ANY one Asset or
+    # This Lord Capability from that Lord to discard (rule example: a
+    # Lord with two Boats, one Provender, and one card may discard a
+    # Boat, the Provender, OR the card).
+    # PLAY-6 (Fable playtest): pre-fix the engine auto-discarded one of
+    # the most-numerous Asset type with no player choice, and could
+    # never discard a card (or a singleton Asset) from a Lord who
+    # qualified via a doubled Asset. Mirror the 4.9.1 grow_remove
+    # pattern: args.wastage = {lord_id: "<asset_type>" |
+    # "capability:<card_id>"} selects per-Lord; unspecified Lords fall
+    # back to the deterministic most-numerous-Asset discard.
     wastage_actions = []
+    wastage_choices = args.get("wastage") or {}
+    if not isinstance(wastage_choices, dict):
+        raise IllegalAction(
+            "bad_wastage",
+            'wastage must be {lord_id: "<asset_type>" | "capability:<card_id>"}')
     for lord_id, lord in state.lords.items():
         if lord.side != sd or lord.state != "mustered":
             continue
-        # Discard 1 if any Asset count >1 OR >1 this-lord-cap.
+        qualifies = (any(v > 1 for v in lord.assets.values())
+                     or len(lord.this_lord_capabilities) > 1)
+        chosen = wastage_choices.get(lord_id)
+        if chosen is not None and not qualifies:
+            raise IllegalAction(
+                "bad_wastage",
+                f"{lord_id} owes no Wastage (no Asset type >1 and <2 "
+                "This Lord Capabilities, 4.9.4)")
+        if not qualifies:
+            continue
         discarded_asset = None
-        most_type = None
-        most_count = 0
-        for k, v in lord.assets.items():
-            if v > most_count:
-                most_count = v
-                most_type = k
-        if most_count > 1:
-            lord.assets[most_type] -= 1  # type: ignore[index]
-            if lord.assets[most_type] == 0:  # type: ignore[index]
-                del lord.assets[most_type]  # type: ignore[arg-type]
-            discarded_asset = most_type
-        elif len(lord.this_lord_capabilities) > 1:
-            cid = lord.this_lord_capabilities.pop()
-            _side_deck(state, sd).deck.append(cid)
-            discarded_asset = f"capability:{cid}"
+        if chosen is not None:
+            if isinstance(chosen, str) and chosen.startswith("capability:"):
+                cid = chosen.split(":", 1)[1]
+                if cid not in lord.this_lord_capabilities:
+                    raise IllegalAction(
+                        "bad_wastage",
+                        f"{lord_id} has no This Lord Capability {cid!r}")
+                lord.this_lord_capabilities.remove(cid)
+                _side_deck(state, sd).deck.append(cid)
+                discarded_asset = f"capability:{cid}"
+            else:
+                if not isinstance(chosen, str) or lord.assets.get(chosen, 0) < 1:
+                    raise IllegalAction(
+                        "bad_wastage",
+                        f"{lord_id} has no Asset of type {chosen!r}")
+                lord.assets[chosen] -= 1  # type: ignore[index]
+                if lord.assets[chosen] == 0:  # type: ignore[index]
+                    del lord.assets[chosen]  # type: ignore[arg-type]
+                discarded_asset = chosen
+        else:
+            # Deterministic fallback (legacy behavior): discard one of
+            # the most-numerous Asset type, else pop a This Lord card.
+            most_type = None
+            most_count = 0
+            for k, v in lord.assets.items():
+                if v > most_count:
+                    most_count = v
+                    most_type = k
+            if most_count > 1:
+                lord.assets[most_type] -= 1  # type: ignore[index]
+                if lord.assets[most_type] == 0:  # type: ignore[index]
+                    del lord.assets[most_type]  # type: ignore[arg-type]
+                discarded_asset = most_type
+            else:
+                cid = lord.this_lord_capabilities.pop()
+                _side_deck(state, sd).deck.append(cid)
+                discarded_asset = f"capability:{cid}"
         if discarded_asset:
             wastage_actions.append({"lord_id": lord_id, "discarded": discarded_asset})
 

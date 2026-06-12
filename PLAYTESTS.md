@@ -28,14 +28,32 @@ Two LLM-driven games of the full campaign scenario through `nevsky.llm`
   nobody, locked to Sally/Pass with Sally raising `no_defenders`. Fix:
   all three departure paths now run `_lift_siege_if_no_besiegers`.
 
-Items noted but NOT changed (need design input):
-- R10 Steppe Warriors implements as a side-wide Capability at first
-  Levy even when neither Aleksandr nor Andrey is Mustered (eligibility
-  "Aleksandr, Andrey"); this_lord cards auto-discard in the same spot.
-- `pay_with_coin` candidates list non-collocated targets (handler
-  correctly rejects with `pay_target_not_collocated`).
-- Group-march variants are never enumerated in `legal_actions()`
-  (handler accepts `args.group`); an agent following the "palette only"
-  rule in LLM_PLAY_GUIDE.md can never group-march.
-- 4.9.4 Wastage auto-picks which Asset to discard rather than offering
-  the owner the choice.
+Open items from the playtest — all four since resolved against the
+rulebook (`sources/NevskyRules_Second_Edition.pdf`) and Playbook
+(`sources/Nevsky_PLAYBOOK-FINAL.pdf`); see
+`tests/test_play_fable_palette.py`:
+
+- **R10 Steppe Warriors at first Levy with neither Suzdal brother
+  Mustered — harness CORRECT, no change.** The Playbook's Watland
+  walkthrough covers this exact draw: "Even though the Capability
+  applies only to the Lords Aleksandr and Andrey and neither is
+  currently Mustered, the player keeps the Capability because it is
+  not a This Lord card (3.1.2)." The this_lord auto-discard branch is
+  likewise per the Playbook (a This Lord card with no eligible
+  Mustered Lord is discarded without redraw).
+- **PLAY-4 (fixed):** `pay_with_coin`/`pay_with_loot` candidates now
+  carry a per-payer `targets_by_payer` map mirroring 3.2.1/3.2.2
+  (own Service or co-located Lord; Besieged target only from a payer
+  Besieged with him); the `targets` union no longer advertises
+  unreachable Lords.
+- **PLAY-5 (fixed):** 4.3.1 Marshal group March is now enumerated (one
+  full-group variant per destination when the active Lord currently
+  fills a Marshal role; any subset remains legal via `args.group`).
+  Lieutenant pairs were already handled (SMOKE-146).
+- **PLAY-6 (fixed):** 4.9.4 Wastage now honors the owner's choice via
+  `args.wastage = {lord_id: "<asset_type>" | "capability:<card_id>"}`
+  per the rulebook example (two Boats trigger; owner may discard a
+  Boat, the singleton Provender, or the This Lord card). Unspecified
+  Lords keep the deterministic auto-discard, and the
+  `end_campaign_resolve` palette entry surfaces qualifying Lords and
+  their discardable items.
