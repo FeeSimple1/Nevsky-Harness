@@ -1332,6 +1332,12 @@ def _h_cmd_sail(
     # SMOKE-020 (Round 34): trade-route auto-flip on uncontested entry.
     trade_flip = _flip_trade_route_if_uncontested(state, dest, sd)
 
+    # PLAY-3 (Fable playtest): if the Sailing group were the last
+    # besiegers at the origin Seaport Locale, their departure ends that
+    # Siege (4.3.5) -- same R215 sweep cmd_march already performs.
+    from nevsky.actions import _lift_siege_if_no_besiegers
+    _lift_siege_if_no_besiegers(state, src)
+
     # SMOKE-064 (Round 69): Sailing to Unbesieged enemy Stronghold
     # places a Siege marker. Previously the inline type list omitted
     # "castle" (so Sail to wesenberg / Russian-castle overlay missed
@@ -2532,6 +2538,11 @@ def _h_cmd_march(
         legate_carried = _take_legate_along(
             state, sd, src, dest, bool(args.get("take_legate", False)),
         )
+        # PLAY-3 (Fable playtest): the Approach branch returns early and
+        # skipped the R215 stale-siege sweep below -- if the marching
+        # group were the last besiegers at src, lift that Siege (4.3.5).
+        from nevsky.actions import _lift_siege_if_no_besiegers
+        _lift_siege_if_no_besiegers(state, src)
         out_approach = {
             "lord_id": lord_id, "from": src, "to": dest, "way": way_type,
             "group": group, "laden": laden, "cost": cost,
@@ -2769,9 +2780,25 @@ def _h_avoid_battle(
             loc2.siege_markers = 1
             placed_siege = True
 
+    # PLAY-3 (Fable playtest): if the Avoiding Lords were themselves the
+    # besiegers of a Stronghold at the Approach Locale (their Siege from a
+    # prior card), their departure ends that Siege (4.3.5 "If all Besieging
+    # Lords later depart, remove all Siege markers"). Pre-fix the markers
+    # persisted, leaving the inside Lord "Besieged" by nobody (locked to
+    # Sally/Pass, with Sally raising no_defenders).
+    from nevsky.actions import _lift_siege_if_no_besiegers
+    _lift_siege_if_no_besiegers(state, cp.to_locale)
+
     state.combat_pending = None
-    state.campaign_turn.actions_remaining = 0
-    _enter_feed_pay_disband(state)
+    # PLAY-2 (Fable playtest): 4.3.4 -- when ALL defenders Avoid Battle, no
+    # Battle occurs, so the Marching side's Command card CONTINUES with any
+    # remaining actions. Only Encamp (4.3.5: the Approach left the attacker
+    # Besieging a Stronghold) or a Battle/Storm ends the card. Pre-fix the
+    # handler unconditionally zeroed actions_remaining and entered 4.8.
+    state.meta.active_player = cp.attacker_side
+    if placed_siege or state.campaign_turn.actions_remaining <= 0:
+        state.campaign_turn.actions_remaining = 0
+        _enter_feed_pay_disband(state)
     return (
         {
             "avoided_to": dest,

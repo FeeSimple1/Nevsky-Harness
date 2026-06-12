@@ -498,6 +498,18 @@ def _h_aow_draw(
             "already drew 2 AoW cards this Levy (SoP 3.1); implement them "
             "then advance",
         )
+    # PLAY-1 (Fable playtest): SoP 3.1.1 -- each Levy the side shuffles
+    # all own unused AoW cards (deck + discard, No-Event cards included;
+    # holds / capabilities-in-play / removed stay out) into a fresh deck
+    # BEFORE drawing. The harness previously performed no shuffle at all
+    # unless the deck was empty (aow_shuffle was only enumerated then),
+    # so every game drew the identical sorted-order card sequence
+    # (T1, T10, T11, ... / R1, R10, R11, ...) regardless of seed.
+    # The aow_drawn_{t,r} latch above guarantees this runs exactly once
+    # per side per Levy, so RNG consumption stays deterministic per seed.
+    from nevsky.rng import shuffle
+    deck.deck = shuffle(state, deck.deck + deck.discard)
+    deck.discard = []
     n_draw = min(2, len(deck.deck))
     drawn = deck.deck[:n_draw]
     deck.deck = deck.deck[n_draw:]
