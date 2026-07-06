@@ -1781,6 +1781,41 @@ def _h_end_campaign_resolve(
                 state.calendar.teutonic_vp = max(0.0, state.calendar.teutonic_vp - 0.5)
             grew.append(rid)
 
+    # PLAY-21 (Fable audit): 4.9.5 RESET -- "Each side may discard any
+    # Arts of War cards back to its deck (Teutons then Russians)."
+    # args.reset_discard = [card_ids] returns held cards (holds zone)
+    # to the owning side's deck. Previously this printed option had no
+    # engine path: a dead situational Hold (e.g. an Ambush the side
+    # will never use) was stuck forever.
+    reset_discarded: list[str] = []
+    _rd = args.get("reset_discard")
+    if _rd is not None:
+        if not isinstance(_rd, list):
+            raise IllegalAction("bad_reset_discard",
+                                "reset_discard must be a list of card ids")
+        _deck = _side_deck(state, sd)
+        for cid in _rd:
+            if cid not in _deck.holds:
+                raise IllegalAction(
+                    "bad_reset_discard",
+                    f"{cid} not in {sd} holds (4.9.5 returns held cards)")
+            _deck.holds.remove(cid)
+            _deck.deck.append(cid)
+            reset_discarded.append(cid)
+
+    # PLAY-17 (Fable audit): 4.9 order is GROW (4.9.1) -> GAME END
+    # (4.9.2) -> PLOW AND REAP (4.9.3) -> WASTAGE (4.9.4) -> RESET
+    # (4.9.5). The engine ran Wastage per side BEFORE the global Plow &
+    # Reap, so Wastage qualification/discard used pre-flip, pre-halving
+    # Transport counts (e.g. 4 Sleds at box 6: rules flip->4 Carts,
+    # halve->2, Wastage->1 Cart; engine discarded a Sled first ->2
+    # Carts). Transport flips only touch the owning side's mats, so the
+    # flip is run per side here, before that side's Wastage; the global
+    # call in the both-sides-done block is gone. Skipped when this box
+    # is the scenario's final 40 Days (4.9.2 GAME END precedes 4.9.3).
+    if state.meta.box < state.meta.span_end_box:
+        _plow_and_reap(state, state.meta.box, side=sd)
+
     # 4.9.4 Wastage (per side). A Lord qualifies when he has more than
     # one of any single Asset type OR more than one This Lord
     # Capability card; the OWNING PLAYER then selects ANY one Asset or
@@ -1909,10 +1944,8 @@ def _h_end_campaign_resolve(
                 state.meta.victory_reason = _res["reason"]
                 state.meta.game_over = True
         else:
-            # 4.9.3 Plow & Reap (end of Summer / end of Late Winter only).
-            # Per RoP, "end of" means the LAST 40-Days of that season,
-            # i.e., box 2 / 10 for Summer, box 6 / 14 for Late Winter.
-            _plow_and_reap(state, state.meta.box)
+            # 4.9.3 Plow & Reap ran per side (PLAY-17), before each
+            # side's Wastage.
             # Advance Calendar marker by 1, flip to Levy.
             cal = state.calendar
             new_box_after_advance: int | None = None
@@ -1983,7 +2016,7 @@ def _h_end_campaign_resolve(
                 lord.just_arrived_this_levy = False
             advanced = True
 
-    return ({"side": sd, "grew": grew, "wastage": wastage_actions,
+    return ({"side": sd, "grew": grew, "wastage": wastage_actions, "reset_discard": reset_discarded,
              "this_campaign_discarded": discarded_camp_events,
              "serfs_returned": serfs_returned,
              "crusade_auto_discarded": (
@@ -1997,11 +2030,16 @@ _END_OF_SUMMER_BOXES = (2, 10)       # Last Summer box per year.
 _END_OF_LATE_WINTER_BOXES = (6, 14)  # Last Late-Winter box per year.
 
 
-def _plow_and_reap(state: GameState, box: int) -> None:
+def _plow_and_reap(state: GameState, box: int, side: "Side | None" = None) -> None:
     """4.9.3: end-of-Summer Carts -> Sleds; end-of-Late-Winter Sleds ->
     Carts. After flipping, each Lord discards Sleds/Carts down to half
     rounded UP. (PAC text "last 40 Days of Summer or Late Winter"
     corrected per 2E to NOT include Early Winter.)
+
+    PLAY-17: `side` filters to one side's Lords so the flip can run
+    inside each side's end_campaign_resolve, BEFORE that side's Wastage
+    (4.9.3 precedes 4.9.4). Transport flips never touch the other
+    side's mats, so per-side execution is order-equivalent.
     """
     end_of_summer = box in _END_OF_SUMMER_BOXES
     end_of_late_winter = box in _END_OF_LATE_WINTER_BOXES
@@ -2009,6 +2047,8 @@ def _plow_and_reap(state: GameState, box: int) -> None:
         return
     for lord in state.lords.values():
         if lord.state != "mustered":
+            continue
+        if side is not None and lord.side != side:
             continue
         if end_of_summer:
             # Carts -> Sleds (rule).
@@ -4787,6 +4827,21 @@ def effective_boat_count(state: GameState, lord_id: str) -> int:
     if has_lord_capability(state, lord_id, "Lodya"):
         return base * 2
     return base
+
+
+def lodya_comparison_ships(state: GameState, lord_id: str) -> int:
+    """PLAY-20 (Fable audit): R16 Lodya for the R9 Baltic Sea Trade
+    Ship comparison. The card lets the Lord "temporarily designate up
+    to TWO of his Ships or Boats as the other" -- so at most 2 of his
+    Boats can stand in as Ships. (The other mode, doubling Boats,
+    contributes no Ships at all.) The previous comparison credited the
+    entire boat-doubling delta (ALL of the Lord's Boats) as Ships.
+    """
+    from nevsky.capabilities import has_lord_capability
+
+    if not has_lord_capability(state, lord_id, "Lodya"):
+        return 0
+    return min(2, state.lords[lord_id].assets.get("boat", 0))
 
 
 def _h_cmd_tax_veliky_knyaz_aware(

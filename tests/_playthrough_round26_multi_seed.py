@@ -155,8 +155,12 @@ def levy_phase(s):
     # pay
     step(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
-    # disband
+    # disband -- PLAY-19: 3.3 Disband is mandatory; advance_step is
+    # rejected while a Disband is owed, so resolve first (no-op when
+    # nothing is pending).
+    step(s, {"type": "disband_resolve", "side": "teutonic", "args": {}})
     step(s, {"type": "advance_step", "side": "teutonic", "args": {}})
+    step(s, {"type": "disband_resolve", "side": "russian", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
     # muster (auto)
     moves = legal_moves(s, with_previews=False)

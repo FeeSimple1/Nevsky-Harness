@@ -63,7 +63,24 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
         # Pending cards always have a clearing move: implement (cap or
         # event-with-target), auto-discard (no eligible Lord, Q-R190-A),
         # or bare-implement no-op-discard (un-targetable Event, R201).
-        if not (step == "arts_of_war" and _sd_deck.pending_draw):
+        # PLAY-19 (Fable audit): in the Disband step, advance_step is
+        # illegal while this side owes a mandatory 3.3 Disband (the
+        # handler raises must_disband); suppress it so the palette
+        # only offers the clearing move (disband_resolve).
+        _owes_disband = False
+        if step == "disband":
+            _resolved = (state.meta.disband_resolved_t if side == "teutonic"
+                         else state.meta.disband_resolved_r)
+            if not _resolved:
+                _levy_box_ds = _find_levy_marker_box(state)
+                for _lid, _lord in state.lords.items():
+                    if _lord.side != side or _lord.state != "mustered":
+                        continue
+                    _smb = _find_service_marker_box(state, _lid)
+                    if _smb is not None and _smb <= _levy_box_ds:
+                        _owes_disband = True
+                        break
+        if not (step == "arts_of_war" and _sd_deck.pending_draw) and not _owes_disband:
             moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))
@@ -582,9 +599,10 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 _teu = sum(effective_ship_count(state, lid)
                            for lid, l in state.lords.items()
                            if l.side == "teutonic" and l.state == "mustered")
+                from nevsky.campaign import lodya_comparison_ships
+                # PLAY-20: Lodya contributes at most 2 Boats-as-Ships.
                 _rus = sum(effective_ship_count(state, lid)
-                           + (effective_boat_count(state, lid)
-                              - state.lords[lid].assets.get("boat", 0))
+                           + lodya_comparison_ships(state, lid)
                            for lid, l in state.lords.items()
                            if l.side == "russian" and l.state == "mustered")
                 if _teu > _rus:
@@ -637,7 +655,9 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     and lord.location is not None
                     and _is_friendly_locale(state, lord.location, "russian")
                     and not _is_besieged(state, lid)
-                    and not lord.just_arrived_this_levy
+                    # PLAY-18: Muster-segment arrivals may receive
+                    # Option C (only same-CtA Option-B arrivals may
+                    # not, and B+C in one CtA is impossible anyway).
                 ]
                 for tgt in extra_targets:
                     out.append({
@@ -1419,21 +1439,65 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # {lord_id: "<asset_type>" | "capability:<card_id>"}.
         # Unlisted Lords fall back to a deterministic auto-discard.
         wastage_candidates: dict[str, list[str]] = {}
+        # PLAY-17: 4.9.3 Plow & Reap runs inside the handler BEFORE
+        # 4.9.4 Wastage, so candidates must be computed on the
+        # POST-flip, post-halving Transport (else the palette offers
+        # "sled" discards at box 6 where only Carts will exist).
+        from nevsky.campaign import (_END_OF_LATE_WINTER_BOXES,
+                                     _END_OF_SUMMER_BOXES)
+        _box = state.meta.box
+        _flip = (_box < state.meta.span_end_box
+                 and (_box in _END_OF_SUMMER_BOXES
+                      or _box in _END_OF_LATE_WINTER_BOXES))
         for lid, lord in state.lords.items():
             if lord.side != side or lord.state != "mustered":
                 continue
-            if (any(v > 1 for v in lord.assets.values())
+            assets_preview = dict(lord.assets)
+            if _flip:
+                total = assets_preview.pop("sled", 0) + assets_preview.pop("cart", 0)
+                if total > 0:
+                    key = "sled" if _box in _END_OF_SUMMER_BOXES else "cart"
+                    assets_preview[key] = (total + 1) // 2
+            if (any(v > 1 for v in assets_preview.values())
                     or len(lord.this_lord_capabilities) > 1):
                 wastage_candidates[lid] = sorted(
-                    k for k, v in lord.assets.items() if v > 0
+                    k for k, v in assets_preview.items() if v > 0
                 ) + [f"capability:{c}" for c in lord.this_lord_capabilities]
         move: dict[str, Any] = {"type": "end_campaign_resolve", "side": side,
                                 "args": {}}
+        candidates: dict[str, Any] = {}
+        notes: list[str] = []
         if wastage_candidates:
-            move["candidates"] = {"wastage": wastage_candidates}
-            move["note"] = ("4.9.4 Wastage owed; optionally choose discards via "
-                            'args.wastage={lord_id: "<asset_type>" | '
-                            '"capability:<card_id>"}')
+            candidates["wastage"] = wastage_candidates
+            notes.append('4.9.4 Wastage owed; choose via args.wastage='
+                         '{lord_id: "<asset_type>" | "capability:<card_id>"}'
+                         " (candidates reflect post-Plow-and-Reap Transport)")
+        # PLAY-21 palette: 4.9.1 Grow selection (box 8/16) -- the
+        # removing side picks which Enemy Ravaged markers come off.
+        from nevsky.actions import _season_of_box as _sob
+        if _sob(_box) == "rasputitsa" and _box in (8, 16):
+            _tc = "russian" if side == "teutonic" else "teutonic"
+            _rav = [lid for lid, loc in state.locales.items()
+                    if (_tc == "russian" and loc.russian_ravaged)
+                    or (_tc == "teutonic" and loc.teutonic_ravaged)]
+            if len(_rav) // 2 > 0:
+                candidates["grow_remove"] = {
+                    "choose_exactly": len(_rav) // 2,
+                    "from": sorted(_rav)}
+                notes.append("4.9.1 Grow: pick exactly "
+                             f"{len(_rav) // 2} of the Enemy Ravaged "
+                             "Locales via args.grow_remove=[...]")
+        # PLAY-21 palette: 4.9.5 Reset -- may return held AoW cards to
+        # the deck via args.reset_discard=[card_ids].
+        _holds = (state.decks.teutonic.holds if side == "teutonic"
+                  else state.decks.russian.holds)
+        if _holds:
+            candidates["reset_discard"] = sorted(_holds)
+            notes.append("4.9.5 Reset: optionally return held AoW cards "
+                         "to the deck via args.reset_discard=[...]")
+        if candidates:
+            move["candidates"] = candidates
+            move["note"] = " | ".join(notes)
         out.append(move)
         return out
     return out

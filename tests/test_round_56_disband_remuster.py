@@ -22,6 +22,10 @@ def _advance_to_muster_step(st):
     st.meta.active_player = "russian"
     st.meta.levy_step_completed_t = True
     st.meta.levy_step_completed_r = False
+    # PLAY-19: 3.3 Disband is mandatory -- resolve any owed Disband
+    # before advancing (no-op when nothing is pending).
+    if not st.meta.disband_resolved_r:
+        apply_action(st, {"type": "disband_resolve", "side": "russian", "args": {}})
     apply_action(st, {"type": "advance_step", "side": "russian", "args": {}})
 
 
@@ -68,14 +72,24 @@ def test_disbanded_at_off_left_becomes_ready():
 
 
 def test_mustered_lord_unchanged_by_muster_step_transition():
-    """Already-Mustered Lords aren't affected by the disbanded->ready transition."""
+    """Already-Mustered Lords aren't affected by the disbanded->ready
+    transition. PLAY-19 note: Lords whose Service marker sits at-or-
+    left of the Levy box legitimately Disband in the (now-mandatory)
+    3.3 resolve, so only Lords with Service still in the future are
+    asserted Mustered."""
     st = load_scenario("pleskau", seed=1)
     _set_levy_marker(st, 3)
+    from nevsky.actions import _find_service_marker_box
+    expect_mustered = [
+        lid for lid in ("hermann", "yaroslav", "knud_and_abel", "gavrilo",
+                        "vladislav")
+        if (_find_service_marker_box(st, lid) or 99) > 3
+        or st.lords[lid].side == "teutonic"  # only russian side resolves here
+    ]
+    assert expect_mustered, "fixture: at least one Lord must stay"
     _advance_to_muster_step(st)
-    # All initial Mustered Lords stay Mustered
-    for lid, L in st.lords.items():
-        if lid in ("hermann", "yaroslav", "knud_and_abel", "gavrilo", "vladislav"):
-            assert L.state == "mustered"
+    for lid in expect_mustered:
+        assert st.lords[lid].state == "mustered", lid
 
 
 def test_ready_lord_unchanged_by_transition():

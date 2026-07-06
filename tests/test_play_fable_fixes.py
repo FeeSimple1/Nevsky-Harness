@@ -803,3 +803,145 @@ def test_play16_bridge_cap_follows_front_center():
                      and e.get("event") == "bridge_target_redirected"]
         assert redirects and redirects[0]["front_center"] == center, (
             "Bridge cap must follow the front-center Lord (card text)")
+
+
+# ===========================================================================
+# PLAY-17..21 (Fable adversarial audit, 2026-07-05): End Campaign / Levy
+# ===========================================================================
+#
+# PLAY-17 — 4.9 order: Plow & Reap (4.9.3) precedes Wastage (4.9.4).
+# PLAY-18 — Veche Option C may target Muster-segment arrivals.
+# PLAY-19 — 3.3 Disband is mandatory; advance_step is guarded.
+# PLAY-20 — R9 sea trade: Lodya contributes at most 2 Boats-as-Ships.
+# PLAY-21 — 4.9.5 Reset: sides may return held AoW cards to the deck;
+#            Grow selection + reset discard now enumerated.
+
+
+def _end_campaign_state(box, side="teutonic", seed=3):
+    s = load_scenario("crusade_on_novgorod", seed=seed)
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "end_campaign"
+    s.meta.first_levy_done = True
+    s.meta.box = box
+    # Levy/Campaign marker on `box` so calendar advance works.
+    for cb in s.calendar.boxes:
+        cb.has_levy_campaign_marker = (cb.box == box)
+        cb.levy_campaign_face = "campaign" if cb.box == box else None
+    s.meta.active_player = side
+    return s
+
+
+def test_play17_plow_and_reap_before_wastage():
+    """Box 6 (end of Late Winter), Andreas holds 4 Sleds and nothing
+    else: flip -> 4 Carts, halve -> 2 Carts, Wastage discards 1 -> 1.
+    Pre-fix: Wastage ate a Sled first, leaving 2 Carts."""
+    s = _end_campaign_state(6)
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "riga"
+    s.lords["andreas"].assets = {"sled": 4}
+    res = apply_action(s, {"type": "end_campaign_resolve",
+                           "side": "teutonic",
+                           "args": {"wastage": {"andreas": "cart"}}})
+    assert s.lords["andreas"].assets.get("cart", 0) == 1, (
+        f"expected 1 Cart after 4.9.3-then-4.9.4; got "
+        f"{s.lords['andreas'].assets}")
+    assert s.lords["andreas"].assets.get("sled", 0) == 0
+
+
+def test_play17_wastage_candidates_post_flip():
+    """The palette's wastage candidates at a flip box must name the
+    post-flip Transport type."""
+    from nevsky.legal_moves import legal_moves
+    s = _end_campaign_state(6)
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "riga"
+    s.lords["andreas"].assets = {"sled": 4}
+    mv = next(m for m in legal_moves(s)
+              if m["type"] == "end_campaign_resolve")
+    cands = mv.get("candidates", {}).get("wastage", {})
+    assert cands.get("andreas") == ["cart"], (
+        f"candidates must reflect post-Plow-and-Reap assets; got {cands}")
+
+
+def test_play18_veche_c_allows_muster_segment_arrival():
+    s = load_scenario("crusade_on_novgorod", seed=3)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "call_to_arms"
+    s.meta.active_player = "russian"
+    s.lords["domash"].state = "mustered"
+    s.lords["domash"].location = "novgorod"
+    s.lords["domash"].just_arrived_this_levy = True  # Muster-segment arrival
+    s.veche.vp_markers = 2
+    res = apply_action(s, {"type": "veche_action", "side": "russian",
+                           "args": {"option": "C", "target_lord": "domash"}})
+    assert res["option"] == "C" and res["target_lord"] == "domash"
+    assert "extra_muster" in res
+
+
+def test_play19_advance_step_blocked_by_mandatory_disband():
+    import pytest
+    from nevsky.actions import IllegalAction
+    s = load_scenario("crusade_on_novgorod", seed=3)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "disband"
+    s.meta.active_player = "teutonic"
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "riga"
+    # Service marker LEFT of the Levy box -> mandatory removal.
+    levy_box = next(cb.box for cb in s.calendar.boxes
+                    if cb.has_levy_campaign_marker)
+    for cb in s.calendar.boxes:
+        if "andreas" in cb.service_markers:
+            cb.service_markers.remove("andreas")
+    target = s.calendar.boxes[max(0, levy_box - 3)]
+    target.service_markers.append("andreas")
+    with pytest.raises(IllegalAction) as ei:
+        apply_action(s, {"type": "advance_step", "side": "teutonic",
+                         "args": {}})
+    assert ei.value.code == "must_disband"
+    # disband_resolve then unblocks advance_step.
+    apply_action(s, {"type": "disband_resolve", "side": "teutonic",
+                     "args": {}})
+    apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
+
+
+def test_play20_lodya_caps_at_two_phantom_ships():
+    from nevsky.campaign import lodya_comparison_ships
+    s = load_scenario("crusade_on_novgorod", seed=3)
+    lid = "aleksandr"
+    s.lords[lid].state = "mustered"
+    s.lords[lid].location = "novgorod"
+    s.lords[lid].assets = {"boat": 4}
+    s.lords[lid].this_lord_capabilities.append("R16")
+    from nevsky.capabilities import has_lord_capability
+    assert has_lord_capability(s, lid, "Lodya")
+    assert lodya_comparison_ships(s, lid) == 2
+    s.lords[lid].assets = {"boat": 1}
+    assert lodya_comparison_ships(s, lid) == 1
+
+
+def test_play21_reset_discard_returns_holds_to_deck():
+    s = _end_campaign_state(3)
+    s.decks.teutonic.holds.append("T6")
+    n_deck = len(s.decks.teutonic.deck)
+    res = apply_action(s, {"type": "end_campaign_resolve",
+                           "side": "teutonic",
+                           "args": {"reset_discard": ["T6"]}})
+    assert res["reset_discard"] == ["T6"]
+    assert "T6" not in s.decks.teutonic.holds
+    assert len(s.decks.teutonic.deck) == n_deck + 1
+
+
+def test_play21_enumeration_offers_grow_and_reset():
+    from nevsky.legal_moves import legal_moves
+    s = _end_campaign_state(8)
+    s.decks.teutonic.holds.append("T6")
+    # Two Russian Ravaged markers -> Grow removes 1 (half up remain).
+    locs = [k for k in list(s.locales.keys())[:2]]
+    for k in locs:
+        s.locales[k].russian_ravaged = True
+    mv = next(m for m in legal_moves(s)
+              if m["type"] == "end_campaign_resolve")
+    cands = mv.get("candidates", {})
+    assert cands.get("reset_discard") == ["T6"]
+    assert cands.get("grow_remove", {}).get("choose_exactly") == 1

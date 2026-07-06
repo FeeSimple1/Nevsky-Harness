@@ -286,6 +286,26 @@ def _h_advance_step(
     # cards with no eligible target (Q-R190-A), so a non-empty
     # pending_draw always has a resolving move available; advancing
     # past it would orphan the card.
+    # PLAY-19 (Fable audit): 3.3 Disband is MANDATORY -- "At the start
+    # of each Levy, every Lord whose Service marker is left of the
+    # current 40-Days box ... Disbands"; an at-limit Lord "must
+    # Disband". advance_step previously had no guard, so a palette
+    # agent could skip disband_resolve entirely and keep a
+    # beyond-limit Lord Mustered through the whole Levy.
+    if state.meta.levy_step == "disband":
+        _resolved = (state.meta.disband_resolved_t if sd == "teutonic"
+                     else state.meta.disband_resolved_r)
+        if not _resolved:
+            _levy_box = _find_levy_marker_box(state)
+            for _lid, _lord in state.lords.items():
+                if _lord.side != sd or _lord.state != "mustered":
+                    continue
+                _smb = _find_service_marker_box(state, _lid)
+                if _smb is not None and _smb <= _levy_box:
+                    raise IllegalAction(
+                        "must_disband",
+                        f"{_lid} owes a mandatory Disband (3.3); resolve "
+                        "disband_resolve before advancing")
     if (state.meta.levy_step == "arts_of_war"
             and _side_deck(state, sd).pending_draw):
         # R199/R201 (SMOKE-131): a side may not advance Arts of War
@@ -2689,12 +2709,17 @@ def _h_veche_action(
             raise IllegalAction("besieged", f"{target_id} is Besieged; Option C unavailable (3.5.2)")
         if not _is_friendly_locale(state, target.location, "russian"):
             raise IllegalAction("not_friendly", f"{target_id} not at Friendly Locale (3.5.2 Option C)")
-        if target.just_arrived_this_levy:
-            # Note: a Lord brought on via Option B in same Call to Arms cannot be subject of C.
-            raise IllegalAction(
-                "just_arrived",
-                f"{target_id} just arrived this Levy; cannot use Lordship same Call to Arms (3.5.2)",
-            )
+        # PLAY-18 (Fable audit): Call to Arms reference, Option C note --
+        # "a Lord Mustered DURING the standard Muster segment CAN use
+        # his Lordship via Option C, but a Lord Mustered VIA Option B
+        # (auto-Muster) within Call to Arms cannot." The old
+        # just_arrived_this_levy gate blocked every Lord Mustered this
+        # Levy, including the Muster-segment arrivals the rules allow.
+        # Since the Veche acts once per Levy (3.5.2), an Option-B
+        # arrival can never be targeted by an Option C in the same
+        # Call to Arms anyway -- so no gate is needed at all. (Mirrors
+        # Legate 2c, which already cleared the flag for already-
+        # Mustered Lords.)
         target.lordship_used = 0
         # SMOKE-107 (Round 153): mark target for call_to_arms-step
         # Muster handler bypass; clears at CtA -> done in _h_advance_step.
@@ -2813,13 +2838,15 @@ def _veche_sea_trade(
             for lid, l in state.lords.items()
             if l.side == "teutonic" and l.state == "mustered"
         )
+        # PLAY-20 (Fable audit): R16 Lodya lets its Lord designate at
+        # most TWO Boats as Ships; the old formula credited the whole
+        # boat-doubling delta (all his Boats) as Ships.
+        from nevsky.campaign import lodya_comparison_ships
         rus_ships = sum(
-            effective_ship_count(state, lid) + (effective_boat_count(state, lid) - state.lords[lid].assets.get("boat", 0))
+            effective_ship_count(state, lid) + lodya_comparison_ships(state, lid)
             for lid, l in state.lords.items()
             if l.side == "russian" and l.state == "mustered"
         )
-        # Lodya doubles a Russian Lord's Boats; we treat that as +Boats
-        # for the comparison only on the Russian side.
         if teu_ships > rus_ships:
             raise IllegalAction(
                 "sea_trade_blocked",

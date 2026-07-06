@@ -54,6 +54,14 @@ def safe_fallback_for_side(state, side: str) -> dict:
     if phase == "levy":
         if levy_step == "call_to_arms" and side == "teutonic":
             return {"type": "legate_skip", "side": side, "args": {}}
+        if levy_step == "disband":
+            # PLAY-19: advance_step is rejected (must_disband) while a
+            # mandatory 3.3 Disband is owed; the safe fallback must
+            # resolve it, not spin on advance_step.
+            _resolved = (state.meta.disband_resolved_t if side == "teutonic"
+                         else state.meta.disband_resolved_r)
+            if not _resolved:
+                return {"type": "disband_resolve", "side": side, "args": {}}
         return {"type": "advance_step", "side": side, "args": {}}
     if phase == "campaign":
         if camp_step == "command":

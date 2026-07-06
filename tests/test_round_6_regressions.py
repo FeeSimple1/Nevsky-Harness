@@ -376,10 +376,30 @@ def test_full_16_turn_crusade_run_no_invariant_violation() -> None:
                         deck.pending_draw.pop(0)
                         deck.discard.append(cid)
             apply_action(s, {"type": "advance_step", "side": sd, "args": {}})
-        # pay/disband/muster: skip
+        # pay/disband/muster: skip. PLAY-19: the disband step's
+        # advance is rejected while a mandatory 3.3 Disband is owed,
+        # so resolve first (illegal outside the disband step; ignore).
         for _ in range(3):
-            apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
-            apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
+            for sd2 in ("teutonic", "russian"):
+                try:
+                    apply_action(s, {"type": "disband_resolve", "side": sd2, "args": {}})
+                except IllegalAction:
+                    pass
+                # With Disband now actually happening (PLAY-19), this
+                # driver must also re-Muster or both sides bleed to 0
+                # Lords and 5.2 ends the game early. One muster per
+                # side per Levy keeps the 16-turn run alive.
+                if s.meta.levy_step == "muster":
+                    from nevsky.legal_moves import legal_moves as _lm
+                    _mv = next((m for m in _lm(s, with_previews=False)
+                                if m["type"] == "muster_lord"
+                                and m["side"] == sd2), None)
+                    if _mv is not None:
+                        try:
+                            apply_action(s, _mv)
+                        except IllegalAction:
+                            pass
+                apply_action(s, {"type": "advance_step", "side": sd2, "args": {}})
         # CtA skip
         apply_action(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
         apply_action(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
@@ -417,9 +437,18 @@ def test_full_16_turn_crusade_run_no_invariant_violation() -> None:
         turn += 1
         assert turn <= 17, f"safety bail at turn 17 (box={s.meta.box})"
         assert s.meta.phase == "levy", f"phase={s.meta.phase} at turn {turn}"
-        fast_levy()
-        assert s.meta.phase == "campaign", f"after Levy phase={s.meta.phase}"
-        fast_camp()
+        try:
+            fast_levy()
+            assert s.meta.phase == "campaign", f"after Levy phase={s.meta.phase}"
+            fast_camp()
+        except IllegalAction as e:
+            # PLAY-19: with 3.3 Disband now mandatory, this driver's
+            # roster can empty at the Levy->Campaign boundary and 5.2
+            # ends the game inside a helper; any queued action then
+            # raises game_over. Terminal assertions below still run.
+            if e.code == "game_over":
+                break
+            raise
         # Invariants.
         assert s.veche.coin <= 8
         assert s.veche.vp_markers <= 8
