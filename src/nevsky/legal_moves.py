@@ -1052,6 +1052,17 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 out.append({"type": "cmd_siege", "side": side,
                             "args": {"lord_id": active_lord},
                             "note": "Siege (4.5.1) -- entire card; surrender or siegeworks"})
+                # PLAY-7 (Fable audit): 4.5.1 "the Besieging side MAY
+                # roll for Surrender" -- declining the roll is a legal
+                # choice (Siegeworks still applies). Only meaningful
+                # when the roll would occur (no Besieged Lords inside).
+                from nevsky.campaign import _besieged_lords_at as _bla
+                if sh.get("side") is not None and not _bla(state, active.location, sh["side"]):
+                    out.append({"type": "cmd_siege", "side": side,
+                                "args": {"lord_id": active_lord,
+                                         "decline_surrender": True},
+                                "note": "Siege (4.5.1) declining the Surrender"
+                                        " roll -- Siegeworks check only"})
                 if not sh.get("no_storm"):
                     storm_note = _maybe_preview_note(
                         state,

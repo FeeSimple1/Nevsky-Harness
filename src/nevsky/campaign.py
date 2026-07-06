@@ -3450,6 +3450,42 @@ def _h_stand_battle(
             state.legate.locale_id = None
             aftermath["legate_removed"] = True
 
+    # PLAY-8 (Fable audit): 4.3.5 "If all Besieging Lords later depart,
+    # remove all Siege markers" / 4.4.5 "If the combat ... ended a Siege
+    # ... remove Siege ... markers". PLAY-3 covered the Avoid / March /
+    # Sail departure paths; the battle-RETREAT departure path (losing
+    # besiegers retreat alive after a Relief Battle) was missed, leaving
+    # the relieved Lord Besieged-by-nobody and palette-locked to
+    # Sally/Pass.
+    from nevsky.actions import _lift_siege_if_no_besiegers as _lift_after_battle
+    if _lift_after_battle(state, cp.to_locale):
+        aftermath["siege_lifted"] = True
+
+    # PLAY-9 (Fable audit): 4.3.5 Besiege -- "WHENEVER a side has Lord(s)
+    # in a Locale outside a currently Unbesieged enemy Stronghold and no
+    # enemy Lords are present outside the Stronghold, mark the Locale
+    # with one Siege marker" / 4.4.5 "If the combat created ... a Siege,
+    # place ... markers". Winning the field Battle outside an enemy
+    # Stronghold begins the Siege immediately; pre-fix the winner had to
+    # waste a later card marching out and back in.
+    _loc_after = state.locales[cp.to_locale]
+    if (_has_enemy_stronghold_at(state, cp.to_locale, winner)
+            and _loc_after.siege_markers == 0):
+        _enemies_outside = [
+            L for L in state.lords.values()
+            if L.state == "mustered" and L.location == cp.to_locale
+            and L.side != winner and not L.in_stronghold
+        ]
+        _winners_outside = [
+            wlid for wlid in winner_lords
+            if wlid in state.lords
+            and state.lords[wlid].location == cp.to_locale
+            and not state.lords[wlid].in_stronghold
+        ]
+        if not _enemies_outside and _winners_outside:
+            _loc_after.siege_markers = 1
+            aftermath["placed_siege"] = True
+
     # 4.4.4: Winner side -- no Losses rolls per rules. Phase 7
     # implementation returns all routed units to forces (so the winner
     # doesn't arbitrarily lose units after winning a Battle).
@@ -3697,7 +3733,14 @@ def _h_cmd_siege(
 
     surrender_result: dict[str, Any] | None = None
     dice: list[dict[str, Any]] = []
-    if not besieged:
+    surrendered = False
+    if not besieged and args.get("decline_surrender"):
+        # PLAY-7 (Fable audit): 4.5.1 "the Besieging side MAY roll for
+        # Surrender ... If the Stronghold did not Surrender (including
+        # because the Besieger declined to roll)" -- declining is a legal
+        # choice; Siegeworks still applies below.
+        surrender_result = {"conquered": False, "declined": True}
+    elif not besieged:
         roll = roll_d6(state)
         sm = state.locales[locale_id].siege_markers
         success = roll <= sm
@@ -3716,17 +3759,28 @@ def _h_cmd_siege(
                 surrender_result = {"conquered": True, "veche_coin_removed": lost_coin, "change": change}
             else:
                 surrender_result = {"conquered": True, "change": change}
+            # PLAY-7 (Fable audit): 4.5.1 Surrender -- "Remove Siege
+            # markers." The Siege is over; the Stronghold is Conquered.
+            # Pre-fix the markers persisted (and Siegeworks below even
+            # ADDED one), leaving the new owner's own city a permanent
+            # "Siege Locale" (never Friendly; blocked Muster/Forage;
+            # cmd_siege/cmd_storm offered against their own Stronghold).
+            state.locales[locale_id].siege_markers = 0
+            surrendered = True
         else:
             surrender_result = {"conquered": False}
 
     # Siegeworks check: add siege marker if besiegers >= Capacity.
+    # PLAY-7 (Fable audit): 4.5.1 SIEGEWORKS applies only "If the
+    # Stronghold did not Surrender (including because the Besieger
+    # declined to roll)".
     siege_added = False
     besiegers = [
         lid for lid in _besieging_lords_at(state, locale_id, sd)
         if lid not in besieged
     ]
     # SMOKE-054 (R63): sh is from _effective_stronghold; capacity reflects Castle if marker present.
-    if len(besiegers) >= sh["capacity"] and state.locales[locale_id].siege_markers < 4:
+    if not surrendered and len(besiegers) >= sh["capacity"] and state.locales[locale_id].siege_markers < 4:
         state.locales[locale_id].siege_markers += 1
         siege_added = True
 
@@ -4189,6 +4243,15 @@ def _h_cmd_sally(
         state.locales[locale_id].siege_markers = 0
         aftermath["siege_lifted"] = True
         aftermath["sally_outcome"] = "broken_siege"
+        # PLAY-10 (Fable audit): with the Siege over, nobody at the
+        # Locale is inside a Besieged Stronghold anymore. Pre-fix the
+        # sallying winners kept in_stronghold=True, so a later enemy
+        # March skipped the 4.3.4 Approach (no Avoid/Withdraw/Battle
+        # choice) and silently re-Besieged them.
+        for _lid2, _l2 in state.lords.items():
+            if _l2.location == locale_id and _l2.in_stronghold:
+                _l2.in_stronghold = False
+                aftermath.setdefault("no_longer_besieged", []).append(_lid2)
         # SMOKE-085 (Round 89): per AoW Reference 1.4.1 Legate, a
         # Teutonic Lord that Retreats (Sally aftermath when besiegers
         # lose) triggers Legate removal if the pawn is at the locale.
