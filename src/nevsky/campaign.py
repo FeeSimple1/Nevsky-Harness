@@ -3725,6 +3725,39 @@ def _effective_stronghold(state: GameState, locale_id: str) -> dict[str, Any] | 
     return out
 
 
+def _effective_stronghold_owner(state: GameState, locale_id: str) -> "Side | None":
+    """PLAY-25 (Fable audit): the Stronghold's CURRENT owner -- the side
+    that would defend a Siege/Storm there -- accounting for Conquered
+    markers and Castle-marker color, not just the static territory.
+
+    strongholds.json 'side' is static by type (fort/city/novgorod ->
+    russian; commandery/castle/bishopric -> teutonic). Once a
+    Stronghold is Conquered (1.3.1), it is the conqueror's: a Teuton
+    Withdrawn inside Teuton-Conquered Izborsk (SMOKE-130) defends any
+    Russian re-Siege; pre-fix the engine treated the RUSSIANS as the
+    defenders -- rolling Surrender with an enemy Lord Besieged inside,
+    Storming garrison-only (the inside Lord neither Arrayed nor was
+    Sacked), and offering cmd_siege/cmd_storm to the wrong side.
+    """
+    sh = _effective_stronghold(state, locale_id)
+    if sh is None:
+        return None
+    loc = state.locales.get(locale_id)
+    if loc is None:
+        return sh.get("side")
+    # Castle marker color is authoritative (flips on Conquest, 4.5.1).
+    if loc.teutonic_castle:
+        return "teutonic"
+    if loc.russian_castle:
+        return "russian"
+    base_side = sh.get("side")
+    if base_side == "russian" and loc.teutonic_conquered > 0:
+        return "teutonic"
+    if base_side == "teutonic" and loc.russian_conquered > 0:
+        return "russian"
+    return base_side
+
+
 def _besieging_lords_at(state: GameState, locale_id: str, side: Side) -> list[str]:
     """Lords of `side` at `locale_id` who are NOT inside the Stronghold."""
     return [
@@ -3863,8 +3896,14 @@ def _h_cmd_siege(
     if state.locales[locale_id].siege_markers == 0:
         raise IllegalAction("no_siege", f"no siege at {locale_id}; March in to begin a Siege")
 
-    # Sieging side is `sd`; defending side is the Stronghold owner.
-    defending_side: Side = sh["side"]
+    # Sieging side is `sd`; defending side is the Stronghold's CURRENT
+    # owner (PLAY-25: Conquered markers / Castle color, not static
+    # territory).
+    defending_side: Side = _effective_stronghold_owner(state, locale_id) or sh["side"]
+    if defending_side == sd:
+        raise IllegalAction(
+            "own_stronghold",
+            f"{locale_id} Stronghold is currently {sd}-owned; cannot Siege it")
     # Phase 3c: Besieged Lords are own-side Lords at the locale who match
     # the Stronghold's owning side (the defenders inside).
     besieged = _besieged_lords_at(state, locale_id, defending_side)
@@ -3970,7 +4009,12 @@ def _h_cmd_storm(
     if state.locales[locale_id].siege_markers == 0:
         raise IllegalAction("no_siege", f"no siege at {locale_id}")
 
-    defending_side: Side = sh["side"]
+    defending_side: Side = _effective_stronghold_owner(state, locale_id) or sh["side"]
+    # PLAY-25: dynamic ownership -- see _effective_stronghold_owner.
+    if defending_side == sd:
+        raise IllegalAction(
+            "own_stronghold",
+            f"{locale_id} Stronghold is currently {sd}-owned; cannot Storm it")
     besieged = _besieged_lords_at(state, locale_id, defending_side)
     attackers = [
         lid for lid in _besieging_lords_at(state, locale_id, sd)

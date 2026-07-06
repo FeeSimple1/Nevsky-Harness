@@ -1086,7 +1086,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         if active.location is not None:
             sh = _effective_stronghold(state, active.location)
             sm = state.locales[active.location].siege_markers
-            if pristine and sh is not None and sm > 0 and not _ib(state, active_lord) and sh.get("side") != side:
+            from nevsky.campaign import _effective_stronghold_owner as _eso
+            _sh_owner = _eso(state, active.location) if sh is not None else None
+            if pristine and sh is not None and sm > 0 and not _ib(state, active_lord) and _sh_owner != side:
                 out.append({"type": "cmd_siege", "side": side,
                             "args": {"lord_id": active_lord},
                             "note": "Siege (4.5.1) -- entire card; surrender or siegeworks"})
@@ -1095,7 +1097,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 # choice (Siegeworks still applies). Only meaningful
                 # when the roll would occur (no Besieged Lords inside).
                 from nevsky.campaign import _besieged_lords_at as _bla
-                if sh.get("side") is not None and not _bla(state, active.location, sh["side"]):
+                if _sh_owner is not None and not _bla(state, active.location, _sh_owner):
                     out.append({"type": "cmd_siege", "side": side,
                                 "args": {"lord_id": active_lord,
                                          "decline_surrender": True},

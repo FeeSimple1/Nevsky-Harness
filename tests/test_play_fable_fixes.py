@@ -1104,3 +1104,101 @@ def test_play24_swap_enumerated_with_candidates():
              and m.get("candidates", {}).get("discard_capability")]
     assert swaps, "at 2-card cap the palette must offer Levy-and-swap"
     assert swaps[0]["candidates"]["discard_capability"] == have
+
+
+# ===========================================================================
+# PLAY-25 (Fable adversarial audit, 2026-07-05): Conquered Strongholds
+# defend with their CURRENT owner, not their static territory side
+# ===========================================================================
+
+
+def _conquered_izborsk_state(active, active_side, seed=11):
+    """Hermann Withdrawn inside Teuton-Conquered Izborsk (SMOKE-130
+    state); Domash besieging outside."""
+    s = load_scenario("crusade_on_novgorod", seed=seed)
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "command"
+    s.meta.first_levy_done = True
+    s.locales["izborsk"].teutonic_conquered = 1
+    s.locales["izborsk"].siege_markers = 2
+    s.lords["hermann"].state = "mustered"
+    s.lords["hermann"].location = "izborsk"
+    s.lords["hermann"].forces = {"knights": 1, "sergeants": 1}
+    s.lords["hermann"].in_stronghold = True
+    s.lords["domash"].state = "mustered"
+    s.lords["domash"].location = "izborsk"
+    s.lords["domash"].forces = {"men_at_arms": 4, "militia": 4}
+    s.lords["domash"].in_stronghold = False
+    s.meta.active_player = active_side
+    s.campaign_turn.active_card = active
+    s.campaign_turn.active_lord = active
+    from nevsky.campaign import _effective_command_rating
+    s.campaign_turn.actions_remaining = _effective_command_rating(s, active)
+    s.campaign_turn.in_feed_pay_disband = False
+    return s
+
+
+def test_play25_owner_helper():
+    from nevsky.campaign import _effective_stronghold_owner
+    s = _conquered_izborsk_state("domash", "russian")
+    assert _effective_stronghold_owner(s, "izborsk") == "teutonic"
+    s.locales["izborsk"].teutonic_conquered = 0
+    assert _effective_stronghold_owner(s, "izborsk") == "russian"
+
+
+def test_play25_besieger_gets_siege_and_no_surrender_roll():
+    """The RUSSIAN besieger of Teuton-Conquered Izborsk may Siege, and
+    no Surrender roll fires while Hermann is Besieged inside."""
+    from nevsky.legal_moves import legal_moves
+    s = _conquered_izborsk_state("domash", "russian")
+    moves = [m["type"] for m in legal_moves(s)]
+    assert "cmd_siege" in moves and "cmd_storm" in moves, (
+        f"besieger of a Conquered Stronghold must get Siege/Storm; got {moves}")
+    res = apply_action(s, {"type": "cmd_siege", "side": "russian",
+                           "args": {"lord_id": "domash"}})
+    assert res["surrender"] is None, (
+        "Surrender rolled although an enemy Lord is Besieged inside (4.5.1)")
+
+
+def test_play25_owner_cannot_siege_own_conquered_stronghold():
+    from nevsky.legal_moves import legal_moves
+    s = _conquered_izborsk_state("hermann", "teutonic")
+    # Hermann is inside/besieged; use a fresh outside Teuton instead.
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "izborsk"
+    s.lords["andreas"].forces = {"knights": 2}
+    s.lords["andreas"].in_stronghold = False
+    s.lords["domash"].state = "ready"      # remove the Russian besieger
+    s.lords["domash"].location = None
+    s.campaign_turn.active_card = "andreas"
+    s.campaign_turn.active_lord = "andreas"
+    from nevsky.campaign import _effective_command_rating
+    s.campaign_turn.actions_remaining = _effective_command_rating(s, "andreas")
+    moves = [m["type"] for m in legal_moves(s)]
+    assert "cmd_siege" not in moves and "cmd_storm" not in moves, (
+        f"owner side offered Siege/Storm against its own Stronghold: {moves}")
+    import pytest
+    from nevsky.actions import IllegalAction
+    with pytest.raises(IllegalAction) as ei:
+        apply_action(s, {"type": "cmd_siege", "side": "teutonic",
+                         "args": {"lord_id": "andreas"}})
+    assert ei.value.code in ("own_stronghold", "no_siege")
+
+
+def test_play25_storm_arrays_and_sacks_the_inside_lord():
+    """Russians Storm Teuton-Conquered Izborsk: Hermann defends and on
+    a Sack he is permanently removed (4.5.2), the fort liberated."""
+    sacked = False
+    for seed in range(1, 30):
+        s = _conquered_izborsk_state("domash", "russian", seed=seed)
+        s.lords["domash"].forces = {"knights": 4, "men_at_arms": 4}
+        res = apply_action(s, {"type": "cmd_storm", "side": "russian",
+                               "args": {"lord_id": "domash"}})
+        b = res.get("battle") or res
+        if res.get("besieged_removed"):
+            sacked = True
+            assert "hermann" in res["besieged_removed"]
+            assert "hermann" not in s.lords or s.lords["hermann"].state == "removed"
+            assert s.locales["izborsk"].teutonic_conquered == 0, "liberation"
+            break
+    assert sacked, "storm never sacked across 29 seeds — inside Lord not defending?"

@@ -1281,11 +1281,11 @@ def _lift_siege_if_no_besiegers(state: GameState, locale_id: str | None) -> bool
     if inside:
         defender_side = inside[0].side
     else:
-        from nevsky.campaign import _effective_stronghold
-        sh = _effective_stronghold(state, locale_id)
-        if sh is None or sh.get("side") is None:
+        from nevsky.campaign import _effective_stronghold_owner
+        _owner = _effective_stronghold_owner(state, locale_id)
+        if _owner is None:
             return False
-        defender_side = sh["side"]
+        defender_side = _owner
     besiegers = [
         L for L in state.lords.values()
         if L.state == "mustered" and L.location == locale_id
