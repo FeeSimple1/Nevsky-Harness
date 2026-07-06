@@ -922,6 +922,12 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
         # Marsh: "non-Winter Battle" -> reject in Winter.
         "T5": ("non_winter", ("early_winter", "late_winter")),
         "R2": ("non_winter", ("early_winter", "late_winter")),
+        # PLAY-16 (Fable audit): Bridge -- "May play on front center
+        # [enemy] Lord in NON-WINTER Battle". Pre-fix a Winter play was
+        # consumed + discarded while battle.py nulled the effect: an
+        # illegal play silently destroyed the card. Reject instead.
+        "T4": ("non_winter", ("early_winter", "late_winter")),
+        "R1": ("non_winter", ("early_winter", "late_winter")),
         # Raven's Rock: "non-Summer Battle" -> reject in Summer.
         "R4": ("non_summer", ("summer",)),
     }

@@ -661,3 +661,145 @@ def test_play14_relief_sally_joiners_marked_moved_fought():
         assert s.lords["hermann"].moved_fought is True, (
             "Sallying joiner fought but skipped Moved/Fought (4.4.5) — "
             "and would dodge Feed (4.8.1)")
+
+
+# ===========================================================================
+# PLAY-15..16 (Fable adversarial audit, 2026-07-05): battle-hold events
+# ===========================================================================
+#
+# PLAY-15 — T6/R6 Ambush Round-1 mode: the card names the suppressed
+# SIDE ("ignore Russian left and right" for T6), not a combat role. The
+# engine hardcoded ambush_disable_for="attacker", inverting the card
+# whenever its owner attacked.
+#
+# PLAY-16 — T4/R1 Bridge: "May play on FRONT CENTER [enemy] Lord in
+# non-Winter Battle." A Winter play is rejected at consumption (was:
+# consumed + discarded with no effect); the melee cap follows the
+# targeted side's actual front-center Lord, not any named Lord.
+
+
+def _ambush_probe(card, attacker_side):
+    """Resolve a 3v3 battle with `card` in holds; return the battle log."""
+    from nevsky.battle import resolve_battle
+    s = load_scenario("crusade_on_novgorod", seed=17)
+    teu = ["andreas", "hermann", "knud_and_abel"]
+    rus = ["aleksandr", "andrey", "domash"]
+    for lid in teu:
+        s.lords[lid].state = "mustered"
+        s.lords[lid].location = "izborsk"
+        s.lords[lid].forces = {"men_at_arms": 2}
+    for lid in rus:
+        s.lords[lid].state = "mustered"
+        s.lords[lid].location = "izborsk"
+        s.lords[lid].forces = {"men_at_arms": 2}
+    atk, dfd = (teu, rus) if attacker_side == "teutonic" else (rus, teu)
+    return resolve_battle(
+        s, attacker_side=attacker_side, attacker_lords=atk,
+        defender_lords=dfd, holds={"ambush": card},
+        concede_decisions={2: "defender"},
+    )
+
+
+def _round1_suppressed(result):
+    """Lords logged as ambush-suppressed in Round 1."""
+    out = set()
+    for rl in result["log"]:
+        if isinstance(rl, dict) and rl.get("round") == 1:
+            for step in rl.get("steps", []):
+                for e in step.get("events", []):
+                    if isinstance(e, dict) and "ambush" in str(e).lower():
+                        out.add(str(e))
+    return out
+
+
+def test_play15_t6_suppresses_russian_flanks_even_when_teutons_attack():
+    """Teutons attack AND play T6: the Russian flank lords must be the
+    uninvolved ones. Pre-fix the code disabled the attacker (Teutons)."""
+    res = _ambush_probe("T6", "teutonic")
+    # The defender (russian) flanks must not strike in round 1: verify
+    # via per-round strike attribution in the log.
+    r1 = next(rl for rl in res["log"] if rl.get("round") == 1)
+    striker_ids = set()
+    for st in r1.get("steps", []):
+        for hit in st.get("per_striker", []):
+            striker_ids.add(hit.get("striker"))
+    rus_flank = {l for l, p in res["defender_positions"].items()
+                 if p in ("left", "right")}
+    teu_flank = {l for l, p in res["attacker_positions"].items()
+                 if p in ("left", "right")}
+    assert not (rus_flank & striker_ids), (
+        f"T6 played by attacking Teutons must suppress RUSSIAN flanks; "
+        f"russian flank lords struck: {rus_flank & striker_ids}")
+    assert teu_flank & striker_ids, (
+        "Teutonic flank lords (the card owner's) should still strike")
+
+
+def test_play15_r6_suppresses_teutonic_flanks_when_russians_attack():
+    res = _ambush_probe("R6", "russian")
+    r1 = next(rl for rl in res["log"] if rl.get("round") == 1)
+    striker_ids = set()
+    for st in r1.get("steps", []):
+        for hit in st.get("per_striker", []):
+            striker_ids.add(hit.get("striker"))
+    teu_flank = {l for l, p in res["defender_positions"].items()
+                 if p in ("left", "right")}
+    assert not (teu_flank & striker_ids), "R6 must suppress TEUTONIC flanks"
+
+
+def test_play16_bridge_rejected_in_winter():
+    """Winter play of T4 Bridge is rejected at consumption, keeping the
+    card in holds."""
+    import pytest
+    from nevsky.actions import IllegalAction
+    s = _relief_setup()  # box/season varies; force a Winter box
+    # crusade_on_novgorod spans boxes; find a winter box for the state.
+    from nevsky.scenarios import _season_for_box
+    for box in range(1, 17):
+        if _season_for_box(box) in ("early_winter", "late_winter"):
+            s.meta.box = box
+            break
+    s.decks.teutonic.holds.append("T4")
+    apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                     "args": {"lord_id": "andreas", "to": "izborsk",
+                              "way_type": "trackway", "sally_join": []}})
+    with pytest.raises(IllegalAction) as ei:
+        apply_action(s, {"type": "stand_battle", "side": "russian",
+                         "args": {"holds": {"bridge": "T4",
+                                            "bridge_target_lord": "domash"}}})
+    assert ei.value.code == "season_blocked"
+    assert "T4" in s.decks.teutonic.holds, "card must stay in holds"
+
+
+def test_play16_bridge_cap_follows_front_center():
+    """Bridge names a reserve/left lord; the melee cap must land on the
+    targeted side's front-center lord instead."""
+    from nevsky.battle import resolve_battle
+    s = load_scenario("crusade_on_novgorod", seed=17)
+    from nevsky.scenarios import _season_for_box
+    for box in range(1, 17):
+        if _season_for_box(box) == "summer":
+            s.meta.box = box
+            break
+    teu = ["andreas"]
+    rus = ["aleksandr", "andrey", "domash"]
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "izborsk"
+    s.lords["andreas"].forces = {"men_at_arms": 2}
+    for lid in rus:
+        s.lords[lid].state = "mustered"
+        s.lords[lid].location = "izborsk"
+        s.lords[lid].forces = {"men_at_arms": 4}
+    res = resolve_battle(
+        s, attacker_side="teutonic", attacker_lords=teu,
+        defender_lords=rus,
+        holds={"bridge": "T4", "bridge_target_lord": "domash"},
+        concede_decisions={2: "attacker"},
+    )
+    center = next(l for l, p in res["defender_positions"].items()
+                  if p == "center")
+    if center != "domash":
+        redirects = [e for e in res["log"]
+                     if isinstance(e, dict)
+                     and e.get("event") == "bridge_target_redirected"]
+        assert redirects and redirects[0]["front_center"] == center, (
+            "Bridge cap must follow the front-center Lord (card text)")

@@ -1275,20 +1275,61 @@ def resolve_battle(
         else:
             bridge_target_lord = None
         # Winter check: per the card, Bridge applies non-Winter only.
+        # (PLAY-16: a Winter play is now REJECTED at consumption in
+        # _consume_battle_holds; this reset stays as a defensive gate
+        # for direct resolve_battle callers.)
         from nevsky.scenarios import _season_for_box
         if bridge_target_lord and _season_for_box(state.meta.box) in (
                 "early_winter", "late_winter"):
             bridge_target_lord = None
+        # PLAY-16 (Fable audit): T4/R1 -- "May play on FRONT CENTER
+        # [enemy] Lord". The target is not a free choice: the card
+        # sits on whoever holds the targeted side's front-center slot
+        # once Arrayed. Pre-fix the cap fired on any named Lord (e.g.
+        # a left-slot Lord). Redirect to the actual front-center Lord
+        # of the targeted side (consumption already validated side +
+        # combat presence).
+        if bridge_target_lord:
+            if _br_legacy == "T4":
+                _br_side = "russian"
+            elif _br_legacy == "R1":
+                _br_side = "teutonic"
+            elif bridge_target_lord in state.lords:
+                _br_side = state.lords[bridge_target_lord].side
+            else:
+                _br_side = None
+            if _br_side is not None:
+                _br_posmap = atk_pos if _br_side == attacker_side else def_pos
+                _br_center = next(
+                    (l for l, pos in _br_posmap.items() if pos == "center"),
+                    None)
+                if _br_center is not None and _br_center != bridge_target_lord:
+                    log.append({
+                        "event": "bridge_target_redirected",
+                        "named": bridge_target_lord,
+                        "front_center": _br_center,
+                        "note": "T4/R1 applies to the front-center Lord "
+                                "(card text); named target was not at "
+                                "center",
+                    })
+                    bridge_target_lord = _br_center
         # Q-008 Ambush: Round 1 disables left/right Lords on the
         # targeted side from striking and from being targeted (they're
         # "uninvolved"). holds["ambush"] = "attacker"|"defender" or
-        # card-id ("T6"|"R6"). Both are played by the defender, so
-        # effective disable target is the attacker.
+        # card-id ("T6"|"R6").
+        # PLAY-15 (Fable audit): the card names the suppressed SIDE,
+        # not a combat role -- T6 (Teutonic card): "ignore RUSSIAN left
+        # and right in Battle Round 1"; R6 mirrors it for Teutons. The
+        # pre-fix mapping hardcoded "attacker" (assuming the card's
+        # owner always defends), which inverted the effect whenever the
+        # owner was the attacker.
         ambush_raw = H.get("ambush")
         if ambush_raw in ("attacker", "defender"):
             ambush_disable_for = ambush_raw
         elif ambush_raw in ("T6", "R6"):
-            ambush_disable_for = "attacker"
+            _suppressed_side = "russian" if ambush_raw == "T6" else "teutonic"
+            ambush_disable_for = (
+                "attacker" if attacker_side == _suppressed_side else "defender")
         else:
             ambush_disable_for = None
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
