@@ -237,6 +237,11 @@ clarified per Q-003 user adjudication.
   (until Q-005); False for null. The function carries a TODO comment
   marking the Q-005 integration point (secondary Marshal becomes
   active when permanent counterpart off-map AND Lord at Front Center).
+  *[Resolved 2026-07-05: the Q-005 integration landed in `ad465c2`;
+  the TODO is gone and `_is_currently_marshal` now handles secondary
+  Marshals dynamically (active when the permanent counterpart is off
+  the map — see its Round 10b docstring). The source tree has zero
+  TODO/FIXME markers.]*
 - `src/nevsky/campaign.py::_h_place_lieutenant` — applies the helper
   to BOTH the lieutenant and lower_lord candidates.
 
@@ -335,7 +340,14 @@ Rules of Play 2E, 4.4.1 (Battle Array, three Front positions),
   both Q-003 and Q-005 land, a small follow-up commit can make
   secondary Marshals at Front Center count as currently-active.
 
-**Commit.** _to be filled after push._
+*[Resolved 2026-07-05: all three out-of-scope items above have since
+landed — Storm Reposition is implemented in `resolve_storm` (4.5.2
+one-Lord-Front Array with the Round 2+ Front/Reserve switch), Q-006
+Relief Sally shipped in `066fc67`, and the Q-003 secondary-Marshal
+integration shipped in `ad465c2`.]*
+
+**Commit.** `730bc5d` (Q-005 Battle Array three-front-positions,
+Flanking, scripted decisions); follow-ups in `ad465c2`.
 
 ---
 
@@ -416,7 +428,13 @@ markers).
   triggered by the Q-006 test scenarios but is documented as a
   known gap in the resolve_battle docstring.
 
-**Commit.** _to be filled after push._
+*[Resolved 2026-07-05: both out-of-scope items have since landed —
+Storm Reposition is implemented in `resolve_storm`, and Adjust Rows
+(including Rearguard → Reserve promotion) is implemented in
+`_adjust_rows_for_relief_sally` (battle.py), shipped in `ad465c2`.]*
+
+**Commit.** `066fc67` (Q-006 Relief Sally Array); follow-ups in
+`ad465c2`.
 
 ---
 

@@ -13,9 +13,12 @@ Tier 3 hold events with non-Battle effects (T3 Vodian Treachery,
 T13 Heinrich Sees the Curia, R3 Pogost) resolve via dedicated
 handlers below.
 
-Events whose resolver is not yet wired up return a `deferred: True`
-placeholder; callers can detect this and fall back to manual play
-of the card text.
+All 36 AoW events are wired: 16 immediate resolvers, 3 hold
+resolvers, 5 Lordship-shift holds, 10 battle Holds consumed via
+_consume_battle_holds, and Famine (T16/R7) via campaign supply.
+The `deferred: True` return in the dispatchers below is a defensive
+fallback only -- no live card reaches it. Do not re-open it as an
+unimplemented path.
 
 Each resolver mutates state in place and returns a result dict or
 raises IllegalAction on missing/invalid args. Resolvers do NOT
@@ -839,9 +842,9 @@ def resolve_immediate_event(state: GameState, card_id: str, args: dict[str, Any]
     """Dispatch an immediate event resolver. Tier 1 immediate events
     are wired here. Tier 2 Battle-context events are NOT routed
     through this dispatcher; they sit in a side's Holds and are
-    consumed by _consume_battle_holds at Battle invocation. Events
-    without a resolver return `deferred: True` and the caller falls
-    back to manual play of the card text."""
+    consumed by _consume_battle_holds at Battle invocation. The
+    `deferred: True` return is a defensive fallback for unknown card
+    ids only; every live card has a resolver or a dedicated path."""
     fn = _IMMEDIATE_RESOLVERS.get(card_id)
     if fn is None:
         return {"event": card_id, "deferred": True,
@@ -852,8 +855,9 @@ def resolve_immediate_event(state: GameState, card_id: str, args: dict[str, Any]
 def resolve_hold_event(state: GameState, card_id: str, args: dict[str, Any]) -> dict[str, Any]:
     """Dispatch a hold event resolver. Covers R3 Pogost (and the Tier
     3 hold events T3 Vodian Treachery / T13 Heinrich Curia, which
-    have their own handler entries). Events without a resolver return
-    `deferred: True` and the caller falls back to manual play."""
+    have their own handler entries). The `deferred: True` return is a
+    defensive fallback for unknown card ids only; every live hold
+    card has a resolver or a dedicated path."""
     fn = _HOLD_RESOLVERS.get(card_id)
     if fn is None:
         return {"event": card_id, "deferred": True,
@@ -873,14 +877,19 @@ def _consume_battle_holds(state: GameState, cp, holds_arg: dict) -> list[dict]:
     holds_arg shape (any subset):
       "marsh":         "T5"|"R2"   -> opposite-side Horse blocked rounds 1-2
       "hill":          "T9"|"R5"   -> defender Archery x1 rounds 1-2
-      "ambush":        "T6"|"R6"   -> Round 1 ignore enemy left/right (no-op)
+      "ambush":        "T6"|"R6"   -> Round 1 enemy left/right Lords
+                                       suppressed (modeled in battle.py,
+                                       ambush_disable_for / Q-008; the
+                                       block-Avoid-Battle mode is in
+                                       campaign.py _h_play_ambush_block,
+                                       SMOKE-115)
       "field_organ":   "T10"       -> with args.field_organ_lord
       "raven_rock":    "R4"        -> Russian defender Walls 1-2 vs Melee R1
-      "bridge":        "T4"|"R1"   -> opposing front center Lord melee cap
-                                       (Q-008 candidate: front-center IS
-                                       modeled per Q-005, but the Bridge
-                                       Melee cap rule is not yet wired
-                                       into battle.py per-Lord step caps)
+      "bridge":        "T4"|"R1"   -> opposing front-center Lord melee cap
+                                       (modeled in battle.py via
+                                       bridge_target_lord, Q-005/Q-008;
+                                       non-Winter only -- battle.py resets
+                                       the target in Winter)
 
     Each consumed card is moved from holds to discard. If the card isn't
     in the side's holds list, IllegalAction is raised.

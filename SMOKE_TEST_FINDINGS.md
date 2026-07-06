@@ -633,6 +633,12 @@ permissive (option c).
   (Concede+Pursuit in 4d; Routed-vs-Lost in Round 7; Walls-by-Event
   via Raven's Rock in 4d). Reposition with full Flanking still
   deferred (Bridge / Ambush remain consumed-but-no-op).
+  *[Stale as of 2026-07-05: Flanking is modeled (Q-005/Q-008);
+  Bridge's front-center melee cap is wired in battle.py
+  (`bridge_target_lord`), and Ambush is fully modeled in both modes —
+  Round-1 flank suppression in battle.py (`ambush_disable_for`,
+  Q-008) and block-Avoid-Battle in campaign.py
+  (`_h_play_ambush_block`, SMOKE-115). Neither is a no-op.]*
 - `resolve_storm` docstring: same treatment.
 - `_absorb_hit` docstring: removed "approximated: per call" claim.
 - `_h_cmd_siege` docstring: updated "Stonemasons -- deferred to Phase 4"
@@ -908,11 +914,12 @@ covers Q-003 / Q-004 / Q-005 status; Q-006 is a follow-up PR.
 ## Open follow-ups
 
 - **Q-006** (Relief Sally Array): builds on Q-005's three-position
-  model. Pending PR.
+  model. Pending PR. *[Landed: `066fc67`.]*
 - **Storm Reposition** (4.5.2 page 17): Storm has its own
   one-Lord-Front Array with a Reposition step ("switch Front and any
   Reserve Lord"). Not addressed in Q-005's scope. Likely a future
-  Q-007.
+  Q-007. *[Landed: implemented in `resolve_storm` (`ad465c2`); Q-007
+  was ultimately used for Russian Archery rounding instead.]*
 - **Q-003 + Q-005 integration**: secondary Marshal at Front Center
   should count as currently-active for the Lieutenant exclusion.
   Small follow-up commit after both branches land.
