@@ -57,3 +57,90 @@ rulebook (`sources/NevskyRules_Second_Edition.pdf`) and Playbook
   Lords keep the deterministic auto-discard, and the
   `end_campaign_resolve` palette entry surfaces qualifying Lords and
   their discardable items.
+
+## Fable adversarial audit pass (2026-07-05/06)
+
+Three parallel rules-vs-code audits (siege/avoid/withdraw/sally;
+End-Campaign/Calendar/Veche; Battle Array/group March/capabilities),
+every finding verified against `reference/*.txt` and the 2E rulebook
+PDF before any change. Nineteen divergences fixed as PLAY-7..25
+(regression tests in `tests/test_play_fable_fixes.py`); commits
+53ed45f, 12a9c0d, c5df418, 652d686, 71c12c2, 15df8b3.
+
+Highlights: 4.5.1 Surrender never removed Siege markers (and added
+Siegeworks); battle-retreat departures left stale Sieges (the PLAY-3
+family's missing path); winning a Battle outside an enemy Stronghold
+didn't begin the Siege; **winners never rolled 4.4.4 Losses** (the
+SMOKE-093/098/099 lineage rests on a misquote — printed 4.4.4 says
+"both sides", and 4.5.2 makes even Sacking Storm attackers keep Routed
+units only on a 1); fully-Routed losers were denied the 4.4.3
+Retreat/Withdraw/Removal choice; T6/R6 Ambush suppressed the wrong
+side whenever its owner attacked; Wastage ran before Plow & Reap;
+Levy Disband (3.3) was skippable; Conquered Strongholds defended with
+their static-territory side (PLAY-25).
+
+### Verified-correct notes (do not re-flag)
+- R10 Steppe Warriors first-Levy handling (Playbook-verified, above).
+- Array order/geometry, Flanking targeting, strike initiative, Pursuit
+  halving, storm 6-hit melee cap, garrison-first absorption, sally RAID
+  and forced Withdraw, Losses thresholds for losers, Lieutenant
+  placement constraints, group shared-Transport Laden math, capability
+  eligibility gating both directions, Veche/Legate CtA machinery,
+  disband box math, 3.1.1 shuffle, Pay per-payer targeting.
+
+### Known open items (audited, reproduced, NOT yet fixed)
+Ordered by expected impact; probe scripts described in the audit
+transcripts (not committed).
+
+1. **4.3.4 partial Avoid/Withdraw.** "SOME OR ALL Inactive Lords may
+   move to ONE OR MORE adjacent Locales"; Withdraw is "some or all
+   Lords ... up to Siege Capacity"; the remainder fights. The engine
+   forces all-or-nothing to a single destination, and rejects Withdraw
+   wholesale when defenders exceed Capacity (2 Lords at a Capacity-1
+   Fort cannot split 1-in/1-avoid). Needs per-Lord response args +
+   enumeration.
+2. **4.4.2 remaining Hits after a mid-step Rout.** "Whenever a Lord
+   Routs to create a new Flanking situation, apply remaining Hits
+   accordingly. When an entire row Routs, ignore remaining Hits
+   against that row." The engine discards excess Hits whenever the
+   named target Routs, even with live Lords remaining in the row.
+3. **4.4.2 Flanking absorb choice.** "A Player with a Flanking Lord
+   where no enemies are Flanking the target selects either the
+   Flanking or directly opposed Lord to take Hits" — no decision type
+   exists; Hits always follow _strike_target.
+4. **4.4.3 Retreat gates.** Retreat legality omits the "Unbesieged"
+   qualifier on enemy Lords/Strongholds (a Locale where your own side
+   besieges the enemy is wrongly barred — can escalate to permanent
+   removal); destination is auto-picked (first legal neighbor), and
+   voluntary removal is never offered. Sally-retreat additionally
+   blocks enemy-Conquered Locales (SMOKE-049 note mislabels 4.4.3).
+5. **4.3.4 Avoid destination gates + palette mismatch.** Handler
+   over-restricts (blocks Besieged enemy strongholds and
+   enemy-Conquered trade routes); enumerator conversely offers
+   destinations the handler rejects, and skips the parallel-Way
+   avoid-back-along-other-Way case the handler permits.
+6. **4.8.1 Feed sharing.** Surplus-only sharing violated: an
+   earlier-iterated Lord eats a co-located Lord's NON-surplus
+   Provender (the wrong Lord goes Unfed and takes the Service shift);
+   provender-vs-loot order and donor choice are hard-coded; T8
+   Hillforts' skip-Lord is auto-picked.
+7. **4.8.2 Pay window.** Opens only when a Disband is pending; SoP has
+   Pay after every Command card ("Lords may Pay or Disband").
+8. **4.4.2 Reposition Advance slot choice** (lone Reserve forced
+   leftmost); **4.0 excess side-capability discard** auto-drops the
+   list tail (owner should choose); **Spoils distribution** goes to a
+   single recipient with over-cap overflow vanishing (4.4.3 "divide
+   among them", 4.5.2 "distribute as desired"); **Avoid Provender cap**
+   ignores shared Transport (4.3.4 "own or shared"); **Veche-A /
+   Legate-2b Calendar-edge** slides clamp at box 1 / reject off-right
+   instead of 2.2.3 off-edge placement (incl. a VP-burning no-op Veche
+   A offered at box 1).
+9. **Battle-hold palette surfacing.** Tier-2 holds are reachable only
+   via stand_battle args; the palette never names them (parity note,
+   not a rules divergence).
+
+### Questions logged for the user
+- Q-010 (RULES_QUESTIONS.md): Storm/Sally action cost — D-R203
+  "entire card" vs rulebook 4.5.2 "a Command action" (4.2.1 lists only
+  Siege/Sail/Tax as entire-card).
+- Q-011: resolve_battle max_rounds=10 stalemate-to-defender artifact.
