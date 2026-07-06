@@ -459,3 +459,205 @@ def test_play10_sally_win_clears_in_stronghold():
     assert s.lords["hermann"].in_stronghold is False, (
         "sally winner still flagged in_stronghold; later enemy March "
         "would skip the 4.3.4 Approach and silently re-Besiege him")
+
+
+# ===========================================================================
+# PLAY-11..14 (Fable adversarial audit, 2026-07-05): battle aftermath
+# ===========================================================================
+#
+# PLAY-11 — 4.4.4 Losses: "BOTH SIDES determine the fate of their Routed
+# units." Winners rolled nothing (restore-all, per a rule misquote in the
+# SMOKE-093/098/099 lineage). Now: Battle/Sally winners roll each Routed
+# unit at unmodified Protection ("stood_field"); Storm attackers keep
+# Routed units only on a roll of 1 even when they Sack (4.5.2); Storm
+# defenders always roll Protection. Zero-unit winners are permanently
+# removed (4.4.4).
+#
+# PLAY-12 — 4.4.3: "All losing Lords must either Retreat ... OR Withdraw
+# ... OR Be permanently removed. The owning player chooses." A fully-
+# Routed loser was auto-removed with no Losses roll; now he Retreats (or
+# Withdraws via withdraw_losers, or is removed via the new remove_losers
+# arg) and resolves 4.4.4. LOSSES are also ordered before SPOILS per
+# 4.4.3, so Lords Removed-by-Losses transfer all Assets except Ships.
+#
+# PLAY-13 — 4.4.5 Conquest: Battle in a Trade Route flips Conquered
+# status immediately, not on the next movement entry.
+#
+# PLAY-14 — 4.4.1 Relief Sally: "any Besieged Lords MAY join" (opt-in
+# via cmd_march args.sally_join); joiners are Attacking Lords and are
+# marked Moved/Fought per 4.4.5.
+
+
+def _field_battle(att_forces, def_forces, *, seed=11, locale="izborsk",
+                  frm="lettgallia"):
+    s = load_scenario("crusade_on_novgorod", seed=seed)
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "command"
+    s.meta.first_levy_done = True
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = frm
+    s.lords["andreas"].forces = dict(att_forces)
+    s.lords["domash"].state = "mustered"
+    s.lords["domash"].location = locale
+    s.lords["domash"].forces = dict(def_forces)
+    s.lords["domash"].in_stronghold = False
+    s.meta.active_player = "teutonic"
+    s.campaign_turn.active_card = "andreas"
+    s.campaign_turn.active_lord = "andreas"
+    s.campaign_turn.actions_remaining = 3
+    s.campaign_turn.in_feed_pay_disband = False
+    apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                     "args": {"lord_id": "andreas", "to": locale,
+                              "way_type": "trackway"}})
+    return s
+
+
+def test_play11_winner_routed_pile_always_resolved():
+    """Whatever the outcome, no Lord ends a Battle with an unresolved
+    routed_units pile, and winners provably lose units sometimes."""
+    lost_any = False
+    for seed in range(1, 30):
+        s = _field_battle({"knights": 2, "militia": 4}, {"light_horse": 2},
+                          seed=seed)
+        res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                               "args": {}})
+        for lid, l in s.lords.items():
+            assert not l.routed_units, f"{lid} routed pile unresolved"
+        if res["winner"] == "teutonic" and "andreas" in s.lords:
+            if sum(s.lords["andreas"].forces.values()) < 6:
+                lost_any = True
+    assert lost_any, "winners never lost a routed unit in 29 games"
+
+
+def test_play12_fully_routed_loser_retreats_alive():
+    """A loser whose units all Routed (but has a routed pile) retreats
+    and rolls Losses instead of being auto-removed. With militia
+    (Protection 1-2) some survive across seeds."""
+    survived = False
+    for seed in range(1, 40):
+        s = _field_battle({"knights": 4, "sergeants": 4},
+                          {"militia": 4}, seed=seed)
+        res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                               "args": {}})
+        if res["winner"] != "teutonic":
+            continue
+        if "domash" in s.lords and s.lords["domash"].state == "mustered":
+            assert s.lords["domash"].location != "izborsk", "loser did not retreat"
+            assert sum(s.lords["domash"].forces.values()) > 0
+            survived = True
+            break
+    assert survived, (
+        "fully-routed loser never survived via 4.4.4 Protection rolls "
+        "across 39 seeds — the 4.4.3 fate choice is still bypassed")
+
+
+def test_play12_remove_losers_is_a_choice():
+    s = _field_battle({"knights": 4, "sergeants": 4}, {"militia": 4})
+    res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                           "args": {"remove_losers": ["domash"]}})
+    assert res["winner"] == "teutonic"
+    assert "domash" in res["removed"]
+    assert "domash" not in s.lords or s.lords["domash"].state == "removed"
+
+
+def test_play13_trade_route_flips_after_battle_win():
+    """Teutons defeat the Russian defender AT a Trade Route; Conquered
+    status must adjust immediately (4.4.5), not on next entry."""
+    from nevsky.static_data import load_locales as _ll
+    # Find a trade route adjacent to somewhere reachable: neva borders
+    # kopor'e / ladoga per the map; use static data to pick one.
+    trade_routes = [k for k, v in _ll().items() if v["type"] == "trade_route"]
+    assert trade_routes
+    # Use novgorod-adjacent 'neva' if present, else first with a trackway.
+    from nevsky.static_data import load_ways as _lw
+    pick = None
+    for tr in trade_routes:
+        for w in _lw():
+            if tr in (w["a"], w["b"]):
+                other = w["b"] if w["a"] == tr else w["a"]
+                pick = (tr, other, w["type"])
+                break
+        if pick:
+            break
+    assert pick, "no trade route with a Way found"
+    tr, frm, wtype = pick
+    s = load_scenario("crusade_on_novgorod", seed=11)
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "command"
+    s.meta.first_levy_done = True
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = frm
+    s.lords["andreas"].forces = {"knights": 4, "sergeants": 4}
+    s.lords["andreas"].in_stronghold = False
+    s.lords["domash"].state = "mustered"
+    s.lords["domash"].location = tr
+    s.lords["domash"].forces = {"militia": 1}
+    s.lords["domash"].in_stronghold = False
+    s.locales[tr].teutonic_conquered = 0
+    s.meta.active_player = "teutonic"
+    s.campaign_turn.active_card = "andreas"
+    s.campaign_turn.active_lord = "andreas"
+    s.campaign_turn.actions_remaining = 3
+    s.campaign_turn.in_feed_pay_disband = False
+    apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                     "args": {"lord_id": "andreas", "to": tr,
+                              "way_type": wtype}})
+    res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                           "args": {}})
+    assert res["winner"] == "teutonic"
+    assert s.locales[tr].teutonic_conquered > 0, (
+        "Trade Route did not change hands after the Battle (4.4.5)")
+
+
+def _relief_setup():
+    s = load_scenario("crusade_on_novgorod", seed=11)
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "command"
+    s.meta.first_levy_done = True
+    s.locales["izborsk"].teutonic_conquered = 1
+    s.locales["izborsk"].siege_markers = 2
+    s.lords["hermann"].state = "mustered"
+    s.lords["hermann"].location = "izborsk"
+    s.lords["hermann"].forces = {"sergeants": 2}
+    s.lords["hermann"].in_stronghold = True
+    s.lords["domash"].state = "mustered"
+    s.lords["domash"].location = "izborsk"
+    s.lords["domash"].forces = {"men_at_arms": 2}
+    s.lords["domash"].in_stronghold = False
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "lettgallia"
+    s.lords["andreas"].forces = {"knights": 4, "sergeants": 4}
+    s.meta.active_player = "teutonic"
+    s.campaign_turn.active_card = "andreas"
+    s.campaign_turn.active_lord = "andreas"
+    s.campaign_turn.actions_remaining = 3
+    s.campaign_turn.in_feed_pay_disband = False
+    return s
+
+
+def test_play14_relief_sally_join_optional():
+    """sally_join=[] keeps Hermann out of the relief Battle; he stays
+    inside, unmarked, with his forces untouched."""
+    s = _relief_setup()
+    apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                     "args": {"lord_id": "andreas", "to": "izborsk",
+                              "way_type": "trackway", "sally_join": []}})
+    res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                           "args": {}})
+    assert "relief_sally" not in res["battle"]
+    assert s.lords["hermann"].moved_fought is False
+    assert s.lords["hermann"].forces == {"sergeants": 2}
+
+
+def test_play14_relief_sally_joiners_marked_moved_fought():
+    s = _relief_setup()
+    apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                     "args": {"lord_id": "andreas", "to": "izborsk",
+                              "way_type": "trackway"}})
+    res = apply_action(s, {"type": "stand_battle", "side": "russian",
+                           "args": {}})
+    assert res["battle"]["relief_sally"]["sallying_lords"] == ["hermann"]
+    if "hermann" in s.lords and s.lords["hermann"].state == "mustered":
+        assert s.lords["hermann"].moved_fought is True, (
+            "Sallying joiner fought but skipped Moved/Fought (4.4.5) — "
+            "and would dodge Feed (4.8.1)")

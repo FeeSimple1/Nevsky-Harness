@@ -244,7 +244,17 @@ def test_sally_attacker_concede():
                            "args": {"lord_id": rus, "concede": "attacker"}})
     assert res["battle"].get("conceded") == "attacker"
     assert res["battle"]["winner"] == "teutonic"  # sallying side Conceded -> loses
-    assert s.locales["pskov"].siege_markers == 1   # RAID
+    # RAID fired (markers reduced to 1) ...
+    assert res.get("raid_siege_to_1") is True
+    # ... but PLAY-11 (4.4.4 both-sides Losses) means the winning
+    # besieger's lone militia -- Routed by the Pursuit strikes -- may
+    # fail its Protection roll: a winner Lord with zero units left is
+    # permanently removed, and the Siege then lifts (4.3.5).
+    if teu in s.lords and s.lords[teu].state == "mustered":
+        assert s.locales["pskov"].siege_markers == 1   # RAID holds
+    else:
+        assert res.get("winner_removed_by_losses") == [teu]
+        assert s.locales["pskov"].siege_markers == 0   # besieger gone
 
 
 # --- merge / parse helper units --------------------------------------------

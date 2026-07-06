@@ -147,12 +147,19 @@ def test_smoke_101_sally_win_killer_is_sd():
     # Count apply_ransom calls and the sd argument in the slice.
     ransom_calls = [i for i in range(len(branch_slice))
                     if branch_slice[i:i + 12] == "apply_ransom"]
-    assert len(ransom_calls) == 2, \
-        f"expected 2 apply_ransom calls in Sally-win branch, got {len(ransom_calls)}"
-    for pos in ransom_calls:
-        call_slice = branch_slice[pos:pos + 80]
-        assert "sd, locale_id" in call_slice, \
-            f"sally-win apply_ransom must pass sd as killer; got {call_slice!r}"
+    # PLAY-11 (Fable audit) added a third call: a sallying WINNER Lord
+    # removed by 4.4.4 Losses pays Ransom to the OTHER side ("removed
+    # in Battle", T16/R7 text). The two loser-removal calls still use
+    # sd as killer.
+    assert len(ransom_calls) == 3, \
+        f"expected 3 apply_ransom calls in Sally-win branch, got {len(ransom_calls)}"
+    sd_killer = sum(
+        1 for pos in ransom_calls
+        if "sd, locale_id" in branch_slice[pos:pos + 80])
+    enemy_killer = sum(
+        1 for pos in ransom_calls
+        if "_kill_side_sally_won" in branch_slice[pos:pos + 80])
+    assert sd_killer == 2 and enemy_killer == 1
 
 
 # --- Functional check: apply_ransom hooks aftermath["ransom"] correctly ---

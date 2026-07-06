@@ -2267,9 +2267,14 @@ def apply_losses_rolls(
 
     Threshold by loser_state:
       - "retreated_no_concede": needs roll == 1 to keep
-      - "storm_attacker":       needs roll == 1 to keep
+      - "storm_attacker":       needs roll == 1 to keep (4.5.2: applies
+            to Storm Attackers whether they won or lost)
       - "withdrew" or "conceded_then_retreated":
             needs roll within unmodified Protection range
+      - "stood_field":          Battle/Sally WINNERS (PLAY-11, 4.4.4
+            "both sides"): unmodified Protection range
+      - "storm_defender":       Storm Defenders win or lose (4.5.2
+            "Routed Defending units always roll against Protection")
       - "removed":              all routed units lost (Lord was wiped)
 
     Asiatic Horse always uses Evade range.
@@ -2292,7 +2297,8 @@ def apply_losses_rolls(
             keep = 0  # all lost
         elif loser_state in ("retreated_no_concede", "storm_attacker"):
             keep = 1  # only roll == 1 keeps
-        elif loser_state in ("withdrew", "conceded_then_retreated"):
+        elif loser_state in ("withdrew", "conceded_then_retreated",
+                             "stood_field", "storm_defender"):
             # Unmodified Protection range. For armor: 1-N. For evade: 1-N.
             # For unarmored / serfs / asiatic_horse-archery: 1.
             prot = spec["protection_battle_melee"]

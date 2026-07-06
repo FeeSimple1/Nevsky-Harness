@@ -2560,6 +2560,8 @@ def _h_cmd_march(
             pending_response_by=defender_side,
             laden=laden,
             attacker_concede_round=attacker_concede_round,
+            sally_join=(list(args["sally_join"])
+                        if isinstance(args.get("sally_join"), list) else None),
         )
         # SMOKE-111 (Round 173): switch active_player to the defender
         # side so legal_moves enumerates their response options
@@ -3191,6 +3193,17 @@ def _h_stand_battle(
         and state.locales[cp.to_locale].siege_markers > 0
         and lid not in cp.attacker_group
     ]
+    # PLAY-14 (Fable audit): 4.4.1 RELIEF SALLY -- "any Besieged Lords
+    # MAY join any Attack". Joining is optional, chosen by the
+    # Approaching side on cmd_march (cp.sally_join). None = all join
+    # (previous behavior, still legal); a list restricts the joiners.
+    if cp.sally_join is not None:
+        _bad_join = [x for x in cp.sally_join if x not in sallying_lords]
+        if _bad_join:
+            raise IllegalAction(
+                "bad_sally_join",
+                f"sally_join names non-eligible Lords: {_bad_join}")
+        sallying_lords = [lid for lid in sallying_lords if lid in cp.sally_join]
     siegeworks_for_sally = (
         state.locales[cp.to_locale].siege_markers if sallying_lords else 0
     )
@@ -3272,8 +3285,11 @@ def _h_stand_battle(
                        or (cp.defender_side == "russian" and _lst.teutonic_conquered > 0))
         if _eff_sh is not None and not _eff_sh.get("no_storm") and (_own_terr or _own_conq) and not _enemy_conq:
             _cap = int(_eff_sh.get("capacity", 1))
+            # PLAY-12: a fully-Routed Lord may Withdraw too (his
+            # routed pile then rolls 4.4.4 Losses at "withdrew").
             _cands = [lid for lid in loser_lords
-                      if lid in state.lords and state.lords[lid].forces]
+                      if lid in state.lords
+                      and (state.lords[lid].forces or state.lords[lid].routed_units)]
             if _wl is True:
                 _chosen = list(_cands)
             elif isinstance(_wl, list):
@@ -3289,6 +3305,24 @@ def _h_stand_battle(
         elif isinstance(_wl, list) and _wl:
             raise IllegalAction("no_withdraw_stronghold",
                                 f"no Friendly Stronghold at {cp.to_locale} to Withdraw into (4.4.3)")
+    # PLAY-12 (Fable audit): 4.4.3 -- "All losing Lords must either
+    # Retreat ... OR Withdraw ... OR Be permanently removed. The owning
+    # player chooses each Lord's fate." A fully-Routed Lord (zero
+    # unrouted Forces but a live routed pile -- the normal way to lose a
+    # Battle!) is NOT auto-removed: he may Retreat or Withdraw and then
+    # rolls 4.4.4 Losses per Routed unit. Only a Lord with no units at
+    # all, or one whose owner chooses removal (args.remove_losers), is
+    # removed outright. 4.4.3 also orders LOSSES before SPOILS, so
+    # "Removed (by Losses)" Lords transfer all Assets except Ships.
+    _rl = args.get("remove_losers")
+    if _rl is not None and not isinstance(_rl, list):
+        raise IllegalAction("bad_remove_losers",
+                            "remove_losers must be a list of lord_ids")
+    remove_losers_set = set(_rl or [])
+    _bad_rm = [x for x in remove_losers_set if x not in loser_lords]
+    if _bad_rm:
+        raise IllegalAction("bad_remove_losers",
+                            f"remove_losers names non-losing Lords: {_bad_rm}")
     for lid in list(loser_lords):
         if lid not in state.lords:
             continue
@@ -3296,7 +3330,7 @@ def _h_stand_battle(
         # Q-006: skip Sallying Lords already handled by Withdraw path.
         if lid in sallying_loser_set:
             continue
-        if not lord.forces:
+        if (not lord.forces and not lord.routed_units) or lid in remove_losers_set:
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
             aftermath["spoils"].append(spoil)
             from nevsky.actions import _remove_lord_permanently as _rem
@@ -3323,6 +3357,19 @@ def _h_stand_battle(
             from nevsky.battle import apply_losses_rolls
             if lord.routed_units:
                 apply_losses_rolls(state, lid, "withdrew")
+            # PLAY-12: 4.4.4 "Permanently remove ... any Lord who loses
+            # all his Forces"; 4.4.3 Spoils "Lords who were Removed (by
+            # Losses ...) transfer all their Assets except Ships".
+            if not lord.forces:
+                spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+                aftermath["spoils"].append(spoil)
+                from nevsky.actions import _remove_lord_permanently as _rem
+                r = apply_ransom(state, lid, winner, cp.to_locale)
+                if r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(r)
+                _rem(state, lid, load_lords()[lid])
+                aftermath["removed"].append(lid)
+                continue
             aftermath.setdefault("withdrew", []).append(lid)
             continue
         # Default Phase 3b behavior: loser Retreats to from_locale (attackers)
@@ -3396,6 +3443,27 @@ def _h_stand_battle(
             )
         else:
             this_lord_conceded = False
+        # SMOKE-093 (Round 113) + PLAY-12 reorder (Fable audit): 4.4.3
+        # sequences LOSSES before SPOILS, so roll 4.4.4 Losses first --
+        # a Lord "Removed (by Losses)" then transfers ALL Assets except
+        # Ships regardless of Concede.
+        from nevsky.battle import apply_losses_rolls
+        loss_state = "conceded_then_retreated" if this_lord_conceded else "retreated_no_concede"
+        if lord.routed_units:
+            apply_losses_rolls(state, lid, loss_state)
+        aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
+        if not lord.forces:
+            # PLAY-12: 4.4.4 "Permanently remove ... any Lord who loses
+            # all his Forces in Battle"; Spoils per the Removed bullet.
+            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+            aftermath["spoils"].append(spoil)
+            from nevsky.actions import _remove_lord_permanently as _rem
+            r = apply_ransom(state, lid, winner, cp.to_locale)
+            if r.get("ransom"):
+                aftermath.setdefault("ransom", []).append(r)
+            _rem(state, lid, load_lords()[lid])
+            aftermath["removed"].append(lid)
+            continue
         if this_lord_conceded:
             # The Lord just moved to `target`. SMOKE-069 (Round 74):
             # use the captured retreat_way_type_actual (set above when
@@ -3411,18 +3479,6 @@ def _h_stand_battle(
             )
         else:
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
-        # SMOKE-093 (Round 113): per rule 4.4.4 Losses — the LOSER
-        # rolls 1d6 per Routed unit; some return to Forces, others
-        # are permanently lost. The harness Winner code restores
-        # routed → forces unconditionally (post-Battle "winner
-        # doesn't suffer Losses"). The Loser code path did not call
-        # apply_losses_rolls, leaving the loser's routed_units pile
-        # stuck (never resolved). Roll Losses now per the rule.
-        from nevsky.battle import apply_losses_rolls
-        loss_state = "conceded_then_retreated" if this_lord_conceded else "retreated_no_concede"
-        if lord.routed_units:
-            apply_losses_rolls(state, lid, loss_state)
-        aftermath["retreats"].append({"lord": lid, "to": target, "service_shift": shift})
         aftermath["spoils"].append(spoil)
 
     # SMOKE-084 (Round 88): per AoW Reference 1.4.1 Legate —
@@ -3486,18 +3542,39 @@ def _h_stand_battle(
             _loc_after.siege_markers = 1
             aftermath["placed_siege"] = True
 
-    # 4.4.4: Winner side -- no Losses rolls per rules. Phase 7
-    # implementation returns all routed units to forces (so the winner
-    # doesn't arbitrarily lose units after winning a Battle).
-    for wlid in winner_lords:
-        if wlid in state.lords:
-            wlord = state.lords[wlid]
-            for utype, n in list(wlord.routed_units.items()):
-                wlord.forces[utype] = wlord.forces.get(utype, 0) + n  # type: ignore[index]
-            wlord.routed_units = {}
+    # PLAY-13 (Fable audit): 4.4.5 Conquest -- "If Battle in a Trade
+    # Route causes it to change hands, adjust Conquered status and VP
+    # accordingly (4.3.6, 5.1.1)". The flip previously fired only on
+    # movement ENTRY (march/sail/avoid/retreat), so the winner standing
+    # on the Trade Route gained nothing until leaving and re-entering.
+    _flip_trade_route_if_uncontested(state, cp.to_locale, winner)
 
-    # Mark all participants MOVED_FOUGHT.
-    for lid in cp.attacker_group + cp.defender_lords:
+    # PLAY-11 (Fable audit): 4.4.4 Losses -- "BOTH SIDES determine the
+    # fate of their Routed units." Winners are in the "all other Lords"
+    # category (they neither Retreated-without-Concede nor Stormed):
+    # each Routed unit rolls at its unmodified Protection range. The
+    # previous restore-all rested on a misquote ("the Winner's Routed
+    # units automatically return ... only the Loser rolls Losses",
+    # SMOKE-093/098/099 comments) that appears nowhere in the rulebook
+    # or the reference .txt. A winner Lord who loses every unit is
+    # permanently removed (4.4.4 "any Lord who loses all his Forces in
+    # Battle or Storm").
+    from nevsky.battle import apply_losses_rolls as _alr_w
+    for wlid in list(winner_lords):
+        if wlid not in state.lords:
+            continue
+        if state.lords[wlid].routed_units:
+            _alr_w(state, wlid, "stood_field")
+        if not state.lords[wlid].forces:
+            from nevsky.actions import _remove_lord_permanently as _rem_w
+            _rem_w(state, wlid, load_lords()[wlid])
+            aftermath.setdefault("winner_removed_by_losses", []).append(wlid)
+
+    # Mark all participants MOVED_FOUGHT. PLAY-14 (Fable audit): 4.4.5
+    # "Mark all Attacking and Defending Lords" -- Sallying joiners are
+    # Attacking Lords and were previously skipped (they fought but then
+    # dodged Feed, 4.8.1).
+    for lid in cp.attacker_group + cp.defender_lords + sallying_lords:
         if lid in state.lords:
             state.lords[lid].moved_fought = True
 
@@ -3941,17 +4018,23 @@ def _h_cmd_storm(
                 w.assets["coin"] = min(8, w.assets.get("coin", 0) + state.veche.coin)
             aftermath["veche_coin_taken"] = state.veche.coin
             state.veche.coin = 0
-        # SMOKE-098 (Round 118): per 4.4.4 Losses, the Battle Winner
-        # restores routed → forces unconditionally ("winner doesn't
-        # suffer Losses"). The Battle handler does this; Storm and
-        # Sally previously did not. Restore winning attackers'
-        # routed_units to forces after a successful Sack.
-        for alid in attackers:
-            if alid in state.lords:
-                al = state.lords[alid]
-                for utype, n in list(al.routed_units.items()):
-                    al.forces[utype] = al.forces.get(utype, 0) + n  # type: ignore[index]
-                al.routed_units = {}
+        # PLAY-11 (Fable audit): 4.5.2 ENDING THE STORM -- "Both sides'
+        # Forces take Losses per Battle (4.4.4), except that ... Routed
+        # Attacking units that fail to roll a '1' are removed." This
+        # applies to the WINNING (Sacking) attackers too; the previous
+        # restore-all rested on the SMOKE-098 misquote of 4.4.4. A
+        # winner Lord losing every unit is permanently removed (4.4.4).
+        from nevsky.battle import apply_losses_rolls as _alr_sack
+        from nevsky.actions import _remove_lord_permanently as _rem_sack
+        from nevsky.static_data import load_lords as _ll_sack
+        for alid in list(attackers):
+            if alid not in state.lords:
+                continue
+            if state.lords[alid].routed_units:
+                _alr_sack(state, alid, "storm_attacker")
+            if not state.lords[alid].forces:
+                _rem_sack(state, alid, _ll_sack()[alid])
+                aftermath.setdefault("winner_removed_by_losses", []).append(alid)
     else:
         # Attacker lost: Storm ends; Siege continues.
         aftermath["storm_failed"] = True
@@ -3982,15 +4065,21 @@ def _h_cmd_storm(
                     aftermath.setdefault("ransom", []).append(_r)
                 _rem_storm(state, alid, _ll_storm()[alid])
                 aftermath.setdefault("removed_after_storm", []).append(alid)
-        # SMOKE-098 (Round 118): defenders won the failed Storm —
-        # they're winners; restore routed → forces unconditionally
-        # ("winner doesn't suffer Losses").
-        for did in besieged:
-            if did in state.lords:
-                dl = state.lords[did]
-                for utype, n in list(dl.routed_units.items()):
-                    dl.forces[utype] = dl.forces.get(utype, 0) + n  # type: ignore[index]
-                dl.routed_units = {}
+        # PLAY-11 (Fable audit): 4.5.2 -- "Routed Defending units always
+        # roll against Protection" (win or lose). The previous
+        # restore-all rested on the SMOKE-098 misquote of 4.4.4. A
+        # defender losing every unit is permanently removed (4.4.4);
+        # the empty Stronghold stays Besieged (R218 semantics).
+        from nevsky.actions import _remove_lord_permanently as _rem_sd
+        from nevsky.static_data import load_lords as _ll_sd
+        for did in list(besieged):
+            if did not in state.lords:
+                continue
+            if state.lords[did].routed_units:
+                apply_losses_rolls(state, did, "storm_defender")
+            if not state.lords[did].forces:
+                _rem_sd(state, did, _ll_sd()[did])
+                aftermath.setdefault("winner_removed_by_losses", []).append(did)
 
     # SMOKE-086 (Round 90): per AoW Reference 1.4.1 Legate, when a
     # Teutonic Stronghold is Stormed and Sacked by Russians, the
@@ -4122,16 +4211,23 @@ def _h_cmd_sally(
                     aftermath.setdefault("ransom", []).append(r)
                 _rem(state, lid, load_lords()[lid])
                 aftermath.setdefault("removed_after_sally", []).append(lid)
-        # SMOKE-099 (Round 118): besiegers (defenders) won the Sally
-        # — restore their routed → forces unconditionally per
-        # "winner doesn't suffer Losses". Same pattern as SMOKE-098
-        # (Storm winner restore).
-        for did in defenders:
-            if did in state.lords:
-                dl = state.lords[did]
-                for utype, n in list(dl.routed_units.items()):
-                    dl.forces[utype] = dl.forces.get(utype, 0) + n  # type: ignore[index]
-                dl.routed_units = {}
+        # PLAY-11 (Fable audit): a Sally is a Battle (4.5.3 "Attack
+        # Besiegers in a Battle (4.4)"), so 4.4.4 Losses applies to
+        # BOTH sides: the winning besiegers roll each Routed unit at
+        # unmodified Protection ("stood_field"). The previous
+        # restore-all rested on the SMOKE-099 misquote of 4.4.4.
+        from nevsky.battle import apply_losses_rolls as _alr_sw
+        for did in list(defenders):
+            if did not in state.lords:
+                continue
+            if state.lords[did].routed_units:
+                _alr_sw(state, did, "stood_field")
+            if not state.lords[did].forces:
+                r = apply_ransom(state, did, sd, locale_id)
+                if r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(r)
+                _rem(state, did, load_lords()[did])
+                aftermath.setdefault("winner_removed_by_losses", []).append(did)
     else:
         # Sallying side won. Besieging side Lords lose per 4.4 Battle
         # aftermath. Siege is lifted (remove all siege markers).
@@ -4229,16 +4325,23 @@ def _h_cmd_sally(
                         apply_losses_rolls(state, lid, sally_loss_state)
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
-        # SMOKE-099 (Round 118): sallying side (attackers) won the
-        # Sally — restore their routed → forces unconditionally
-        # per "winner doesn't suffer Losses". Mirrors the Battle
-        # winner-restore in _h_stand_battle.
-        for alid in attackers:
-            if alid in state.lords:
-                al = state.lords[alid]
-                for utype, n in list(al.routed_units.items()):
-                    al.forces[utype] = al.forces.get(utype, 0) + n  # type: ignore[index]
-                al.routed_units = {}
+        # PLAY-11 (Fable audit): 4.4.4 Losses applies to BOTH sides of
+        # a Sally-Battle -- winning sallying Lords roll each Routed
+        # unit at unmodified Protection ("stood_field"). The previous
+        # restore-all rested on the SMOKE-099 misquote of 4.4.4.
+        from nevsky.battle import apply_losses_rolls as _alr_sv
+        _kill_side_sally_won: "Side" = "russian" if sd == "teutonic" else "teutonic"
+        for alid in list(attackers):
+            if alid not in state.lords:
+                continue
+            if state.lords[alid].routed_units:
+                _alr_sv(state, alid, "stood_field")
+            if not state.lords[alid].forces:
+                r = apply_ransom(state, alid, _kill_side_sally_won, locale_id)
+                if r.get("ransom"):
+                    aftermath.setdefault("ransom", []).append(r)
+                _rem(state, alid, load_lords()[alid])
+                aftermath.setdefault("winner_removed_by_losses", []).append(alid)
         # Siege lifted.
         state.locales[locale_id].siege_markers = 0
         aftermath["siege_lifted"] = True
