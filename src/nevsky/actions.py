@@ -2373,22 +2373,60 @@ def _h_levy_capability(
     if card["capability_scope"] == "this_lord":
         if not isinstance(target_lord_id, str) or target_lord_id not in state.lords:
             raise IllegalAction("missing_arg", "this-lord capability requires args.lord_id")
+        # PLAY-23 (Fable audit): 3.4.4 -- "Such Capabilities when Levied
+        # will affect only the Lord WHO LEVIED IT. Place the card at the
+        # bottom edge of THAT Lord's mat." A This-Lord Capability cannot
+        # be tucked under a different Lord's mat.
+        if target_lord_id != by_id:
+            raise IllegalAction(
+                "bad_target",
+                f"This-Lord Capability goes under the Levying Lord's own mat "
+                f"({by_id}); cannot target {target_lord_id} (3.4.4)")
         target = state.lords[target_lord_id]
         if target.side != sd or target.state != "mustered":
             raise IllegalAction("bad_target", f"{target_lord_id} must be your Mustered Lord")
-        if len(target.this_lord_capabilities) >= 2:
-            raise IllegalAction("cap_limit", f"{target_lord_id} already has 2 capabilities (3.4.4)")
         for existing in target.this_lord_capabilities:
             if cards[existing]["capability_name"] == card["capability_name"]:
                 raise IllegalAction(
                     "duplicate_capability",
                     f"{target_lord_id} already has '{card['capability_name']}' (3.4.4)",
                 )
-        target.this_lord_capabilities.append(cid)
+        # PLAY-24 (Fable audit): 3.4.4 -- "A Lord with two 'This Lord'
+        # Capability cards under his mat MAY LEVY MORE but must
+        # immediately discard down to two." The old hard cap_limit
+        # rejection made a capability swap impossible. A third Levy now
+        # requires args.discard_capability naming one of the Lord's
+        # existing cards (discarding the incoming card instead would be
+        # a pure Lordship burn; name the new card id to do that).
+        discarded_for_cap: str | None = None
+        if len(target.this_lord_capabilities) >= 2:
+            dc = args.get("discard_capability")
+            if not isinstance(dc, str):
+                raise IllegalAction(
+                    "cap_limit",
+                    f"{target_lord_id} already has 2 capabilities; Levy-and-"
+                    "swap requires args.discard_capability (3.4.4 'may Levy "
+                    "more but must immediately discard down to two')")
+            if dc == cid:
+                # Discard the incoming card: net no-op beyond Lordship.
+                discarded_for_cap = cid
+            elif dc in target.this_lord_capabilities:
+                target.this_lord_capabilities.remove(dc)
+                deck.discard.append(dc)
+                discarded_for_cap = dc
+            else:
+                raise IllegalAction(
+                    "bad_discard",
+                    f"discard_capability must name one of "
+                    f"{target.this_lord_capabilities} or the incoming {cid}")
+        if discarded_for_cap != cid:
+            target.this_lord_capabilities.append(cid)
         if from_loc == "deck":
             deck.deck.remove(cid)
         else:
             deck.discard.remove(cid)
+        if discarded_for_cap == cid:
+            deck.discard.append(cid)
         return (
             {
                 "by_lord": by_id,
@@ -2396,6 +2434,8 @@ def _h_levy_capability(
                 "scope": "this_lord",
                 "target_lord": target_lord_id,
                 "from": from_loc,
+                **({"discarded_capability": discarded_for_cap}
+                   if discarded_for_cap else {}),
             },
             [],
         )

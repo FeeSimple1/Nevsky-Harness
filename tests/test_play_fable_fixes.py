@@ -945,3 +945,162 @@ def test_play21_enumeration_offers_grow_and_reset():
     cands = mv.get("candidates", {})
     assert cands.get("reset_discard") == ["T6"]
     assert cands.get("grow_remove", {}).get("choose_exactly") == 1
+
+
+# ===========================================================================
+# PLAY-22..24 (Fable adversarial audit, 2026-07-05): march / capabilities
+# ===========================================================================
+#
+# PLAY-22 — 4.3.1: "The Lord beneath a Marching Lieutenant (4.1.3) must
+# move with the Lieutenant" — including a NON-active Lieutenant inside a
+# Marshal-led group (and the Sail mirror).
+#
+# PLAY-23 — 3.4.4: "Such Capabilities when Levied will affect only the
+# Lord WHO LEVIED IT" — a This-Lord Capability cannot be tucked under a
+# different Lord's mat.
+#
+# PLAY-24 — 3.4.4: "A Lord may have at most two 'This Lord' Capabilities
+# at a time—the owning player must immediately discard any excess" — a
+# third Levy is legal as a swap (args.discard_capability), not a hard
+# rejection.
+
+
+def test_play22_marshal_group_cannot_split_lieutenant_pair():
+    import pytest
+    from nevsky.actions import IllegalAction
+    s = load_scenario("crusade_on_novgorod", seed=11)
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "command"
+    s.meta.first_levy_done = True
+    for lid in ("andreas", "hermann", "rudolf"):
+        s.lords[lid].state = "mustered"
+        s.lords[lid].location = "wenden"
+        s.lords[lid].forces = {"men_at_arms": 2}
+    # Hermann is a Lieutenant with Rudolf beneath him.
+    s.lords["hermann"].has_lower_lord = "rudolf"
+    s.meta.active_player = "teutonic"
+    s.campaign_turn.active_card = "andreas"
+    s.campaign_turn.active_lord = "andreas"
+    s.campaign_turn.actions_remaining = 3
+    s.campaign_turn.in_feed_pay_disband = False
+    with pytest.raises(IllegalAction) as ei:
+        apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                         "args": {"lord_id": "andreas", "to": "tolowa",
+                                  "way_type": "trackway",
+                                  "group": ["andreas", "hermann"]}})
+    assert ei.value.code == "lower_lord_required"
+    # Full pair in group is fine.
+    res = apply_action(s, {"type": "cmd_march", "side": "teutonic",
+                           "args": {"lord_id": "andreas", "to": "tolowa",
+                                    "way_type": "trackway",
+                                    "group": ["andreas", "hermann", "rudolf"]}})
+    assert s.lords["rudolf"].location == "tolowa"
+
+
+def test_play23_this_lord_capability_only_under_levier():
+    import pytest
+    from nevsky.actions import IllegalAction
+    s = load_scenario("crusade_on_novgorod", seed=3)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "muster"
+    s.meta.active_player = "teutonic"
+    for lid in ("andreas", "rudolf"):
+        s.lords[lid].state = "mustered"
+        s.lords[lid].location = "riga"
+        s.lords[lid].lordship_used = 0
+    # T9 Halbbruder is a this_lord capability leviable by Teutons.
+    from nevsky.static_data import load_cards
+    cards = load_cards()
+    tl = next(cid for cid in s.decks.teutonic.deck
+              if cards[cid]["capability_scope"] == "this_lord"
+              and not cards[cid]["no_event"])
+    with pytest.raises(IllegalAction) as ei:
+        apply_action(s, {"type": "levy_capability", "side": "teutonic",
+                         "args": {"by_lord": "andreas", "card_id": tl,
+                                  "lord_id": "rudolf"}})
+    assert ei.value.code in ("bad_target", "not_eligible")
+
+
+def test_play24_levy_and_swap_third_capability():
+    import pytest
+    from nevsky.actions import IllegalAction
+    from nevsky.static_data import load_cards
+    s = load_scenario("crusade_on_novgorod", seed=3)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "muster"
+    s.meta.active_player = "teutonic"
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "riga"
+    s.lords["andreas"].lordship_used = 0
+    cards = load_cards()
+    # Three distinct-name this_lord capabilities Andreas may levy.
+    eligible = []
+    for cid in list(s.decks.teutonic.deck):
+        c = cards[cid]
+        if c["capability_scope"] != "this_lord" or c["no_event"]:
+            continue
+        try:
+            from nevsky.actions import _check_capability_eligibility
+            _check_capability_eligibility(c, "andreas", role="levyer")
+            _check_capability_eligibility(c, "andreas", role="target")
+        except Exception:
+            continue
+        if all(cards[e]["capability_name"] != c["capability_name"]
+               for e in eligible):
+            eligible.append(cid)
+        if len(eligible) == 3:
+            break
+    assert len(eligible) == 3, f"fixture needs 3 distinct capabilities, got {eligible}"
+    a, b, c3 = eligible
+    apply_action(s, {"type": "levy_capability", "side": "teutonic",
+                     "args": {"by_lord": "andreas", "card_id": a}})
+    apply_action(s, {"type": "levy_capability", "side": "teutonic",
+                     "args": {"by_lord": "andreas", "card_id": b}})
+    s.lords["andreas"].lordship_used = 0  # fresh Lordship for the swap
+    # Third without discard choice -> cap_limit with swap hint.
+    with pytest.raises(IllegalAction) as ei:
+        apply_action(s, {"type": "levy_capability", "side": "teutonic",
+                         "args": {"by_lord": "andreas", "card_id": c3}})
+    assert ei.value.code == "cap_limit"
+    # Swap out `a`.
+    res = apply_action(s, {"type": "levy_capability", "side": "teutonic",
+                           "args": {"by_lord": "andreas", "card_id": c3,
+                                    "discard_capability": a}})
+    assert res["discarded_capability"] == a
+    assert sorted(s.lords["andreas"].this_lord_capabilities) == sorted([b, c3])
+    assert a in s.decks.teutonic.discard
+
+
+def test_play24_swap_enumerated_with_candidates():
+    from nevsky.legal_moves import legal_moves
+    from nevsky.static_data import load_cards
+    s = load_scenario("crusade_on_novgorod", seed=3)
+    s.meta.phase = "levy"
+    s.meta.levy_step = "muster"
+    s.meta.active_player = "teutonic"
+    s.lords["andreas"].state = "mustered"
+    s.lords["andreas"].location = "riga"
+    s.lords["andreas"].lordship_used = 0
+    cards = load_cards()
+    have = []
+    for cid in list(s.decks.teutonic.deck):
+        c = cards[cid]
+        if c["capability_scope"] != "this_lord" or c["no_event"]:
+            continue
+        try:
+            from nevsky.actions import _check_capability_eligibility
+            _check_capability_eligibility(c, "andreas", role="levyer")
+        except Exception:
+            continue
+        if all(cards[e]["capability_name"] != c["capability_name"] for e in have):
+            have.append(cid)
+        if len(have) == 2:
+            break
+    for cid in have:
+        s.decks.teutonic.deck.remove(cid)
+        s.lords["andreas"].this_lord_capabilities.append(cid)
+    swaps = [m for m in legal_moves(s)
+             if m["type"] == "levy_capability"
+             and m.get("candidates", {}).get("discard_capability")]
+    assert swaps, "at 2-card cap the palette must offer Levy-and-swap"
+    assert swaps[0]["candidates"]["discard_capability"] == have

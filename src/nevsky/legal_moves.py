@@ -457,12 +457,16 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             scope = card.get("capability_scope") or "?"
             # Per-Lord cap-2 (3.4.4) only applies to this_lord scope.
             target_lord_id = by_lid if scope == "this_lord" else None
+            _swap_discard_needed = False
             if scope == "this_lord":
-                if len(by_lord.this_lord_capabilities) >= 2:
-                    continue  # cap_limit would fire
                 if any(cards[ex].get("capability_name") == cap_name
                        for ex in by_lord.this_lord_capabilities):
                     continue  # duplicate_capability would fire
+                # PLAY-24: at 2 cards, Levy-and-swap is legal (3.4.4
+                # "may Levy more but must immediately discard down to
+                # two") -- emit with a discard_capability requirement.
+                if len(by_lord.this_lord_capabilities) >= 2:
+                    _swap_discard_needed = True
             # capability_eligibility on by_lord (levyer) and target.
             try:
                 _check_capability_eligibility(card, by_lid, role="levyer")
@@ -490,6 +494,18 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 # (handler raises capability_blocked). Mirror it here.
                 if state.meta.special_rules.get("block_william_of_modena_this_levy"):
                     continue
+            if _swap_discard_needed:
+                out.append({
+                    "type": "levy_capability", "side": side,
+                    "args_template": {"by_lord": by_lid, "card_id": cid,
+                                      "discard_capability": "<card_id>"},
+                    "candidates": {"discard_capability":
+                                   list(by_lord.this_lord_capabilities)},
+                    "note": (f"Levy {cid} onto {by_lid} (at 2-card cap: "
+                             "must name args.discard_capability, 3.4.4 "
+                             "Levy-and-swap, PLAY-24)"),
+                })
+                continue
             out.append({
                 "type": "levy_capability", "side": side,
                 "args": {"by_lord": by_lid, "card_id": cid},
@@ -1026,7 +1042,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                             g_excess = _grp_excess_mr(state, full_group, way_type=way_type)
                             g_note = (f"Group March {'+'.join(full_group)} "
                                       f"{here}->{dest} via {way_type} (cost={g_cost}; "
-                                      "4.3.1 Marshal; any subset legal via args.group)")
+                                      "4.3.1 Marshal; subsets legal via "
+                                      "args.group if Lieutenant+Lower pairs "
+                                      "stay together, PLAY-22)")
                             if g_excess > 0:
                                 g_args["discard_excess_provender"] = True
                                 g_note += f" | NOTE: discards {g_excess} excess Provender (4.3.2)"

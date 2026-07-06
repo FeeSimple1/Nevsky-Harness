@@ -136,13 +136,21 @@ def test_smoke_029_levy_rejects_target_in_excluded_list():
     assert e.value.code == "ineligible_target"
 
 
-def test_smoke_029_levy_accepts_excluded_alt_target():
-    """Aleksandr Levies R3 Streltsy onto Domash (eligible; Domash is not Karelians)."""
+def test_smoke_029_levy_alt_target_rejected_play23():
+    """PLAY-23 (Fable audit): 3.4.4 verbatim -- "Such Capabilities when
+    Levied will affect only the Lord WHO LEVIED IT. Place the card at
+    the bottom edge of THAT Lord's mat." A This-Lord Capability can no
+    longer be tucked under a different (even eligibility-wise valid)
+    Lord's mat; Domash must Levy Streltsy himself."""
     s = _fresh()
     _force_muster(s, "aleksandr")
     _force_muster(s, "domash")
     _ensure_in_deck(s, "R3")
-    r = _try_levy(s, "aleksandr", "R3", target="domash")
+    with pytest.raises(IllegalAction) as e:
+        _try_levy(s, "aleksandr", "R3", target="domash")
+    assert e.value.code == "bad_target"
+    # Self-levy by an eligible Lord still works.
+    r = _try_levy(s, "domash", "R3", target="domash")
     assert r["card_id"] == "R3"
     assert r["target_lord"] == "domash"
 

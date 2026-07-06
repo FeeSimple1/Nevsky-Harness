@@ -1228,6 +1228,18 @@ def _h_cmd_sail(
                 f"{lord_id} is not a Marshal; only the Lieutenant + Lower Lord pair "
                 f"or a Marshal-led group may Sail together (4.7.3 / 4.3.1 / 4.1.3)",
             )
+    # PLAY-22 (Fable audit): mirror of the March-group check -- a
+    # non-active Lieutenant Sailing in a Marshal group must bring the
+    # Lower Lord (4.1.3 "March, Retreat, etc." extended to Sail).
+    for _gid in group:
+        _gl = state.lords.get(_gid)
+        if (_gl is not None and _gl.has_lower_lord is not None
+                and _gl.has_lower_lord not in group):
+            raise IllegalAction(
+                "lower_lord_required",
+                f"Lieutenant {_gid} in the Sail group must move with "
+                f"Lower Lord {_gl.has_lower_lord} (4.1.3 / 4.7.3)",
+            )
     # Destination must be free of Unbesieged enemy Lords.
     # SMOKE-019 (Round 33): use _is_besieged on the specific Lord,
     # not locale-level siege markers. A besieger Lord outside the
@@ -2482,6 +2494,20 @@ def _h_cmd_march(
                 "non_marshal_group",
                 f"{lord_id} is not a Marshal; only the Lieutenant + Lower Lord pair "
                 f"or a Marshal-led group may March together (4.3.1 / 4.1.3)",
+            )
+    # PLAY-22 (Fable audit): 4.3.1 -- "The Lord beneath a Marching
+    # Lieutenant (4.1.3) must move with the Lieutenant." The active-Lord
+    # guard above misses a NON-active Lieutenant inside a Marshal-led
+    # group: the group could March off leaving the Lower Lord behind,
+    # with the (still-linked) pair now split across Locales.
+    for _gid in group:
+        _gl = state.lords.get(_gid)
+        if (_gl is not None and _gl.has_lower_lord is not None
+                and _gl.has_lower_lord not in group):
+            raise IllegalAction(
+                "lower_lord_required",
+                f"Lieutenant {_gid} in the March group must move with "
+                f"Lower Lord {_gl.has_lower_lord} (4.3.1 / 4.1.3)",
             )
 
     # Way check.

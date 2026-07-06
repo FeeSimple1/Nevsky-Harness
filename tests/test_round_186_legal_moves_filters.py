@@ -75,14 +75,24 @@ def test_smoke_118_levy_capability_filters_cap_limit():
         return
     s.lords[teu].this_lord_capabilities = this_lord_caps[:2]
     moves = legal_moves(s, with_previews=False)
-    levy_moves = [m for m in moves
-                  if m["type"] == "levy_capability"
-                  and m["args"]["by_lord"] == teu]
-    # No this_lord cap should be offered (cap-limit-2)
-    for m in levy_moves:
-        cid = m["args"]["card_id"]
+    # PLAY-24 (Fable audit): at the 2-card cap the palette now offers
+    # Levy-and-SWAP variants (3.4.4 "must immediately discard any
+    # excess"), which carry args_template + a discard_capability
+    # candidates list -- those are legal. What must NOT appear is a
+    # plain (no-swap) this_lord levy offer for the capped Lord.
+    for m in moves:
+        if m["type"] != "levy_capability":
+            continue
+        args = m.get("args")
+        if args is None:  # swap variant (args_template) -- legal at cap
+            assert m.get("candidates", {}).get("discard_capability"), m
+            continue
+        if args.get("by_lord") != teu:
+            continue
+        cid = args["card_id"]
         if cards[cid].get("capability_scope") == "this_lord":
-            assert False, f"legal_moves offered {teu} + {cid} but {teu} is already at 2 caps"
+            assert False, (f"legal_moves offered plain {teu} + {cid} but "
+                           f"{teu} is already at 2 caps (needs swap args)")
 
 
 def test_smoke_118_levy_capability_filters_duplicate_name():
