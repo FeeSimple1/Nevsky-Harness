@@ -223,11 +223,20 @@ Besieged Lords cannot Muster.
 The defender must choose exactly one of:
 
 - **`avoid_battle`** — `args.to` (adjacent friendly locale free of
-  enemy Lord/Stronghold/Conquered marker). Requires every defender
-  to be Unladen.
+  enemy Lord/Stronghold/Conquered marker). Avoiding Lord(s) must be
+  Unladen (Loot/excess Provender discarded to attacker as Spoils).
+  `args.lords` (optional, PLAY-26): subset of the still-outside
+  defenders that Avoid to `args.to`; default = all of them. Different
+  Lords may Avoid to different Locales via separate calls (4.3.4 "some
+  or all ... to one or more adjacent Locales"). While outside defenders
+  remain the response stays open (`awaiting_response`).
 - **`withdraw`** — into a Friendly Stronghold at the Battle Locale.
   Capacity by Stronghold type (Commandery/Fort/Castle 1; City/
-  Bishopric 2; Novgorod 3). Places a siege marker.
+  Bishopric 2; Novgorod 3). Places a siege marker. `args.lords`
+  (optional, PLAY-26): subset that goes inside ("some or all ... up to
+  Siege Capacity"); the cap is cumulative across partial Withdraws
+  (`CombatPending.withdrawn_lords`). Remaining outside defenders then
+  Avoid/Withdraw more or Stand and fight.
 - **`stand_battle`** — engage in 4.4 Battle. Resolves the battle
   immediately and applies Aftermath. Loser-fate args (4.4.3, owner
   chooses per Lord, PLAY-12): `args.withdraw_losers` (true or list --

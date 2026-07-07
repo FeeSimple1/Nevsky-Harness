@@ -302,6 +302,16 @@ class CombatPending(BaseModel):
     # list of lord_ids (possibly empty) naming who joins.
     sally_join: list[str] | None = None
 
+    # PLAY-26 (4.3.4 partial Avoid/Withdraw): the Inactive side may split
+    # its response -- "some or all" Lords Avoid to "one or more adjacent
+    # Locales", and/or Withdraw "some or all Lords ... up to Siege
+    # Capacity"; any Lords who do neither fight the Battle. avoid_battle /
+    # withdraw now accept an optional `lords` subset and are NON-terminal
+    # while defender_lords remain, so the response can be composed over
+    # several calls. `withdrawn_lords` accumulates who has gone inside so
+    # the Siege-Capacity cap is enforced across those calls.
+    withdrawn_lords: list[str] = Field(default_factory=list)
+
 
 class VassalState(BaseModel):
     """Per-Vassal mutable state.

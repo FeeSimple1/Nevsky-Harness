@@ -92,13 +92,15 @@ their static-territory side (PLAY-25).
 Ordered by expected impact; probe scripts described in the audit
 transcripts (not committed).
 
-1. **4.3.4 partial Avoid/Withdraw.** "SOME OR ALL Inactive Lords may
-   move to ONE OR MORE adjacent Locales"; Withdraw is "some or all
-   Lords ... up to Siege Capacity"; the remainder fights. The engine
-   forces all-or-nothing to a single destination, and rejects Withdraw
-   wholesale when defenders exceed Capacity (2 Lords at a Capacity-1
-   Fort cannot split 1-in/1-avoid). Needs per-Lord response args +
-   enumeration.
+1. ~~**4.3.4 partial Avoid/Withdraw.**~~ RESOLVED 2026-07-06 as PLAY-26.
+   `avoid_battle` / `withdraw` now take an optional `lords` subset and
+   stay non-terminal while outside defenders remain, so the Inactive
+   side can Avoid "some or all" to "one or more adjacent Locales",
+   Withdraw "some or all ... up to Siege Capacity" (cumulative cap via
+   `CombatPending.withdrawn_lords`), and the remainder Stands. Bare
+   `avoid_battle{to}` / `withdraw{}` keep the all-defenders behavior.
+   Enumerator offers per-Lord variants. Regression:
+   `tests/test_play26_partial_avoid_withdraw.py`.
 2. **4.4.2 remaining Hits after a mid-step Rout.** "Whenever a Lord
    Routs to create a new Flanking situation, apply remaining Hits
    accordingly. When an entire row Routs, ignore remaining Hits

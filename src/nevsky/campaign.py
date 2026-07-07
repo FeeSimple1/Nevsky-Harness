@@ -2758,6 +2758,20 @@ def _h_avoid_battle(
     dest = args.get("to")
     if not isinstance(dest, str):
         raise IllegalAction("missing_arg", "args.to required")
+    # PLAY-26 (4.3.4): optional per-Lord subset. "some or all Inactive
+    # Lords may move to one or more adjacent Locales" -- args.lords names
+    # which currently-outside defenders Avoid to `dest`; default = all of
+    # them (backward-compatible single-destination Avoid). Different Lords
+    # may Avoid to different Locales via separate avoid_battle calls.
+    avoiders = args.get("lords")
+    if avoiders is None:
+        avoiders = list(cp.defender_lords)
+    else:
+        if not isinstance(avoiders, list) or not avoiders:
+            raise IllegalAction("bad_arg", "args.lords must be a non-empty list")
+        bad = [x for x in avoiders if x not in cp.defender_lords]
+        if bad:
+            raise IllegalAction("bad_lords", f"{bad} not among outside defenders {cp.defender_lords}")
     # SMOKE-115 (Round 180): T6/R6 Ambush "Block Avoid Battle" mode.
     # Per AoW Reference T6 Tip: "If played to block Avoid Battle,
     # declare Event after Defender declares Avoid Battle; any discard
@@ -2827,7 +2841,7 @@ def _h_avoid_battle(
     spoils_loot = 0
     spoils_prov = 0
     per_lord_discards: list[dict[str, Any]] = []
-    for did in cp.defender_lords:
+    for did in avoiders:
         lord = state.lords[did]
         loot_n = int(lord.assets.get("loot", 0))
         if loot_n > 0:
@@ -2859,13 +2873,15 @@ def _h_avoid_battle(
         spoils_prov = award["added"].get("provender", 0)
         avoid_spoils_lost = award["lost_to_cap"]
 
-    # Move defender(s) and mark Moved/Fought (4.3.4 explicit: "Mark
-    # Avoiding Lords as Moved/Fought").
-    for did in cp.defender_lords:
+    # Move the Avoiding subset and mark Moved/Fought (4.3.4 explicit:
+    # "Mark Avoiding Lords as Moved/Fought").
+    for did in avoiders:
         state.lords[did].location = dest
         state.lords[did].moved_fought = True
         # SMOKE-036: clear in_stronghold on movement.
         state.lords[did].in_stronghold = False
+    # PLAY-26: remove the Avoiders from the outside defender set.
+    cp.defender_lords = [d for d in cp.defender_lords if d not in avoiders]
 
     # SMOKE-091 (Round 99): trade-route auto-flip on uncontested entry
     # (per Strongholds reference; SMOKE-020 wired this for cmd_march and
@@ -2888,6 +2904,26 @@ def _h_avoid_battle(
         state.legate.location = "card"
         state.legate.locale_id = None
 
+    # PLAY-26 (4.3.4): if outside defenders remain, the Approach is not
+    # yet resolved -- the Inactive side may still Avoid/Withdraw more
+    # Lords or Stand with the rest. Keep the response window open; do not
+    # place a Siege, clear combat, or end the attacker's card yet.
+    if cp.defender_lords:
+        state.meta.active_player = cp.defender_side
+        return (
+            {
+                "avoided_to": dest,
+                "avoided_lords": list(avoiders),
+                "remaining_defenders": list(cp.defender_lords),
+                "awaiting_response": True,
+                "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
+                "spoils_lost_to_cap": avoid_spoils_lost,
+                "discards_per_lord": per_lord_discards,
+            },
+            [],
+        )
+
+    # All defenders have now Avoided/Withdrawn -> resolve the Approach.
     # Stronghold present at the Approach Locale (with no defender Lords
     # left) -> begin Siege.
     placed_siege = False
@@ -3087,9 +3123,25 @@ def _h_withdraw(
     # markers; reuse `eff` for capacity.
     sh_data = eff
     capacity = int(sh_data.get("capacity", 1))
-    if len(cp.defender_lords) > capacity:
+    # PLAY-26 (4.3.4): optional per-Lord subset -- "Withdraw some or all
+    # Lords into its Stronghold there, a number of Lords UP TO Siege
+    # Capacity". args.lords names which outside defenders go inside;
+    # default = all of them (backward-compatible). The Capacity cap is
+    # cumulative across partial Withdraw calls (cp.withdrawn_lords).
+    withdrawers = args.get("lords")
+    if withdrawers is None:
+        withdrawers = list(cp.defender_lords)
+    else:
+        if not isinstance(withdrawers, list) or not withdrawers:
+            raise IllegalAction("bad_arg", "args.lords must be a non-empty list")
+        bad = [x for x in withdrawers if x not in cp.defender_lords]
+        if bad:
+            raise IllegalAction("bad_lords", f"{bad} not among outside defenders {cp.defender_lords}")
+    total_inside = len(cp.withdrawn_lords) + len(withdrawers)
+    if total_inside > capacity:
         raise IllegalAction("over_capacity",
-            f"Stronghold {cp.to_locale} ({stype}) capacity {capacity}; {len(cp.defender_lords)} defenders")
+            f"Stronghold {cp.to_locale} ({stype}) capacity {capacity}; "
+            f"{len(cp.withdrawn_lords)} already inside + {len(withdrawers)} withdrawing")
 
     # Place a siege marker (Besieged the defenders).
     loc2 = state.locales[cp.to_locale]
@@ -3098,8 +3150,10 @@ def _h_withdraw(
     # 4.3.4 NOTE: "Withdrawal alone does not mark Lords as Moved/Fought."
     # Lords go inside the Stronghold (Besieged) but are not marked
     # Moved/Fought by the act of Withdrawing.
-    for did in cp.defender_lords:
+    for did in withdrawers:
         state.lords[did].in_stronghold = True
+    cp.withdrawn_lords = list(cp.withdrawn_lords) + list(withdrawers)
+    cp.defender_lords = [d for d in cp.defender_lords if d not in withdrawers]
 
     # 1.4.1 Legate trigger: if any Withdrawing Lord is Teutonic and the
     # Legate is at the Withdraw Locale, remove the pawn and discard
@@ -3115,10 +3169,29 @@ def _h_withdraw(
         state.legate.location = "card"
         state.legate.locale_id = None
 
+    # PLAY-26 (4.3.4): if outside defenders remain, the Approach is not yet
+    # resolved -- the Inactive side may Withdraw/Avoid more or Stand with
+    # the rest. Keep the response window open (the withdrawn Lords are now
+    # Besieged inside); do not end the attacker's card yet.
+    if cp.defender_lords:
+        state.meta.active_player = cp.defender_side
+        return (
+            {
+                "withdrew_into": cp.to_locale,
+                "withdrew_lords": list(withdrawers),
+                "capacity": capacity,
+                "inside_total": len(cp.withdrawn_lords),
+                "remaining_defenders": list(cp.defender_lords),
+                "awaiting_response": True,
+            },
+            [],
+        )
+
     state.combat_pending = None
     state.campaign_turn.actions_remaining = 0
     _enter_feed_pay_disband(state)
-    return ({"withdrew_into": cp.to_locale, "capacity": capacity}, [])
+    return ({"withdrew_into": cp.to_locale, "capacity": capacity,
+             "withdrew_lords": list(withdrawers)}, [])
 
 
 def _parse_concede_round(value: Any, *, who: str) -> int | None:

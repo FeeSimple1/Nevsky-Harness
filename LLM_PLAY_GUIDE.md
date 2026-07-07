@@ -235,6 +235,14 @@ locales in a quiet Campaign.
 
 ### Approach segment / Combat (4.3.4-4.4)
 - Defender chooses: Avoid Battle / Withdraw / Stand Battle / Concede.
+- **Partial responses (PLAY-26, 4.3.4).** You may split the response per
+  Lord: `avoid_battle` and `withdraw` take an optional `args.lords`
+  subset and stay open while outside defenders remain. Avoid "some or
+  all" Lords to "one or more adjacent Locales" (different Locales via
+  separate calls); Withdraw "some or all ... up to Siege Capacity"
+  (cumulative). Any Lords left after your Avoid/Withdraw calls fight when
+  you `stand_battle`. Bare `avoid_battle{to}` / `withdraw{}` still move
+  all defenders at once.
 - Now also: attacker may interrupt Avoid with T6/R6 Ambush (block-mode).
 - **Casualty-absorption policy (per combat).** When you commit to a
   Battle you may declare how your Lords absorb Hits, via an

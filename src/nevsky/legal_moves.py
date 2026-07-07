@@ -815,6 +815,18 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                         "args": {"to": dest},
                         "note": note,
                     })
+                    # PLAY-26 (4.3.4): "some or all ... to one or more
+                    # adjacent Locales". Offer per-Lord Avoid so the
+                    # Inactive side can split the response (Avoid some,
+                    # Withdraw/Stand the rest). Composed over calls.
+                    if len(cp.defender_lords) > 1:
+                        for _lid in cp.defender_lords:
+                            out.append({
+                                "type": "avoid_battle", "side": side,
+                                "args": {"to": dest, "lords": [_lid]},
+                                "note": f"Avoid Battle: only {_lid} -> {dest} "
+                                        f"(4.3.4 partial; others still respond)",
+                            })
             # Withdraw: convert Battle into Siege.
             withdraw_note = (
                 "Withdraw all defender Lords into Stronghold at "
@@ -833,9 +845,24 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             # so a defender at an enemy-owned Stronghold (e.g. a Teuton at
             # Russian Izborsk) got `not_friendly` on apply.
             from nevsky.campaign import _can_withdraw_into as _cwi
-            if _cwi(state, cp.to_locale, side, len(cp.defender_lords)):
+            _inside = len(cp.withdrawn_lords)
+            # All remaining defenders Withdraw together (cumulative cap).
+            if _cwi(state, cp.to_locale, side, _inside + len(cp.defender_lords)):
                 out.append({"type": "withdraw", "side": side, "args": {},
                             "note": withdraw_note})
+            # PLAY-26 (4.3.4): per-Lord Withdraw ("some or all ... up to
+            # Siege Capacity") so the Inactive side can split 1-in / 1-out
+            # even at a Capacity-1 Stronghold. Only when >1 defender (else
+            # the all-defenders form above suffices).
+            if (len(cp.defender_lords) > 1
+                    and _cwi(state, cp.to_locale, side, _inside + 1)):
+                for _lid in cp.defender_lords:
+                    out.append({
+                        "type": "withdraw", "side": side,
+                        "args": {"lords": [_lid]},
+                        "note": f"Withdraw only {_lid} into {cp.to_locale} "
+                                f"(4.3.4 partial; others still respond)",
+                    })
             return out
         return out
     cstep = state.meta.campaign_step
