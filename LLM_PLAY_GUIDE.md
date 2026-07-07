@@ -254,6 +254,29 @@ locales in a quiet Campaign.
   chosen policy is recorded in the battle result under
   `absorption_policies` for the post-mortem.
 
+### Combat aftermath decisions (PLAY-7..25 audit additions, 2026-07)
+- **Winners roll Losses too (4.4.4).** Routed units are no longer free
+  for the victor: each rolls unmodified Protection ("stood_field");
+  Storm attackers keep Routed units only on a 1 EVEN WHEN SACKING.
+  Attritional wins are real — don't count Routed units as saved.
+- **Loser fate is yours (4.4.3):** on `stand_battle`, direct losers
+  with `withdraw_losers` (into your Stronghold, up to Capacity —
+  fully-Routed Lords may Withdraw and roll at Protection) and
+  `remove_losers`; unnamed losers Retreat. Withdraw usually preserves
+  more than a no-Concede Retreat (keep-on-1).
+- **Relief Sally join is optional:** `cmd_march args.sally_join`
+  (None = all Besieged Lords join; [] = none). Joiners are marked
+  Moved/Fought and must Feed.
+- **Siege:** `decline_surrender: true` skips the 4.5.1 roll (rarely
+  right — only when Conquest-by-Surrender would help the enemy, e.g.
+  VP timing). Surrender now removes the Siege markers.
+- **End Campaign:** choose Wastage discards (`wastage`), which enemy
+  Ravaged markers survive Grow (`grow_remove`), and return dead Hold
+  events to your deck at Reset (`reset_discard`). Wastage candidates
+  reflect POST-Plow-&-Reap transport.
+- **Capability swap:** at a Lord's 2-card cap, levy a third This-Lord
+  capability with `discard_capability` naming the one to shed.
+
 ### Storm / Sally / Siege (4.5)
 - Entire-card actions. Plan for them in advance — they need full
   Command card.

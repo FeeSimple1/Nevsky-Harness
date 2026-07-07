@@ -525,3 +525,25 @@ Meta-lesson reinforced for the family: the highest-yield artifact is the
 §1 co-location invariant run under an aggressive policy. It found nothing
 NEW in Nevsky (Doors A/B-defended/C were already handled), but it forced
 the empty-Stronghold Door-B audit and is now a permanent regression guard.
+
+
+## Process-log rule quotes decay into pseudo-rules (Nevsky PLAY-11, 2026-07)
+
+SMOKE-093 (Round 113) paraphrased 4.4.4 as "the Winner's Routed units
+automatically return; only the Loser rolls Losses." That sentence is in
+no source document — but five later rounds (SMOKE-095..099) inherited
+it as if printed, methodically extending the wrong behavior to every
+combat aftermath, each citing the previous round as authority. The
+result survived ~380 rounds of review because every audit checked the
+CODE against the LOG, and the log agreed with itself.
+
+Rules for the family of engines:
+- A rule quote is only trustworthy at the moment it is extracted from
+  the source PDF / reference .txt. When a fix chain spans rounds,
+  RE-EXTRACT the passage; never copy the quote from a prior log entry.
+- Symmetric-gap audits ("the loser path got wired, mirror it for the
+  winner") are high-yield for finding OMISSIONS but dangerous for
+  semantics: the mirrored premise must be re-verified against the
+  source, not against the entry being mirrored.
+- When a comment says "per rules" with no section number, treat it as
+  unverified (the PLAY-11 comment said exactly that).

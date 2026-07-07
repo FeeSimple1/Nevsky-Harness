@@ -860,6 +860,11 @@ Lord's card is not pristine (`actions_remaining < _effective_command_rating`).
 Regression: `tests/test_round_203_playthrough_bugs.py`
 (test_bug2_*). See SMOKE-135.
 
+*[Cross-reference 2026-07-06: Q-010 (RULES_QUESTIONS.md) asks whether
+this decision should narrow for Storm/Sally — rulebook 4.2.1 lists
+only Siege/Sail/Tax as entire-card, and 4.5.2 says Storm uses "a
+Command action". D-R203 stands unchanged until re-adjudicated.]*
+
 ---
 
 ## D-Q009 — Feed (4.8.1) applies only to Moved/Fought Lords, not stationary Commands

@@ -7654,6 +7654,15 @@ Clean: 2 / 10.
 unit; some return to Forces, others are permanently lost. The
 Winner's Routed units automatically return.
 
+*[Superseded 2026-07-05, PLAY-11: the "Winner's Routed units
+automatically return" sentence above is a MISQUOTE — it appears
+nowhere in the rulebook or reference .txt. Printed 4.4.4: "both
+sides determine the fate of their Routed units." The loser-side fix
+below was correct; the winner-restore premise it inherited was not.
+Winners now roll at "stood_field" / "storm_attacker" /
+"storm_defender" thresholds. Lesson: quote rules by re-extracting
+the source, never from a prior log entry.]*
+
 **Bug:** The harness restored Winner.routed_units → forces
 unconditionally (post-Battle "winner doesn't suffer Losses").
 The Loser code path never called `apply_losses_rolls`; the
@@ -7807,6 +7816,13 @@ contained a distinct gap. The audit pattern is converging.
 Verification batch RESET 0/10 again. Continuing...
 
 ## Round 118 — SMOKE-098 + SMOKE-099 (twofer)
+
+*[Superseded 2026-07-05, PLAY-11: this round's "Rule" line repeats
+the SMOKE-093 misquote. The gap-symmetry finding (Storm/Sally
+aftermath ignored winners' routed piles) was real, but the remedy —
+unconditional restore — encoded the wrong rule. All four
+winner-restore loops now roll 4.4.4 Losses; see
+tests/test_round_118_winner_routed_restore.py (rewritten).]*
 
 ### SMOKE-098: Storm winners' routed_units not restored to forces
 ### SMOKE-099: Sally winners' routed_units not restored to forces

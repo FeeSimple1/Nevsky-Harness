@@ -82,10 +82,14 @@ Besieged Lords cannot Muster.
 - **`levy_transport`** — `args.by_lord`, `transport_type`. Adds 1
   Boat / Cart / Sled / Ship. Ship requires `ships_authorized` on
   the Lord's mat. Max 8 of any type per Lord.
-- **`levy_capability`** — `args.by_lord`, `card_id`,
-  `lord_id` (this-lord scope). Tucks under target Lord's mat
-  (this-lord) or at side's board edge (side-wide). Max 2 this-lord
-  capabilities per Lord; no duplicates by capability name.
+- **`levy_capability`** — `args.by_lord`, `card_id`. This-Lord
+  capabilities go under the LEVYING Lord's own mat (3.4.4 verbatim;
+  `args.lord_id`, if given, must equal `by_lord` -- PLAY-23);
+  side-wide cards go to the side's board edge. Max 2 this-lord
+  capabilities per Lord and no duplicates by capability name; at the
+  2-card cap a third Levy is a SWAP: pass
+  `args.discard_capability=<card_id>` naming the card to shed
+  (3.4.4 "must immediately discard any excess", PLAY-24).
 
 ## 3.5 Call to Arms
 
@@ -183,21 +187,30 @@ Besieged Lords cannot Muster.
 
 ### 4.9 End Campaign
 
-- **`end_campaign_resolve`** — runs T-then-R. Per side: 4.9.1 Grow
-  (only end-of-Rasputitsa, halve enemy Ravaged markers rounded UP),
-  4.9.4 Wastage (per Lord, discard 1 if any Asset count >1 OR >1
-  this-lord-capability), 4.9.5 discard This-Campaign events. After
-  R, runs 4.9.2 game-end check (if box >= span_end_box -> game over),
-  4.9.3 Plow & Reap (end-of-Summer Carts -> Sleds; end-of-Late-Winter
-  Sleds -> Carts; halve rounded UP), advances Calendar marker, flips
-  to Levy.
+- **`end_campaign_resolve`** — runs T-then-R. Per side, in 4.9
+  order (PLAY-17): 4.9.1 Grow (only end-of-Rasputitsa, halve enemy
+  Ravaged markers rounded UP; the remover picks survivors via
+  `args.grow_remove=[locale_ids]`), 4.9.3 Plow & Reap for that side's
+  Lords (end-of-Summer Carts -> Sleds; end-of-Late-Winter Sleds ->
+  Carts; halve rounded UP; skipped when this box is the scenario's
+  final 40 Days), 4.9.4 Wastage (per Lord, discard 1 if any
+  POST-FLIP Asset count >1 OR >1 this-lord-capability; owner picks
+  via `args.wastage`), 4.9.5 Reset incl. optional
+  `args.reset_discard=[card_ids]` returning held AoW cards to the
+  deck (PLAY-21) and This-Campaign event discard. After R: 4.9.2
+  game-end check (if box >= span_end_box -> game over), Calendar
+  marker advances, flips to Levy.
 
 ## Phase 3b: March, Approach, Battle
 
 ### 4.3 March
 
 - **`cmd_march`** — `args.lord_id`, `args.to` (adjacent locale via a
-  Way), `args.group` (optional list of co-Marching own-side Lords).
+  Way), `args.group` (optional list of co-Marching own-side Lords;
+  every group member's Lower Lord must be in the group, PLAY-22),
+  `args.sally_join` (optional list; Relief Sally 4.4.1 joiners when
+  Approaching a Locale where this side is Besieged -- None = all
+  eligible Lords join, [] = none, PLAY-14).
   Costs 1 Unladen action / 2 Laden actions per Locale. Begin Siege
   if entering Locale of an Unbesieged enemy Stronghold without an
   enemy Lord (4.3.5). If destination has enemy Lord(s), enter Approach
@@ -216,7 +229,12 @@ The defender must choose exactly one of:
   Capacity by Stronghold type (Commandery/Fort/Castle 1; City/
   Bishopric 2; Novgorod 3). Places a siege marker.
 - **`stand_battle`** — engage in 4.4 Battle. Resolves the battle
-  immediately and applies Aftermath.
+  immediately and applies Aftermath. Loser-fate args (4.4.3, owner
+  chooses per Lord, PLAY-12): `args.withdraw_losers` (true or list --
+  Withdraw into the side's Stronghold, up to Capacity; fully-Routed
+  Lords eligible) and `args.remove_losers` (list -- voluntary
+  permanent removal). Unnamed losers Retreat; a Lord with no legal
+  Retreat is removed.
 
 ### 4.4 Battle resolution
 
@@ -261,14 +279,19 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
 
 ### 4.5.1 Siege
 
-- **`cmd_siege`** — entire card. `args.lord_id` (active Lord).
-  - Surrender check: if no Besieged Lords inside, roll 1d6; if
-    roll <= siege_markers, the Stronghold is Conquered (place
-    Conquered marker; +VP per Strongholds table; if Novgorod, all
-    Veche Coin removed per 1.3.3 -- not awarded as Spoils since
-    this is Surrender, not Sack).
-  - Siegeworks check: if besieging Lords at locale >= Stronghold
-    Capacity, +1 Siege marker (max 4).
+- **`cmd_siege`** — entire card. `args.lord_id` (active Lord),
+  optional `args.decline_surrender` (4.5.1 "may roll", PLAY-7).
+  - Surrender check: if no Besieged Lords inside (and not declined),
+    roll 1d6; if roll <= siege_markers, the Stronghold is Conquered
+    (REMOVE Siege markers, PLAY-7; place Conquered marker; +VP per
+    Strongholds table; if Novgorod, all Veche Coin removed per 1.3.3
+    -- not awarded as Spoils since this is Surrender, not Sack).
+  - Siegeworks check -- only if the Stronghold did NOT Surrender
+    (including because the Besieger declined): if besieging Lords at
+    locale >= Stronghold Capacity, +1 Siege marker (max 4).
+  - The defender is the Stronghold's CURRENT owner (Conquered markers
+    / Castle color, PLAY-25); Sieging a currently-own Stronghold is
+    rejected (`own_stronghold`).
 
 ### 4.5.2 Storm
 
@@ -555,7 +578,16 @@ discard. Effects:
 - hill: defender's default-archery doubled Rounds 1-2.
 - field_organ: Round 1, target Lord's Knights + Sergeants Melee +1 each.
 - raven_rock: Russian defender Walls 1-2 vs Melee Round 1.
-- bridge / ambush: card consumed (no-op effect; flanking unmodeled).
+- bridge: the targeted side's FRONT-CENTER Lord Melee-Strikes with at
+  most 2*Round units (battle.py `bridge_target_lord`; the cap follows
+  the actual front-center Lord after Array, PLAY-16). Non-Winter only
+  -- a Winter play is rejected at consumption (`season_blocked`).
+  Pass the target via `args.holds.bridge_target_lord`.
+- ambush: Round 1, the CARD-NAMED side's enemy flanks are uninvolved
+  -- T6 suppresses the Russian left/right, R6 the Teutonic left/right,
+  whatever the combat roles (PLAY-15); the owner's flank Lords Flank
+  the enemy center. The card's other mode (block Avoid Battle) runs
+  through `play_ambush_block` / `decline_ambush_block` (SMOKE-115).
 
 ### Tier 3 hold events (via aow_play_hold)
 
@@ -584,15 +616,24 @@ Battle. During engagement, failed-Protection units move from
 `forces` to `routed_units` (cannot strike or absorb further this
 Battle/Storm). After engagement:
 
-- Winner Lord: routed pile returned wholesale to `forces`.
-- Loser Lord: `apply_losses_rolls(state, lord_id, loser_state)` rolls
-  1d6 per Routed unit. Threshold by loser_state:
+- BOTH sides roll (PLAY-11; 4.4.4 "both sides determine the fate of
+  their Routed units" -- the old winner-wholesale-restore rested on a
+  rule misquote). `apply_losses_rolls(state, lord_id, loser_state)`
+  rolls 1d6 per Routed unit. Threshold by state:
     - "retreated_no_concede" / "storm_attacker": roll==1 keeps
-    - "withdrew" / "conceded_then_retreated": roll within unmodified
-      Protection range keeps
+      (storm_attacker applies to Storm attackers WIN OR LOSE, 4.5.2)
+    - "withdrew" / "conceded_then_retreated" / "stood_field" (Battle
+      and Sally winners) / "storm_defender" (Storm defenders win or
+      lose): roll within unmodified Protection range keeps
     - "removed": all routed units lost
   Asiatic Horse always uses Evade range. Successful rolls return the
   unit to `forces`; failed rolls are permanently lost.
+- Any Lord -- winner included -- who ends Losses with zero units is
+  permanently removed (4.4.4); aftermath reports
+  `winner_removed_by_losses`. A besieger removed this way lifts its
+  own Siege.
 
-`stand_battle` invokes Losses rolls automatically for loser Lords;
+`stand_battle` invokes Losses rolls automatically for BOTH sides;
 result includes a `losses` field per Lord with detailed per-unit rolls.
+Losses resolve BEFORE Spoils (4.4.3), so a Lord Removed-by-Losses
+transfers all Assets except Ships regardless of Concede.
