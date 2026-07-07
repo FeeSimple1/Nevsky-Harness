@@ -386,7 +386,96 @@ def _resolve_hits(
                 del units[utype]
             lord.routed_units[utype] = lord.routed_units.get(utype, 0) + 1  # type: ignore[index]
             routed_log.append({"unit": utype, "absorbed": False})
-    return {"hits": hits, "absorbed": absorbed, "routed": routed_log}
+    # PLAY-27 (4.4.2): `applied` = Hits actually processed before the Lord
+    # ran out of Unrouted units. hits - applied = Hits "remaining" against a
+    # Routed target, which 4.4.2 carries to the new Flanking situation.
+    return {"hits": hits, "absorbed": absorbed, "routed": routed_log,
+            "applied": len(routed_log)}
+
+
+def _row_family(slot: str) -> tuple[str, ...] | None:
+    """The Array row (slot family) a position belongs to, or None for
+    reserve/routed slots that are neither struck as a row nor Flanked."""
+    if slot in _FRONT_SLOTS:
+        return _FRONT_SLOTS
+    if slot in _REARGUARD_SLOTS:
+        return _REARGUARD_SLOTS
+    if slot in _SALLY_SLOTS:
+        return _SALLY_SLOTS
+    return None
+
+
+def _bare_slot_index(slot: str) -> int:
+    return {"left": 0, "center": 1, "right": 2}[slot.split("_")[-1]]
+
+
+def _apply_row_spillover(
+    state: GameState,
+    target_slot: str,
+    leftover: int,
+    strike_kind: str,
+    enemy_positions: dict[str, str],
+    *,
+    rounds: int,
+    kind: str,
+    raven_rock_walls: bool,
+    attacker_side: Side,
+    attacker_absorption_policy: "str | list[str]",
+    defender_absorption_policy: "str | list[str]",
+) -> list[dict[str, Any]]:
+    """4.4.2: "Whenever a Lord Routs to create a new Flanking situation,
+    apply remaining Hits accordingly ... When an entire row Routs, ignore
+    remaining Hits against that row."
+
+    `leftover` Hits from a just-Routed target at `target_slot` follow the
+    new Flanking situation to the surviving Lords in the SAME row, closest
+    (by slot distance) first, cascading if a survivor also Routs. Returns
+    per-Lord distribution entries (empty when the whole row has Routed).
+    The *choice* of which survivor absorbs when equidistant is left
+    deterministic here (closest, then left-to-right); the operator-choice
+    variant is tracked separately (open item #3, 4.4.2 Flanking choice).
+    """
+    fam = _row_family(target_slot)
+    if fam is None or leftover <= 0:
+        return []
+    survivors = [
+        lid for lid, p in enemy_positions.items()
+        if p in fam and lid in state.lords and state.lords[lid].forces
+    ]
+    if not survivors:
+        return []  # entire row Routed -> ignore remaining Hits (4.4.2)
+    survivors.sort(key=lambda lid: (
+        abs(_bare_slot_index(enemy_positions[lid]) - _bare_slot_index(target_slot)),
+        _bare_slot_index(enemy_positions[lid]),
+    ))
+    out: list[dict[str, Any]] = []
+    remaining = leftover
+    for lid in survivors:
+        if remaining <= 0:
+            break
+        hits = remaining
+        # Raven's Rock: Russian defender Walls 1-2 vs Melee Round 1 (R4),
+        # a target-side protection -- re-apply to spillover Hits too.
+        if (raven_rock_walls and rounds == 1 and kind != "archery"
+                and state.lords[lid].side == "russian"):
+            absorbed_walls = 0
+            for _ in range(hits):
+                if roll_d6(state) <= 2:
+                    absorbed_walls += 1
+            if absorbed_walls > 0:
+                out.append({"lord": lid, "target": "ravens_rock_walls",
+                            "absorbed": absorbed_walls, "spillover": True})
+                hits -= absorbed_walls
+        if hits <= 0:
+            continue
+        policy = (attacker_absorption_policy
+                  if state.lords[lid].side == attacker_side
+                  else defender_absorption_policy)
+        tres = _resolve_hits(state, lid, hits, strike_kind,
+                             assignment_policy=policy)
+        out.append({"lord": lid, "spillover": True, **tres})
+        remaining = hits - tres["applied"]
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1522,6 +1611,10 @@ def resolve_battle(
                 continue
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
+            # PLAY-27 (4.4.2): (routed_target_slot, remaining_hits) queued
+            # as targets Rout with Hits to spare; resolved after this
+            # step's per-target application (new Flanking situation).
+            row_spillover: list[tuple[str, int]] = []
             # Q-006: Track Hits that came from Sally-row strikers per
             # target so Siegeworks-vs-Sally walls can be rolled
             # separately (4.4.1 2E "Siegeworks ... protect against
@@ -1622,6 +1715,28 @@ def resolve_battle(
                     assignment_policy=_absorb_policy,
                 )
                 distribution.append({"lord": tlid, **tres})
+                # PLAY-27 (4.4.2): if this target Routed (no Forces left)
+                # with Hits still unapplied, those Hits follow the new
+                # Flanking situation to the rest of the row.
+                _leftover = hits - tres["applied"]
+                if (_leftover > 0 and tlid in state.lords
+                        and not state.lords[tlid].forces):
+                    _tslot = enemy_positions.get(tlid)
+                    if _tslot is not None:
+                        row_spillover.append((_tslot, _leftover))
+            # PLAY-27 (4.4.2): carry remaining Hits from Routed targets to
+            # surviving Lords in the same row (ignored only if the whole
+            # row Routed). Processed after the main application so it sees
+            # the final survivor set for this step.
+            for _tslot, _leftover in row_spillover:
+                spill = _apply_row_spillover(
+                    state, _tslot, _leftover, strike_kind, enemy_positions,
+                    rounds=rounds, kind=kind, raven_rock_walls=raven_rock_walls,
+                    attacker_side=attacker_side,
+                    attacker_absorption_policy=attacker_absorption_policy,
+                    defender_absorption_policy=defender_absorption_policy,
+                )
+                distribution.extend(spill)
             if distribution or per_striker_log:
                 round_log["steps"].append({
                     "step": label,

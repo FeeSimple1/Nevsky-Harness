@@ -101,11 +101,15 @@ transcripts (not committed).
    `avoid_battle{to}` / `withdraw{}` keep the all-defenders behavior.
    Enumerator offers per-Lord variants. Regression:
    `tests/test_play26_partial_avoid_withdraw.py`.
-2. **4.4.2 remaining Hits after a mid-step Rout.** "Whenever a Lord
-   Routs to create a new Flanking situation, apply remaining Hits
-   accordingly. When an entire row Routs, ignore remaining Hits
-   against that row." The engine discards excess Hits whenever the
-   named target Routs, even with live Lords remaining in the row.
+2. ~~**4.4.2 remaining Hits after a mid-step Rout.**~~ RESOLVED
+   2026-07-06 as PLAY-27. When a struck target Routs with Hits still
+   unapplied, `_apply_row_spillover` carries them to the surviving
+   Lords in the SAME Array row (closest slot first, cascading); a
+   fully-Routed row ignores them (4.4.2). `_resolve_hits` now reports
+   `applied` so leftover = hits - applied. Raven's Rock Walls re-apply
+   to spillover onto a Russian target in Melee Round 1. The operator's
+   *choice* of absorber when equidistant remains open item #3.
+   Regression: `tests/test_play27_rout_hit_spillover.py`.
 3. **4.4.2 Flanking absorb choice.** "A Player with a Flanking Lord
    where no enemies are Flanking the target selects either the
    Flanking or directly opposed Lord to take Hits" — no decision type

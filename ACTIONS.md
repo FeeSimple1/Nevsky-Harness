@@ -277,7 +277,10 @@ Phase 3b deliberately defers Phase 4 capability effects (Walls in
 Battle by Event, LUCHNIKI/STRELTSY/BALISTARII archery extensions,
 HALBBRUEDER Armor +1, WARRIOR MONKS rerolls, RAIDERS, CONVERTS,
 DRUZHINA Command +1, Russian archery special rounding, Pursuit on
-Concede, Lieutenants 4.1.3, full Reposition with Flanking).
+Concede, Lieutenants 4.1.3, full Reposition with Flanking). 4.4.2
+mid-step Rout spillover (PLAY-27): Hits remaining after a target Routs
+follow the new Flanking situation to survivors in the same row; a
+fully-Routed row ignores them.
 
 ## Phase 3c: Siege, Storm, Sally
 
