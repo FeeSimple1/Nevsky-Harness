@@ -280,7 +280,10 @@ DRUZHINA Command +1, Russian archery special rounding, Pursuit on
 Concede, Lieutenants 4.1.3, full Reposition with Flanking). 4.4.2
 mid-step Rout spillover (PLAY-27): Hits remaining after a target Routs
 follow the new Flanking situation to survivors in the same row; a
-fully-Routed row ignores them.
+fully-Routed row ignores them. 4.4.2 Flank-absorb choice (PLAY-28): via the
+`flank_absorb` decision, the hit-taking side may redirect a directly-
+opposed striker's Hits onto one of its own Flanking Lords when no enemy
+Flanks the target.
 
 ## Phase 3c: Siege, Storm, Sally
 

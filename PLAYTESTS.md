@@ -110,10 +110,15 @@ transcripts (not committed).
    to spillover onto a Russian target in Melee Round 1. The operator's
    *choice* of absorber when equidistant remains open item #3.
    Regression: `tests/test_play27_rout_hit_spillover.py`.
-3. **4.4.2 Flanking absorb choice.** "A Player with a Flanking Lord
-   where no enemies are Flanking the target selects either the
-   Flanking or directly opposed Lord to take Hits" — no decision type
-   exists; Hits always follow _strike_target.
+3. ~~**4.4.2 Flanking absorb choice.**~~ RESOLVED 2026-07-06 as
+   PLAY-28. New `flank_absorb` decision: when a striker is directly
+   OPPOSED to its target and the target's side has Front Lord(s)
+   Flanking that striker (and no enemy Flanks the target), the target's
+   owner may redirect the striker's Hits onto a Flanking Lord instead
+   (helper `_front_flankers_of`). Fallback keeps the opposed Lord, so
+   behavior is unchanged unless the operator elects. Front row only (the
+   documented geometry). Regression:
+   `tests/test_play28_flank_absorb_choice.py`.
 4. **4.4.3 Retreat gates.** Retreat legality omits the "Unbesieged"
    qualifier on enemy Lords/Strongholds (a Locale where your own side
    besieges the enemy is wrongly barred — can escalate to permanent

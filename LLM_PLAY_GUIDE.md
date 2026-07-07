@@ -244,6 +244,12 @@ locales in a quiet Campaign.
   you `stand_battle`. Bare `avoid_battle{to}` / `withdraw{}` still move
   all defenders at once.
 - Now also: attacker may interrupt Avoid with T6/R6 Ambush (block-mode).
+- **Flank-absorb choice (4.4.2, PLAY-28).** During Strike resolution, if
+  one of your Lords is Flanking the enemy striker that is directly
+  opposed to another of your Lords (and no enemy Flanks that opposed
+  Lord), you may choose which of the two absorbs the Hits — surfaced as a
+  `flank_absorb` decision (scripted/callback). Default keeps the
+  directly-opposed Lord.
 - **Casualty-absorption policy (per combat).** When you commit to a
   Battle you may declare how your Lords absorb Hits, via an
   `absorption_policy` arg — the attacker on `cmd_march`, the defender

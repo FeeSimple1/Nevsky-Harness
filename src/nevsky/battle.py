@@ -510,6 +510,8 @@ _DECISION_TYPES = (
     "reserve_advance",              # which Reserve Lord advances to slot
     "center_fill",                  # which left/right Lord slides to center
     "flanker_target",               # ambiguous Flanker target
+    "flank_absorb",                 # PLAY-28 (4.4.2): Flanking Lord vs
+                                    # directly-opposed Lord to take Hits
 )
 
 
@@ -1037,6 +1039,49 @@ def _row_distance(a: str, b: str) -> int:
     """
     pos = {"left": 0, "center": 1, "right": 2}
     return abs(pos[a] - pos[b])
+
+
+def _front_flankers_of(
+    state: GameState,
+    victim: str,
+    victim_positions: dict[str, str],
+    attacker_positions: dict[str, str],
+) -> list[str]:
+    """Front-row Lords in `attacker_positions` that FLANK `victim` (4.4.2):
+    each has no Lord directly opposite (no `victim`-side Lord at its slot),
+    so it Flanks, and `victim` is its closest enemy in the row. Front row
+    only (the documented Flank-absorb geometry); [] otherwise.
+    """
+    vp = victim_positions.get(victim)
+    if vp not in _FRONT_SLOTS:
+        return []
+    out: list[str] = []
+    for lid, p in attacker_positions.items():
+        if p not in _FRONT_SLOTS:
+            continue
+        if lid not in state.lords or not state.lords[lid].forces:
+            continue
+        # Directly opposed (a victim-side Lord at the same slot) -> not Flanking.
+        opposed = [
+            x for x, q in victim_positions.items()
+            if q == p and x in state.lords and state.lords[x].forces
+        ]
+        if opposed:
+            continue
+        # Flanks toward its closest enemy in the row; is `victim` among them?
+        fi = _bare_slot_index(p)
+        enemies = [
+            (x, q) for x, q in victim_positions.items()
+            if q in _FRONT_SLOTS and x in state.lords and state.lords[x].forces
+        ]
+        if not enemies:
+            continue
+        closest_d = min(abs(_bare_slot_index(q) - fi) for _, q in enemies)
+        closest = {x for x, q in enemies
+                   if abs(_bare_slot_index(q) - fi) == closest_d}
+        if victim in closest:
+            out.append(lid)
+    return out
 
 
 def _strike_target(
@@ -1584,6 +1629,32 @@ def resolve_battle(
                 )
                 if target_lid is None:
                     continue
+                # PLAY-28 (4.4.2): "A Player with a Flanking Lord where no
+                # enemies are Flanking the target selects either the
+                # Flanking or directly opposed Lord to take Hits." When this
+                # striker is directly OPPOSED to target_lid (same slot) and
+                # the target's side has Front Lord(s) Flanking this striker,
+                # AND no enemy Flanks target_lid, the target's owner may
+                # redirect this striker's Hits onto a Flanking Lord instead.
+                # Default (fallback) keeps the directly-opposed Lord, so
+                # existing behavior is unchanged unless the operator elects.
+                if (striker_positions.get(lid) in _FRONT_SLOTS
+                        and enemy_positions.get(target_lid)
+                        == striker_positions.get(lid)):
+                    _flankers = _front_flankers_of(
+                        state, lid, striker_positions, enemy_positions)
+                    if _flankers and not _front_flankers_of(
+                            state, target_lid, enemy_positions, striker_positions):
+                        _absorb_opts = [target_lid] + _flankers
+                        _decider = ("defender" if striker_role == "attacker"
+                                    else "attacker")
+                        _chosen = decision_ctx.decide(
+                            "flank_absorb", _decider, _absorb_opts,
+                            {"striker": lid, "opposed": target_lid,
+                             "flankers": _flankers, "step": label},
+                        )
+                        if _chosen in _absorb_opts:
+                            target_lid = _chosen
                 per_target_cb_raw[target_lid] = per_target_cb_raw.get(target_lid, 0.0) + this_cb_raw
                 per_target_norm_raw[target_lid] = per_target_norm_raw.get(target_lid, 0.0) + this_norm_raw
                 per_striker_log.append({
