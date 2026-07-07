@@ -482,14 +482,15 @@ def _require_full_command_card(state: GameState, lord_id: str, label: str) -> No
     full, untouched Command card. A Lord who has already Marched or taken
     any other Action on this card may take no entire-card Command with it.
 
-    Implemented once and reused by every ``action_cost: entire_card`` handler
-    (Siege, Storm, Sally, Tax, Sail per Commands.txt; plus the AoW capability
-    actions Stone Kremlin R18 and Stonemasons T17, whose card text reads
+    Reused by every entire-card handler: Siege (4.5.1), Tax (4.7.4), Sail
+    (4.7.3), plus the AoW capability actions Stone Kremlin R18 and
+    Stonemasons T17, whose card text reads
     "expends his entire Command card to do nothing except ..."). At card
     reveal ``actions_remaining == _effective_command_rating(lord)``, so
     ``actions_remaining < full_command`` means the Lord has already acted.
 
-    Adjudication: RULES_DECISIONS "entire_card = sole action" (R203).
+    Adjudication: RULES_DECISIONS D-R203, narrowed by D-Q010 (Storm/Sally
+    dropped -- they cost one Command action, not the entire card).
     """
     full_command = _effective_command_rating(state, lord_id)
     if state.campaign_turn.actions_remaining < full_command:
@@ -3994,7 +3995,10 @@ def _h_cmd_storm(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
-    _require_full_command_card(state, lord_id, "Storm (4.5.2)")  # entire_card (R203)
+    # Q-010 (adjudicated 2026-07-06): rulebook-literal. 4.2.1 lists only
+    # Siege/Sail/Tax as entire-card; 4.5.2 says Storm uses "a Command action".
+    # D-R203 narrowed to Siege/Sail/Tax -- Storm costs one action, no pristine
+    # gate (4.4.5 Recovery still ends the card once the Attack resolves).
     lord = state.lords[lord_id]
     if _is_besieged(state, lord_id):
         raise IllegalAction("besieged", "Active Lord is Besieged; use sally/pass")
@@ -4237,7 +4241,10 @@ def _h_cmd_sally(
     if not isinstance(lord_id, str):
         raise IllegalAction("missing_arg", "args.lord_id required")
     _require_active_lord_command(state, sd, lord_id)
-    _require_full_command_card(state, lord_id, "Sally (4.5.3)")  # entire_card (R203)
+    # Q-010 (adjudicated 2026-07-06): rulebook-literal. 4.5.3 says a Besieged
+    # Lord "may use a Command to Attack Besiegers" -- one action, not the
+    # entire card. D-R203 narrowed to Siege/Sail/Tax (4.4.5 Recovery still
+    # ends the card once the Sally Battle resolves).
     lord = state.lords[lord_id]
     if not _is_besieged(state, lord_id):
         raise IllegalAction("not_besieged", "Sally requires Besieged Lord (4.5.3)")

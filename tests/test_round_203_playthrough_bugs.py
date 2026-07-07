@@ -82,7 +82,9 @@ def test_bug1_stone_kremlin_not_enumerated_when_walls_already_present():
 def test_bug2_entire_card_moves_suppressed_when_not_pristine():
     s, _, _ = _setup_kremlin_state(actions_offset=1)
     types = _side_types(s, "russian")
-    for t in ("cmd_stone_kremlin", "cmd_tax", "cmd_sail", "cmd_siege", "cmd_storm", "cmd_sally"):
+    # Q-010 (2026-07-06): Storm/Sally are one-action, NOT entire-card, so
+    # they are no longer in the pristine-gated suppression set.
+    for t in ("cmd_stone_kremlin", "cmd_tax", "cmd_sail", "cmd_siege"):
         assert t not in types, f"{t} should be suppressed on a non-pristine card"
 
 

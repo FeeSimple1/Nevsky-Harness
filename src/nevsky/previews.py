@@ -47,7 +47,7 @@ def battle_preview(
     defender_lords: list[str],
     *,
     trials: int = 100,
-    max_rounds: int = 10,
+    max_rounds: int | None = None,  # Q-011: None -> no 10-Round cap
     seed_base: int = 0,
 ) -> dict[str, Any]:
     """Run `trials` deep-copied resolve_battle simulations of the

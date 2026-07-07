@@ -27,11 +27,21 @@ modifies them.
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Any
 
 from nevsky.rng import roll_d6
 from nevsky.state import GameState, Side, move_vassal_marker, vassal_marker_box
 from nevsky.static_data import load_forces, load_ways
+
+# Q-011 (adjudicated 2026-07-06): the old max_rounds=10 was a harness
+# artifact, not a rule -- 4.4.2 Battles continue Round after Round until a
+# side Concedes or all its Lords Rout. The 10-Round limit is lifted. A high
+# safety bound remains only to guarantee termination for degenerate arrays
+# (e.g. both sides zero-strike) that can never make progress; hitting it is
+# not expected in real play and now emits a warning instead of silently
+# awarding the field to the defender.
+_BATTLE_ROUND_SAFETY_CAP = 1000
 
 ForceCounts = dict[str, int]
 
@@ -1088,7 +1098,7 @@ def resolve_battle(
     attacker_side: Side,
     attacker_lords: list[str],
     defender_lords: list[str],
-    max_rounds: int = 10,
+    max_rounds: int | None = None,
     concede: str | None = None,
     holds: dict[str, Any] | None = None,
     active_attacker: str | None = None,
@@ -1162,7 +1172,16 @@ def resolve_battle(
         for lid in attacker_lords if lid in state.lords
     ):
         _eff_siegeworks_for_sally = max(0, siegeworks_for_sally - 1)
+    # Q-011: None means "no artificial cap" -> fall back to the safety bound.
+    if max_rounds is None:
+        max_rounds = _BATTLE_ROUND_SAFETY_CAP
     rounds = 0
+    # Q-011 no-progress guard: Battle Forces are monotonically non-increasing
+    # within a Battle (Routed/removed units never return mid-Battle -- Recovery
+    # is post-Battle). Track total units to detect a genuinely stuck array.
+    _prev_total = (_side_total_units(state, attacker_lords)
+                   + _side_total_units(state, defender_lords))
+    _stall_rounds = 0
     while rounds < max_rounds:
         rounds += 1
         # SMOKE-116 (Round 181): resolve THIS Round's concede declaration.
@@ -1652,15 +1671,36 @@ def resolve_battle(
             return _ret(defender_side, attacker_side)
         if _all_routed(state, defender_lords):
             return _ret(attacker_side, defender_side)
+        # Q-011: neither side Conceded or Routed this Round. If total units
+        # are unchanged for several consecutive Rounds, no side can ever
+        # break the other (degenerate array) -- stop and award the field to
+        # the defender, well before the far safety bound.
+        _cur_total = (_side_total_units(state, attacker_lords)
+                      + _side_total_units(state, defender_lords))
+        _stall_rounds = _stall_rounds + 1 if _cur_total == _prev_total else 0
+        _prev_total = _cur_total
+        if _stall_rounds >= 3:
+            break
 
     # Stalemate after max rounds: defender wins (attacker fails to
-    # break through).
+    # break through). With the 10-Round rule-cap lifted (Q-011), reaching
+    # the safety bound means a genuinely non-terminating (degenerate) array;
+    # surface it loudly rather than silently awarding the field.
+    if rounds >= _BATTLE_ROUND_SAFETY_CAP:
+        warnings.warn(
+            f"resolve_battle hit the {_BATTLE_ROUND_SAFETY_CAP}-Round safety "
+            "bound without a decision -- degenerate array (no strike-capable "
+            "units?); awarding stalemate to the defender.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     return {
         "rounds": rounds, "winner": defender_side, "loser": attacker_side,
         "attacker_lords": attacker_lords, "defender_lords": defender_lords,
         "attacker_positions": dict(atk_pos),
         "defender_positions": dict(def_pos),
         "log": log, "stalemate": True,
+        "safety_cap_hit": rounds >= _BATTLE_ROUND_SAFETY_CAP,
         "decisions": list(decision_ctx.log),
     }
 

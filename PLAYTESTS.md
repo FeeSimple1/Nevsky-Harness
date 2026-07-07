@@ -140,7 +140,8 @@ transcripts (not committed).
    not a rules divergence).
 
 ### Questions logged for the user
-- Q-010 (RULES_QUESTIONS.md): Storm/Sally action cost — D-R203
-  "entire card" vs rulebook 4.5.2 "a Command action" (4.2.1 lists only
-  Siege/Sail/Tax as entire-card).
-- Q-011: resolve_battle max_rounds=10 stalemate-to-defender artifact.
+- Q-010 — RESOLVED 2026-07-06 (D-Q010): rules-literal. Storm (4.5.2) and
+  Sally (4.5.3) cost one Command action; D-R203's pristine gate narrowed
+  to Siege/Sail/Tax (+ Stone Kremlin / Stonemasons).
+- Q-011 — RESOLVED 2026-07-06 (D-Q011): the resolve_battle max_rounds=10
+  cap is lifted (default None -> far safety bound + no-progress guard).

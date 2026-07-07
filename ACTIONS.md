@@ -295,7 +295,7 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
 
 ### 4.5.2 Storm
 
-- **`cmd_storm`** — entire card. `args.lord_id` (active Lord).
+- **`cmd_storm`** — one Command action (D-Q010; 4.5.2 "a Command action"). `args.lord_id` (active Lord). The Attack still ends the card via 4.4.5 Recovery.
   - Storm rounds run via `battle.resolve_storm`. Single front
     lane (no flanking). Garrison units (per Strongholds table) sit
     alongside defender; Garrison MaA have Archery (-2 target Armor)
@@ -315,7 +315,7 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
 
 ### 4.5.3 Sally
 
-- **`cmd_sally`** — entire card. `args.lord_id` (Besieged Lord).
+- **`cmd_sally`** — one Command action (D-Q010; 4.5.3 "may use a Command"). `args.lord_id` (Besieged Lord). The Sally Battle ends the card via 4.4.5 Recovery.
   - Sallying side does NOT benefit from Walls or Garrison.
   - Defenders (Besiegers at the same locale) receive Siegeworks
     as Walls. Phase 3c uses the Battle resolver for the engagement

@@ -918,11 +918,13 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # Enumerate reachable destinations via Ways from active Lord's Locale.
         # Per 4.3.x: 1 Locale per March action.
         active = state.lords[active_lord]
-        # BUG-2 (R203): entire-card Commands (Siege/Storm/Sally/Tax/Sail,
-        # plus Stone Kremlin) require a pristine Command card. At reveal
-        # actions_remaining == _effective_command_rating(lord); once the
-        # Lord has Marched/acted it drops below, so these moves must be
-        # suppressed (the handlers now raise must_be_full_card).
+        # BUG-2 (R203) + Q-010 (2026-07-06): entire-card Commands
+        # (Siege/Sail/Tax + Stone Kremlin) require a pristine Command card.
+        # At reveal actions_remaining == _effective_command_rating(lord);
+        # once the Lord has Marched/acted it drops below, so those moves are
+        # suppressed (the handlers raise must_be_full_card). Storm (4.5.2)
+        # and Sally (4.5.3) are NOT entire-card -- they cost one action and
+        # are enumerated independent of `pristine` (see below).
         from nevsky.campaign import _effective_command_rating as _ecr_lm
         pristine = (state.campaign_turn.actions_remaining
                     >= _ecr_lm(state, active_lord))
@@ -1103,23 +1105,28 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                                          "decline_surrender": True},
                                 "note": "Siege (4.5.1) declining the Surrender"
                                         " roll -- Siegeworks check only"})
-                if not sh.get("no_storm"):
-                    storm_note = _maybe_preview_note(
-                        state,
-                        {"type": "cmd_storm", "side": side,
-                          "args": {"lord_id": active_lord}},
-                        with_previews, "Storm (4.5.2) -- entire card",
-                    )
-                    out.append({"type": "cmd_storm", "side": side,
-                                "args": {"lord_id": active_lord},
-                                "note": storm_note})
-            if pristine and _ib(state, active_lord):
+            # Q-010 (rules-literal): Storm (4.5.2) costs ONE Command action,
+            # not the entire card -- enumerate whenever the Attack context
+            # holds, pristine or not. (Siege above stays entire-card gated.)
+            if (sh is not None and sm > 0 and not _ib(state, active_lord)
+                    and _sh_owner != side and not sh.get("no_storm")):
+                storm_note = _maybe_preview_note(
+                    state,
+                    {"type": "cmd_storm", "side": side,
+                      "args": {"lord_id": active_lord}},
+                    with_previews, "Storm (4.5.2) -- one Command action",
+                )
+                out.append({"type": "cmd_storm", "side": side,
+                            "args": {"lord_id": active_lord},
+                            "note": storm_note})
+            # Q-010 (rules-literal): Sally (4.5.3) likewise costs one action.
+            if _ib(state, active_lord):
                 sally_note = _maybe_preview_note(
                     state,
                     {"type": "cmd_sally", "side": side,
                       "args": {"lord_id": active_lord}},
                     with_previews,
-                    "Sally (4.5.3) -- entire card; Besieged Lord attacks Besiegers",
+                    "Sally (4.5.3) -- one Command action; Besieged Lord attacks Besiegers",
                 )
                 out.append({"type": "cmd_sally", "side": side,
                             "args": {"lord_id": active_lord},

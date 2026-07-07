@@ -860,10 +860,11 @@ Lord's card is not pristine (`actions_remaining < _effective_command_rating`).
 Regression: `tests/test_round_203_playthrough_bugs.py`
 (test_bug2_*). See SMOKE-135.
 
-*[Cross-reference 2026-07-06: Q-010 (RULES_QUESTIONS.md) asks whether
-this decision should narrow for Storm/Sally — rulebook 4.2.1 lists
-only Siege/Sail/Tax as entire-card, and 4.5.2 says Storm uses "a
-Command action". D-R203 stands unchanged until re-adjudicated.]*
+*[Update 2026-07-06: NARROWED by D-Q010 (below). Storm (4.5.2) and
+Sally (4.5.3) are removed from the `entire_card` set; they now cost one
+Command action. D-R203's pristine gate remains in force for Siege
+(4.5.1), Sail (4.7.3), Tax (4.7.4), Stone Kremlin (R18), and
+Stonemasons (T17).]*
 
 ---
 
@@ -904,3 +905,69 @@ stationary handlers (`_h_cmd_tax`, `_h_cmd_tax_veliky_knyaz_aware`,
 Moved/Fought (and thus Feed) is now set only by March, Avoid Battle,
 Battle, Siege, Storm, Sail. Commands.txt L21 note aligned. Regression:
 tests/test_round_216_q009_feed_scope.py. See SMOKE-154.
+
+## D-Q010 — Storm and Sally cost one Command action, not the entire card
+*Adjudicated 2026-07-06. Encoded in commit (this session). Narrows D-R203.*
+
+**Context.** During the 2026-07-05 rulebook re-extraction, 4.2.1 was
+found to list only "Siege, Sail, and Tax take an entire card's actions
+(4.5.1, 4.7.3, 4.7.4)" — Storm is NOT named. 4.5.2 reads "Any Lord
+outside a Besieged Stronghold may use A COMMAND ACTION to launch an
+Attack"; 4.5.3 Sally likewise "may use a Command to Attack Besiegers".
+D-R203 (2026-05-20) had applied the `entire_card` pristine gate to all
+five base Commands (Siege/Storm/Sally/Tax/Sail) from the Commands.txt
+tags. Logged as Q-010.
+
+**Options presented.** (a) Keep D-R203 as-is (consistent cost model);
+(b) narrow D-R203 to Siege/Sail/Tax and make Storm/Sally cost one
+action (rulebook-literal).
+
+**User adjudication (verbatim):** "Q10, take the rules literal route."
+
+**Encoding.** Removed the `_require_full_command_card` call from
+`_h_cmd_storm` and `_h_cmd_sally` (campaign.py). In the enumerator
+(legal_moves.py) Storm and Sally are now offered independent of the
+`pristine` flag — Storm whenever the Attack context holds (Stronghold,
+siege markers, not besieged, enemy-owned, not `no_storm`), Sally
+whenever the active Lord is Besieged. Siege/Sail/Tax/Stone
+Kremlin/Stonemasons keep the pristine gate. The card still ends after
+the Storm/Sally Attack resolves because 4.4.5 Recovery ends the card
+after any Battle — so a March-then-Storm on one card is now legal, but
+no further action follows the Attack. Regression:
+`tests/test_play_q010_q011.py` (test_q010_*), plus updated
+`tests/test_round_203_playthrough_bugs.py::test_bug2_entire_card_moves_suppressed_when_not_pristine`.
+
+---
+
+## D-Q011 — resolve_battle 10-Round cap lifted
+*Adjudicated 2026-07-06. Encoded in commit (this session).*
+
+**Context.** `battle.py::resolve_battle` capped Battles at
+`max_rounds=10` and awarded a no-Concede stalemate to the defender. No
+such rule exists — 4.4.2 Battles continue "Round after Round, until a
+side Concedes or all its Lords Rout." The 10-Round limit was a harness
+artifact that could cut a legitimate long Battle short. Logged as Q-011.
+
+**Options presented.** (a) keep the cap, document it; (b) raise the cap
+and log a warning; (c) treat cap-hit as attacker Concede; (d) prove
+termination and drop the cap.
+
+**User adjudication (verbatim):** "Q11, lift the ten round cap."
+
+**Encoding.** `max_rounds` default changed from `10` to `None`
+(explicit callers/tests may still pass a bound). `None` resolves to a
+far safety bound `_BATTLE_ROUND_SAFETY_CAP = 1000`. Because Battle
+Forces are monotonically non-increasing within a Battle (Routed/removed
+units never return mid-Battle — Recovery is post-Battle), a no-progress
+guard terminates genuinely degenerate arrays: if total units are
+unchanged across three consecutive Rounds with no Concede or Rout, the
+field is awarded to the defender (well before the safety bound). Hitting
+the safety bound itself is not expected in real play and now emits a
+`RuntimeWarning` and sets `safety_cap_hit=True` in the result, rather
+than silently awarding the stalemate. `previews.py` default updated to
+match. NOTE: `resolve_storm`'s round limit (`max(1, siege_markers)`) is
+the actual Storm rule (Storm lasts as many Rounds as siege level) and is
+left unchanged. Regression: `tests/test_play_q010_q011.py`
+(test_q011_*).
+
+---
