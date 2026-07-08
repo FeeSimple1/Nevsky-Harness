@@ -129,11 +129,14 @@ transcripts (not committed).
    such clause in 4.4.3) is removed. Voluntary removal already exists via
    `args.remove_losers` (PLAY-12). Regression:
    `tests/test_play29_retreat_gates.py`, `tests/test_round_61_sally_retreat.py`.
-5. **4.3.4 Avoid destination gates + palette mismatch.** Handler
-   over-restricts (blocks Besieged enemy strongholds and
-   enemy-Conquered trade routes); enumerator conversely offers
-   destinations the handler rejects, and skips the parallel-Way
-   avoid-back-along-other-Way case the handler permits.
+5. ~~**4.3.4 Avoid destination gates + palette mismatch.**~~ RESOLVED
+   2026-07-06 as PLAY-30. The Avoid handler and enumerator now share
+   `_legal_retreat_dests` (4.3.4 Avoid == 4.4.3 Retreat gate): block only
+   UNBESIEGED enemy Lords/Strongholds, no enemy-Conquered clause, exclude
+   only the enemy's Approach Way (a PARALLEL Way of another type back to
+   from_locale is offered). Enumerator emits per-(dest, way_type) so every
+   option round-trips through the handler. Regression:
+   `tests/test_play30_avoid_gates.py`.
 6. **4.8.1 Feed sharing.** Surplus-only sharing violated: an
    earlier-iterated Lord eats a co-located Lord's NON-surplus
    Provender (the wrong Lord goes Unfed and takes the Service shift);

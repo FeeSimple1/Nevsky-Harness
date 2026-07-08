@@ -773,60 +773,39 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             # and _h_avoid_battle discards Loot/excess Provender to satisfy
             # Unladen, so Avoid is offered for every valid destination. (The
             # prior gate used cp.laden = the ATTACKER's laden flag -- wrong side.)
-            if True:
-                from nevsky.static_data import load_ways
-                _ways = load_ways()
-                here = cp.to_locale  # defenders are at to_locale
-                # Note: defender retreats one Locale away. They may
-                # not Avoid into a Locale containing enemy Lords.
-                attacker_loc = cp.from_locale
-                # Adjacent destinations.
-                adj_set = set()
-                for w in _ways:
-                    if w["a"] == here:
-                        adj_set.add(w["b"])
-                    elif w["b"] == here:
-                        adj_set.add(w["a"])
-                for dest in sorted(adj_set):
-                    if dest == attacker_loc:
-                        continue  # cannot Avoid back through attackers
-                    # Skip if enemy Lord present at dest.
-                    enemy_at_dest = any(
-                        l.side != side and l.state == "mustered"
-                        and l.location == dest and not l.in_stronghold
-                        for l in state.lords.values()
-                    )
-                    if enemy_at_dest:
-                        continue
-                    note = (
-                        f"Avoid Battle to {dest} (4.3.4). Defender "
-                        f"Lord(s) move to {dest}; no Battle this "
-                        f"Approach. No Service shift on Avoid (Service "
-                        f"shifts only on Retreat, 4.4.3). Defender "
-                        f"discards all Loot and any Provender beyond "
-                        f"Transport usable on the Avoid Way; discards "
-                        f"transfer to attacker(s) as Spoils (4.4.3 "
-                        f"\"as if Spoils\"). If Legate co-located "
-                        f"with a Teutonic Avoiding Lord, Legate removed "
-                        f"and William of Modena discarded (1.4.1)."
-                    )
-                    out.append({
-                        "type": "avoid_battle", "side": side,
-                        "args": {"to": dest},
-                        "note": note,
-                    })
-                    # PLAY-26 (4.3.4): "some or all ... to one or more
-                    # adjacent Locales". Offer per-Lord Avoid so the
-                    # Inactive side can split the response (Avoid some,
-                    # Withdraw/Stand the rest). Composed over calls.
-                    if len(cp.defender_lords) > 1:
-                        for _lid in cp.defender_lords:
-                            out.append({
-                                "type": "avoid_battle", "side": side,
-                                "args": {"to": dest, "lords": [_lid]},
-                                "note": f"Avoid Battle: only {_lid} -> {dest} "
-                                        f"(4.3.4 partial; others still respond)",
-                            })
+            # PLAY-30 (4.3.4): Avoid destinations share the 4.4.3 Retreat
+            # gate exactly -- adjacent Locales with no UNBESIEGED enemy
+            # Lords/Strongholds, excluding the Way the enemy Approached
+            # (a PARALLEL Way of another type back to from_locale IS legal,
+            # which the old set-based loop dropped). Using the shared
+            # _legal_retreat_dests here guarantees enumerator/handler parity.
+            from nevsky.campaign import _legal_retreat_dests as _lrd
+            for _dest, _wt in _lrd(state, cp.to_locale, side,
+                                   exclude=(cp.from_locale, cp.way_type)):
+                note = (
+                    f"Avoid Battle to {_dest} via {_wt} (4.3.4). Defender "
+                    f"Lord(s) move; no Battle this Approach. No Service "
+                    f"shift on Avoid. Discards all Loot and Provender beyond "
+                    f"Transport usable on the Avoid Way to the attacker(s) as "
+                    f"Spoils. If Legate co-located with a Teutonic Avoiding "
+                    f"Lord, Legate removed and William of Modena discarded."
+                )
+                out.append({
+                    "type": "avoid_battle", "side": side,
+                    "args": {"to": _dest, "way_type": _wt},
+                    "note": note,
+                })
+                # PLAY-26 (4.3.4): "some or all ... to one or more adjacent
+                # Locales". Per-Lord Avoid so the Inactive side can split the
+                # response (Avoid some, Withdraw/Stand the rest).
+                if len(cp.defender_lords) > 1:
+                    for _lid in cp.defender_lords:
+                        out.append({
+                            "type": "avoid_battle", "side": side,
+                            "args": {"to": _dest, "way_type": _wt, "lords": [_lid]},
+                            "note": f"Avoid Battle: only {_lid} -> {_dest} via "
+                                    f"{_wt} (4.3.4 partial; others still respond)",
+                        })
             # Withdraw: convert Battle into Siege.
             withdraw_note = (
                 "Withdraw all defender Lords into Stronghold at "

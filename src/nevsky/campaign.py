@@ -2869,14 +2869,16 @@ def _h_avoid_battle(
             "may not Avoid Battle across the Way the enemy used to Approach (4.3.4)",
         )
 
-    # Destination must be free of enemy Lord, enemy Stronghold, enemy Conquered.
-    if _enemies_at(state, dest, sd):
-        raise IllegalAction("dest_blocked", f"{dest} has enemy Lord")
-    if _has_enemy_stronghold_at(state, dest, sd):
-        raise IllegalAction("dest_blocked", f"{dest} has enemy Stronghold")
-    loc = state.locales[dest]
-    if (sd == "teutonic" and loc.russian_conquered > 0) or (sd == "russian" and loc.teutonic_conquered > 0):
-        raise IllegalAction("dest_blocked", f"{dest} has enemy Conquered marker")
+    # PLAY-30 (4.3.4): may not Avoid to a Locale with an UNBESIEGED enemy
+    # Lord or Stronghold -- the SAME gate as 4.4.3 Retreat. A Besieged
+    # enemy Lord/Stronghold (siege_markers > 0, your side besieges it) does
+    # NOT block; there is NO enemy-Conquered-marker clause in 4.3.4 (the old
+    # code over-restricted: Besieged strongholds and enemy-Conquered Trade
+    # Routes wrongly blocked). Shares _unbesieged_enemy_lord_at with Retreat.
+    if _unbesieged_enemy_lord_at(state, dest, sd):
+        raise IllegalAction("dest_blocked", f"{dest} has Unbesieged enemy Lord")
+    if _has_enemy_stronghold_at(state, dest, sd) and state.locales[dest].siege_markers == 0:
+        raise IllegalAction("dest_blocked", f"{dest} has Unbesieged enemy Stronghold")
 
     # 4.3.4 discards: each Avoiding defender drops ALL Loot and any
     # Provender beyond Transport usable on the Avoid Way. Discards
