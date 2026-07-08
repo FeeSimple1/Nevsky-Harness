@@ -242,7 +242,10 @@ The defender must choose exactly one of:
   chooses per Lord, PLAY-12): `args.withdraw_losers` (true or list --
   Withdraw into the side's Stronghold, up to Capacity; fully-Routed
   Lords eligible) and `args.remove_losers` (list -- voluntary
-  permanent removal). Unnamed losers Retreat; a Lord with no legal
+  permanent removal), and `args.retreat_to` ({lord_id: locale_id} --
+  choose a losing Defender's Retreat destination among Locales with no
+  Unbesieged enemy Lords/Strongholds, 4.4.3/PLAY-29; unspecified ->
+  first legal). Unnamed losers Retreat; a Lord with no legal
   Retreat is removed.
 
 ### 4.4 Battle resolution

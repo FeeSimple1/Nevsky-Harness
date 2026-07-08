@@ -2246,6 +2246,49 @@ def _enemies_at(state: GameState, locale_id: str, side: Side) -> list[str]:
     ]
 
 
+def _unbesieged_enemy_lord_at(state: GameState, locale_id: str, side: Side) -> bool:
+    """4.4.3 Retreat gate: is there an UNBESIEGED enemy Lord at locale_id?
+    A Besieged enemy Lord (inside a Stronghold this side besieges) does
+    NOT block Retreat there (mirrors the March/Sail `_is_besieged`
+    convention, SMOKE-019)."""
+    return any(
+        l.state == "mustered" and l.location == locale_id and l.side != side
+        and not _is_besieged(state, lid)
+        for lid, l in state.lords.items()
+    )
+
+
+def _legal_retreat_dests(
+    state: GameState, from_locale: str, side: Side,
+    *, exclude: "tuple[str, str] | None" = None,
+) -> list[tuple[str, str]]:
+    """4.4.3: adjacent Locales a losing `side` Lord may Retreat to -- those
+    with "no Unbesieged enemy Lords or Strongholds". A Besieged enemy Lord
+    or a Besieged enemy Stronghold (siege_markers > 0) does NOT block.
+    There is NO enemy-Conquered-marker block in 4.4.3 (an enemy-Conquered
+    Stronghold blocks only while Unbesieged, via the Stronghold test).
+    `exclude` = (neighbor, way_type) the Attackers approached along, which
+    Defenders may not Retreat back across. Returns [(dest, way_type)].
+    """
+    out: list[tuple[str, str]] = []
+    for w in load_ways():
+        if w["a"] == from_locale:
+            cand = w["b"]
+        elif w["b"] == from_locale:
+            cand = w["a"]
+        else:
+            continue
+        if exclude is not None and cand == exclude[0] and w["type"] == exclude[1]:
+            continue
+        if _unbesieged_enemy_lord_at(state, cand, side):
+            continue
+        if (_has_enemy_stronghold_at(state, cand, side)
+                and state.locales[cand].siege_markers == 0):
+            continue
+        out.append((cand, w["type"]))
+    return out
+
+
 def _flip_trade_route_if_uncontested(
     state: GameState, locale_id: str, entering_side: Side,
 ) -> dict[str, Any] | None:
@@ -3463,6 +3506,19 @@ def _h_stand_battle(
     if _bad_rm:
         raise IllegalAction("bad_remove_losers",
                             f"remove_losers names non-losing Lords: {_bad_rm}")
+    # PLAY-29 (4.4.3): "Retreat to a SINGLE adjacent Locale ... The owning
+    # player chooses." args.retreat_to = {lord_id: locale_id} names a
+    # chosen Retreat destination per losing Lord (Defenders only; Marching
+    # Attackers must return to from_locale). Unspecified Lords auto-pick
+    # the first legal destination (backward-compatible).
+    _retreat_to = args.get("retreat_to") or {}
+    if not isinstance(_retreat_to, dict):
+        raise IllegalAction("bad_retreat_to",
+                            "retreat_to must be a {lord_id: locale_id} map")
+    _bad_rt = [x for x in _retreat_to if x not in loser_lords]
+    if _bad_rt:
+        raise IllegalAction("bad_retreat_to",
+                            f"retreat_to names non-losing Lords: {_bad_rt}")
     for lid in list(loser_lords):
         if lid not in state.lords:
             continue
@@ -3527,27 +3583,27 @@ def _h_stand_battle(
             # Attackers retreat back via the same Way they approached.
             retreat_way_type_actual = cp.way_type
         else:
-            # AUDIT-005 (4.4.3 2E): "Defenders may not Retreat along any
-            # part of the Way that Attackers used to Approach the
-            # Locale." Exclude the specific Way (from_locale + way_type)
-            # the attackers took. Parallel Ways of a different
-            # way_type between the same Locales remain available.
+            # AUDIT-005 / PLAY-29 (4.4.3 2E): Defenders Retreat to a single
+            # adjacent Locale with no UNBESIEGED enemy Lords or Strongholds,
+            # and "may not Retreat along any part of the Way that Attackers
+            # used to Approach" (exclude from_locale + way_type; parallel
+            # Ways of another type remain). The owning player CHOOSES the
+            # destination via args.retreat_to; unspecified -> first legal.
             target = None
-            for w in load_ways():
-                if w["a"] == cp.to_locale:
-                    cand = w["b"]
-                elif w["b"] == cp.to_locale:
-                    cand = w["a"]
-                else:
-                    continue
-                # Skip the approach Way (same neighbor + same way_type
-                # the attackers used).
-                if cand == cp.from_locale and w["type"] == cp.way_type:
-                    continue
-                if not _enemies_at(state, cand, lord.side) and not _has_enemy_stronghold_at(state, cand, lord.side):
-                    target = cand
-                    retreat_way_type_actual = w["type"]
-                    break
+            _dests = _legal_retreat_dests(
+                state, cp.to_locale, lord.side,
+                exclude=(cp.from_locale, cp.way_type))
+            if lid in _retreat_to:
+                _want = _retreat_to[lid]
+                _match = [(d, wt) for d, wt in _dests if d == _want]
+                if not _match:
+                    raise IllegalAction(
+                        "bad_retreat_dest",
+                        f"{_want} is not a legal Retreat destination for {lid} "
+                        f"(4.4.3); legal: {sorted({d for d, _ in _dests})}")
+                target, retreat_way_type_actual = _match[0]
+            elif _dests:
+                target, retreat_way_type_actual = _dests[0]
             if target is None:
                 # No retreat possible -> permanently removed.
                 spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
@@ -4440,33 +4496,32 @@ def _h_cmd_sally(
                 aftermath.setdefault("removed", []).append(lid)
                 aftermath.setdefault("spoils", []).append(spoil)
             else:
-                # Retreat to first clear neighbor.
-                # SMOKE-049 (Round 61): per 4.4.3 Battle Retreat, the
-                # target must be a Friendly neighbor — no enemy Lord,
-                # no enemy Stronghold, no enemy-Conquered marker.
-                # SMOKE-071 (Round 75): capture the actual retreat
-                # Way's type so the Conceded+Retreated Spoils path can
-                # compute Unladen Transport correctly along that Way
-                # (matters for parallel-Ways pairs e.g.
-                # dorpat<->odenpah trackway + waterway).
+                # PLAY-29 (4.4.3): the losing Besieger Retreats to a single
+                # adjacent Locale with no UNBESIEGED enemy Lords or
+                # Strongholds. (SMOKE-049 previously also blocked enemy-
+                # Conquered Locales and omitted the "Unbesieged" qualifier;
+                # 4.4.3 has no Conquered-marker clause -- an enemy-Conquered
+                # Stronghold blocks only while Unbesieged, already covered by
+                # the Stronghold test.) There is no Approach Way to exclude
+                # in a Sally. The owning player may choose via
+                # args.retreat_to; unspecified -> first legal.
+                # SMOKE-071 (Round 75): capture the retreat Way's type for
+                # the Conceded+Retreated Spoils Unladen computation.
                 target = None
                 retreat_way_type_actual: str | None = None
-                for w in load_ways():
-                    cand = w["b"] if w["a"] == locale_id else (w["a"] if w["b"] == locale_id else None)
-                    if cand is None:
-                        continue
-                    if any(ll.location == cand and ll.side != l.side and ll.state == "mustered" for ll in state.lords.values()):
-                        continue
-                    if _has_enemy_stronghold_at(state, cand, l.side):
-                        continue
-                    cand_loc = state.locales[cand]
-                    if l.side == "teutonic" and cand_loc.russian_conquered > 0:
-                        continue
-                    if l.side == "russian" and cand_loc.teutonic_conquered > 0:
-                        continue
-                    target = cand
-                    retreat_way_type_actual = w["type"]
-                    break
+                _sdests = _legal_retreat_dests(state, locale_id, l.side)
+                _rt_map = args.get("retreat_to") or {}
+                if isinstance(_rt_map, dict) and lid in _rt_map:
+                    _want = _rt_map[lid]
+                    _match = [(d, wt) for d, wt in _sdests if d == _want]
+                    if not _match:
+                        raise IllegalAction(
+                            "bad_retreat_dest",
+                            f"{_want} is not a legal Retreat destination for {lid} "
+                            f"(4.4.3); legal: {sorted({d for d, _ in _sdests})}")
+                    target, retreat_way_type_actual = _match[0]
+                elif _sdests:
+                    target, retreat_way_type_actual = _sdests[0]
                 if target is None:
                     spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                     # SMOKE-101 (Round 131): Sally-win + besieger has

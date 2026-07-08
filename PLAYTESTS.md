@@ -119,12 +119,16 @@ transcripts (not committed).
    behavior is unchanged unless the operator elects. Front row only (the
    documented geometry). Regression:
    `tests/test_play28_flank_absorb_choice.py`.
-4. **4.4.3 Retreat gates.** Retreat legality omits the "Unbesieged"
-   qualifier on enemy Lords/Strongholds (a Locale where your own side
-   besieges the enemy is wrongly barred — can escalate to permanent
-   removal); destination is auto-picked (first legal neighbor), and
-   voluntary removal is never offered. Sally-retreat additionally
-   blocks enemy-Conquered Locales (SMOKE-049 note mislabels 4.4.3).
+4. ~~**4.4.3 Retreat gates.**~~ RESOLVED 2026-07-06 as PLAY-29. Shared
+   `_legal_retreat_dests` gates Retreat on "no UNBESIEGED enemy Lords or
+   Strongholds" (a Besieged enemy Lord/Stronghold no longer bars retreat
+   there, so a besieger isn't wrongly escalated to removal). The owning
+   player CHOOSES the destination via `args.retreat_to = {lord_id:
+   locale}` (Defenders; unspecified -> first legal). The Sally-retreat
+   path now uses the same helper -- its extra enemy-Conquered block (no
+   such clause in 4.4.3) is removed. Voluntary removal already exists via
+   `args.remove_losers` (PLAY-12). Regression:
+   `tests/test_play29_retreat_gates.py`, `tests/test_round_61_sally_retreat.py`.
 5. **4.3.4 Avoid destination gates + palette mismatch.** Handler
    over-restricts (blocks Besieged enemy strongholds and
    enemy-Conquered trade routes); enumerator conversely offers

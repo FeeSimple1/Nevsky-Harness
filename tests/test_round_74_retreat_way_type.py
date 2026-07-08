@@ -53,11 +53,10 @@ def test_defender_retreat_way_type_captured_from_loop():
     """Defender auto-retreat captures the Way's type from the for-loop
     so the Spoils path sees the correct Way."""
     src = open("src/nevsky/campaign.py").read()
-    # Check the loop assigns retreat_way_type_actual when target is set.
-    assert re.search(
-        r"target = cand\s*\n\s*retreat_way_type_actual = w\[\"type\"\]",
-        src,
-    )
+    # Post-PLAY-29: (dest, way_type) comes from _legal_retreat_dests and
+    # is unpacked into retreat_way_type_actual in the Defender branch.
+    assert 'out.append((cand, w["type"]))' in src
+    assert re.search(r"target, retreat_way_type_actual = _dests\[0\]", src)
 
 
 def test_smoke069_uses_actual_way_not_first_match():
