@@ -150,11 +150,16 @@ Besieged Lords cannot Muster.
 - **`end_card`** — voluntarily end the active Command card before
   exhausting actions; transitions to 4.8.
 - **`fpd_resolve`** — 4.8 Feed/Pay/Disband for the active side. Run
-  T then R after each Command card. Auto-feeds MOVED_FOUGHT Lords
-  (own provender first, then loot, then sharing from co-located
-  own-side Lords); unfed Lords lose 1 box of Service. Then runs the
-  4.8.2 at-limit Disband (count from NEXT box during Campaign 2E).
-  Then removes MOVED_FOUGHT markers.
+  T then R after each Command card. Feeds MOVED_FOUGHT Lords in TWO
+  passes (4.8.1, PLAY-31): first every Lord Feeds his OWN Forces from
+  his own mat, then only SURPLUS is shared to co-located own-side Lords
+  who expended all their own; unfed Lords lose 1 box of Service.
+  Optional args: `feed_loot_first` (bool or [lord_id] -- spend Loot
+  before Provender; default Provender-first), `feed_donor_order`
+  ([lord_id] -- donor priority for sharing), `hillforts_skip` (lord_id
+  -- choose the T8 skip-Lord among the eligible). Then runs the 4.8.2
+  at-limit Disband (count from NEXT box during Campaign 2E) and removes
+  MOVED_FOUGHT markers.
 
 ### 4.7 Simple Commands
 
@@ -425,10 +430,10 @@ are reset at `command_reveal` so per-card capability budgets work.
   `effective_boat_count(state, lord_id)` apply doublers. R9 Baltic
   Sea Trade ship comparison uses these. Sail / Supply ship validation
   is left for Phase 4 refinement.
-- **Hillforts of the Sword Brethren** (T8, side-wide): `fpd_resolve`
-  picks one Unbesieged Teutonic Lord in `crusader_livonia` and skips
-  Feed for that Lord (he records `hillforts_skipped: True` in the
-  feed log).
+- **Hillforts of the Sword Brethren** (T8, side-wide): one Unbesieged
+  Teutonic Lord in `crusader_livonia` skips Feed (records
+  `hillforts_skipped: True`). The owner may pick which via
+  `fpd_resolve` arg `hillforts_skip`; default = first eligible (PLAY-31).
 - **Veliky Knyaz** (R17, this-lord): `cmd_tax` is replaced with a
   Veliky-Knyaz-aware variant. When the active Lord has the capability,
   Tax adds the standard +1 Coin AND adds 2 of the chosen Transport

@@ -137,11 +137,15 @@ transcripts (not committed).
    from_locale is offered). Enumerator emits per-(dest, way_type) so every
    option round-trips through the handler. Regression:
    `tests/test_play30_avoid_gates.py`.
-6. **4.8.1 Feed sharing.** Surplus-only sharing violated: an
-   earlier-iterated Lord eats a co-located Lord's NON-surplus
-   Provender (the wrong Lord goes Unfed and takes the Service shift);
-   provender-vs-loot order and donor choice are hard-coded; T8
-   Hillforts' skip-Lord is auto-picked.
+6. ~~**4.8.1 Feed sharing.**~~ RESOLVED 2026-07-06 as PLAY-31. Feed is
+   now TWO passes: (1) every Moved/Fought Lord Feeds his own Forces from
+   his own mat, then (2) only SURPLUS is shared to co-located same-side
+   Lords who expended all their own -- so no Lord is raided of Assets he
+   needs, and the correct Lord goes Unfed. `args.feed_loot_first`
+   (bool/list) chooses Provender-vs-Loot spend order (default
+   Provender-first); `args.feed_donor_order` prioritises donors;
+   `args.hillforts_skip` chooses the T8 skip-Lord among the eligible
+   (validated). Regression: `tests/test_play31_feed_sharing.py`.
 7. **4.8.2 Pay window.** Opens only when a Disband is pending; SoP has
    Pay after every Command card ("Lords may Pay or Disband").
 8. **4.4.2 Reposition Advance slot choice** (lone Reserve forced

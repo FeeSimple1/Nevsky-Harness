@@ -761,8 +761,50 @@ def _h_fpd_resolve(
     # Smoke-test fix: skip Lords whose state != "mustered" (they were
     # permanently removed in Battle/Storm Aftermath but moved_fought=True
     # was set before removal). Also clear their stale moved_fought flag.
-    hillforts_skip = _hillforts_skip_lord(state, sd)
+    # PLAY-31 (4.8.1): T8 Hillforts skip-Lord is a player CHOICE among the
+    # eligible Teutonic Lords; default = first eligible (deterministic).
+    hillforts_skip = args.get("hillforts_skip") or _hillforts_skip_lord(state, sd)
+    if args.get("hillforts_skip") is not None:
+        _elig = _hillforts_eligible_lords(state, sd)
+        if hillforts_skip not in _elig:
+            raise IllegalAction(
+                "bad_hillforts_skip",
+                f"{hillforts_skip} not eligible for Hillforts skip; eligible: {_elig}")
+    # feed_loot_first: prefer spending own Loot before Provender (4.8.1 lets
+    # the player choose; default Provender-first -- Provender only Feeds,
+    # while Loot can also Pay at Friendly Locales). bool = all Lords, or a
+    # list of lord_ids.
+    _lf = args.get("feed_loot_first")
+    if _lf is True:
+        _loot_first = None  # sentinel: all
+    elif isinstance(_lf, list):
+        _loot_first = set(_lf)
+    else:
+        _loot_first = set()
+
+    def _asset_order(lid: str) -> tuple[str, str]:
+        if _loot_first is None or lid in _loot_first:
+            return ("loot", "provender")
+        return ("provender", "loot")
+
+    def _spend(lord, order, remaining, consumed):
+        for asset in order:
+            if remaining <= 0:
+                break
+            have = lord.assets.get(asset, 0)
+            if have > 0:
+                take = min(remaining, have)
+                lord.assets[asset] = have - take
+                if lord.assets[asset] == 0:
+                    del lord.assets[asset]
+                consumed[asset] += take
+                remaining -= take
+        return remaining
+
+    # Identify the feeders (Moved/Fought mustered Lords on this side),
+    # clearing stale flags and short-circuiting skips / zero-cost.
     feed_results: list[dict[str, Any]] = []
+    feeders: list[tuple[str, Any, int, int]] = []
     for lord_id, lord in list(state.lords.items()):
         if lord.side != sd or not lord.moved_fought:
             continue
@@ -774,53 +816,56 @@ def _h_fpd_resolve(
             feed_results.append({"lord_id": lord_id, "hillforts_skipped": True})
             continue
         n_units = sum(lord.forces.values())
-        # 4.8.1: 1 Provender/Loot for 1-6 units; 2 for 7+. A Lord with 0
-        # units consumes 0 (he should already have been removed per 1.5.1
-        # at Battle Aftermath, but a defensive 0-cost catches stragglers).
-        if n_units == 0:
-            cost = 0
-        elif n_units >= 7:
-            cost = 2
-        else:
-            cost = 1
+        # 4.8.1: 1 Provender/Loot for 1-6 units; 2 for 7+. A 0-unit Lord
+        # consumes 0 (defensive; should already be removed per 1.5.1).
+        cost = 0 if n_units == 0 else (2 if n_units >= 7 else 1)
+        feeders.append((lord_id, lord, n_units, cost))
+
+    # PASS 1 (4.8.1 SHARING): "First, all Lords must Feed their own Forces,
+    # using Provender and Loot from their OWN mats." Every feeder self-feeds
+    # BEFORE any sharing, so no Lord is raided of Assets it needs itself.
+    _fstate: dict[str, dict[str, Any]] = {}
+    for lord_id, lord, n_units, cost in feeders:
         consumed = {"provender": 0, "loot": 0}
+        remaining = _spend(lord, _asset_order(lord_id), cost, consumed)
+        _fstate[lord_id] = {"consumed": consumed, "remaining": remaining,
+                             "n_units": n_units, "cost": cost}
+
+    # PASS 2 (4.8.1 SHARING): "Then, a Lord must expend Provender and Loot to
+    # Feed the Forces of his side's OTHER Lords in the same Locale who have
+    # expended ALL of their Provender and Loot but did not have enough."
+    # Only SURPLUS remains in donor mats after Pass 1, so this can no longer
+    # take a co-located Lord's own-Feed Provender. Donor order is stable
+    # (state order); args.feed_donor_order may prioritise specific donors.
+    _donor_pref = args.get("feed_donor_order") or []
+    for lord_id, lord, n_units, cost in feeders:
+        st = _fstate[lord_id]
+        if st["remaining"] <= 0:
+            continue  # self-fed in full
+        # Donors: co-located same-side Lords with surplus Assets.
+        donor_ids = [d for d in _donor_pref
+                     if d in state.lords and d != lord_id
+                     and state.lords[d].side == sd
+                     and state.lords[d].location == lord.location]
+        donor_ids += [d for d, dl in state.lords.items()
+                      if d != lord_id and d not in donor_ids
+                      and dl.side == sd and dl.location == lord.location]
+        for donor_id in donor_ids:
+            if st["remaining"] <= 0:
+                break
+            donor = state.lords[donor_id]
+            st["remaining"] = _spend(
+                donor, ("provender", "loot"), st["remaining"], st["consumed"])
+
+    # UNFED penalty + feed_results, now that all Feeding/sharing is done.
+    for lord_id, lord, n_units, cost in feeders:
+        st = _fstate[lord_id]
+        consumed = st["consumed"]
         if cost == 0:
             feed_results.append({"lord_id": lord_id, "units": 0, "cost": 0,
                                   "consumed": consumed, "unfed": False})
             continue
-        # try own provender first, then loot
-        remaining = cost
-        if remaining > 0 and lord.assets.get("provender", 0) > 0:
-            take = min(remaining, lord.assets["provender"])
-            lord.assets["provender"] -= take
-            consumed["provender"] = take
-            remaining -= take
-            if lord.assets["provender"] == 0:
-                del lord.assets["provender"]
-        if remaining > 0 and lord.assets.get("loot", 0) > 0:
-            take = min(remaining, lord.assets["loot"])
-            lord.assets["loot"] -= take
-            consumed["loot"] = take
-            remaining -= take
-            if lord.assets["loot"] == 0:
-                del lord.assets["loot"]
-        # Try sharing from co-located own-side Lords if still short.
-        if remaining > 0:
-            for other_id, other in state.lords.items():
-                if other_id == lord_id or other.side != sd:
-                    continue
-                if other.location != lord.location:
-                    continue
-                for k in ("provender", "loot"):
-                    if remaining > 0 and other.assets.get(k, 0) > 0:
-                        take = min(remaining, other.assets[k])
-                        other.assets[k] -= take
-                        if other.assets[k] == 0:
-                            del other.assets[k]
-                        consumed[k] += take
-                        remaining -= take
-                if remaining == 0:
-                    break
+        remaining = st["remaining"]
         unfed = remaining > 0
         if unfed:
             # Shift Service marker 1 box LEFT (4.8.1 unfed penalty).
@@ -5196,6 +5241,21 @@ def _hillforts_skip_lord(state: GameState, side: Side) -> str | None:
         return None
     if not has_side_capability(state, "teutonic", "Hillforts of the Sword Brethren"):
         return None
+    eligible = _hillforts_eligible_lords(state, side)
+    return eligible[0] if eligible else None
+
+
+def _hillforts_eligible_lords(state: GameState, side: Side) -> list[str]:
+    """Sorted list of Teutonic Lords eligible to skip Feed via T8 Hillforts
+    (Unbesieged, Moved/Fought, in Crusader Livonia). Empty if T8 not in
+    play or side != teutonic. The owner may pick any of these (PLAY-31);
+    the first is the deterministic default."""
+    from nevsky.capabilities import has_side_capability
+    from nevsky.static_data import load_locales
+    if side != "teutonic":
+        return []
+    if not has_side_capability(state, "teutonic", "Hillforts of the Sword Brethren"):
+        return []
     static = load_locales()
     eligible = []
     for lid, l in state.lords.items():
@@ -5210,4 +5270,4 @@ def _hillforts_skip_lord(state: GameState, side: Side) -> str | None:
         if static[l.location].get("subregion") != "crusader_livonia":
             continue
         eligible.append(lid)
-    return sorted(eligible)[0] if eligible else None
+    return sorted(eligible)
