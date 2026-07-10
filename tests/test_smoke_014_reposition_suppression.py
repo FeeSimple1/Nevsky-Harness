@@ -13,12 +13,18 @@ from nevsky.scenarios import load_scenario
 
 
 def _mk_decision_ctx() -> object:
-    """Minimal fake decision_ctx: never consulted because the suppressed
-    branch returns early. The non-suppressed tests have unique candidates
-    so .decide is also never called."""
+    """Minimal fake decision_ctx. The suppressed branch returns early and
+    the non-suppressed tests have unique candidates, so no which-Lord
+    decision is ever asked. PLAY-33: a lone Reserve advancing while open
+    slots outnumber Reserves now legitimately asks a `reserve_advance_slot`
+    decision -- answer leftmost (the pre-PLAY-33 deterministic slot);
+    any other decision type is still an error."""
     class _Ctx:
-        def decide(self, *args, **kwargs):  # noqa: ANN001, ANN003
-            raise AssertionError("decide should not be called")
+        def decide(self, decision_type, side, options, info=None):  # noqa: ANN001
+            if decision_type == "reserve_advance_slot":
+                return options[0]
+            raise AssertionError(
+                f"decide should not be called (got {decision_type!r})")
     return _Ctx()
 
 

@@ -255,6 +255,11 @@ locales in a quiet Campaign.
   Lord), you may choose which of the two absorbs the Hits — surfaced as a
   `flank_absorb` decision (scripted/callback). Default keeps the
   directly-opposed Lord.
+- **Reposition Advance slot (4.4.2, PLAY-33).** When your open Front
+  slots outnumber your Reserves, each advancing Reserve Lord picks his
+  slot — a `reserve_advance_slot` decision (scripted/callback). Default
+  is the leftmost open slot. Remember the mandatory Center rule still
+  slides a left/right Lord into an empty center afterward.
 - **Casualty-absorption policy (per combat).** When you commit to a
   Battle you may declare how your Lords absorb Hits, via an
   `absorption_policy` arg — the attacker on `cmd_march`, the defender

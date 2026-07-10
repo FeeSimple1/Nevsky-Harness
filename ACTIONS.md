@@ -301,7 +301,10 @@ follow the new Flanking situation to survivors in the same row; a
 fully-Routed row ignores them. 4.4.2 Flank-absorb choice (PLAY-28): via the
 `flank_absorb` decision, the hit-taking side may redirect a directly-
 opposed striker's Hits onto one of its own Flanking Lords when no enemy
-Flanks the target.
+Flanks the target. 4.4.2 Reposition Advance slot choice (PLAY-33): when
+open Front slots outnumber the Reserves, each advancing Reserve Lord's
+slot is an owner choice via a `reserve_advance_slot` decision (options =
+currently open slots; leftmost fallback = prior behavior).
 
 ## Phase 3c: Siege, Storm, Sally
 

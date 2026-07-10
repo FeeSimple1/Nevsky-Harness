@@ -158,15 +158,27 @@ transcripts (not committed).
    `args.decline_pay` completes Feed -> Disband in one call (used by
    the scripted drivers). Regression:
    `tests/test_play32_pay_window_every_card.py`.
-8. **4.4.2 Reposition Advance slot choice** (lone Reserve forced
-   leftmost); **4.0 excess side-capability discard** auto-drops the
-   list tail (owner should choose); **Spoils distribution** goes to a
-   single recipient with over-cap overflow vanishing (4.4.3 "divide
-   among them", 4.5.2 "distribute as desired"); **Avoid Provender cap**
-   ignores shared Transport (4.3.4 "own or shared"); **Veche-A /
-   Legate-2b Calendar-edge** slides clamp at box 1 / reject off-right
-   instead of 2.2.3 off-edge placement (incl. a VP-burning no-op Veche
-   A offered at box 1).
+8. Choice/palette cluster:
+   - ~~**4.4.2 Reposition Advance slot choice**~~ RESOLVED 2026-07-10 as
+     PLAY-33. 4.4.2: Reserves slide "into ANY empty Front positions".
+     When open Front slots outnumber the Reserves, each advancing
+     Reserve Lord's slot is now an owner choice -- new
+     `reserve_advance_slot` battle decision (options = currently open
+     slots), asked after the which-Lord decision. Protocol unchanged
+     when Reserves >= open slots (per-slot which-Lord already reaches
+     every pairing); the leftmost fallback preserves prior
+     deterministic behavior. Regression:
+     `tests/test_play33_reposition_slot_choice.py`.
+   - **4.0 excess side-capability discard** auto-drops the list tail
+     (owner should choose which to discard).
+   - **Spoils distribution** goes to a single recipient with over-cap
+     overflow vanishing (4.4.3 "divide among them", 4.5.2 "distribute
+     as desired").
+   - **Avoid Provender cap** ignores shared Transport (4.3.4 "own or
+     shared").
+   - **Veche-A / Legate-2b Calendar-edge** slides clamp at box 1 /
+     reject off-right instead of 2.2.3 off-edge placement (incl. a
+     VP-burning no-op Veche A offered at box 1).
 9. **Battle-hold palette surfacing.** Tier-2 holds are reachable only
    via stand_battle args; the palette never names them (parity note,
    not a rules divergence).

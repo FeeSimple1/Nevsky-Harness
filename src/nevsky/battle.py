@@ -508,6 +508,10 @@ _DECISION_TYPES = (
     "initial_placement_attacker",   # which non-Active Lord goes to slot
     "initial_placement_defender",   # which Defender Lord goes to slot
     "reserve_advance",              # which Reserve Lord advances to slot
+    "reserve_advance_slot",         # PLAY-33 (4.4.2): which empty Front
+                                    # slot an advancing Reserve Lord takes
+                                    # (asked when empty slots outnumber
+                                    # Reserves; otherwise every slot fills)
     "center_fill",                  # which left/right Lord slides to center
     "flanker_target",               # ambiguous Flanker target
     "flank_absorb",                 # PLAY-28 (4.4.2): Flanking Lord vs
@@ -976,27 +980,61 @@ def _reposition(
         )
         if (not opp_front_alive) and opp_sally_alive:
             return {"moves": [], "suppressed": "frozen_under_rule_4"}
-    # Step 1: Advance Reserves into empty Front slots.
-    occupied_front: set[str] = {
-        p for lid, p in positions.items()
-        if p in ("left", "center", "right")
-        and lid in state.lords and state.lords[lid].forces
-    }
-    empty_slots = [s for s in ("left", "center", "right") if s not in occupied_front]
-    for slot in empty_slots:
-        reserves = [
+    # Step 1: Advance Reserves into empty Front slots. 4.4.2: "slide any
+    # Unrouted Lords in Reserve into ANY empty Front positions (one
+    # each)" -- the owner chooses the pairing. When Reserves are at least
+    # as many as the empty slots, every slot fills, so the per-slot
+    # which-Lord decision already reaches every pairing. When empty slots
+    # OUTNUMBER Reserves (PLAY-33), some slots stay empty and WHICH slot
+    # each advancing Lord takes is a choice too: a `reserve_advance_slot`
+    # decision (options = the currently open slots) follows the
+    # which-Lord decision. The leftmost fallback reproduces the
+    # pre-PLAY-33 deterministic behavior (lone Reserve -> leftmost open
+    # slot).
+    def _live_reserves() -> list[str]:
+        return [
             lid for lid, p in positions.items()
             if p == "reserve"
             and lid in state.lords and state.lords[lid].forces
         ]
-        if not reserves:
+
+    def _open_front_slots() -> list[str]:
+        occupied = {
+            p for lid, p in positions.items()
+            if p in ("left", "center", "right")
+            and lid in state.lords and state.lords[lid].forces
+        }
+        return [s for s in ("left", "center", "right") if s not in occupied]
+
+    while True:
+        reserves = _live_reserves()
+        empty_slots = _open_front_slots()
+        if not reserves or not empty_slots:
             break
-        if len(reserves) == 1:
-            chosen = reserves[0]
+        if len(reserves) >= len(empty_slots):
+            # Every open slot will fill; choose who takes the leftmost.
+            slot = empty_slots[0]
+            if len(reserves) == 1:
+                chosen = reserves[0]
+            else:
+                chosen = decision_ctx.decide(
+                    "reserve_advance", side_label, reserves,
+                    {"slot": slot, "phase": "advance_lords"},
+                )
         else:
-            chosen = decision_ctx.decide(
-                "reserve_advance", side_label, reserves,
-                {"slot": slot, "phase": "advance_lords"},
+            # Fewer Reserves than open slots (PLAY-33): the Lord AND his
+            # slot are both owner choices.
+            if len(reserves) == 1:
+                chosen = reserves[0]
+            else:
+                chosen = decision_ctx.decide(
+                    "reserve_advance", side_label, reserves,
+                    {"slot": None, "open_slots": list(empty_slots),
+                     "phase": "advance_lords"},
+                )
+            slot = decision_ctx.decide(
+                "reserve_advance_slot", side_label, empty_slots,
+                {"lord": chosen, "phase": "advance_lords"},
             )
         positions[chosen] = slot
         moves.append({"step": "advance", "lord": chosen, "to": slot})
