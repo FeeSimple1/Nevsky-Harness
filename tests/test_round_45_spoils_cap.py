@@ -208,5 +208,7 @@ def test_smoke_032_storm_sack_uses_capped_helper():
     assert "w.assets[k] = w.assets.get(k, 0) + v" not in src, (
         "Storm Sack still has uncapped += pattern"
     )
-    # The helper-routed pattern is present.
-    assert "_award_assets_capped" in src
+    # The helper-routed pattern is present. PLAY-35: the sack path now
+    # routes through distribute_spoils (also 1.7.3 cap-aware, spreading
+    # across all Besiegers before anything is lost to the cap).
+    assert "distribute_spoils" in src

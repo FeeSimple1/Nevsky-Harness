@@ -569,13 +569,31 @@ while state.meta.campaign_step == "command":
         ...
 ```
 
-## Spoils recipient (4.4.5)
+## Spoils distribution (4.4.3 / 4.5.2, PLAY-35)
 
-`stand_battle` and `cmd_storm` accept an optional `args.spoils_recipient`
-(a winner-side own-Lord id) to direct Spoils to a specific Lord. The
-recipient must be at the Battle Locale and on the winning side; if
-not, the harness silently falls back to `winner_lords[0]` (or
-`attackers[0]` for Storm).
+Spoils distribute among ALL winner Lords at the Locale (4.4.3 "the
+winning player distributes these Assets among mats of Lords at the
+Locale"; 4.5.2 Storm: "distribute as desired among their Lords' mats";
+4.3.4 Avoid discards: "divide among them"). Under the 1.7.3 per-type
+8-cap, spoils SPILL to the next winner Lord with room -- they vanish
+(`lost_to_cap`) only when every winner mat is at cap.
+
+`stand_battle` and `cmd_storm` accept:
+- `args.spoils_recipient` -- a winner-side Lord id (SMOKE-003: that
+  Lord fills first) or a LIST of ids (full priority order). Invalid /
+  non-winner names are silently ignored (falls back to the default
+  order).
+- `args.spoils_allocation` -- `{lord_id: {asset_type: count}}`, the
+  owner's explicit split, validated fail-loud (winner Lords only,
+  non-negative ints). One plan spans every Spoils transfer of that
+  Battle/Storm aftermath (loser mats, Stronghold award, Novgorod Veche
+  Coin); whatever it does not claim spill-fills in priority order.
+
+Avoid-Battle discards distribute over the whole Approaching group in
+group order (the Avoiding defender acts; the attacker has no args
+channel there). Per-Lord splits are surfaced in results as
+`spoils_distribution` / `distributed` / `stronghold_spoils_distribution` /
+`sack_spoils_distribution` / `veche_coin_distribution`.
 
 ## Phase 4d: Deferred Features
 

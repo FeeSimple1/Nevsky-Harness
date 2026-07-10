@@ -176,9 +176,15 @@ transcripts (not committed).
      named cards are validated and discarded first (with SMOKE-031
      cascade cleanup), any remaining excess tail-drops as before.
      Regression: `tests/test_play34_rule_4_0_discard_choice.py`.
-   - **Spoils distribution** goes to a single recipient with over-cap
-     overflow vanishing (4.4.3 "divide among them", 4.5.2 "distribute
-     as desired").
+   - ~~**Spoils distribution**~~ RESOLVED 2026-07-10 as PLAY-35. New
+     `distribute_spoils` helper spreads every Spoils path (Battle
+     Aftermath via `transfer_spoils`, Avoid discards, Storm Sack
+     transfers, Storm Stronghold award, Novgorod Veche Coin) across
+     ALL winner Lords: explicit `args.spoils_allocation = {lord:
+     {asset: n}}` first, then spill-fill in priority order
+     (`args.spoils_recipient` now also takes a list); assets vanish
+     only when every winner mat is at the 1.7.3 cap. Regression:
+     `tests/test_play35_spoils_distribution.py`.
    - **Avoid Provender cap** ignores shared Transport (4.3.4 "own or
      shared").
    - **Veche-A / Legate-2b Calendar-edge** slides clamp at box 1 /

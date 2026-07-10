@@ -2077,9 +2077,74 @@ def _award_assets_capped(state: "GameState", lord_id: str,
     return {"added": added, "lost_to_cap": lost}
 
 
+def distribute_spoils(
+    state: "GameState", recipients: list[str], assets: dict[str, int],
+    allocation: dict[str, dict[str, int]] | None = None,
+) -> dict[str, Any]:
+    """PLAY-35: distribute Spoils among ALL winner Lords, not one mat.
+
+    4.4.3 SPOILS: "the winning player distributes these Assets among
+    mats of Lords at the Locale". 4.5.2: Besiegers "receive and
+    distribute as desired among their Lords' mats". 4.3.4 Avoid
+    discards: Approaching Lords "receive and divide among them".
+
+    `allocation` is an optional running plan {lord_id: {asset_type:
+    count}} expressing the owner's explicit split. It is consumed
+    (decremented in place) first, so ONE plan can span the several
+    sequential transfers of a Battle Aftermath. Whatever the plan does
+    not claim fills `recipients` in order under the 1.7.3 per-type
+    8-cap, SPILLING to the next Lord with room -- Assets vanish
+    (lost_to_cap) only when EVERY recipient is at cap. With a single
+    recipient and no plan this is exactly _award_assets_capped.
+
+    Returns {"added": {lord_id: {asset: n}}, "total_added": {asset: n},
+             "lost_to_cap": {asset: n}}.
+    """
+    added: dict[str, dict[str, int]] = {}
+    total: dict[str, int] = {}
+    lost: dict[str, int] = {}
+    live = [r for r in recipients if r in state.lords]
+
+    def _give(rid: str, k: str, n: int) -> int:
+        lord = state.lords[rid]
+        room = max(0, 8 - int(lord.assets.get(k, 0)))
+        take = min(n, room)
+        if take > 0:
+            lord.assets[k] = int(lord.assets.get(k, 0)) + take  # type: ignore[index]
+            added.setdefault(rid, {})[k] = added.get(rid, {}).get(k, 0) + take
+            total[k] = total.get(k, 0) + take
+        return take
+
+    for k, v in assets.items():
+        remaining = int(v)
+        if remaining <= 0:
+            continue
+        # 1) Explicit plan claims first (in recipients order).
+        if allocation:
+            for rid in live:
+                if remaining <= 0:
+                    break
+                plan = allocation.get(rid)
+                want = int(plan.get(k, 0)) if plan else 0
+                if want <= 0:
+                    continue
+                take = _give(rid, k, min(want, remaining))
+                remaining -= take
+                plan[k] = want - take  # type: ignore[index]
+        # 2) Remainder spill-fills recipients in order.
+        for rid in live:
+            if remaining <= 0:
+                break
+            remaining -= _give(rid, k, remaining)
+        if remaining > 0:
+            lost[k] = lost.get(k, 0) + remaining
+    return {"added": added, "total_added": total, "lost_to_cap": lost}
+
+
 def transfer_spoils(
     state: GameState, from_lord: str, to_lords: list[str], mode: str,
     retreat_way_type: str | None = None,
+    allocation: dict[str, dict[str, int]] | None = None,
 ) -> dict[str, Any]:
     """4.4.5 Spoils: transfer Assets from loser Lord to winners.
 
@@ -2136,21 +2201,22 @@ def transfer_spoils(
                 src.assets["provender"] = prov - excess  # type: ignore[index]
                 if src.assets["provender"] == 0:
                     src.assets.pop("provender", None)
-    # Distribute to first winner Lord.
+    # PLAY-35 (4.4.3): "the winning player distributes these Assets
+    # among mats of Lords at the Locale" -- distribute among ALL winner
+    # Lords (owner's `allocation` plan first, then spill-fill in
+    # to_lords order under the 1.7.3 cap). Assets vanish only when
+    # every winner Lord is at cap.
+    dist: dict[str, Any] = {"added": {}, "total_added": {}, "lost_to_cap": {}}
     if to_lords and transferred:
-        winner = to_lords[0]
-        if winner in state.lords:
-            award = _award_assets_capped(state, winner, transferred)
-            # If the cap dropped any (1.7.3), reflect that in the
-            # returned transferred dict — the loser already had assets
-            # removed, but the winner kept only `award["added"]`. The
-            # "lost_to_cap" portion vanishes (per rule: "any excess
-            # gained beyond 8 is lost immediately").
-            transferred = dict(award["added"])
-            lost_to_cap = award["lost_to_cap"]
+        dist = distribute_spoils(state, to_lords, transferred, allocation)
+        # The loser already had assets removed; the winners kept only
+        # `total_added`. The "lost_to_cap" portion vanishes (1.7.3:
+        # "any excess gained beyond 8 is lost immediately").
+        transferred = dict(dist["total_added"])
     return {"from": from_lord, "to": to_lords[0] if to_lords else None,
+            "distributed": dist["added"],
             "transferred": transferred,
-            "lost_to_cap": locals().get("lost_to_cap", {}),
+            "lost_to_cap": dist["lost_to_cap"],
             "mode": mode,
             "retreat_way_type": retreat_way_type}
 

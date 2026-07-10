@@ -2943,18 +2943,22 @@ def _h_avoid_battle(
         per_lord_discards.append({
             "lord_id": did, "loot": loot_n, "excess_provender": excess,
         })
-    # Transfer discards to first attacker (Spoils, 4.4.3 "as if Spoils").
-    # SMOKE-032: enforce 1.7.3 8-asset cap; excess vanishes.
+    # Transfer discards to the Approaching Lords (4.3.4: they "receive
+    # and divide among them any Loot and Provender so discarded (as if
+    # Spoils, 4.4.3)"). PLAY-35: distribute among the WHOLE attacker
+    # group under the 1.7.3 cap, spilling to the next Lord with room --
+    # excess vanishes only when every Approaching Lord is at cap.
     avoid_spoils_lost: dict[str, int] = {}
+    avoid_spoils_split: dict[str, dict[str, int]] = {}
     if (spoils_loot > 0 or spoils_prov > 0) and cp.attacker_group:
-        winner = cp.attacker_group[0]
-        from nevsky.battle import _award_assets_capped
-        award = _award_assets_capped(state, winner, {
+        from nevsky.battle import distribute_spoils
+        award = distribute_spoils(state, list(cp.attacker_group), {
             "loot": spoils_loot, "provender": spoils_prov,
         })
-        spoils_loot = award["added"].get("loot", 0)
-        spoils_prov = award["added"].get("provender", 0)
+        spoils_loot = award["total_added"].get("loot", 0)
+        spoils_prov = award["total_added"].get("provender", 0)
         avoid_spoils_lost = award["lost_to_cap"]
+        avoid_spoils_split = award["added"]
 
     # Move the Avoiding subset and mark Moved/Fought (4.3.4 explicit:
     # "Mark Avoiding Lords as Moved/Fought").
@@ -3000,6 +3004,7 @@ def _h_avoid_battle(
                 "remaining_defenders": list(cp.defender_lords),
                 "awaiting_response": True,
                 "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
+                "spoils_distribution": avoid_spoils_split,
                 "spoils_lost_to_cap": avoid_spoils_lost,
                 "discards_per_lord": per_lord_discards,
             },
@@ -3040,6 +3045,7 @@ def _h_avoid_battle(
             "avoided_to": dest,
             "placed_siege": placed_siege,
             "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
+            "spoils_distribution": avoid_spoils_split,
             "spoils_lost_to_cap": avoid_spoils_lost,
             "discards_per_lord": per_lord_discards,
         },
@@ -3462,12 +3468,44 @@ def _h_stand_battle(
     winner_lords = result["defender_lords"] if winner == cp.defender_side else result["attacker_lords"]
 
     # SMOKE-003: agent may direct spoils via args.spoils_recipient.
+    # PLAY-35: a str puts that Lord first; a list gives a full priority
+    # order. Unnamed winners follow in their original order. Invalid /
+    # non-winner names are ignored (SMOKE-003 fallback semantics).
     spoils_target = args.get("spoils_recipient")
-    if isinstance(spoils_target, str) and spoils_target in state.lords:
-        st = state.lords[spoils_target]
+    _pref = [spoils_target] if isinstance(spoils_target, str) else (
+        list(spoils_target) if isinstance(spoils_target, list) else [])
+    _pref_ok = []
+    for _pt in _pref:
+        if not (isinstance(_pt, str) and _pt in state.lords):
+            continue
+        st = state.lords[_pt]
         if (st.side == winner and st.location == cp.to_locale
-                and st.state == "mustered"):
-            winner_lords = [spoils_target] + [w for w in winner_lords if w != spoils_target]
+                and st.state == "mustered" and _pt not in _pref_ok):
+            _pref_ok.append(_pt)
+    if _pref_ok:
+        winner_lords = _pref_ok + [w for w in winner_lords if w not in _pref_ok]
+    # PLAY-35 (4.4.3 "distributes these Assets among mats of Lords at
+    # the Locale"): optional args.spoils_allocation = {lord_id:
+    # {asset_type: count}} -- the owner's explicit split, consumed
+    # across ALL of this Aftermath's Spoils transfers; the remainder
+    # spill-fills winner_lords in order. Validated fail-loud.
+    spoils_allocation = args.get("spoils_allocation")
+    if spoils_allocation is not None:
+        if not isinstance(spoils_allocation, dict):
+            raise IllegalAction("bad_spoils_allocation",
+                                "spoils_allocation must be {lord_id: {asset: count}}")
+        for _al, _plan in spoils_allocation.items():
+            if _al not in winner_lords:
+                raise IllegalAction(
+                    "bad_spoils_allocation",
+                    f"{_al} is not a winner Lord at {cp.to_locale}: {winner_lords}")
+            if not isinstance(_plan, dict) or not all(
+                    isinstance(_v, int) and _v >= 0 for _v in _plan.values()):
+                raise IllegalAction(
+                    "bad_spoils_allocation",
+                    f"allocation for {_al} must be {{asset: count>=0}}")
+        # Working copy: distribute_spoils decrements it as it claims.
+        spoils_allocation = {k: dict(v) for k, v in spoils_allocation.items()}
 
     aftermath: dict[str, Any] = {"battle": result, "retreats": [], "spoils": [], "removed": []}
     # Q-006 Relief Sally aftermath: if attackers lose AND Sallying
@@ -3567,7 +3605,8 @@ def _h_stand_battle(
         if lid in sallying_loser_set:
             continue
         if (not lord.forces and not lord.routed_units) or lid in remove_losers_set:
-            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
+                                    allocation=spoils_allocation)
             aftermath["spoils"].append(spoil)
             from nevsky.actions import _remove_lord_permanently as _rem
             r = apply_ransom(state, lid, winner, cp.to_locale)
@@ -3597,7 +3636,8 @@ def _h_stand_battle(
             # all his Forces"; 4.4.3 Spoils "Lords who were Removed (by
             # Losses ...) transfer all their Assets except Ships".
             if not lord.forces:
-                spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+                spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
+                                        allocation=spoils_allocation)
                 aftermath["spoils"].append(spoil)
                 from nevsky.actions import _remove_lord_permanently as _rem
                 r = apply_ransom(state, lid, winner, cp.to_locale)
@@ -3646,7 +3686,8 @@ def _h_stand_battle(
                 target, retreat_way_type_actual = _dests[0]
             if target is None:
                 # No retreat possible -> permanently removed.
-                spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+                spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
+                                        allocation=spoils_allocation)
                 aftermath["spoils"].append(spoil)
                 from nevsky.actions import _remove_lord_permanently as _rem
                 # SMOKE-101 (Round 131): the zero-forces removal branch
@@ -3691,7 +3732,8 @@ def _h_stand_battle(
         if not lord.forces:
             # PLAY-12: 4.4.4 "Permanently remove ... any Lord who loses
             # all his Forces in Battle"; Spoils per the Removed bullet.
-            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
+                                    allocation=spoils_allocation)
             aftermath["spoils"].append(spoil)
             from nevsky.actions import _remove_lord_permanently as _rem
             r = apply_ransom(state, lid, winner, cp.to_locale)
@@ -3712,9 +3754,11 @@ def _h_stand_battle(
             spoil = transfer_spoils(
                 state, lid, winner_lords, "loot_and_excess",
                 retreat_way_type=way_type,
+                allocation=spoils_allocation,
             )
         else:
-            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships")
+            spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
+                                    allocation=spoils_allocation)
         aftermath["spoils"].append(spoil)
 
     # SMOKE-084 (Round 88): per AoW Reference 1.4.1 Legate —
@@ -4251,13 +4295,49 @@ def _h_cmd_storm(
         # Sack: permanently remove Besieged Lords.
         from nevsky.actions import _remove_lord_permanently as _rem
         from nevsky.static_data import load_lords
+        # PLAY-35 (4.5.2 "receive and distribute as desired among their
+        # Lords' mats"): resolve the Spoils recipient ORDER (str or list
+        # via args.spoils_recipient; invalid names ignored per
+        # SMOKE-003) and the optional explicit args.spoils_allocation =
+        # {lord_id: {asset: count}} plan (validated fail-loud) ONCE, for
+        # all of this Storm's Spoils: Sacked Lords' assets, the
+        # Stronghold award, and Novgorod Veche Coin.
+        _sp_pref = args.get("spoils_recipient")
+        _sp_pref = [_sp_pref] if isinstance(_sp_pref, str) else (
+            list(_sp_pref) if isinstance(_sp_pref, list) else [])
+        _sp_ok = [x for x in _sp_pref if x in attackers]
+        spoils_order = list(dict.fromkeys(_sp_ok)) + [
+            a for a in attackers if a not in _sp_ok]
+        spoils_allocation = args.get("spoils_allocation")
+        if spoils_allocation is not None:
+            if not isinstance(spoils_allocation, dict):
+                raise IllegalAction(
+                    "bad_spoils_allocation",
+                    "spoils_allocation must be {lord_id: {asset: count}}")
+            for _al, _plan in spoils_allocation.items():
+                if _al not in attackers:
+                    raise IllegalAction(
+                        "bad_spoils_allocation",
+                        f"{_al} is not a Besieger at {locale_id}: {attackers}")
+                if not isinstance(_plan, dict) or not all(
+                        isinstance(_v, int) and _v >= 0 for _v in _plan.values()):
+                    raise IllegalAction(
+                        "bad_spoils_allocation",
+                        f"allocation for {_al} must be {{asset: count>=0}}")
+            spoils_allocation = {k: dict(v) for k, v in spoils_allocation.items()}
         for lid in list(besieged):
             spoils_from_lord = {k: state.lords[lid].assets.get(k, 0) for k in ("coin", "provender", "loot", "boat", "cart", "sled") if state.lords[lid].assets.get(k, 0) > 0}
             if attackers:
-                # SMOKE-032: per-type 8 cap (1.7.3); excess vanishes.
-                from nevsky.battle import _award_assets_capped
-                award = _award_assets_capped(state, attackers[0], spoils_from_lord)
-                spoils_from_lord = dict(award["added"])
+                # SMOKE-032 cap + PLAY-35 distribution: spread across
+                # ALL Besiegers (plan first, then spill in order);
+                # excess vanishes only when everyone is at cap.
+                from nevsky.battle import distribute_spoils
+                award = distribute_spoils(
+                    state, spoils_order, spoils_from_lord, spoils_allocation)
+                spoils_from_lord = dict(award["total_added"])
+                aftermath.setdefault("sack_spoils_distribution", []).append({
+                    "from_lord": lid, "split": award["added"],
+                })
                 # Track lost-to-cap on aftermath for transparency.
                 if award["lost_to_cap"]:
                     aftermath.setdefault("storm_spoils_lost_to_cap", []).append({
@@ -4280,25 +4360,36 @@ def _h_cmd_storm(
         # Spoils: loot/provender/coin = VP each, awarded to attacker[0].
         # SMOKE-003: route Spoils to optional args.spoils_recipient
         # (must be among attackers); else default to attackers[0].
-        spoils_target = args.get("spoils_recipient")
-        recipient = attackers[0] if attackers else None
-        if isinstance(spoils_target, str) and spoils_target in attackers:
-            recipient = spoils_target
+        # PLAY-35 (4.5.2): "The Besiegers receive and distribute as
+        # desired among their Lords' mats" -- the same spoils_order /
+        # spoils_allocation resolved above governs this award (and the
+        # Novgorod Veche Coin below); the remainder spill-fills so the
+        # award vanishes only when every Besieger mat is at cap.
+        recipient = spoils_order[0] if spoils_order else None
         spoils = sh.get("spoils") or {}
-        if recipient and spoils:
-            w = state.lords[recipient]
-            for k, v in spoils.items():
-                w.assets[k] = min(8, w.assets.get(k, 0) + v)  # type: ignore[index]
+        if spoils_order and spoils:
+            from nevsky.battle import distribute_spoils
+            _sh_award = distribute_spoils(
+                state, spoils_order, dict(spoils), spoils_allocation)
+            aftermath["stronghold_spoils_distribution"] = _sh_award["added"]
+            if _sh_award["lost_to_cap"]:
+                aftermath.setdefault("storm_spoils_lost_to_cap", []).append({
+                    "from_lord": "stronghold", "lost": _sh_award["lost_to_cap"],
+                })
         aftermath["stronghold_spoils"] = spoils
         aftermath["spoils_recipient"] = recipient
         # Novgorod Conquered (Sacked): mark the Veche state (1.3.3).
         if locale_id == "novgorod":
             state.veche.novgorod_conquered = True
-        # Novgorod special: all Veche Coin to attackers.
+        # Novgorod special: all Veche Coin to attackers (1.3.3), same
+        # distribution rules.
         if locale_id == "novgorod" and state.veche.coin > 0:
-            if recipient:
-                w = state.lords[recipient]
-                w.assets["coin"] = min(8, w.assets.get("coin", 0) + state.veche.coin)
+            if spoils_order:
+                from nevsky.battle import distribute_spoils
+                _vc_award = distribute_spoils(
+                    state, spoils_order, {"coin": state.veche.coin},
+                    spoils_allocation)
+                aftermath["veche_coin_distribution"] = _vc_award["added"]
             aftermath["veche_coin_taken"] = state.veche.coin
             state.veche.coin = 0
         # PLAY-11 (Fable audit): 4.5.2 ENDING THE STORM -- "Both sides'

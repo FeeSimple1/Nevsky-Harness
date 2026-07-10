@@ -292,6 +292,12 @@ locales in a quiet Campaign.
   fully-Routed Lords may Withdraw and roll at Protection) and
   `remove_losers`; unnamed losers Retreat. Withdraw usually preserves
   more than a no-Concede Retreat (keep-on-1).
+- **Spoils are yours to divide (4.4.3/4.5.2, PLAY-35):** winner-side
+  Spoils spread across ALL your Lords at the Locale — set a priority
+  order with `spoils_recipient` (id or list) or an exact split with
+  `spoils_allocation: {lord: {asset: n}}` on `stand_battle`/`cmd_storm`.
+  Overflow spills to Lords with cap room; nothing is lost until every
+  mat is at 8.
 - **Relief Sally join is optional:** `cmd_march args.sally_join`
   (None = all Besieged Lords join; [] = none). Joiners are marked
   Moved/Fought and must Feed.
