@@ -600,19 +600,6 @@ def _h_end_card(
     return ({"ended": True}, [])
 
 
-def _fpd_pending_disband(state: GameState, sd: str) -> bool:
-    """True if any Lord on side sd is at-or-left-of the Levy box after
-    Feed -- i.e. a Disband (3.3) would fire."""
-    levy_box = _find_levy_marker_box(state)
-    for lord_id, lord in state.lords.items():
-        if lord.side != sd or lord.state != "mustered":
-            continue
-        sm_box = _find_service_marker_box(state, lord_id)
-        if sm_box is not None and sm_box <= levy_box:
-            return True
-    return False
-
-
 def _fpd_can_pay(state: GameState, sd: str) -> bool:
     """True if side sd has any payable resource to shift Service right
     (3.2 mechanics): Coin on a Mustered Lord, Loot on a Mustered Lord at a
@@ -731,16 +718,18 @@ def _h_fpd_resolve(
     4.8.1 Feed: per-Lord 1 Provender/Loot for 1-6 units, 2 for 7+. Own
     Provender/Loot first, then surplus shared with co-located own-side
     Lords. Unfed: shift Service marker 1 box LEFT.
-    4.8.2 Pay: same mechanics as 3.2 (caller may queue pay_with_coin /
-    pay_with_loot actions before fpd_resolve to actually shift Service).
+    4.8.2 Pay: same mechanics as 3.2. After Feed, if the side has any
+    payable resource, this handler pauses with a Pay window (PLAY-32:
+    the window opens after EVERY Command card, per 4.8.2 "may receive
+    Pay") so the player may queue pay_with_coin / pay_with_loot; a
+    second fpd_resolve then runs the Disband check. args.decline_pay
+    skips the window (Pay is optional) and completes in one call.
     4.8.2 Disband: at-limit Disband during Campaign counts cylinder
     placement from NEXT box (3.3.2 2E).
     4.8.3: remove all MOVED_FOUGHT markers.
 
-    For Phase 3a we resolve Feed and Disband automatically; Pay is left
-    for the player to invoke separately via pay_with_coin / pay_with_loot
-    BEFORE calling fpd_resolve. This is consistent with the rules order:
-    4.8.1 Feed -> 4.8.2 Pay -> 4.8.2 Disband check -> 4.8.3 remove.
+    Rules order: 4.8.1 Feed -> 4.8.2 Pay -> 4.8.2 Disband check ->
+    4.8.3 remove markers.
     """
     sd = _require_side_player(state, side)
     if state.meta.phase != "campaign":
@@ -899,14 +888,18 @@ def _h_fpd_resolve(
             "unfed": unfed,
         })
 
-    # 4.8.2 Pay window (BUG-4, R203): the per-card cycle is
-    # Feed -> Pay -> Disband (SoP 4.8.2 `pay: same_as levy.pay`). If Feed
-    # left a pending Disband on this side and the side can Pay, pause here
-    # so the player may shift Service right (avert a mid-campaign Disband)
-    # before the Disband check. The second fpd_resolve for this side (with
-    # the window open) runs _fpd_finalize via the early branch above.
+    # 4.8.2 Pay window (BUG-4 R203; PLAY-32): the per-card cycle is
+    # Feed -> Pay -> Disband (SoP 4.8.2 `pay: same_as levy.pay`). 4.8.2:
+    # "Next, any Teutonic then Russian Lords may receive Pay as per Levy
+    # (3.2)." The window therefore opens after EVERY Command card whenever
+    # the side has a payable resource -- not only when a Disband is
+    # pending (that narrower gate was a harness artifact, fixed PLAY-32).
+    # Pay is optional ("may"): args.decline_pay=True skips the window and
+    # completes Feed -> Disband in one call. Otherwise the second
+    # fpd_resolve for this side (with the window open) runs _fpd_finalize
+    # via the early branch above.
     if (state.campaign_turn.fpd_pay_window_side != sd
-            and _fpd_pending_disband(state, sd)
+            and not args.get("decline_pay")
             and _fpd_can_pay(state, sd)):
         state.campaign_turn.fpd_pay_window_side = sd
         return ({"side": sd, "feed": feed_results, "pay_window": True}, [])

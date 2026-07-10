@@ -232,6 +232,11 @@ locales in a quiet Campaign.
 ### Campaign / Activation (4.2)
 - T then R alternate revealing one card each. Then play actions
   per card. FPD between cards.
+- **Per-card Pay (4.8.2, PLAY-32):** after Feed, `fpd_resolve` pauses
+  in a Pay window whenever your side can Pay (Coin / Loot at Friendly
+  Locale / Veche Coin) -- every card, not just when a Disband looms.
+  Pay to push Service right, then `fpd_resolve` again (or send
+  `decline_pay: true` to skip in one call).
 
 ### Approach segment / Combat (4.3.4-4.4)
 - Defender chooses: Avoid Battle / Withdraw / Stand Battle / Concede.

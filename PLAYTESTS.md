@@ -146,8 +146,18 @@ transcripts (not committed).
    Provender-first); `args.feed_donor_order` prioritises donors;
    `args.hillforts_skip` chooses the T8 skip-Lord among the eligible
    (validated). Regression: `tests/test_play31_feed_sharing.py`.
-7. **4.8.2 Pay window.** Opens only when a Disband is pending; SoP has
-   Pay after every Command card ("Lords may Pay or Disband").
+7. ~~**4.8.2 Pay window.**~~ RESOLVED 2026-07-10 as PLAY-32. The
+   per-card Pay window now opens after EVERY Command card whenever the
+   side has a payable resource (Coin, Loot at a Friendly Locale, or
+   Russian Veche Coin) -- 4.8.2 "any Teutonic then Russian Lords may
+   receive Pay as per Levy (3.2)"; the old pending-Disband-only gate
+   was a harness artifact of the BUG-4/R203 fix. Protocol unchanged:
+   first `fpd_resolve` Feeds and pauses (`pay_window: true`), the side
+   Pays via `pay_with_coin`/`pay_with_loot` as desired, a second
+   `fpd_resolve` runs the Disband check. Pay is optional ("may"):
+   `args.decline_pay` completes Feed -> Disband in one call (used by
+   the scripted drivers). Regression:
+   `tests/test_play32_pay_window_every_card.py`.
 8. **4.4.2 Reposition Advance slot choice** (lone Reserve forced
    leftmost); **4.0 excess side-capability discard** auto-drops the
    list tail (owner should choose); **Spoils distribution** goes to a

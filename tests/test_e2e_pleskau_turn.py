@@ -94,9 +94,12 @@ def test_pleskau_full_levy_and_campaign_turn() -> None:
         side = s.campaign_turn.next_to_reveal
         if not s.campaign_turn.in_feed_pay_disband:
             apply_action(s, {"type": "command_reveal", "side": side, "args": {}})
-        # 4.8 T-then-R fpd_resolve
-        apply_action(s, {"type": "fpd_resolve", "side": "teutonic", "args": {}})
-        apply_action(s, {"type": "fpd_resolve", "side": "russian", "args": {}})
+        # 4.8 T-then-R fpd_resolve (PLAY-32: decline the per-card Pay
+        # window; this scripted driver never Pays mid-Campaign)
+        apply_action(s, {"type": "fpd_resolve", "side": "teutonic",
+                         "args": {"decline_pay": True}})
+        apply_action(s, {"type": "fpd_resolve", "side": "russian",
+                         "args": {"decline_pay": True}})
         safety -= 1
     assert safety > 0, "Activation loop exceeded safety bound"
     assert s.meta.campaign_step == "end_campaign"

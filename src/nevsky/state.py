@@ -213,13 +213,15 @@ class CampaignTurn(BaseModel):
     in_feed_pay_disband: bool = False
     fpd_completed_t: bool = False
     fpd_completed_r: bool = False
-    # BUG-4 (R203): the per-card 4.8 cycle is Feed -> Pay -> Disband
-    # (Sequence_of_Play 4.8.2 `pay: same_as levy.pay`). When Feed leaves a
-    # MOVED_FOUGHT Lord at/left-of the Levy box (a pending Disband) AND the
-    # side has payable Coin/Loot, fpd_resolve pauses here and records the
-    # side so the player can Pay (shift Service right, 3.2 mechanics) to
-    # avert a mid-campaign Disband before the Disband check runs. Cleared
-    # when the same side's second fpd_resolve completes Disband.
+    # BUG-4 (R203) + PLAY-32: the per-card 4.8 cycle is Feed -> Pay ->
+    # Disband (Sequence_of_Play 4.8.2 `pay: same_as levy.pay`). After Feed,
+    # whenever the side has a payable resource (Coin, Loot at a Friendly
+    # Locale, or Russian Veche Coin), fpd_resolve pauses here and records
+    # the side so the player may Pay (shift Service right, 3.2 mechanics)
+    # before the Disband check runs -- 4.8.2 grants Pay after EVERY Command
+    # card, not only when a Disband is pending. args.decline_pay skips the
+    # pause. Cleared when the same side's second fpd_resolve completes
+    # Disband.
     fpd_pay_window_side: Side | None = None
     # SMOKE-030 (T16/R7 Famine): per-Command-card running counter of
     # Seat-sourced Supply Provender. Famine (T16 against Russian; R7

@@ -905,9 +905,10 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         return out
     if cstep == "command":
         if state.campaign_turn.in_feed_pay_disband:
-            # BUG-4 (R203): during this side's 4.8.2 Pay window, offer Pay
-            # (3.2 mechanics) to shift Service right and avert a pending
-            # mid-campaign Disband. fpd_resolve then runs the Disband check.
+            # BUG-4 (R203) + PLAY-32: during this side's 4.8.2 Pay window
+            # (opened after every Command card when the side can Pay), offer
+            # Pay (3.2 mechanics) to shift Service markers right.
+            # fpd_resolve then runs the Disband check.
             if state.campaign_turn.fpd_pay_window_side == side:
                 out.extend(_pay_moves(state, side))
             out.append({"type": "fpd_resolve", "side": side, "args": {}})

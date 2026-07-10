@@ -157,9 +157,15 @@ Besieged Lords cannot Muster.
   Optional args: `feed_loot_first` (bool or [lord_id] -- spend Loot
   before Provender; default Provender-first), `feed_donor_order`
   ([lord_id] -- donor priority for sharing), `hillforts_skip` (lord_id
-  -- choose the T8 skip-Lord among the eligible). Then runs the 4.8.2
-  at-limit Disband (count from NEXT box during Campaign 2E) and removes
-  MOVED_FOUGHT markers.
+  -- choose the T8 skip-Lord among the eligible).
+  **4.8.2 Pay window (PLAY-32):** after Feed, if the side has any
+  payable resource (Coin, Loot at a Friendly Locale, Russian Veche
+  Coin), the call returns `pay_window: true` and pauses -- 4.8.2 grants
+  Pay after EVERY Command card. Queue `pay_with_coin` / `pay_with_loot`
+  (3.2 mechanics) as desired, then call `fpd_resolve` again to finish.
+  Pay is optional: `args.decline_pay: true` skips the window and
+  completes in one call. Then runs the 4.8.2 at-limit Disband (count
+  from NEXT box during Campaign 2E) and removes MOVED_FOUGHT markers.
 
 ### 4.7 Simple Commands
 
@@ -521,8 +527,10 @@ ends. A card ends when:
 
 After the card ends, the harness sets
 `campaign_turn.in_feed_pay_disband = True`. Both sides must call
-`fpd_resolve` (T then R) before the next reveal. Once both FPD
-resolves, `next_to_reveal` flips to the other side (alternation per
+`fpd_resolve` (T then R) before the next reveal. A side that can Pay
+pauses in its 4.8.2 Pay window after Feed (PLAY-32) and needs a second
+`fpd_resolve` (or pass `decline_pay: true` to finish in one). Once both
+FPD resolves, `next_to_reveal` flips to the other side (alternation per
 4.2). If the other side's plan is empty but the same side still has
 cards, the same side reveals again.
 
@@ -537,7 +545,11 @@ while state.meta.campaign_step == "command":
         for s in ("teutonic", "russian"):
             if (s == "teutonic" and not state.campaign_turn.fpd_completed_t) \
                or (s == "russian" and not state.campaign_turn.fpd_completed_r):
-                do(state, {"type": "fpd_resolve", "side": s, "args": {}})
+                res = do(state, {"type": "fpd_resolve", "side": s, "args": {}})
+                if res.get("pay_window"):
+                    # 4.8.2 (PLAY-32): optionally pay_with_coin /
+                    # pay_with_loot here, then resolve again.
+                    do(state, {"type": "fpd_resolve", "side": s, "args": {}})
     elif state.campaign_turn.actions_remaining == 0:
         do(state, {"type": "command_reveal",
                    "side": state.campaign_turn.next_to_reveal, "args": {}})

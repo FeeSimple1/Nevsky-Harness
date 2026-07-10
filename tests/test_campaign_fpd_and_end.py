@@ -101,7 +101,10 @@ def test_fpd_remove_moved_fought_markers() -> None:
     s.lords[teu].moved_fought = True
     s.lords[teu].assets["provender"] = 5
     _enter_fpd(s)
-    apply_action(s, {"type": "fpd_resolve", "side": "teutonic", "args": {}})
+    # PLAY-32: decline the 4.8.2 Pay window (this test targets 4.8.3
+    # marker removal, which runs at Disband finalize).
+    apply_action(s, {"type": "fpd_resolve", "side": "teutonic",
+                     "args": {"decline_pay": True}})
     assert s.lords[teu].moved_fought is False
 
 
