@@ -252,6 +252,11 @@ locales in a quiet Campaign.
   (cumulative). Any Lords left after your Avoid/Withdraw calls fight when
   you `stand_battle`. Bare `avoid_battle{to}` / `withdraw{}` still move
   all defenders at once.
+- **Shared Transport on Avoid (PLAY-36, 4.3.4).** Lords Avoiding
+  together pool usable Transport for the Provender cap ("own or
+  shared") — bring an empty-carted ally along to save the grain, and
+  use `avoid_keep_order` to pick whose Provender rides the spare
+  capacity. Loot is always dropped.
 - Now also: attacker may interrupt Avoid with T6/R6 Ambush (block-mode).
 - **Flank-absorb choice (4.4.2, PLAY-28).** During Strike resolution, if
   one of your Lords is Flanking the enemy striker that is directly

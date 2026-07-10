@@ -246,7 +246,13 @@ The defender must choose exactly one of:
   enemy-Conquered clause). The enemy's Approach Way is excluded but a
   parallel Way of another type is allowed; `args.way_type` (optional)
   picks the Way. Avoiding Lord(s) must be Unladen (Loot/excess Provender
-  discarded to attacker as Spoils). `args.lords` (optional, PLAY-26):
+  discarded to attacker as Spoils). PLAY-36 (4.3.4 "own or shared"):
+  the co-Avoiding group POOLS its usable Transport for the Provender
+  cap -- own Transport covers own Provender first, spare group
+  capacity covers co-avoiders' excess, and only Provender beyond the
+  group total is discarded; `args.avoid_keep_order` (list of avoider
+  ids) sets who benefits from spare capacity first. A staying Lord's
+  Transport does not count. `args.lords` (optional, PLAY-26):
   subset of the still-outside defenders that Avoid to `args.to`; default
   = all of them. Different Lords may Avoid to different Locales via
   separate calls (4.3.4 "some or all ... to one or more adjacent

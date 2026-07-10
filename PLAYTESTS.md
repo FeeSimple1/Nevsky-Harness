@@ -185,8 +185,16 @@ transcripts (not committed).
      (`args.spoils_recipient` now also takes a list); assets vanish
      only when every winner mat is at the 1.7.3 cap. Regression:
      `tests/test_play35_spoils_distribution.py`.
-   - **Avoid Provender cap** ignores shared Transport (4.3.4 "own or
-     shared").
+   - ~~**Avoid Provender cap**~~ RESOLVED 2026-07-10 as PLAY-36.
+     4.3.4: Avoiders take "Provender equal to their own OR SHARED
+     Transport". The Lords Avoiding together in one call now pool
+     their usable Transport (1.5.2 Sharing): own covers own first,
+     spare group capacity covers co-avoiders' excess (markers stay on
+     owners' mats), only Provender beyond the GROUP total is
+     discarded. `args.avoid_keep_order` (list of avoider ids) directs
+     who benefits from spare capacity first. A staying Lord's
+     Transport does NOT count (it isn't moving across the Way).
+     Regression: `tests/test_play36_avoid_shared_transport.py`.
    - **Veche-A / Legate-2b Calendar-edge** slides clamp at box 1 /
      reject off-right instead of 2.2.3 off-edge placement (incl. a
      VP-burning no-op Veche A offered at box 1).

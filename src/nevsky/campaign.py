@@ -2921,6 +2921,31 @@ def _h_avoid_battle(
     # 4.3.4 discards: each Avoiding defender drops ALL Loot and any
     # Provender beyond Transport usable on the Avoid Way. Discards
     # accumulate as Spoils for the Approaching attacker.
+    # PLAY-36 (4.3.4): "take only Provender equal to their OWN OR SHARED
+    # Transport that is usable on the Way across which they are moving"
+    # -- the Lords Avoiding together in this call pool their usable
+    # Transport (1.5.2 Sharing). Each Lord's own Transport covers his
+    # own Provender first; the group's SPARE capacity then covers other
+    # avoiders' excess (markers stay on their owners' mats), in
+    # args.avoid_keep_order priority (list of avoider ids; unknown ids
+    # ignored; default = avoiders order). Only Provender beyond the
+    # GROUP total is discarded.
+    _usable_by = {d: _usable_transport_count_for_way(state, d, dest_way_type)
+                  for d in avoiders}
+    _prov_by = {d: int(state.lords[d].assets.get("provender", 0))
+                for d in avoiders}
+    _spare = sum(max(0, _usable_by[d] - _prov_by[d]) for d in avoiders)
+    _keep_pref = args.get("avoid_keep_order") or []
+    _keep_order = [d for d in _keep_pref if d in avoiders] + [
+        d for d in avoiders if d not in _keep_pref]
+    _extra_kept: dict[str, int] = {d: 0 for d in avoiders}
+    for _d in _keep_order:
+        if _spare <= 0:
+            break
+        _need = max(0, _prov_by[_d] - _usable_by[_d])
+        _take = min(_need, _spare)
+        _extra_kept[_d] = _take
+        _spare -= _take
     spoils_loot = 0
     spoils_prov = 0
     per_lord_discards: list[dict[str, Any]] = []
@@ -2930,7 +2955,7 @@ def _h_avoid_battle(
         if loot_n > 0:
             spoils_loot += loot_n
             lord.assets.pop("loot", None)
-        usable = _usable_transport_count_for_way(state, did, dest_way_type)
+        usable = _usable_by[did] + _extra_kept[did]
         prov_n = int(lord.assets.get("provender", 0))
         excess = max(0, prov_n - usable)
         if excess > 0:
