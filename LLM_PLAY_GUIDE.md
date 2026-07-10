@@ -228,6 +228,10 @@ locales in a quiet Campaign.
 ### Campaign / Plan (4.1)
 - Each side stacks 4-6 Command cards (per box). Plan is private.
 - Lieutenants / Lower Lords during Plan only.
+- **4.0 Capability discard (PLAY-34):** entering Campaign, each side
+  discards side Capabilities beyond its Mustered Lord count. Choose
+  WHICH via `rule_4_0_discards` on the final `advance_step` of Call to
+  Arms; unnamed excess tail-drops. Keep your best cards!
 
 ### Campaign / Activation (4.2)
 - T then R alternate revealing one card each. Then play actions

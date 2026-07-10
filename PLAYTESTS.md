@@ -169,8 +169,13 @@ transcripts (not committed).
      every pairing); the leftmost fallback preserves prior
      deterministic behavior. Regression:
      `tests/test_play33_reposition_slot_choice.py`.
-   - **4.0 excess side-capability discard** auto-drops the list tail
-     (owner should choose which to discard).
+   - ~~**4.0 excess side-capability discard**~~ RESOLVED 2026-07-10 as
+     PLAY-34. 4.0: players "must SELECT and discard" excess side
+     Capabilities. `advance_step` (on the call completing Call to
+     Arms) accepts `args.rule_4_0_discards = {side: [card_id, ...]}`;
+     named cards are validated and discarded first (with SMOKE-031
+     cascade cleanup), any remaining excess tail-drops as before.
+     Regression: `tests/test_play34_rule_4_0_discard_choice.py`.
    - **Spoils distribution** goes to a single recipient with over-cap
      overflow vanishing (4.4.3 "divide among them", 4.5.2 "distribute
      as desired").

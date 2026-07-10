@@ -21,7 +21,14 @@ Campaign actions.
   Levy step finished. T-then-R order per Sequence of Play 2.2.4. When
   both T and R have called `advance_step`, the harness advances to the
   next Levy step (`arts_of_war` -> `pay` -> `disband` -> `muster` ->
-  `call_to_arms` -> `done`).
+  `call_to_arms` -> `done`). The call that completes `call_to_arms`
+  (the Russian one) also runs the 4.0 CAPABILITY DISCARD: each side
+  must discard side Capabilities in excess of its Mustered Lord count.
+  PLAY-34: WHICH cards go is the owner's choice -- pass
+  `args.rule_4_0_discards = {side: [card_id, ...]}` on that call
+  (validated: in play for that side, no duplicates, at most the excess
+  count; cascade cleanup per SMOKE-031 applies). Unnamed excess falls
+  back to the deterministic tail-drop.
 
 ## 3.1 Arts of War
 

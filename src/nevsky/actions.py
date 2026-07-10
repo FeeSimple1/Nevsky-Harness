@@ -431,7 +431,20 @@ def _h_advance_step(
             # SMOKE-031: route each discard through _discard_side_capability
             # so per-card cleanup (Summer Crusaders Disband on T11, Mongols/
             # Kipchaqs Disband on R10, Legate-leaves-map on T13) cascades.
+            # PLAY-34 (4.0): "The players (Teutonic first) must SELECT and
+            # discard any Capability cards they have in excess of their
+            # number of Mustered Lords" -- WHICH cards go is the owner's
+            # choice. args.rule_4_0_discards = {side: [card_id, ...]}
+            # names each side's preferred discards (validated: in play for
+            # that side, no duplicates, at most the excess count). Any
+            # remaining excess after the named cards falls back to the
+            # pre-PLAY-34 deterministic tail-drop.
             from nevsky.campaign import _discard_side_capability as _disc_cap
+            _sel_4_0 = args.get("rule_4_0_discards") or {}
+            if not isinstance(_sel_4_0, dict):
+                raise IllegalAction(
+                    "bad_rule_4_0_discards",
+                    "rule_4_0_discards must be {side: [card_id, ...]}")
             rule_4_0_cleanup: list[dict[str, Any]] = []
             for sd_ in ("teutonic", "russian"):
                 deck = state.decks.teutonic if sd_ == "teutonic" else state.decks.russian
@@ -439,6 +452,26 @@ def _h_advance_step(
                     1 for lord in state.lords.values()
                     if lord.side == sd_ and lord.state == "mustered"
                 )
+                excess = len(deck.capabilities_in_play) - mustered_count
+                chosen = list(_sel_4_0.get(sd_) or [])
+                if chosen:
+                    if len(set(chosen)) != len(chosen):
+                        raise IllegalAction(
+                            "bad_rule_4_0_discards",
+                            f"duplicate card in rule_4_0_discards[{sd_}]")
+                    if len(chosen) > max(excess, 0):
+                        raise IllegalAction(
+                            "bad_rule_4_0_discards",
+                            f"{sd_} names {len(chosen)} discards but only "
+                            f"{max(excess, 0)} in excess (4.0)")
+                    for cid_ in chosen:
+                        if cid_ not in deck.capabilities_in_play:
+                            raise IllegalAction(
+                                "bad_rule_4_0_discards",
+                                f"{cid_} not among {sd_} side Capabilities "
+                                f"in play: {deck.capabilities_in_play}")
+                    for cid_ in chosen:
+                        rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_))
                 while len(deck.capabilities_in_play) > mustered_count:
                     cid_to_drop = deck.capabilities_in_play[-1]
                     rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_to_drop))
