@@ -640,6 +640,16 @@ State adds `Lord.lieutenant_of` (str | None) and
 
 ### Tier 2 battle Holds (consumed via stand_battle args.holds)
 
+PLAY-38: the palette names these. When any Tier-2 Hold is playable at a
+pending Battle, the bare `stand_battle` entry carries `holds_available`
+-- a list of `{card, side, key, requires?, effect}` (gates mirrored
+from `_consume_battle_holds`: in-holds, season, Defending-only, target
+availability) -- plus a `holds_template`. Assemble chosen entries into
+`args.holds = {key: card, ...}` (+ any `requires` args, e.g.
+`field_organ_lord`, `bridge_target_lord`). `cmd_storm` likewise
+surfaces T10 via `holds_available` when a Teutonic Lord is in the
+Storm.
+
 ```json
 {"type": "stand_battle", "side": "...", "args": {"holds": {
   "marsh":       "T5" | "R2" | "attacker" | "defender",

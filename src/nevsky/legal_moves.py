@@ -712,6 +712,84 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
 
 
 
+def _battle_holds_available(state: GameState, cp) -> list[dict[str, Any]]:
+    """PLAY-38 (item #9 palette surfacing): name the Tier 2 Battle Holds
+    playable at this Battle via `stand_battle args.holds` -- previously
+    reachable ONLY by callers who already knew the args schema. Mirrors
+    the `_consume_battle_holds` gates exactly (card in the owning side's
+    holds; SMOKE-079 season gates; SMOKE-080 Defending-only gates; T10
+    needs a Teutonic Battle participant as `field_organ_lord`). Each
+    entry gives the card, its owning side, the args.holds key to use,
+    any extra arg with candidate values, and the effect summary.
+    Informational: attached to the bare stand_battle palette entry (the
+    combos are the caller's to assemble), so sweep probing semantics
+    are unchanged.
+    """
+    from nevsky.actions import _season_of_box
+    season = _season_of_box(state.meta.box)
+    winter = season in ("early_winter", "late_winter")
+    specs = [
+        ("T4", "teutonic", "bridge",
+         "front-center enemy Lord Melee-strikes with at most 2*Round "
+         "units (non-Winter; target via holds.bridge_target_lord)"),
+        ("R1", "russian", "bridge",
+         "front-center enemy Lord Melee-strikes with at most 2*Round "
+         "units (non-Winter; target via holds.bridge_target_lord)"),
+        ("T5", "teutonic", "marsh",
+         "opposing Horse do not Strike Rounds 1-2 (Defending only, "
+         "non-Winter)"),
+        ("R2", "russian", "marsh",
+         "opposing Horse do not Strike Rounds 1-2 (Defending only, "
+         "non-Winter)"),
+        ("T6", "teutonic", "ambush",
+         "Round 1: enemy left/right Lords uninvolved; owner's flanks "
+         "Flank the enemy center (battle mode)"),
+        ("R6", "russian", "ambush",
+         "Round 1: enemy left/right Lords uninvolved; owner's flanks "
+         "Flank the enemy center (battle mode)"),
+        ("T9", "teutonic", "hill",
+         "own default Archery doubled Rounds 1-2 (Defending only)"),
+        ("R5", "russian", "hill",
+         "own default Archery doubled Rounds 1-2 (Defending only)"),
+        ("T10", "teutonic", "field_organ",
+         "Round 1: target Lord's Knights+Sergeants Melee +1 each "
+         "(target via holds.field_organ_lord)"),
+        ("R4", "russian", "raven_rock",
+         "Russian defender Walls 1-2 vs Melee Round 1 (non-Summer)"),
+    ]
+    combat_lords = [l for l in (list(cp.attacker_group) + list(cp.defender_lords))
+                    if l in state.lords]
+    out: list[dict[str, Any]] = []
+    for cid, owner, key, effect in specs:
+        deck = state.decks.teutonic if owner == "teutonic" else state.decks.russian
+        if cid not in deck.holds:
+            continue
+        # SMOKE-079 season gates (mirror _consume_battle_holds).
+        if cid in ("T4", "R1", "T5", "R2") and winter:
+            continue
+        if cid == "R4" and season == "summer":
+            continue
+        # SMOKE-080 Defending-only gates.
+        if cid in ("T5", "R2", "T9", "R5") and cp.defender_side != owner:
+            continue
+        entry: dict[str, Any] = {"card": cid, "side": owner, "key": key,
+                                 "effect": effect}
+        if cid == "T10":
+            targets = [l for l in combat_lords
+                       if state.lords[l].side == "teutonic"]
+            if not targets:
+                continue
+            entry["requires"] = {"field_organ_lord": targets}
+        elif cid in ("T4", "R1"):
+            enemies = [l for l in combat_lords
+                       if state.lords[l].side != owner]
+            if not enemies:
+                continue
+            entry["requires"] = {"bridge_target_lord": enemies}
+        out.append(entry)
+    return out
+
+
 def _maybe_preview_note(state: GameState, action: dict[str, Any], with_previews: bool, base_note: str) -> str:
     """Append vp_forecast preview to base_note when with_previews is True."""
     if not with_previews:
@@ -751,7 +829,18 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 {"type": "stand_battle", "side": side, "args": {}},
                 with_previews, "engage in Battle",
             )
-            out.append({"type": "stand_battle", "side": side, "args": {}, "note": stand_note})
+            _sb = {"type": "stand_battle", "side": side, "args": {}, "note": stand_note}
+            # PLAY-38 (item #9): name the playable Tier 2 Battle Holds so
+            # palette-driven agents can discover them -- assemble chosen
+            # entries into args.holds = {key: card, ...} (+ any listed
+            # `requires` args) on stand_battle. Cards of EITHER side are
+            # listed (this single call is the harness's consumption
+            # channel for both sides' Battle Holds).
+            _ha = _battle_holds_available(state, cp)
+            if _ha:
+                _sb["holds_available"] = _ha
+                _sb["holds_template"] = {"holds": {"<key>": "<card_id>"}}
+            out.append(_sb)
             # Concede pseudo-option: stand_battle with concede flag.
             # Note describes the mechanical effect only; the consumer
             # decides whether/when to use it.
@@ -1130,9 +1219,34 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                       "args": {"lord_id": active_lord}},
                     with_previews, "Storm (4.5.2) -- one Command action",
                 )
-                out.append({"type": "cmd_storm", "side": side,
-                            "args": {"lord_id": active_lord},
-                            "note": storm_note})
+                _cs = {"type": "cmd_storm", "side": side,
+                       "args": {"lord_id": active_lord},
+                       "note": storm_note}
+                # PLAY-38 (item #9): cmd_storm's only Tier 2 Hold channel
+                # is T10 Field Organ (playable on Attack OR Defense) via
+                # args.field_organ_lord -- surface it when the card is in
+                # Teutonic holds and a Teutonic Lord is in the Storm.
+                if "T10" in state.decks.teutonic.holds:
+                    _sh_besieged = [
+                        lid for lid, l in state.lords.items()
+                        if l.location == active.location
+                        and l.state == "mustered" and l.in_stronghold]
+                    _sh_attackers = [
+                        lid for lid, l in state.lords.items()
+                        if l.location == active.location
+                        and l.state == "mustered"
+                        and not l.in_stronghold and l.side == side]
+                    _fo = [l for l in _sh_attackers + _sh_besieged
+                           if state.lords[l].side == "teutonic"]
+                    if _fo:
+                        _cs["holds_available"] = [{
+                            "card": "T10", "side": "teutonic",
+                            "key": "field_organ",
+                            "effect": "Round 1: target Lord's Knights+"
+                                      "Sergeants Melee +1 each",
+                            "requires": {"field_organ_lord": _fo},
+                        }]
+                out.append(_cs)
             # Q-010 (rules-literal): Sally (4.5.3) likewise costs one action.
             if _ib(state, active_lord):
                 sally_note = _maybe_preview_note(

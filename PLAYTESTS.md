@@ -205,9 +205,16 @@ transcripts (not committed).
      (2.2.3 ignores further left shifts -- a guaranteed no-op cost).
      Regression: `tests/test_play37_calendar_edge_slides.py` (+
      updated `test_round_219_veche_option_a_cylinder.py`).
-9. **Battle-hold palette surfacing.** Tier-2 holds are reachable only
-   via stand_battle args; the palette never names them (parity note,
-   not a rules divergence).
+9. ~~**Battle-hold palette surfacing.**~~ RESOLVED 2026-07-10 as
+   PLAY-38. The bare `stand_battle` palette entry (and `cmd_storm` for
+   T10 Field Organ) now carries a `holds_available` block naming every
+   Tier-2 Battle Hold playable at that Battle -- card, owning side,
+   `args.holds` key, required extra args with candidate values, and
+   effect summary -- mirroring the `_consume_battle_holds` gates
+   exactly (in-holds, SMOKE-079 season, SMOKE-080 Defending-only, T10
+   / Bridge target availability). The entry's concrete `args` stay
+   bare, so sweep probing semantics are unchanged. Regression:
+   `tests/test_play38_battle_holds_palette.py`.
 
 ### Questions logged for the user
 - Q-010 — RESOLVED 2026-07-06 (D-Q010): rules-literal. Storm (4.5.2) and

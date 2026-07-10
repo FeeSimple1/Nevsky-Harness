@@ -252,6 +252,11 @@ locales in a quiet Campaign.
   (cumulative). Any Lords left after your Avoid/Withdraw calls fight when
   you `stand_battle`. Bare `avoid_battle{to}` / `withdraw{}` still move
   all defenders at once.
+- **Battle Holds are in the palette (PLAY-38).** When you hold Tier-2
+  Battle cards (Bridge/Marsh/Ambush/Hill/Field Organ/Raven's Rock),
+  the `stand_battle` entry lists them under `holds_available` with the
+  exact `args.holds` key and any required target. Don't forget them —
+  they are consumed on play and season/role gates apply.
 - **Shared Transport on Avoid (PLAY-36, 4.3.4).** Lords Avoiding
   together pool usable Transport for the Provender cap ("own or
   shared") — bring an empty-carted ally along to save the grain, and
