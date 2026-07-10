@@ -2619,14 +2619,31 @@ def _h_legate_use(
         if pawn_locale not in _seats_of(state, target_id):
             raise IllegalAction("not_at_seat", f"Legate must be at a Seat of {target_id}")
         cyl_box = _find_cylinder_box(state, target_id)
-        if cyl_box is None or cyl_box >= 17 or cyl_box == 0:
-            raise IllegalAction("no_cylinder", f"{target_id} cylinder not on Calendar")
-        if cyl_box <= 1:
-            raise IllegalAction("cylinder_at_left_edge", f"{target_id} already at box 1")
-        cb = state.calendar.boxes[cyl_box - 1]
-        cb.cylinders.remove(target_id)
-        state.calendar.boxes[cyl_box - 2].cylinders.append(target_id)
-        result_extra = {"target_lord": target_id, "from_box": cyl_box, "to_box": cyl_box - 1}
+        # PLAY-37 (2.2.3): off-left cylinders ignore further left shifts
+        # (a guaranteed no-op that would waste the once-per-CtA Legate
+        # use) -- still rejected. Off-right cylinders slide back onto
+        # box 16 ("the first shift back toward the Calendar places the
+        # marker into ... box 16"), and a box-1 cylinder slides just OFF
+        # the left edge (was: rejected "already at box 1").
+        if cyl_box is None or cyl_box == 0:
+            raise IllegalAction(
+                "no_cylinder",
+                f"{target_id} cylinder not on Calendar (off-left ignores "
+                "further left shifts, 2.2.3)")
+        if cyl_box >= 17:
+            state.calendar.off_right.remove(target_id)
+            state.calendar.boxes[16 - 1].cylinders.append(target_id)
+            new_box = 16
+        elif cyl_box == 1:
+            state.calendar.boxes[0].cylinders.remove(target_id)
+            state.calendar.off_left.append(target_id)
+            new_box = 0
+        else:
+            cb = state.calendar.boxes[cyl_box - 1]
+            cb.cylinders.remove(target_id)
+            state.calendar.boxes[cyl_box - 2].cylinders.append(target_id)
+            new_box = cyl_box - 1
+        result_extra = {"target_lord": target_id, "from_box": cyl_box, "to_box": new_box}
     else:  # 2c
         if target_id in state.meta.block_lords_this_levy_t:
             raise IllegalAction(
@@ -2724,12 +2741,33 @@ def _h_veche_action(
         if state.veche.vp_markers < 1:
             raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
         cyl_box = _find_cylinder_box(state, target_id)
-        if cyl_box is None or cyl_box >= 17 or cyl_box == 0:
-            raise IllegalAction("no_cylinder", f"{target_id} cylinder not on Calendar")
-        new_box = max(1, cyl_box - 2)
-        cb = state.calendar.boxes[cyl_box - 1]
-        cb.cylinders.remove(target_id)
-        state.calendar.boxes[new_box - 1].cylinders.append(target_id)
+        # PLAY-37 (2.2.3): a cylinder OFF-LEFT ignores further left
+        # shifts -- targeting it would burn 1 VP for a guaranteed no-op,
+        # so it stays rejected. A cylinder OFF-RIGHT is a legal target:
+        # "the first shift back toward the Calendar places the marker
+        # into ... box 16" and the slide's second box continues to 15.
+        if cyl_box is None or cyl_box == 0:
+            raise IllegalAction(
+                "no_cylinder",
+                f"{target_id} cylinder not on Calendar (off-left ignores "
+                "further left shifts, 2.2.3)")
+        if cyl_box >= 17:
+            state.calendar.off_right.remove(target_id)
+            new_box = 15
+            state.calendar.boxes[new_box - 1].cylinders.append(target_id)
+        else:
+            cb = state.calendar.boxes[cyl_box - 1]
+            cb.cylinders.remove(target_id)
+            new_box = cyl_box - 2
+            if new_box < 1:
+                # 2.2.3: "If a ... cylinder would be placed or shifted
+                # below (left of) box 1 ... set the ... cylinder just
+                # off the board" (was: clamped to box 1, making a box-1
+                # target a VP-burning literal no-op).
+                state.calendar.off_left.append(target_id)
+                new_box = 0
+            else:
+                state.calendar.boxes[new_box - 1].cylinders.append(target_id)
         state.veche.vp_markers -= 1
         state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
         from nevsky.scenarios import refresh_victory_markers

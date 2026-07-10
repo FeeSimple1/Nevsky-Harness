@@ -110,6 +110,9 @@ Besieged Lords cannot Muster.
   `target_lord`. Uses the Legate's once-per-segment option.
   - 2a: at Seat of Ready Lord — auto-Muster without Fealty roll.
   - 2b: at Seat of Lord on Calendar — slide cylinder 1 box LEFT.
+    PLAY-37 (2.2.3): box 1 slides just OFF-LEFT; an off-right
+    cylinder slides back onto box 16. Off-left targets are rejected
+    (further left shifts are ignored -- a wasted use).
   - 2c: at Friendly Locale with any Lord — that Lord performs an
     immediate extra Muster using full Lordship.
   After USE, pawn returns to William of Modena card.
@@ -117,7 +120,11 @@ Besieged Lords cannot Muster.
 - **`veche_action`** — `args.option` ∈
   {`A`, `B`, `C`, `D`, `sea_trade`, `skip`}.
   - A: SLIDE LEFT (cost 1 VP) — slide one Russian Lord cylinder 2
-    boxes LEFT (2E correction; PAC's "1 box" is obsolete).
+    boxes LEFT (2E correction; PAC's "1 box" is obsolete). PLAY-37
+    (2.2.3): sliding past box 1 puts the cylinder just OFF-LEFT (no
+    more clamp-at-1 VP-burning no-op); an off-right cylinder is a
+    legal target and lands on box 15 (first box back = 16, second =
+    15). Off-left targets rejected (pure VP burn).
   - B: AUTO-MUSTER (cost 1 VP) — `args.target_lord`, `seat`. Aleksandr
     can ONLY enter via Option B.
   - C: EXTRA MUSTER (cost 1 VP) — `args.target_lord`. Lord must be at

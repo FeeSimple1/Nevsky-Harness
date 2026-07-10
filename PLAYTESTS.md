@@ -195,9 +195,16 @@ transcripts (not committed).
      who benefits from spare capacity first. A staying Lord's
      Transport does NOT count (it isn't moving across the Way).
      Regression: `tests/test_play36_avoid_shared_transport.py`.
-   - **Veche-A / Legate-2b Calendar-edge** slides clamp at box 1 /
-     reject off-right instead of 2.2.3 off-edge placement (incl. a
-     VP-burning no-op Veche A offered at box 1).
+   - ~~**Veche-A / Legate-2b Calendar-edge**~~ RESOLVED 2026-07-10 as
+     PLAY-37. Both slides now follow 2.2.3: leftward past box 1 puts
+     the cylinder just OFF-LEFT (Veche A no longer clamps at box 1 --
+     the box-1 VP-burning literal no-op is gone; Legate 2b no longer
+     rejects box 1), and off-right cylinders are legal targets that
+     slide back onto the Calendar (2b -> box 16; Veche A -> box 15).
+     Off-left cylinders stay non-targets in handler AND palette
+     (2.2.3 ignores further left shifts -- a guaranteed no-op cost).
+     Regression: `tests/test_play37_calendar_edge_slides.py` (+
+     updated `test_round_219_veche_option_a_cylinder.py`).
 9. **Battle-hold palette surfacing.** Tier-2 holds are reachable only
    via stand_battle args; the palette never names them (parity note,
    not a rules divergence).

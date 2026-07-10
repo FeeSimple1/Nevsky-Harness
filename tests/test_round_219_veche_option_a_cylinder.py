@@ -2,9 +2,14 @@
 
 Veche option A (slide a Lord's cylinder LEFT, 3.5.2) was enumerated for
 any Russian Lord whose cylinder was `_find_cylinder_box is not None`, but
-_h_veche_action rejects `no_cylinder` unless the cylinder is ON the
-Calendar in boxes 1..16 (not off-left=0, not off-right>=17). Off-board
-cylinders were over-enumerated. The enumerator now matches the handler.
+_h_veche_action rejected off-board cylinders. The enumerator now matches
+the handler.
+
+PLAY-37 update (2.2.3): an OFF-RIGHT cylinder is now a LEGAL Option A
+target in both handler and enumerator ("the first shift back toward the
+Calendar places the marker into ... box 16", the slide's second box
+continues to 15). Off-left remains excluded: further left shifts are
+ignored (2.2.3), so targeting it would burn 1 VP for a guaranteed no-op.
 """
 from __future__ import annotations
 
@@ -41,12 +46,18 @@ def _clear_cylinder(s: GameState, lid: str):
         s.calendar.off_right.remove(lid)
 
 
-def test_option_a_not_offered_for_off_right_cylinder():
+def test_option_a_offered_for_off_right_cylinder_slides_to_15():
+    """PLAY-37 (2.2.3): off-right cylinders slide back to box 15."""
     s = _setup_cta()
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian")
     _clear_cylinder(s, rus)
-    s.calendar.off_right.append(rus)  # off the right edge -> handler rejects
-    assert rus not in _option_a_targets(s)
+    s.calendar.off_right.append(rus)
+    assert rus in _option_a_targets(s)
+    res = apply_action(s, {"type": "veche_action", "side": "russian",
+                           "args": {"option": "A", "target_lord": rus}})
+    assert res["to_box"] == 15
+    assert rus in s.calendar.boxes[14].cylinders
+    assert rus not in s.calendar.off_right
 
 
 def test_option_a_not_offered_for_off_left_cylinder():

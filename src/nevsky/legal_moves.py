@@ -556,11 +556,18 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                         "args": {"sub_option": "2a", "target_lord": tgt},
                         "note": f"Legate 2a: auto-Muster Ready {tgt} at his Seat {pawn_loc} (3.5.1)",
                     })
-                # 2b candidates: Teu Lords whose Seat the pawn is at, on Calendar.
+                # 2b candidates: Teu Lords whose Seat the pawn is at, on
+                # Calendar. PLAY-37 (2.2.3): off-right (17) is a legal
+                # target (slides back onto box 16) and box 1 slides just
+                # off the left edge; only off-left (0, further left
+                # shifts ignored) and absent (None) are excluded.
+                def _cal_2b(lid):
+                    cb = _find_cylinder_box(state, lid)
+                    return cb is not None and cb >= 1
                 cand_2b = [
                     lid for lid, l in state.lords.items()
                     if l.side == "teutonic" and pawn_loc in _seats(state, lid)
-                    and _find_cylinder_box(state, lid) is not None
+                    and _cal_2b(lid)
                 ]
                 for tgt in cand_2b:
                     out.append({
@@ -632,14 +639,14 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             if state.veche.vp_markers > 0:
                 # Option A: shift Aleksandr/Andrey cylinder LEFT 2 boxes (1 VP marker each).
                 # SMOKE-156 (R219): Veche option A slides a cylinder LEFT;
-                # _h_veche_action rejects no_cylinder unless the cylinder is
-                # ON the Calendar in boxes 1..16 (not None, not off-left=0,
-                # not off-right>=17). Match that here -- `is not None` alone
-                # over-enumerated option A for Lords whose cylinder is
-                # off-board. (Surfaced by the OpenAI/mock self-play driver.)
+                # _h_veche_action Option A accepts cylinders in boxes
+                # 1..16 AND off-right (>=17, which slides back to box 15
+                # per 2.2.3, PLAY-37). Only off-left (0: further left
+                # shifts ignored -- a pure VP burn) and absent (None)
+                # are excluded. Match the handler exactly.
                 def _on_cal(lid):
                     cb = _find_cylinder_box(state, lid)
-                    return cb is not None and 1 <= cb <= 16
+                    return cb is not None and cb >= 1
                 ru_lords_on_calendar = [
                     lid for lid, lord in state.lords.items()
                     if lord.side == "russian" and _on_cal(lid)
