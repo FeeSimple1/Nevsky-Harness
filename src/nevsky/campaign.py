@@ -1227,6 +1227,10 @@ def _h_cmd_sail(
     group = args.get("group", [lord_id]) or [lord_id]
     if not (isinstance(lord_id, str) and isinstance(dest, str) and isinstance(group, list)):
         raise IllegalAction("missing_arg", "args: lord_id, destination, group(optional)")
+    # PLAY-39: the Sailing group always includes the active Lord (see
+    # the cmd_march note; 4.7.3 moves the Sailing Lord "or his moving
+    # group").
+    group = [lord_id] + [g for g in dict.fromkeys(group) if g != lord_id]
     _require_active_lord_command(state, sd, lord_id)
     _require_full_command_card(state, lord_id, "Sail (4.7.3)")  # entire_card (R203)
 
@@ -2536,6 +2540,14 @@ def _h_cmd_march(
     group = args.get("group", [lord_id]) or [lord_id]
     if not (isinstance(lord_id, str) and isinstance(dest, str) and isinstance(group, list)):
         raise IllegalAction("missing_arg", "args: lord_id, to, group(optional)")
+    # PLAY-39 (4.3 / 4.3.1, Playbook golden test): the March moves the
+    # ACTIVE Lord; a Marshal brings others along "with him". `group`
+    # lists the co-Marching Lords -- the active Lord is always part of
+    # the moving group (previously a group that omitted him moved the
+    # others while he stayed behind, which no rule allows). Active Lord
+    # is normalized to group[0] (battle code treats attacker_group[0]
+    # as the Active Lord).
+    group = [lord_id] + [g for g in dict.fromkeys(group) if g != lord_id]
     _require_active_lord_command(state, sd, lord_id)
 
     lord = state.lords[lord_id]
