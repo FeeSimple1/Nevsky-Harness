@@ -216,6 +216,38 @@ transcripts (not committed).
    bare, so sweep probing semantics are unchanged. Regression:
    `tests/test_play38_battle_holds_palette.py`.
 
+### Playbook golden tests (external validation, 2026-07-13)
+
+`tests/test_playbook_golden.py` + `tests/test_playbook_golden_battle.py`
+replay the DESIGNER'S OWN worked Watland example (Background Book
+"Examples of Play", pp. 3-14) against the engine with every printed die
+roll scripted (`tests/_playbook_rolls.py`). Unlike the sweeps -- which
+check internal consistency -- these check the engine against an
+external authority, and on first run they found THREE real divergences:
+
+- **PLAY-39** -- a March/Sail `group` omitting the active Lord moved
+  the others while he stayed behind (4.3.1: the Marshal brings Lords
+  "with him"). Groups now always include the active Lord.
+- **PLAY-40** -- no way to discard Provender down to usable Transport
+  and March UNLADEN (1.7.2 Greed names "March Unladen" explicitly; the
+  example walks through the choice). New `cmd_march
+  args.discard_to_unladen`.
+- **PLAY-41** -- T10 Field Organ gave a flat +knights-count instead of
+  +1 per Knights AND Sergeants unit (Sergeants are Horse and strike in
+  melee_horse; the example's 4+3=7 Hits came out as 5).
+
+Golden coverage: 2E Watland printed setup; Ordensburgen Commandery-Seat
+Muster with printed Fealty rolls; This-Lord vs side Capability
+placement; Veche Option B; Winter Laden math; 2E Ravage cost; Avoid
+gates/discard/Spoils; Feed thresholds (1-6 vs 7+ units); the full
+two-Round Battle of Zheltsy (Luchniki/Hill/Field Organ interactions,
+flank-absorb choice PLAY-28, mid-step Rout spillover PLAY-27, Pursuit
+halving, Concede, 4.4.3 Retreat Service roll = half rounded up, Losses
+in both Conceded and winner modes, Lord removal by Losses,
+loot_and_excess Spoils, post-Battle Feed). 1E-vs-2E deltas are asserted
+the 2E way and noted inline (2E Watland setup; 2E Ravage cost; Veche-B
+vignette adapted to Karelians).
+
 ### Questions logged for the user
 - Q-010 — RESOLVED 2026-07-06 (D-Q010): rules-literal. Storm (4.5.2) and
   Sally (4.5.3) cost one Command action; D-R203's pristine gate narrowed

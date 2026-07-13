@@ -232,10 +232,17 @@ Besieged Lords cannot Muster.
 
 - **`cmd_march`** — `args.lord_id`, `args.to` (adjacent locale via a
   Way), `args.group` (optional list of co-Marching own-side Lords;
-  every group member's Lower Lord must be in the group, PLAY-22),
-  `args.sally_join` (optional list; Relief Sally 4.4.1 joiners when
-  Approaching a Locale where this side is Besieged -- None = all
-  eligible Lords join, [] = none, PLAY-14).
+  every group member's Lower Lord must be in the group, PLAY-22;
+  PLAY-39: the ACTIVE Lord is always part of the moving group --
+  4.3.1 has the Marshal bring Lords "with him" -- and is normalized
+  to group[0]), `args.sally_join` (optional list; Relief Sally 4.4.1
+  joiners when Approaching a Locale where this side is Besieged --
+  None = all eligible Lords join, [] = none, PLAY-14).
+  Discards (1.7.2 Greed): `args.discard_excess_provender=True` drops
+  Provender down to the 2x can-March-at-all cap (March Laden);
+  `args.discard_to_unladen=True` (PLAY-40) drops ALL group Loot and
+  Provender down to the group's combined usable Transport so the
+  March is UNLADEN at single-action cost.
   Costs 1 Unladen action / 2 Laden actions per Locale. Begin Siege
   if entering Locale of an Unbesieged enemy Stronghold without an
   enemy Lord (4.3.5). If destination has enemy Lord(s), enter Approach
