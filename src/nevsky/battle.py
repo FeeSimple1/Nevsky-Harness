@@ -1627,11 +1627,22 @@ def resolve_battle(
                     # Q-008 Field Organ: +1 Hit per actually-striking
                     # Knight (melee_horse) or Sergeant (melee_foot)
                     # for the targeted Lord, Round 1 only.
-                    if field_organ_lord == lid and rounds == 1:
-                        if kind == "melee_horse":
-                            this_norm_raw += striking_units.get("knights", 0)
-                        elif kind == "melee_foot":
-                            this_norm_raw += striking_units.get("sergeants", 0)
+                    if field_organ_lord == lid and rounds == 1 and kind == "melee_horse":
+                        # PLAY-41 (T10 Field Organ, Playbook golden
+                        # test): "Round 1, his Knights AND Sergeants
+                        # Melee Strike +1" -- +1 per UNIT ("one added
+                        # Hit ... three Hits each for Knights in
+                        # Battle", AoW Tips; the Background Book's
+                        # Battle example computes 4 + 3 = 7 for one
+                        # Knights + two Sergeants). Sergeants are HORSE
+                        # units and Strike in melee_horse; the old code
+                        # credited only Knights here and pointlessly
+                        # credited Sergeants in melee_foot, where no
+                        # Knights/Sergeants ever Strike -- so the bonus
+                        # was a flat +knights-count only. The Storm
+                        # branch already did this correctly.
+                        this_norm_raw += (striking_units.get("knights", 0)
+                                          + striking_units.get("sergeants", 0))
                 if (this_cb_raw + this_norm_raw) <= 0:
                     continue
                 # Pursuit: halve conceder Hits this Round (per striker,
