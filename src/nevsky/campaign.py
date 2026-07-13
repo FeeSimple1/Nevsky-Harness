@@ -2518,6 +2518,16 @@ def _validate_absorption_policy(value: Any) -> "str | list[str]":
     )
 
 
+def _usable_transport_count_for_way_local(state: GameState, lord_id: str,
+                                           way_type: str | None) -> int:
+    """PLAY-40 helper: per-Lord usable Transport on this Way (1.7.4),
+    via the shared battle-module counter."""
+    from nevsky.battle import _usable_transport_count_for_way
+    if way_type not in ("trackway", "waterway"):
+        return 0
+    return _usable_transport_count_for_way(state, lord_id, way_type)
+
+
 def _h_cmd_march(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -2643,7 +2653,7 @@ def _h_cmd_march(
     # (1.7.2 Greed permits discard for March/Avoid/Retreat/Sail).
     excess = _group_excess_provender(state, group, way_type=way_type)
     if excess > 0:
-        if args.get("discard_excess_provender"):
+        if args.get("discard_excess_provender") or args.get("discard_to_unladen"):
             remaining = excess
             for gid in group:
                 if remaining <= 0:
@@ -2661,9 +2671,38 @@ def _h_cmd_march(
                 f"group has {excess} more Provender than 2x combined usable "
                 f"Transport (4.3.2); pass args.discard_excess_provender=True to discard"
             )
+    # PLAY-40 (1.7.2 Greed, Playbook golden test): "Lords may discard
+    # (rather than use) Assets only as needed to help them move -- to
+    # March Laden, MARCH UNLADEN, Avoid Battle, Retreat, or Sail." The
+    # harness supported discarding only down to the 2x can-March-at-all
+    # cap (March Laden); there was NO way to discard down to usable
+    # Transport and March UNLADEN at single-action cost, a choice the
+    # Background Book example walks through explicitly. args.
+    # discard_to_unladen=True drops ALL group Loot (any Loot forces
+    # Laden, 4.3.2) and Provender down to the group's combined usable
+    # Transport, greedily in group order (active Lord first).
+    if args.get("discard_to_unladen"):
+        _usable = sum(
+            _usable_transport_count_for_way_local(state, gid, way_type)
+            for gid in group)
+        _prov = sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
+        _over = max(0, _prov - _usable)
+        for gid in group:
+            if state.lords[gid].assets.get("loot"):
+                state.lords[gid].assets.pop("loot", None)
+            if _over > 0:
+                have = int(state.lords[gid].assets.get("provender", 0))
+                take = min(have, _over)
+                if take > 0:
+                    state.lords[gid].assets["provender"] = have - take
+                    if state.lords[gid].assets.get("provender") == 0:
+                        state.lords[gid].assets.pop("provender", None)
+                    _over -= take
 
     # Action cost: 2 if the moving group is Laden (combined), else 1.
     laden = _group_is_laden(state, group, way_type=way_type)
+    if args.get("discard_to_unladen"):
+        assert not laden, "discard_to_unladen must leave the group Unladen"
     cost = 2 if laden else 1
     # Converts (T3): first March of this card with Light Horse in the
     # group costs 0 actions. The active Lord need not have Converts
