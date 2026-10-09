@@ -1431,20 +1431,174 @@ def _h_cmd_sail(
 # ---------------------------------------------------------------------------
 
 
+def _supply_seat_counts(state: GameState, lord_id: str) -> dict[str, int]:
+    """4.6.1: count Seats, including a capability Seat at a printed Seat.
+
+    _all_seats is a location list for Muster/Tax and deliberately deduplicates.
+    T12 and R15 each add a Seat, so Wenden/Novgorod can supply twice (AoW Tips).
+    """
+    from nevsky.capabilities import has_side_capability
+
+    counts = {sid: 1 for sid in _all_seats(state, lord_id)}
+    lord = state.lords[lord_id]
+    for sid in load_lords()[lord_id].get("primary_seats", []):
+        if (lord.side == "teutonic"
+                and has_side_capability(state, lord.side, "Ordensburgen")
+                and load_locales()[sid].get("commandery")):
+            counts[sid] += 1
+        elif (lord.side == "russian" and sid == "novgorod"
+                and has_side_capability(state, lord.side, "Archbishopric of Novgorod")):
+            counts[sid] += 1
+    return counts
+
+
+def _supply_transport_pool(
+    state: GameState, lord_id: str, lodya_conversions: dict[str, Any] | None = None,
+) -> dict[str, int]:
+    """1.5.2 / T18: local Transport, doubled Cogs Ships also shared anywhere."""
+    from nevsky.capabilities import has_lord_capability
+
+    active = state.lords[lord_id]
+    conversions = {} if lodya_conversions is None else lodya_conversions
+    if not isinstance(conversions, dict):
+        raise IllegalAction("bad_lodya_conversion", "lodya_conversions must map Lords to conversion choices")
+    for donor_id, choice in conversions.items():
+        donor = state.lords.get(donor_id)
+        if (donor is None or donor.state != "mustered" or donor.side != active.side
+                or donor.location != active.location
+                or not has_lord_capability(state, donor_id, "Lodya")):
+            raise IllegalAction("bad_lodya_conversion", "Lodya conversions require a co-located friendly Lodya Lord")
+        if not isinstance(choice, dict) or set(choice) - {"boats_as_ships", "ships_as_boats"}:
+            raise IllegalAction("bad_lodya_conversion", "use boats_as_ships and/or ships_as_boats")
+        b_to_s = choice.get("boats_as_ships", 0)
+        s_to_b = choice.get("ships_as_boats", 0)
+        if (type(b_to_s) is not int or type(s_to_b) is not int
+                or min(b_to_s, s_to_b) < 0 or b_to_s + s_to_b > 2
+                or b_to_s > donor.assets.get("boat", 0)
+                or s_to_b > donor.assets.get("ship", 0)):
+            raise IllegalAction("bad_lodya_conversion", "Lodya converts at most two available Ships/Boats (R16)")
+    pool = {k: 0 for k in ("boat", "cart", "sled", "ship")}
+    for donor_id, donor in state.lords.items():
+        if donor.state != "mustered" or donor.side != active.side:
+            continue
+        if donor.location == active.location:
+            if donor_id in conversions:
+                # R16 chooses EITHER doubled Boats OR conversions this action.
+                # Converted markers serve only their temporary type, not both.
+                choice = conversions[donor_id]
+                delta = choice.get("boats_as_ships", 0) - choice.get("ships_as_boats", 0)
+                pool["boat"] += int(donor.assets.get("boat", 0)) - delta
+                pool["ship"] += int(donor.assets.get("ship", 0)) + delta
+            else:
+                pool["boat"] += effective_boat_count(state, donor_id)
+                pool["ship"] += effective_ship_count(state, donor_id)
+            pool["cart"] += int(donor.assets.get("cart", 0))
+            pool["sled"] += int(donor.assets.get("sled", 0))
+        elif has_lord_capability(state, donor_id, "Cogs"):
+            pool["ship"] += effective_ship_count(state, donor_id)
+    return pool
+
+
+def _allocate_supply_transport(
+    requirements: list[set[str]], pool: dict[str, int],
+) -> dict[str, int]:
+    """Find a simultaneous allocation; a marker cannot serve two Ways/Sources.
+
+    Automatic selection affects no assets or strategic state. It only proves
+    that the declared routes have sufficient compatible Transport (4.6.2).
+    """
+    from functools import lru_cache
+
+    kinds = ("boat", "cart", "sled", "ship")
+    needs = sorted((tuple(kinds.index(k) for k in kinds if k in options)
+                    for options in requirements), key=len)
+    initial = tuple(pool[k] for k in kinds)
+
+    @lru_cache(maxsize=None)
+    def allocate(i: int, remaining: tuple[int, ...]) -> tuple[int, ...] | None:
+        if i == len(needs):
+            return remaining
+        for k in needs[i]:
+            if remaining[k] > 0:
+                left = list(remaining)
+                left[k] -= 1
+                result = allocate(i + 1, tuple(left))
+                if result is not None:
+                    return result
+        return None
+
+    unused = allocate(0, initial)
+    if unused is None:
+        raise IllegalAction(
+            "insufficient_transport",
+            "Supply needs distinct usable Transport for every Provender on "
+            "every Way, plus Ships for Ship Sources (4.6.2-3)",
+        )
+    return {k: initial[i] - unused[i] for i, k in enumerate(kinds)
+            if initial[i] != unused[i]}
+
+
+def _local_supply_moves(state: GameState, side: Side, lord_id: str) -> list[dict[str, Any]]:
+    """Concrete local Supply choices; other Routes remain caller-declared."""
+    from nevsky.capabilities import has_lord_capability
+
+    lord = state.lords[lord_id]
+    loc_id = lord.location
+    if loc_id is None or _is_besieged(state, lord_id):
+        return []
+    loc = state.locales[loc_id]
+    enemy_marker = loc.russian_conquered if side == "teutonic" else loc.teutonic_conquered
+    if (_unbesieged_enemy_lord_at(state, loc_id, side)
+            or (loc.siege_markers == 0 and (enemy_marker or _has_enemy_stronghold_at(state, loc_id, side)))):
+        return []
+    seats = min(2, _supply_seat_counts(state, lord_id).get(loc_id, 0))
+    famine = ("T16" in state.decks.teutonic.this_campaign_events if side == "russian"
+              else "R7" in state.decks.russian.this_campaign_events)
+    if famine:
+        seats = min(seats, max(0, 1 - state.campaign_turn.seat_supply_this_card))
+    ship_source = (_season_of_box(state.meta.box) in ("summer", "rasputitsa")
+                   and ((side == "russian" and loc_id == "novgorod")
+                        or (side == "teutonic" and load_locales()[loc_id].get("seaport"))))
+    conversions: list[dict[str, Any]] = [{}]
+    if ship_source:
+        for donor_id, donor in state.lords.items():
+            if (donor.state == "mustered" and donor.side == side and donor.location == loc_id
+                    and has_lord_capability(state, donor_id, "Lodya")):
+                conversions.extend({donor_id: {"boats_as_ships": n}}
+                                   for n in range(1, min(2, donor.assets.get("boat", 0)) + 1))
+    moves = []
+    for conversion in conversions:
+        ships = min(2, _supply_transport_pool(state, lord_id, conversion)["ship"]) if ship_source else 0
+        for seat_n in range(seats + 1):
+            for ship_n in range(ships + 1):
+                count = seat_n + ship_n
+                if count == 0 or count > 8 - lord.assets.get("provender", 0):
+                    continue
+                if conversion and ship_n == 0:
+                    continue
+                sources = ([{"locale_id": loc_id, "route": [loc_id], "transport": "auto"}
+                            for _ in range(seat_n)]
+                           + [{"locale_id": loc_id, "route": [loc_id], "transport": "ship"}
+                              for _ in range(ship_n)])
+                args: dict[str, Any] = {"lord_id": lord_id, "sources": sources}
+                if conversion:
+                    args["lodya_conversions"] = conversion
+                moves.append({"type": "cmd_supply", "side": side, "args": args,
+                              "note": f"Supply at {loc_id}: +{count} Provender (4.6, 1 action)"})
+    return moves
+
+
 def _h_cmd_supply(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """4.6: 1 action. +1 Provender per Source via valid Route(s) using
-    enough Transport(s) (2E: 1 Transport per Provender per Way).
+    """4.6: add one Provender per declared Source, costing one action.
 
-    args:
-      lord_id     Active Lord
-      sources     list of {locale_id, route: [<adjacent locales>], transport: <type>}
-                  Each entry adds 1 Provender. Up to 2 Seat sources;
-                  Russians: Novgorod via Ships up to 2 Provender;
-                  Teutons: any Seaport via Ships up to 2 Provender.
-                  For Phase 3a we accept the player-provided declarations
-                  and validate them.
+    sources entries contain locale_id, route (including both ends), transport.
+    transport="ship" selects a Ship Source; otherwise it is the route's default
+    boat/cart/sled type, or "auto" to verify any usable allocation. Optional
+    route_transports lists one boat/cart/sled type per Way, allowing mixed
+    routes. Ship Sources need Ships AND Transport along every intervening Way;
+    without route_transports their route allocation is verified automatically.
     """
     sd = _require_side_player(state, side)
     lord_id = args.get("lord_id", state.campaign_turn.active_lord)
@@ -1452,7 +1606,6 @@ def _h_cmd_supply(
     if not (isinstance(lord_id, str) and isinstance(sources, list)):
         raise IllegalAction("missing_arg", "args.lord_id required, args.sources required (list)")
     _require_active_lord_command(state, sd, lord_id)
-
     lord = state.lords[lord_id]
     if _is_besieged(state, lord_id):
         raise IllegalAction("besieged", "Supply requires Unbesieged Lord")
@@ -1462,173 +1615,95 @@ def _h_cmd_supply(
         raise IllegalAction("insufficient_actions", "Supply costs 1 action")
 
     static_locales = load_locales()
-    ways_list = load_ways()
-    # SMOKE-047 (Round 59): collect ALL Way types between two locales,
-    # not just the last one inserted. Parallel Ways (e.g., dorpat-
-    # odenpah has both trackway and waterway) need each type tracked
-    # so the route's transport_type compatibility check can find a
-    # match instead of being blocked by the arbitrary last-loaded type.
     way_index: dict[tuple[str, str], set[str]] = {}
-    for w in ways_list:
+    for w in load_ways():
         way_index.setdefault((w["a"], w["b"]), set()).add(w["type"])
         way_index.setdefault((w["b"], w["a"]), set()).add(w["type"])
-
     season = _season_of_box(state.meta.box)
-    seat_count = 0
-    ship_count = 0
-    added = 0
-    # SMOKE-089 (Round 94): per rule 4.6 each Source contributes 1
-    # Provender per Supply action. Listing the same locale twice
-    # double-counts the Source against the printed "1 Provender per
-    # Source" rule. Track unique sources to reject duplicates. For
-    # Russian Ship sources, Novgorod can provide up to 2 Provender
-    # in a single action (per the play note), so it counts as a
-    # special exception — Novgorod-Ship can appear up to 2 times.
-    _smoke089_seen_sources: set[tuple[str, str]] = set()
-    _ship_source_count: dict[str, int] = {}
+    winter = season in ("early_winter", "late_winter")
 
+    def check_season(ttype: str) -> None:
+        if ttype in ("ship", "boat") and winter:
+            raise IllegalAction(f"{ttype}_winter", f"{ttype} not usable in Winter (1.7.4)")
+        if ttype == "cart" and season != "summer":
+            raise IllegalAction("cart_non_summer", "Carts usable in Summer only (1.7.4)")
+        if ttype == "sled" and not winter:
+            raise IllegalAction("sled_non_winter", "Sleds usable in Winter only (1.7.4)")
+
+    seat_limits = _supply_seat_counts(state, lord_id)
+    seen_seats: dict[str, int] = {}
+    seat_count = ship_count = added = 0
+    requirements: list[set[str]] = []
     for src in sources:
-        sid = src.get("locale_id")
-        route = src.get("route", [])
-        ttype = src.get("transport")
-        if not isinstance(sid, str) or not isinstance(route, list) or not isinstance(ttype, str):
+        if not isinstance(src, dict):
+            raise IllegalAction("bad_source", "each source must be an object")
+        sid, route, ttype = src.get("locale_id"), src.get("route", []), src.get("transport")
+        if (not isinstance(sid, str) or sid not in static_locales
+                or not isinstance(route, list) or not isinstance(ttype, str)):
             raise IllegalAction("bad_source", "each source: {locale_id, route[], transport}")
-        if ttype not in ("boat", "cart", "sled", "ship"):
+        if ttype not in ("boat", "cart", "sled", "ship", "auto"):
             raise IllegalAction("bad_source", f"unknown transport {ttype}")
-
-        # SMOKE-089 (Round 94): dedupe Source against printed rule.
-        _smoke089_key = (sid, "ship" if ttype == "ship" else "seat")
-        # 2E Supply: a Ship Source may be listed up to 2x -- 1 Provender
-        # per Ship, up to 2 Ships -- for Russians from Novgorod OR Teutons
-        # from any Seaport. All other duplicate Sources are illegal.
-        _two_ship_source = ttype == "ship" and (
-            (sd == "russian" and sid == "novgorod")
-            or (sd == "teutonic" and static_locales.get(sid, {}).get("seaport") is True)
-        )
-        if _smoke089_key in _smoke089_seen_sources:
-            if _two_ship_source and _ship_source_count.get(sid, 1) < 2:
-                _ship_source_count[sid] = _ship_source_count.get(sid, 1) + 1
-            else:
-                raise IllegalAction(
-                    "duplicate_source",
-                    f"Source {sid} (transport={ttype}) already listed; each Source "
-                    f"contributes 1 Provender per Supply action (4.6)",
-                )
-        else:
-            _smoke089_seen_sources.add(_smoke089_key)
-            if _two_ship_source:
-                _ship_source_count[sid] = 1
-
-        # Validate transport seasonality (1.7.4).
+        check_season(ttype)
         if ttype == "ship":
-            if season in ("early_winter", "late_winter"):
-                raise IllegalAction("ship_winter", "Ships not usable in Winter")
+            if ((sd == "russian" and sid != "novgorod")
+                    or (sd == "teutonic" and not static_locales[sid].get("seaport"))):
+                raise IllegalAction("bad_source", "Ship Source must be Novgorod for Russians or a Seaport for Teutons")
             ship_count += 1
-        elif ttype == "boat":
-            if season in ("early_winter", "late_winter"):
-                raise IllegalAction("boat_winter", "Boats only usable in Summer/Rasputitsa")
-        elif ttype == "cart":
-            if season != "summer":
-                raise IllegalAction("cart_non_summer", "Carts usable in Summer only")
-        elif ttype == "sled":
-            # SMOKE-078 (Round 80): per rulebook 1.7.4 / Calendar
-            # reference, "Sleds: Early Winter, Late Winter (any Way)."
-            # Rasputitsa is NOT a Sled season — the rule says "Only
-            # Sleds are usable in Winter, and Sleds are usable only in
-            # Winter." The harness previously accepted sleds in
-            # Rasputitsa for Supply, contradicting the rule.
-            if season not in ("early_winter", "late_winter"):
-                raise IllegalAction("sled_non_winter", "Sleds usable in Winter only (1.7.4)")
-
-        # Source eligibility.
-        if ttype == "ship":
-            if sd == "russian":
-                if sid != "novgorod":
-                    raise IllegalAction("bad_source", "Russian Ship Supply source must be Novgorod")
-            else:  # teutonic
-                if not static_locales[sid].get("seaport"):
-                    raise IllegalAction("bad_source", "Teutonic Ship Supply source must be a Seaport")
-            ship_count += 0  # already counted above
+            requirements.append({"ship"})
         else:
-            # Seat source (own-side mustered Lord's Seat).
-            if sid not in [s for sl in (lord_id,) for s in _all_seats(state, sl)]:
+            if sid not in seat_limits:
                 raise IllegalAction("bad_source", f"{sid} not a Seat of {lord_id}")
+            seen_seats[sid] = seen_seats.get(sid, 0) + 1
+            if seen_seats[sid] > seat_limits[sid]:
+                raise IllegalAction("duplicate_source", f"{sid} has only {seat_limits[sid]} Seat(s) for {lord_id} (4.6.1)")
             seat_count += 1
 
-        # Route validation: chain of adjacent locales from sid -> ... -> lord.location.
-        if not route:
-            raise IllegalAction("bad_route", "route must list intermediate locales (incl. ends)")
-        if route[0] != sid or route[-1] != lord.location:
-            raise IllegalAction("bad_route", "route must start at source and end at Lord's locale")
-        for i in range(len(route) - 1):
-            a, b = route[i], route[i + 1]
+        if (not route or any(not isinstance(loc, str) or loc not in state.locales for loc in route)
+                or route[0] != sid or route[-1] != lord.location):
+            raise IllegalAction("bad_route", "route must list valid Locales from Source to Active Lord")
+        # 4.6.2 applies to the Source too, and to Strongholds even without
+        # enemy Lords or Conquered markers. Besieged enemies do not block.
+        for chk in route:
+            cloc = state.locales[chk]
+            if _unbesieged_enemy_lord_at(state, chk, sd):
+                raise IllegalAction("route_blocked", f"Enemy Lord at {chk} blocks Route (4.6.2)")
+            enemy_marker = cloc.russian_conquered if sd == "teutonic" else cloc.teutonic_conquered
+            if cloc.siege_markers == 0 and (enemy_marker or _has_enemy_stronghold_at(state, chk, sd)):
+                raise IllegalAction("route_blocked", f"Enemy Stronghold or Conquered marker at {chk} blocks Route (4.6.2)")
+
+        chosen = src.get("route_transports")
+        if chosen is not None and (not isinstance(chosen, list) or len(chosen) != len(route) - 1):
+            raise IllegalAction("bad_route_transport", "route_transports must have one Transport type per Way")
+        for i, (a, b) in enumerate(zip(route, route[1:])):
             wtypes = way_index.get((a, b))
             if not wtypes:
                 raise IllegalAction("bad_route", f"no Way between {a} and {b}")
-            # SMOKE-047: Transport-Way compatibility (1.7.4). Accept the
-            # route segment if ANY available Way type matches the
-            # transport's constraints.
-            if ttype == "boat" and "waterway" not in wtypes:
-                raise IllegalAction("transport_way", "Boats use only Waterways")
-            if ttype == "cart" and "trackway" not in wtypes:
-                raise IllegalAction("transport_way", "Carts use only Trackways")
-            # sleds, ships fine for any (within seasonal limits)
-            # Route may not enter enemy Lord/Stronghold/Conquered locale unless Besieged there.
-            for chk in (a, b):
-                if chk in (sid, lord.location):
-                    continue
-                cloc = state.locales[chk]
-                if (sd == "teutonic" and cloc.russian_conquered > 0) or (sd == "russian" and cloc.teutonic_conquered > 0):
-                    if cloc.siege_markers == 0:
-                        raise IllegalAction("route_blocked", f"Route blocked at {chk}")
-                # Enemy Lord present?
-                # SMOKE-019 (Round 33): use _is_besieged on the specific
-                # Lord, not locale-level siege_markers.
-                for ol_id, ol in state.lords.items():
-                    if ol.state == "mustered" and ol.side != sd and ol.location == chk:
-                        if not _is_besieged(state, ol_id):
-                            raise IllegalAction("route_blocked", f"Enemy Lord at {chk} blocks Route")
-
+            usable: set[str] = set()
+            if winter:
+                usable.add("sled")
+            else:
+                if "waterway" in wtypes:
+                    usable.add("boat")
+                if season == "summer" and "trackway" in wtypes:
+                    usable.add("cart")
+            selected = chosen[i] if chosen is not None else (ttype if ttype not in ("auto", "ship") else None)
+            if selected is not None:
+                if selected not in ("boat", "cart", "sled"):
+                    raise IllegalAction("bad_route_transport", "Ways require boat, cart, or sled Transport (1.7.4)")
+                check_season(selected)
+                if selected not in usable:
+                    raise IllegalAction("transport_way", f"{selected} cannot serve {a}-{b} (1.7.4)")
+                usable = {selected}
+            requirements.append(usable)
         added += 1
 
     if seat_count > 2:
         raise IllegalAction("too_many_seat_sources", "max 2 Seat sources (4.6.1)")
     if ship_count > 2:
-        raise IllegalAction("too_many_ship_sources", "max 2 Ship sources")
-
-    # SMOKE-048 (Round 60): 4.6 Transport count validation per 2E:
-    # "1 usable Transport required per Provender per Way of each Route.
-    # Transports cannot do double duty across multiple Sources or
-    # multiple Provender." Pool counts from the active Lord and co-
-    # located own-side Lords (1.5.2 sharing). Ships always count for
-    # ship-sourced supply; non-ship sources use the matching
-    # ground/water transport.
-    transport_needed: dict[str, int] = {}
-    for src in sources:
-        ttype = src["transport"]
-        route_len = max(0, len(src["route"]) - 1)
-        if ttype == "ship":
-            # Ship sources: 1 ship per source (Sea route is direct).
-            transport_needed["ship"] = transport_needed.get("ship", 0) + 1
-        else:
-            transport_needed[ttype] = transport_needed.get(ttype, 0) + route_len
-    if transport_needed:
-        # Pool from active Lord + co-located own-side Lords.
-        pool: dict[str, int] = {}
-        for _ol_id, ol in state.lords.items():
-            if ol.state != "mustered" or ol.side != sd:
-                continue
-            if ol.location != lord.location:
-                continue
-            for k in ("boat", "cart", "sled", "ship"):
-                pool[k] = pool.get(k, 0) + int(ol.assets.get(k, 0))
-        for k, need in transport_needed.items():
-            avail = pool.get(k, 0)
-            if avail < need:
-                raise IllegalAction(
-                    "insufficient_transport",
-                    f"Supply needs {need} {k}(s); shared pool has {avail} (4.6 2E)",
-                )
+        raise IllegalAction("too_many_ship_sources", "max 2 Ship sources (4.6.3)")
+    transport_used = _allocate_supply_transport(
+        requirements, _supply_transport_pool(state, lord_id, args.get("lodya_conversions")),
+    )
 
     # SMOKE-030: T16 Famine (against Russian) / R7 Famine (against
     # Teutonic) cap Seat-sourced Provender at 1 per Command card.
@@ -1657,7 +1732,8 @@ def _h_cmd_supply(
     return ({"lord_id": lord_id, "added": final_added,
              "lost_to_cap": added + famine_seats_dropped - final_added,
              "famine_seats_dropped": famine_seats_dropped,
-             "famine_active": famine_against_us}, [])
+             "famine_active": famine_against_us,
+             "transport_used": transport_used}, [])
 
 
 def _all_seats(state: GameState, lord_id: str) -> list[str]:

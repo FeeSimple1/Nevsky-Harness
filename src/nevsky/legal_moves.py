@@ -1517,9 +1517,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                                         "note": f"Raiders: Ravage {_dest_rr} (1 action)"})
             except (ImportError, KeyError, AttributeError, FileNotFoundError):
                 pass
+        from nevsky.campaign import _local_supply_moves
+        out.extend(_local_supply_moves(state, side, active_lord))
         out.append({"type": "cmd_supply", "side": side,
-                    "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport}]"},
-                    "note": "Supply (1 action)"})
+                    "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport, route_transports?}]"},
+                    "note": "Supply along declared Routes (4.6, 1 action)"})
         # R223 (GPT-5.5 Crusade self-play, turn 82): Sail was emitted as a
         # single TEMPLATE move (args_template, no concrete args). An
         # index-driven LLM driver can't fill the template, so apply()
