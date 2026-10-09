@@ -29,6 +29,8 @@ Campaign actions.
   (validated: in play for that side, no duplicates, at most the excess
   count; cascade cleanup per SMOKE-031 applies). Unnamed excess falls
   back to the deterministic tail-drop.
+  Arts of War cannot be advanced until the side has drawn its cards
+  and implemented every pending card, including any opponent-owned choice.
 
 ## 3.1 Arts of War
 
@@ -47,6 +49,11 @@ Campaign actions.
     (Event) per 3.1.3. Hold events go to `holds`; this-Levy events
     go to `this_levy_events`; this-Campaign events go to
     `this_campaign_events`; immediate events resolve and discard.
+  - R9 Osilian Revolt: the Russian implementation reveals the Event
+    and pauses for the Teutonic player. The Teutonic player submits
+    `aow_implement_card` with `args.card_id = "R9"` and `args.target`
+    naming an offered Lord. Resolution returns control to Russia;
+    the Russian player cannot select the Teutonic target.
   - No-Event / No-Capability cards: removed from play permanently
     per 3.1.3 (2E). Crusade-on-Novgorod scenario retains them via
     the `keep_no_event_cards` special rule.
@@ -205,10 +212,23 @@ Besieged Lords cannot Muster.
   8). Validates: source eligibility (own Seat, or Russian Novgorod /
   Teutonic any-Seaport via Ships), Way-type compatibility (Boats =
   Waterways, Carts = Trackways, Sleds = any), seasonality (Carts
-  Summer only; Sleds Winter/Rasputitsa; Boats/Ships not Winter),
-  route adjacency, no enemy block on intermediate locales (unless
+  Summer only; Sleds Winter only; Boats/Ships not Winter),
+  route adjacency, no enemy block on any route locale, including its source (unless
   the enemy is Besieged there). 2E rule: 1 Transport per Provender
   per Way of each Route.
+  Optional `route_transports` lists one Boat/Cart/Sled type per Way
+  for routes that mix transport types. `transport: "auto"` selects a
+  Seat source and finds a valid allocation; `transport: "ship"`
+  selects a ship source and also requires transport for any intervening
+  Ways. Ships provide the source, not overland carriage. The result
+  includes `transport_used`. Cogs and Lodya apply to usable capacity;
+  additional Seats at the same Locale count separately, subject to the
+  two-Seat source limit.
+  Lodya defaults to doubled Boats. To convert transport for this action,
+  supply `args.lodya_conversions`, keyed by eligible co-located Lord:
+  `{"domash": {"boats_as_ships": 1}}` (or `ships_as_boats`). At most
+  two markers per Lord convert; choosing conversions replaces doubled
+  Boats for that Lord, and no marker supplies both capacities.
 
 ### 4.9 End Campaign
 
@@ -306,8 +326,11 @@ distributed to the opposing Lord's units; each Hit triggers a
 Protection roll (Armor / Evade / Unarmored / Serfs=none). Failed
 Protection rolls Rout (and remove) the unit.
 
-Battle ends when one side has no active units (or after a stalemate
-threshold). Aftermath:
+Battle ends when a side Concedes or all its Lords Rout. Successful
+Protection rolls do not impose a round limit. Explicitly bounded
+simulation calls may return an incomplete result without a winner;
+the emergency engine bound raises an error rather than awarding victory.
+Aftermath:
 
 - Loser Lords with zero remaining units are permanently removed
   (1.5.1); their Assets (except Ships) transfer to a winner Lord.
@@ -464,8 +487,8 @@ are reset at `command_reveal` so per-card capability budgets work.
 - **Cogs** (T18, this-lord) / **Lodya** (R16, this-lord):
   `effective_ship_count(state, lord_id)` and
   `effective_boat_count(state, lord_id)` apply doublers. R9 Baltic
-  Sea Trade ship comparison uses these. Sail / Supply ship validation
-  is left for Phase 4 refinement.
+  Sea Trade ship comparison uses these. Supply also applies transport
+  capabilities and Cogs' permission to share Ships from another Locale.
 - **Hillforts of the Sword Brethren** (T8, side-wide): one Unbesieged
   Teutonic Lord in `crusader_livonia` skips Feed (records
   `hillforts_skipped: True`). The owner may pick which via

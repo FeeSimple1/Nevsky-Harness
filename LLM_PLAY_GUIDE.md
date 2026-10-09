@@ -207,6 +207,9 @@ locales in a quiet Campaign.
 - First Levy: drawn cards implement as Capabilities (tuck under a
   Lord). PICK WISELY — `lookup_card()` each card.
 - Subsequent Levies: drawn cards implement as Events (top half).
+- Draw and implement before advancing. Osilian Revolt temporarily
+  hands its target choice to the Teutonic player, then returns control
+  to the Russian drawer.
 
 ### Levy / Pay (3.2)
 - Spend Coin to push Service markers right. Compare each Lord's
@@ -322,8 +325,8 @@ locales in a quiet Campaign.
   capability with `discard_capability` naming the one to shed.
 
 ### Storm / Sally / Siege (4.5)
-- Entire-card actions. Plan for them in advance — they need full
-  Command card.
+- Siege requires a full Command card. Storm and Sally cost one action;
+  Recovery ends the card after the Attack (D-Q010).
 
 ---
 
