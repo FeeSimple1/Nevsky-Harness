@@ -321,6 +321,18 @@ def _other(side: Side) -> Side:
 # ---------------------------------------------------------------------------
 
 
+def _pending_aow_choice(state: GameState):
+    """An Event may assign its target choice to the non-drawing player."""
+    return next((pd for pd in state.pending_decisions
+                 if pd.kind == "aow_event_choice"), None)
+
+
+def _require_no_aow_choice(state: GameState) -> None:
+    if _pending_aow_choice(state) is not None:
+        raise IllegalAction("pending_event_choice",
+                            "resolve the pending Arts of War Event choice first")
+
+
 def _h_advance_step(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -334,6 +346,7 @@ def _h_advance_step(
     sd = _require_side_player(state, side)
     _require_levy_phase(state)
     _require_active(state, sd)
+    _require_no_aow_choice(state)
 
     # R199 (SMOKE-131): during Arts of War, a side may not advance while
     # it still owes implementation of drawn cards. SoP 3.1.2/3.1.3:
@@ -376,6 +389,11 @@ def _h_advance_step(
             "cannot advance: implement (or resolve/discard) pending AoW "
             "cards first (SoP 3.1.2/3.1.3)",
         )
+    if (state.meta.levy_step == "arts_of_war"
+            and not (state.meta.aow_drawn_t if sd == "teutonic"
+                     else state.meta.aow_drawn_r)):
+        raise IllegalAction("must_draw_aow",
+                            "draw and implement this Levy's Arts of War cards first (3.1)")
 
     if sd == "teutonic":
         if state.meta.levy_step_completed_t:
@@ -572,6 +590,7 @@ def _h_aow_shuffle(
     _require_levy_phase(state)
     _require_levy_step(state, "arts_of_war")
     _require_active(state, sd)
+    _require_no_aow_choice(state)
 
     deck = _side_deck(state, sd)
     pool = deck.deck + deck.discard
@@ -589,6 +608,7 @@ def _h_aow_draw(
     _require_levy_phase(state)
     _require_levy_step(state, "arts_of_war")
     _require_active(state, sd)
+    _require_no_aow_choice(state)
 
     deck = _side_deck(state, sd)
     if deck.pending_draw:
@@ -698,6 +718,28 @@ def _h_aow_implement_card(
     _require_levy_step(state, "arts_of_war")
     _require_active(state, sd)
 
+    choice = _pending_aow_choice(state)
+    if choice is not None:
+        # R9 Osilian Revolt explicitly gives this choice to Teutons,
+        # although Russians drew the Event (AoW R9; 3.1.4 exception).
+        if sd != choice.owed_by or args.get("card_id", "R9") != "R9":
+            raise IllegalAction("wrong_actor", "Teutons must resolve the pending R9 choice")
+        target = args.get("target")
+        if target not in choice.context["targets"]:
+            raise IllegalAction("bad_target", "select a target offered by the pending R9 choice")
+        from nevsky.events import resolve_immediate_event
+        drawing_side = choice.context["drawing_side"]
+        drawing_deck = _side_deck(state, drawing_side)
+        if not drawing_deck.pending_draw or drawing_deck.pending_draw[0] != "R9":
+            raise IllegalAction("missing_pending_card", "pending R9 card is unavailable")
+        result = resolve_immediate_event(state, "R9", args)
+        drawing_deck.pending_draw.pop(0)
+        drawing_deck.discard.append("R9")
+        state.pending_decisions.remove(choice)
+        state.meta.active_player = drawing_side
+        return ({"card": "R9", "outcome": "immediate_event_discarded",
+                 "effect": result, "active_player": drawing_side}, [])
+
     deck = _side_deck(state, sd)
     if not deck.pending_draw:
         raise IllegalAction("nothing_to_implement", "pending_draw is empty")
@@ -705,6 +747,21 @@ def _h_aow_implement_card(
     cards = load_cards()
     cid = deck.pending_draw[0]
     card = cards[cid]
+    if cid == "R9" and state.meta.first_levy_done:
+        targets = [lid for lid in ("andreas", "heinrich")
+                   if (_find_service_marker_box(state, lid) or 0) >= 2]
+        if targets:
+            if "target" in args:
+                raise IllegalAction("wrong_chooser", "Teutons choose the R9 target; reveal the card first")
+            from nevsky.state import PendingDecision
+            state.pending_decisions.append(PendingDecision(
+                kind="aow_event_choice", owed_by="teutonic",
+                note="Osilian Revolt: choose Andreas or Heinrich's Service to shift left.",
+                context={"card_id": "R9", "drawing_side": sd, "targets": targets},
+            ))
+            state.meta.active_player = "teutonic"
+            return ({"card": "R9", "outcome": "awaiting_event_choice",
+                     "owed_by": "teutonic", "targets": targets}, [])
     # SMOKE-010 fix: do NOT pop pending_draw yet. Pop after success so
     # a failed resolver leaves state consistent.
 

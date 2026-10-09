@@ -202,6 +202,7 @@ def test_q_001_hotspot_does_not_auto_confirm() -> None:
     s = load_scenario("pleskau", seed=0)
     apply_action(s, {"type": "aow_shuffle", "side": "teutonic", "args": {}})
     # russian's first Levy action.
+    s.meta.aow_drawn_t = True  # Fixture skips completed draw/implementation.
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "aow_shuffle", "side": "russian", "args": {}})
     # vladislav decision persists (hotspot).

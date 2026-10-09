@@ -80,7 +80,12 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
                     if _smb is not None and _smb <= _levy_box_ds:
                         _owes_disband = True
                         break
-        if not (step == "arts_of_war" and _sd_deck.pending_draw) and not _owes_disband:
+        from nevsky.actions import _pending_aow_choice
+        _owes_aow = (step == "arts_of_war" and (
+            _sd_deck.pending_draw
+            or not (state.meta.aow_drawn_t if side == "teutonic" else state.meta.aow_drawn_r)
+            or _pending_aow_choice(state) is not None))
+        if not _owes_aow and not _owes_disband:
             moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))
@@ -89,6 +94,13 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
 
 def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    from nevsky.actions import _pending_aow_choice
+    choice = _pending_aow_choice(state)
+    if choice is not None:
+        return [{"type": "aow_implement_card", "side": side,
+                 "args": {"card_id": "R9", "target": target},
+                 "note": "Teutons choose Osilian Revolt's target (AoW R9)"}
+                for target in choice.context["targets"] if side == choice.owed_by]
     sd = state.decks.teutonic if side == "teutonic" else state.decks.russian
     # SMOKE-124 (Round 190): need cards static data for capability scope check.
     cards = load_cards()
@@ -145,6 +157,10 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                             f"— no Mustered own-side Lord matches "
                             f"coats of arms (3.1.2 bullet)",
                 })
+        elif not is_capability_phase and cid_pending == "R9":
+            out.append({"type": "aow_implement_card", "side": side,
+                        "args": {"card_id": "R9"},
+                        "note": "Reveal Osilian Revolt; Teutons choose its target (AoW R9)"})
         elif not is_capability_phase:
             # R202: subsequent Levy -> the pending card implements as an
             # Event (3.1.3). Events are mandatory when targetable
@@ -197,8 +213,9 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             # meaningful move whenever the deck is non-empty.
             if not sd.deck and sd.discard:
                 out.append({"type": "aow_shuffle", "side": side, "args": {}})
-            if sd.deck:
-                out.append({"type": "aow_draw", "side": side, "args": {}})
+            # Even an exhausted deck must complete the once-per-Levy draw
+            # action (drawing zero), so the mandatory-draw gate can clear.
+            out.append({"type": "aow_draw", "side": side, "args": {}})
     return out
 
 

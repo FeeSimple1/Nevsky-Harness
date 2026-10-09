@@ -37,6 +37,7 @@ def test_levy_disband_permanent_remove_from_off_left_service():
     """3.3.1: Lord whose Service marker is at off_left_service is
     permanently removed when the Disband step resolves."""
     s = load_scenario("crusade_on_novgorod", seed=1)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True  # Fixture: AoW completed before Pay/Disband.
     # Ensure hermann is Mustered and his service marker is off_left.
     hermann = s.lords["hermann"]
     hermann.state = "mustered"
@@ -60,6 +61,7 @@ def test_levy_disband_at_levy_box_disbands_not_removes():
     """3.3.2 contrast: marker AT the Levy box -> at-limit Disband
     (not permanent remove)."""
     s = load_scenario("crusade_on_novgorod", seed=1)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     hermann = s.lords["hermann"]
     hermann.state = "mustered"
     hermann.location = "dorpat"

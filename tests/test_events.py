@@ -160,9 +160,9 @@ def test_r16_with_cogs_removes_half_round_up() -> None:
     s.lords[teu].assets["ship"] = 5
     s.lords[teu].this_lord_capabilities = ["T18"]  # Cogs
     res = resolve_immediate_event(s, "R16", {"target": teu})
-    # Half rounded up of 5 kept = 3; removed = 2.
-    assert res["ships_removed"] == 2
-    assert s.lords[teu].assets["ship"] == 3
+    # Half rounded up of 5 REMOVED = 3; kept = 2 (AoW R16).
+    assert res["ships_removed"] == 3
+    assert s.lords[teu].assets["ship"] == 2
 
 
 # --- T14 / R18 Bountiful Harvest --------------------------------------------

@@ -52,6 +52,14 @@ def safe_fallback_for_side(state, side: str) -> dict:
     levy_step = state.meta.levy_step
     camp_step = state.meta.campaign_step
     if phase == "levy":
+        if levy_step == "arts_of_war":
+            # Draw/reveal/resolve are mandatory. Reuse the current palette
+            # so an Event awaiting the other player's choice also resumes.
+            moves = legal_actions_for_side(state, side)
+            for kind in ("aow_draw", "aow_implement_card", "advance_step"):
+                action = next((m for m in moves if m["type"] == kind), None)
+                if action is not None:
+                    return {k: action[k] for k in ("type", "side", "args")}
         if levy_step == "call_to_arms" and side == "teutonic":
             return {"type": "legate_skip", "side": side, "args": {}}
         if levy_step == "disband":

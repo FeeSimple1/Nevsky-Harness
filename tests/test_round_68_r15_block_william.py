@@ -15,6 +15,7 @@ from nevsky.scenarios import load_scenario
 
 
 def _to_muster_step(s):
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True  # AoW effects are set up by each fixture.
     for _ in range(3):
         apply_action(s, {"type": "advance_step", "side": "teutonic"})
         apply_action(s, {"type": "advance_step", "side": "russian"})
@@ -46,6 +47,7 @@ def test_r15_flag_clears_on_levy_to_campaign_transition():
     _ev_death_of_pope(s, {})
     assert s.meta.special_rules.get("block_william_of_modena_this_levy") is True
     # Advance Levy through to Campaign (full 5 step transitions)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     for _ in range(5):
         apply_action(s, {"type": "advance_step", "side": "teutonic"})
         apply_action(s, {"type": "advance_step", "side": "russian"})

@@ -24,6 +24,7 @@ def _setup_summer_levy_at_muster_entry():
     the auto-fire.
     """
     s = load_scenario("crusade_on_novgorod", seed=1)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True  # Fixture starts after AoW implementation.
     assert _season_of_box(s.meta.box) == "summer"
     s.decks.teutonic.capabilities_in_play.append("T11")
     # Force Andreas mustered (default he's on Calendar)
@@ -58,6 +59,7 @@ def test_t11_restores_lost_knights_when_sc_already_mustered():
     """Rudolf already Mustered with SC, lost knights → next Summer Levy
     restores knights up to SC Vassal marker count."""
     s = load_scenario("crusade_on_novgorod", seed=1)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     assert _season_of_box(s.meta.box) == "summer"
     s.decks.teutonic.capabilities_in_play.append("T11")
     rudolf = s.lords["rudolf"]
@@ -94,6 +96,7 @@ def test_t11_skips_besieged_lord():
 def test_t11_skips_unmustered_lord():
     """Lord not Mustered → no auto-muster."""
     s = load_scenario("crusade_on_novgorod", seed=1)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     s.decks.teutonic.capabilities_in_play.append("T11")
     # Andreas is Ready by default (on calendar), not Mustered
     andreas = s.lords["andreas"]
@@ -111,6 +114,7 @@ def test_t11_skips_unmustered_lord():
 def test_t11_does_not_fire_in_non_summer_levy():
     """Non-Summer Levy → no T11 auto-fire even with T11 in play."""
     s = load_scenario("watland", seed=1)  # box 4 = early_winter
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     assert _season_of_box(s.meta.box) != "summer"
     s.decks.teutonic.capabilities_in_play.append("T11")
     andreas = s.lords["andreas"]

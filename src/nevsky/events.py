@@ -204,6 +204,11 @@ def _ev_torzhok(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
             "asset_order",
             ["coin", "loot", "provender", "boat", "cart", "sled", "ship"],
         )
+        if (not isinstance(order, list)
+                or any(k not in ("coin", "loot", "provender", "boat", "cart", "sled", "ship")
+                       for k in order)
+                or len(order) != len(set(order))):
+            raise IllegalAction("bad_asset_order", "asset_order must list distinct Asset types")
         removed: dict[str, int] = {}
         n = 3
         for k in order:
@@ -212,11 +217,17 @@ def _ev_torzhok(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
             have = d.assets.get(k, 0)
             take = min(have, n)
             if take > 0:
-                d.assets[k] = have - take
-                if d.assets[k] == 0:
-                    del d.assets[k]
                 removed[k] = take
                 n -= take
+        # T2 permits choosing the poorer target, but not declining Assets
+        # that the selected target actually has (AoW T2; 3.1.4 Greed).
+        if sum(removed.values()) != min(3, sum(d.assets.values())):
+            raise IllegalAction("insufficient_asset_selection",
+                                "asset_order must remove 3 Assets, or all if Domash has fewer")
+        for k, take in removed.items():
+            d.assets[k] -= take
+            if d.assets[k] == 0:
+                del d.assets[k]
         return {"event": "T2", "target": "domash", "removed": removed}
     raise IllegalAction("missing_arg", "args.target must be 'domash' or 'veche'")
 
@@ -282,7 +293,23 @@ def _ev_swedish_crusade(state: GameState, args: dict[str, Any]) -> dict[str, Any
     targets dict must use only these lord_ids.
     """
     direction = args.get("direction", "left")
-    targets = args.get("targets", {"vladislav": "cylinder", "karelians": "cylinder"})
+    if direction not in ("left", "right"):
+        raise IllegalAction("bad_direction", "direction must be left or right")
+    cal = state.calendar
+    def reachable(lid, kind):
+        if kind == "service":
+            return (lid in cal.off_left_service or lid in cal.off_right_service
+                    or any(lid in cb.service_markers for cb in cal.boxes))
+        return (lid in cal.off_left or lid in cal.off_right
+                or any(lid in cb.cylinders for cb in cal.boxes))
+    required = {
+        lid: "cylinder" if reachable(lid, "cylinder") else "service"
+        for lid in ("vladislav", "karelians")
+        if reachable(lid, "cylinder") or reachable(lid, "service")
+    }
+    targets = args.get("targets", required)
+    if not isinstance(targets, dict):
+        raise IllegalAction("bad_targets", "targets must map Lords to cylinder or service")
     # SMOKE-083 (Round 87): validate event_eligibility targets per
     # AoW Reference. T18 only affects Vladislav and Karelians; any
     # other target is an illegal action per the printed event
@@ -294,17 +321,17 @@ def _ev_swedish_crusade(state: GameState, args: dict[str, Any]) -> dict[str, Any
                 "ineligible_target",
                 f"T18 Swedish Crusade targets only {sorted(_ELIGIBLE)}; got {lid!r}",
             )
+        if targets[lid] not in ("cylinder", "service"):
+            raise IllegalAction("bad_targets", "target kinds must be cylinder or service")
+    # BOTH Lords must shift whenever either of their markers exists. Do
+    # not silently skip a mustered Lord because a cylinder was requested.
+    for lid in required:
+        if lid not in targets or not reachable(lid, targets[lid]):
+            raise IllegalAction("missing_target", f"T18 must shift {lid}'s Calendar marker")
     # SMOKE-121 (Round 187): per-target reachability — skip targets
     # that aren't on Calendar instead of raising. If both are off-
     # Calendar, the event no-ops entirely (same family as
     # SMOKE-112/113/114/120).
-    cal = state.calendar
-    def reachable(lid, kind):
-        if kind == "service":
-            return (lid in cal.off_left_service or lid in cal.off_right_service
-                    or any(lid in cb.service_markers for cb in cal.boxes))
-        return (lid in cal.off_left or lid in cal.off_right
-                or any(lid in cb.cylinders for cb in cal.boxes))
     out: dict[str, int] = {}
     skipped: list[str] = []
     for lid, kind in targets.items():
@@ -551,8 +578,15 @@ def _ev_batu_khan(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     boxes = int(args.get("boxes", 2))
     if target not in ("andreas", "service:andreas"):
         raise IllegalAction("missing_arg", "args.target required")
-    if not 1 <= boxes <= 2:
-        raise IllegalAction("bad_boxes", "boxes must be 1 or 2")
+    if not 0 <= boxes <= 2:
+        raise IllegalAction("bad_boxes", "boxes must be 0, 1, or 2")
+    if boxes == 0:
+        from nevsky.actions import _find_cylinder_box, _find_service_marker_box
+        new = (_find_service_marker_box(state, "andreas") if target.startswith("service:")
+               else _find_cylinder_box(state, "andreas"))
+        if new is None:
+            raise IllegalAction("ineligible_target", f"{target} is not on Calendar")
+        return {"event": "R10", "target": target, "new_box": new}
     if target.startswith("service:"):
         new = _shift_service(state, "andreas", boxes, direction)
     else:
@@ -638,9 +672,9 @@ def _ev_tempest(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
 
     n = state.lords[target].assets.get("ship", 0)
     if has_lord_capability(state, target, "Cogs"):
-        # Keep half rounded up.
-        keep = (n + 1) // 2
-        removed = n - keep
+        # R16 removes half rounded UP; the surviving half rounds down.
+        removed = (n + 1) // 2
+        keep = n - removed
         if keep == 0:
             state.lords[target].assets.pop("ship", None)
         else:

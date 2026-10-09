@@ -123,24 +123,16 @@ def step(s, act, expect_illegal=False):
 
 
 def implement_drawn(s, side):
-    cards = load_cards()
     deck = s.decks.teutonic if side == "teutonic" else s.decks.russian
     while deck.pending_draw:
-        cid = deck.pending_draw[0]
-        c = cards[cid]
-        scope = c["capability_scope"]
-        if scope == "side_wide":
-            r = step(s, {"type": "aow_implement_card", "side": side, "args": {}})
-        elif scope == "this_lord":
-            pin = next((lid for lid, l in s.lords.items()
-                         if l.side == side and l.state == "mustered"), None)
-            if pin is None:
-                deck.pending_draw.pop(0); deck.discard.append(cid); continue
-            r = step(s, {"type": "aow_implement_card", "side": side, "args": {"lord_id": pin}})
-        else:
-            deck.pending_draw.pop(0); deck.discard.append(cid); continue
-        if r is None and deck.pending_draw and deck.pending_draw[0] == cid:
-            deck.pending_draw.pop(0); deck.discard.append(cid)
+        # Event target choice can belong to the opponent (R9). Follow the
+        # current actor's concrete palette, then return to the drawing side;
+        # never discard a rejected card by directly mutating the deck.
+        options = [m for m in legal_moves(s, with_previews=False)
+                   if m["type"] == "aow_implement_card"]
+        if not options:
+            raise AssertionError(f"no implementation for {deck.pending_draw[0]}")
+        apply_action(s, options[0])
 
 
 def levy_phase(s):

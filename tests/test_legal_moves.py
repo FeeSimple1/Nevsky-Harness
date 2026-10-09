@@ -6,10 +6,13 @@ from nevsky.legal_moves import legal_moves
 from nevsky.scenarios import load_scenario
 
 
-def test_legal_moves_advance_step_always_present() -> None:
+def test_legal_moves_advance_step_requires_completed_aow_draw() -> None:
     s = load_scenario("watland", seed=42)
     moves = legal_moves(s)
-    assert any(m["type"] == "advance_step" and m["side"] == "teutonic" for m in moves)
+    assert not any(m["type"] == "advance_step" for m in moves)
+    s.meta.aow_drawn_t = True  # Fixture: mandatory draw and implementation completed.
+    assert any(m["type"] == "advance_step" and m["side"] == "teutonic"
+               for m in legal_moves(s))
 
 
 def test_legal_moves_aow_step_offers_shuffle_or_draw() -> None:

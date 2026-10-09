@@ -188,17 +188,16 @@ def test_session_rejects_wrong_side_action():
 
 def test_session_apply_records_history():
     s = LLMSession.start_new("watland", llm_side="teutonic", seed=1)
-    # Advance step (legal move for active player)
-    s.apply({"type": "advance_step", "args": {}}, who="llm",
-            reasoning="finishing AoW step")
+    s.apply({"type": "aow_draw", "args": {}}, who="llm",
+            reasoning="drawing required AoW cards")
     assert len(s.history) == 1
     assert s.history[0]["who"] == "llm"
-    assert s.history[0]["reasoning"] == "finishing AoW step"
+    assert s.history[0]["reasoning"] == "drawing required AoW cards"
 
 
 def test_session_save_and_load_round_trip():
     s = LLMSession.start_new("watland", llm_side="teutonic", seed=1)
-    s.apply({"type": "advance_step", "args": {}}, who="llm")
+    s.apply({"type": "aow_draw", "args": {}}, who="llm")
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         path = f.name
     try:
@@ -275,12 +274,12 @@ def test_preview_combat_runs_with_human_request():
 # ---------- safe_fallback_for_side ----------------------------------------
 
 
-def test_safe_fallback_levy_returns_advance_step():
+def test_safe_fallback_levy_completes_required_draw():
     s = load_scenario("watland", seed=1)
     s.meta.phase = "levy"
     s.meta.levy_step = "arts_of_war"
     fb = safe_fallback_for_side(s, "teutonic")
-    assert fb["type"] == "advance_step"
+    assert fb["type"] == "aow_draw"
 
 
 def test_safe_fallback_cta_teutonic_returns_legate_skip():
@@ -305,13 +304,13 @@ def test_safe_fallback_plan_returns_pass_card():
 
 def test_review_artifact_structure():
     s = LLMSession.start_new("watland", llm_side="teutonic", seed=1)
-    s.apply({"type": "advance_step", "args": {}}, who="llm",
-            reasoning="finishing AoW step")
+    s.apply({"type": "aow_draw", "args": {}}, who="llm",
+            reasoning="drawing required AoW cards")
     art = build_review_artifact(s)
     assert art["scenario"] == "watland"
     assert art["llm_side"] == "teutonic"
     assert art["total_actions"] == 1
-    assert "advance_step" in art["action_counts"]
+    assert "aow_draw" in art["action_counts"]
     assert len(art["llm_reasoning_log"]) == 1
 
 

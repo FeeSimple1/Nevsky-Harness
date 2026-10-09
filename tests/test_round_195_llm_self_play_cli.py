@@ -51,8 +51,7 @@ def test_briefing_actions_apply_by_index(tmp_path):
     assert "Phase" in briefing
     actions_out = _run(sf, "actions")
     assert "legal action" in actions_out
-    # advance_step is always present in Arts-of-War. Pick it.
-    # Just pick index 0 — any legal move advances state.
+    # The initial Arts-of-War draw is mandatory and offered at index 0.
     out = _run(sf, "apply", "0")
     assert "applied:" in out
     history_out = _run(sf, "history", "-n", "5")
@@ -62,8 +61,8 @@ def test_briefing_actions_apply_by_index(tmp_path):
 def test_apply_json_action(tmp_path):
     sf = tmp_path / "g.json"
     _run(sf, "start", "pleskau", "--seed", "1")
-    out = _run(sf, "apply", '{"type":"advance_step","args":{}}')
-    assert "applied:" in out and "advance_step" in out
+    out = _run(sf, "apply", '{"type":"aow_draw","args":{}}')
+    assert "applied:" in out and "aow_draw" in out
 
 
 def test_terminal_command_returns_json(tmp_path):

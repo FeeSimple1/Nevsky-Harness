@@ -123,8 +123,9 @@ def test_legal_moves_returns_json(tmp_path: Path) -> None:
     import json
     moves = json.loads(result.stdout)
     assert isinstance(moves, list)
-    # advance_step is always available
-    assert any(m["type"] == "advance_step" for m in moves)
+    # The opening Arts of War draw is mandatory before advancing.
+    assert any(m["type"] == "aow_draw" for m in moves)
+    assert not any(m["type"] == "advance_step" for m in moves)
 
 
 def test_do_rejects_invalid_action(tmp_path: Path) -> None:

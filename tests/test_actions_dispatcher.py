@@ -18,6 +18,7 @@ def test_dispatcher_rejects_unknown_action() -> None:
 def test_dispatcher_appends_history_with_sequence() -> None:
     """BRIEF: every action records a HistoryEntry with sequence."""
     s = load_scenario("watland", seed=42)
+    s.meta.aow_drawn_t = True  # Fixture begins after this side's mandatory draw/implementation.
     pre_seq = s.meta.sequence
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     assert s.meta.sequence == pre_seq + 1
@@ -28,6 +29,7 @@ def test_dispatcher_appends_history_with_sequence() -> None:
 def test_advance_step_transitions_t_then_r_then_next_step() -> None:
     """SoP 2.2.4: T-then-R within each step. Both must complete to advance."""
     s = load_scenario("watland", seed=42)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     assert s.meta.levy_step == "arts_of_war"
     assert s.meta.active_player == "teutonic"
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
@@ -40,6 +42,7 @@ def test_advance_step_transitions_t_then_r_then_next_step() -> None:
 
 def test_advance_step_resets_lordship_at_muster() -> None:
     s = load_scenario("watland", seed=42)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     # Skip arts_of_war, pay, disband all the way to muster.
     for _ in range(3):
         apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
@@ -51,6 +54,7 @@ def test_advance_step_resets_lordship_at_muster() -> None:
 
 def test_advance_step_resets_call_to_arms_flags() -> None:
     s = load_scenario("watland", seed=42)
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True
     # Pre-set flags then advance into call_to_arms.
     s.legate.acted_this_call_to_arms = True
     s.veche.acted_this_call_to_arms = True

@@ -108,12 +108,10 @@ def test_smoke_121_t18_partial_resolution_when_one_target_on_calendar():
     Calendar, shift that one; skip the other."""
     s = load_scenario("watland", seed=1)
     _strip_lord_from_calendar(s, "karelians")
-    # Vladislav should still be on Calendar at default Watland setup
+    # Vladislav is mustered in Watland; his SERVICE remains on Calendar.
     res = resolve_immediate_event(s, "T18", {
-        "targets": {"vladislav": "cylinder", "karelians": "cylinder"},
+        "targets": {"vladislav": "service", "karelians": "cylinder"},
         "direction": "right",
     })
-    # T18 might partially resolve (Vladislav shifts; Karelians skipped)
-    # or no-op entirely depending on which targets are available.
-    # The key invariant: doesn\'t raise.
-    assert res.get("event") == "T18"
+    assert set(res["shifted"]) == {"service:vladislav"}
+    assert res["skipped"] == ["karelians:cylinder"]

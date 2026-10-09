@@ -18,6 +18,7 @@ from nevsky.scenarios import load_scenario
 
 
 def _to_muster_step(s):
+    s.meta.aow_drawn_t = s.meta.aow_drawn_r = True  # Fixture omits completed AoW setup.
     for _ in range(3):
         apply_action(s, {"type": "advance_step", "side": "teutonic"})
         apply_action(s, {"type": "advance_step", "side": "russian"})

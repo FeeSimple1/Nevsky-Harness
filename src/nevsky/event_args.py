@@ -180,9 +180,17 @@ def _populate_event_args(state, cid, args):
                 new.setdefault("locale", lid)
                 break
     elif cid == "T18":
-        new.setdefault("targets", {"vladislav": "cylinder", "karelians": "cylinder"})
+        new.setdefault("targets", {
+            lid: "cylinder" if cyl_on_cal(lid) else "service"
+            for lid in ("vladislav", "karelians")
+            if cyl_on_cal(lid) or service_on_cal(lid)
+        })
         new.setdefault("direction", "right")
     elif cid == "R9":
+        # Russians reveal R9 without choosing its target. The resulting
+        # pending decision transfers that choice to Teutons (AoW R9).
+        if state.meta.active_player != "teutonic":
+            return new
         # Andreas or Heinrich; pick one whose Service is at >= 2
         cal = state.calendar
         def sbox(lid):
@@ -235,6 +243,8 @@ def _expand_event_variants(state, move):
     the primary target is unreachable."""
     cid = move.get("args", {}).get("card_id")
     if cid is None:
+        return [move]
+    if cid == "R9" and state.meta.active_player != "teutonic":
         return [move]
     base = {k: v for k, v in move.items() if k in ("type", "side", "args")}
     variants = []
@@ -302,11 +312,9 @@ def _expand_event_variants(state, move):
             for b in (1, 0):
                 variant({"target": "knud_and_abel", "direction": d, "boxes": b})
     elif cid in ("T18",):
+        targets = _populate_event_args(state, cid, {}).get("targets", {})
         for d in ("left", "right"):
-            variant({"targets": {"vladislav": "cylinder", "karelians": "cylinder"},
-                     "direction": d})
-            variant({"targets": {"vladislav": "service", "karelians": "service"},
-                     "direction": d})
+            variant({"targets": targets, "direction": d})
     # Always include the original as a fallback (with populate_event_args).
     populated_args = _populate_event_args(state, cid, move.get("args", {}))
     variants.insert(0, {**base, "args": populated_args})

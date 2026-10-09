@@ -44,7 +44,8 @@ def test_t18_accepts_vladislav():
     if not in_cal:
         # Place vladislav cylinder on box 3 for the test.
         cal.boxes[2].cylinders.append("vladislav")
-    r = _ev_swedish_crusade(s, {"direction": "left", "targets": {"vladislav": "cylinder"}})
+    r = _ev_swedish_crusade(s, {"direction": "left", "targets": {
+        "vladislav": "cylinder", "karelians": "cylinder"}})
     assert "vladislav" in r["shifted"]
 
 

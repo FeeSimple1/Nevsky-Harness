@@ -37,7 +37,7 @@ def test_cli_palette_validated_filters_illegal(monkeypatch):
     llm = _load()
     s = load_scenario("watland", seed=1)
     side = llm.active_side(s)
-    legal = {"type": "advance_step", "side": side, "args": {}}
+    legal = {"type": "aow_draw", "side": side, "args": {}}
     illegal = {"type": "cmd_march", "side": side,
                "args": {"lord_id": "nobody", "to": "nowhere"}}
     monkeypatch.setattr(llm, "_concrete_actions", lambda st, sd: [legal, illegal])
@@ -53,7 +53,7 @@ def test_cmd_actions_prints_validated_tag_and_footer(monkeypatch):
     llm = _load()
     s = load_scenario("watland", seed=1)
     side = llm.active_side(s)
-    legal = {"type": "advance_step", "side": side, "args": {}}
+    legal = {"type": "aow_draw", "side": side, "args": {}}
     illegal = {"type": "cmd_march", "side": side,
                "args": {"lord_id": "nobody", "to": "nowhere"}}
     monkeypatch.setattr(llm, "_concrete_actions", lambda st, sd: [legal, illegal])
@@ -64,7 +64,7 @@ def test_cmd_actions_prints_validated_tag_and_footer(monkeypatch):
         llm.cmd_actions(args)
     out = buf.getvalue()
     assert "[validated]" in out
-    assert "1 legal action" in out  # only advance_step survives
+    assert "1 legal action" in out  # only aow_draw survives
     assert "filtered 1 over-enumerated" in out
     assert "cmd_march" in out  # named in the REJECT diagnostic
 

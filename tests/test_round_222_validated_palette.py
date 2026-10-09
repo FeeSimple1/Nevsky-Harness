@@ -39,13 +39,13 @@ def _llm_mod():
 def test_validation_filters_and_reports_illegal_candidate(monkeypatch):
     llm = _llm_mod()
     s = load_scenario("watland", seed=1)
-    legal = {"type": "advance_step", "side": "teutonic", "args": {}}
+    legal = {"type": "aow_draw", "side": "teutonic", "args": {}}
     illegal = {"type": "cmd_tax", "side": "teutonic",
                "args": {"lord_id": "andreas"}}  # tax outside command phase -> rejected
     monkeypatch.setattr(llm, "_concrete_actions", lambda state, side: [legal, illegal])
     validated, rejected = llm.concrete_actions_validated(s, "teutonic")
     vtypes = [a["type"] for a in validated]
-    assert "advance_step" in vtypes
+    assert "aow_draw" in vtypes
     assert "cmd_tax" not in vtypes
     assert any(r["action"]["type"] == "cmd_tax" for r in rejected)
 
@@ -54,8 +54,8 @@ def test_validation_preserves_real_rng_state(monkeypatch):
     llm = _llm_mod()
     s = load_scenario("watland", seed=1)
     before = s.meta.rng_state
-    # an action that rolls dice if applied (muster) -- probing must use a copy
-    cand = {"type": "advance_step", "side": "teutonic", "args": {}}
+    # Draw consumes shuffle RNG -- probing must use a copy.
+    cand = {"type": "aow_draw", "side": "teutonic", "args": {}}
     monkeypatch.setattr(llm, "_concrete_actions", lambda state, side: [cand])
     llm.concrete_actions_validated(s, "teutonic")
     assert s.meta.rng_state == before  # real game's RNG untouched by probing

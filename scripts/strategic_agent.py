@@ -285,6 +285,9 @@ def _instantiate_templated(s, move):
 
 def _populate_event_args(state, cid, args):
     """Same as scripts/self_play.py — supply default event args."""
+    if cid in ("R9", "T18"):
+        from nevsky.event_args import _populate_event_args as populate_event_args
+        return populate_event_args(state, cid, args)
     new = dict(args)
     cal = state.calendar
 
