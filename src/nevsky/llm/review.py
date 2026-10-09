@@ -70,11 +70,12 @@ def build_review_artifact(session) -> dict[str, Any]:
         {"who": h["who"], "side": h["side"],
          "action": h["action"]["type"], "reasoning": h["reasoning"]}
         for h in history if h.get("reasoning")
+        and (h["side"] == session.llm_side or session.is_terminal())
     ]
 
     return {
         "scenario": session.scenario_id,
-        "seed": s.meta.seed,
+        "seed": s.meta.seed if session.is_terminal() else None,
         "llm_side": session.llm_side,
         "human_side": session.human_side,
         "winner": session.winner(),

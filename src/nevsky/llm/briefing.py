@@ -67,7 +67,7 @@ def briefing_for_side(state, side: str) -> str:
     # Header
     lines.append(f"# Nevsky game state — you play {side.upper()}")
     lines.append("")
-    lines.append(f"Scenario: {state.meta.scenario_id}  Seed: {state.meta.seed}  "
+    lines.append(f"Scenario: {state.meta.scenario_id}  "
                  f"Calendar box: {state.meta.box} ({_season_for_box(state.meta.box)})")
     lines.append(f"Span: box {state.meta.span_start_box} → {state.meta.span_end_box}")
 
