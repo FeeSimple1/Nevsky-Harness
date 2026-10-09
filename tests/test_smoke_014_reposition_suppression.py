@@ -1,14 +1,12 @@
-"""SMOKE-014 regression: Reposition Advance must be suppressed on the
-side whose Front is empty *by design* under Adjust Rows Rule 4
-(opposing Front empty AND opposing Sally alive). Otherwise Rule 4 fires
-every round in long-tail Sally-vs-Defender phases and pollutes the log.
+"""4.4.2: after Relief-Sally rows turn, Reserve Lords advance normally.
 
-Documented in SMOKE_TEST_FINDINGS.md Round 11. Fix landed in Round 12.
+The former SMOKE-014 freeze hid missing row normalization and could strand
+both surviving armies. Adjust Rows now establishes opposed Front rows first.
 """
 
 from __future__ import annotations
 
-from nevsky.battle import _reposition
+from nevsky.battle import _adjust_rows_for_relief_sally, _reposition
 from nevsky.scenarios import load_scenario
 
 
@@ -28,12 +26,11 @@ def _mk_decision_ctx() -> object:
     return _Ctx()
 
 
-def test_reposition_suppressed_when_opposing_front_empty_and_sally_alive() -> None:
-    """Defender side has empty Front and Reserve Lord (just demoted by
-    Rule 4); attacker has empty Front and an alive Sally row. The
-    Defender's Reposition Advance MUST be suppressed; otherwise the
-    Reserve Lord would re-Advance to Front and Rule 4 would re-fire
-    next round forever."""
+def test_reposition_advances_old_front_defender_against_remaining_sally() -> None:
+    """4.4.2: old Front Defenders become Reserve, then face the Sally.
+
+    No Rearguard remains, so normal Advance Lords must fill the new Front.
+    """
     s = load_scenario("watland", seed=1)
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic")
     rus = next(lid for lid, l in s.lords.items() if l.side == "russian")
@@ -42,18 +39,16 @@ def test_reposition_suppressed_when_opposing_front_empty_and_sally_alive() -> No
     s.lords[rus].state = "mustered"
     s.lords[rus].forces = {"militia": 1}
 
-    # Defender: Front empty, Reserve Lord alive (the just-demoted Front
-    # Defender from Rule 4).
-    def_pos = {teu: "reserve"}
-    # Attacker: Front empty, Sally row alive.
+    def_pos = {teu: "center"}
     atk_pos = {rus: "sally_center"}
-
+    _adjust_rows_for_relief_sally(s, atk_pos, def_pos)
+    assert def_pos[teu] == "reserve"
+    assert atk_pos[rus] == "center"
     log = _reposition(s, def_pos, "defender", _mk_decision_ctx(),
                       opposing_positions=atk_pos)
-    assert log.get("suppressed") == "frozen_under_rule_4"
-    assert log["moves"] == []
-    # Critical: the demoted Lord stays at Reserve, not promoted back to Front.
-    assert def_pos[teu] == "reserve"
+    assert "suppressed" not in log
+    assert def_pos[teu] == "center"
+    assert any(move["step"] == "advance" for move in log["moves"])
 
 
 def test_reposition_not_suppressed_when_opposing_front_alive() -> None:

@@ -53,6 +53,12 @@ def battle_preview(
     """Run `trials` deep-copied resolve_battle simulations of the
     candidate engagement and return aggregate outcome stats.
 
+    successful_trials counts runs without an exception; completed_trials
+    excludes runs stopped by max_rounds. Winrates and average battle outcomes
+    use only completed_trials. incomplete_trials / incomplete_rate expose
+    unresolved bounded runs, which are neither side's wins. If no trial
+    completes, the numeric outcome statistics are zero, not a victory forecast.
+
     Returns:
       {
         "trials": N,
@@ -69,7 +75,9 @@ def battle_preview(
     """
     if not attacker_lords or not defender_lords:
         return {
-            "trials": 0, "attacker_winrate": 0.0, "defender_winrate": 0.0,
+            "trials": 0, "successful_trials": 0, "completed_trials": 0,
+            "incomplete_trials": 0, "incomplete_rate": 0.0,
+            "attacker_winrate": 0.0, "defender_winrate": 0.0,
             "avg_rounds": 0.0,
             "attacker_units_pre": 0, "defender_units_pre": 0,
             "avg_attacker_units_lost": 0.0, "avg_defender_units_lost": 0.0,
@@ -83,7 +91,9 @@ def battle_preview(
            if lid not in state.lords]
     if bad:
         return {
-            "trials": 0, "attacker_winrate": 0.0, "defender_winrate": 0.0,
+            "trials": 0, "successful_trials": 0, "completed_trials": 0,
+            "incomplete_trials": 0, "incomplete_rate": 0.0,
+            "attacker_winrate": 0.0, "defender_winrate": 0.0,
             "avg_rounds": 0.0,
             "attacker_units_pre": 0, "defender_units_pre": 0,
             "avg_attacker_units_lost": 0.0, "avg_defender_units_lost": 0.0,
@@ -100,6 +110,7 @@ def battle_preview(
     atk_pre_sum = 0
     def_pre_sum = 0
     failed_trials = 0
+    incomplete_trials = 0
     last_error: str | None = None
 
     for t in range(trials):
@@ -122,6 +133,9 @@ def battle_preview(
             failed_trials += 1
             last_error = f"{type(e).__name__}: {e}"
             continue
+        if res.get("incomplete"):
+            incomplete_trials += 1
+            continue
         winner = res.get("winner")
         if winner == attacker_side:
             atk_wins += 1
@@ -133,17 +147,22 @@ def battle_preview(
         atk_pre_sum += atk_pre
         def_pre_sum += def_pre
 
-    successful = max(1, trials - failed_trials)
+    successful = trials - failed_trials
+    completed = successful - incomplete_trials
+    denominator = max(1, completed)
     out_d = {
         "trials": trials,
-        "successful_trials": trials - failed_trials,
-        "attacker_winrate": atk_wins / successful,
-        "defender_winrate": def_wins / successful,
-        "avg_rounds": rounds_sum / successful,
-        "attacker_units_pre": atk_pre_sum / successful,
-        "defender_units_pre": def_pre_sum / successful,
-        "avg_attacker_units_lost": atk_loss_sum / successful,
-        "avg_defender_units_lost": def_loss_sum / successful,
+        "successful_trials": successful,
+        "completed_trials": completed,
+        "incomplete_trials": incomplete_trials,
+        "incomplete_rate": incomplete_trials / max(1, successful),
+        "attacker_winrate": atk_wins / denominator,
+        "defender_winrate": def_wins / denominator,
+        "avg_rounds": rounds_sum / denominator,
+        "attacker_units_pre": atk_pre_sum / denominator,
+        "defender_units_pre": def_pre_sum / denominator,
+        "avg_attacker_units_lost": atk_loss_sum / denominator,
+        "avg_defender_units_lost": def_loss_sum / denominator,
         "avg_attacker_loss_pct": atk_loss_sum / max(1, atk_pre_sum),
         "avg_defender_loss_pct": def_loss_sum / max(1, def_pre_sum),
     }

@@ -971,3 +971,13 @@ left unchanged. Regression: `tests/test_play_q010_q011.py`
 (test_q011_*).
 
 ---
+
+**Implementation correction, 2026-10-09 (D-Q011).** The three-round
+no-casualty guard described above was incorrect: successful Protection
+rolls do not prove that a Battle cannot finish. The guard has been
+removed to follow the existing adjudication. Normal Battles continue
+until Concede or Rout. An explicit simulation limit yields an incomplete
+result with no winner; hitting the emergency bound raises an error and
+the action transaction restores the original state. No artificial
+defender victory is awarded. Storm's rules-defined Siege round limit
+remains unchanged. Regression: `tests/test_review_20261009_combat.py`.

@@ -6,8 +6,8 @@ Tests the four Adjust Rows sub-rules:
   2. No Rearguard -> Sallying Lords Flank Defenders. (Already covered
      by _strike_target; verified in test_q006.)
   3. No Front Defenders -> Rearguard faces about as Front.
-  4. No Front Attackers -> Defender Front -> Reserve (Rearguard stays
-     and engages Sally).
+  4. No Front Attackers -> Defender Front -> Reserve; Sally and Rearguard
+     become opposed Front rows before Reserve advancement.
 """
 
 from __future__ import annotations
@@ -86,6 +86,8 @@ def test_adjust_rows_no_front_attackers_defender_front_to_reserve() -> None:
     transitions = _adjust_rows_for_relief_sally(s, atk_pos, def_pos)
     # Defender Front Lord goes to reserve.
     assert def_pos[rus_lords[0]] == "reserve"
+    assert def_pos[rus_lords[1]] == "center"
+    assert atk_pos[teu2] == "center"
     assert any(t["rule"] == "no_front_attackers" for t in transitions)
 
 

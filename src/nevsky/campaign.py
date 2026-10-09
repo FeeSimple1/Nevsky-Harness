@@ -4266,7 +4266,7 @@ def _h_cmd_siege(
 def _h_cmd_storm(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """4.5.2 Storm. Entire card. Conduct Attack per Storm rules.
+    """4.5.2 Storm. One action; Recovery ends the card (D-Q010).
 
     On defender Sack (defender loses):
       - All Besieged Lords permanently removed (1.5.1).
@@ -4315,6 +4315,10 @@ def _h_cmd_storm(
     ]
     if not attackers:
         raise IllegalAction("no_attackers", "no besieging Lords at this Stronghold")
+    # 4.5.2 Array: the Active Lord is the sole attacking Front Lord.
+    # resolve_storm uses the first participant as Front, so dictionary
+    # insertion order must not choose a different Lord to lead the attack.
+    attackers = [lord_id] + [lid for lid in attackers if lid != lord_id]
 
     # Mark all Lords at Locale MOVED_FOUGHT (4.5.2 marking).
     for _lid, l in state.lords.items():

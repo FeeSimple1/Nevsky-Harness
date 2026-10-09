@@ -41,14 +41,30 @@ def test_battle_preview_does_not_mutate_state():
 
 
 def test_storm_preview_fort_one_attacker_one_marker():
-    """Hermann (4 units) Storming Izborsk (Fort, walls 3, 1 garrison MaA)
-    with 1 siege marker should win comfortably per smoke."""
+    """4.5.2: preview odds match actual seeded Storms with the Fort's stats.
+
+    An empirical winrate floor from the old pre-casualty Strike totals is
+    not a rules assertion; compare the preview to mechanical resolution.
+    """
     s = _setup()
     s.lords["hermann"].location = "izborsk"
     s.locales["izborsk"].siege_markers = 1
     prev = storm_preview(s, "teutonic", ["hermann"], "izborsk", trials=200)
     assert prev["trials"] == 200
-    assert prev["attacker_winrate"] >= 0.6
+    from copy import deepcopy
+    from nevsky.battle import resolve_storm
+
+    wins = 0
+    for trial in range(200):
+        sample = deepcopy(s)
+        sample.meta.rng_state = trial * 7919 + 1
+        result = resolve_storm(
+            sample, "teutonic", ["hermann"], [], "izborsk",
+            walls_max=3, siege_markers=1, garrison={"men_at_arms": 1},
+        )
+        wins += result["winner"] == "attacker"
+    assert prev["attacker_winrate"] == wins / 200
+    assert prev["attacker_winrate"] + prev["defender_winrate"] == 1.0
     assert prev["stronghold_type"] == "fort"
     assert prev["walls_max"] == 3
     assert prev["siege_markers"] == 1

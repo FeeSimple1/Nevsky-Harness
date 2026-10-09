@@ -224,13 +224,13 @@ def test_q006_attacker_loss_sally_withdraws_and_siege_to_one() -> None:
     s.meta.active_player = "russian"
     res = apply_action(s, {
         "type": "stand_battle", "side": "teutonic",
-        "args": {},
+        # Pin a legal attacker loss before the Sallying Lord takes Hits;
+        # a fully Routed Sallying Lord can instead die during Losses.
+        "args": {"concede": "attacker"},
     })
-    # Russian (attacker side) has 4 units total vs Teutonic 10 -> Teutons win.
-    if res.get("battle", {}).get("loser") == "russian":
-        # Sallying Lord should remain at pskov in_stronghold=True.
-        assert s.lords[rus_sallying].in_stronghold is True
-        assert s.lords[rus_sallying].location == "pskov"
-        # Siege markers reduced to at most 1.
-        assert s.locales["pskov"].siege_markers <= 1
-        assert "sally_withdrew" in res or "sally_raid_siege_to_1" in res
+    assert res["battle"]["loser"] == "russian"
+    assert res["battle"]["conceded"] == "attacker"
+    assert s.lords[rus_sallying].in_stronghold is True
+    assert s.lords[rus_sallying].location == "pskov"
+    assert s.locales["pskov"].siege_markers <= 1
+    assert "sally_withdrew" in res or "sally_raid_siege_to_1" in res
