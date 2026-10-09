@@ -7,9 +7,8 @@ An Action is a JSON dict with shape:
 The dispatcher (`apply_action`) validates the action against the current
 state, mutates state in place if legal, appends a HistoryEntry, and
 returns a result dict describing the outcome. Illegal actions raise
-`IllegalAction`; the state is not mutated when this happens (except for
-the rng_state field if any roll was consumed in validation, which we
-avoid by validating-before-rolling).
+`IllegalAction`; rejected actions leave the state, RNG, and history
+unchanged, including when a handler rejects after partial execution.
 
 Phase 2 covers all Levy-phase actions (3.1 Arts of War through 3.5
 Call to Arms). Phase 3 will add Campaign actions (March, Battle, etc.).
@@ -56,6 +55,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel
+
 from nevsky.state import (
     AssetType,
     ForceType,
@@ -88,6 +89,55 @@ class IllegalAction(ValueError):
 # ---------------------------------------------------------------------------
 # Public dispatcher
 # ---------------------------------------------------------------------------
+
+
+class _ActionCheckpoint:
+    """Restore a failed action without invalidating callers' state references.
+
+    Record shallow copies of the current board's mutable containers and
+    model fields. Restoring those same objects also repairs references to
+    Lords, mats, or lists retained by a library caller. Historical entries
+    are read-only to handlers; only the dispatcher appends to history, so
+    its length is sufficient and checkpoint cost does not grow with play.
+    """
+
+    def __init__(self, state: GameState) -> None:
+        self._history = state.history
+        self._history_length = len(state.history)
+        self._containers: list[tuple[Any, Any]] = []
+        seen: set[int] = set()
+        pending: list[Any] = [state]
+        immutable_types = {str, int, float, bool, type(None)}
+        while pending:
+            value = pending.pop()
+            # Most state fields are immutable scalars; skip them before
+            # identity checks or inspecting models and containers.
+            if (type(value) in immutable_types
+                    or value is self._history or id(value) in seen):
+                continue
+            seen.add(id(value))
+            if isinstance(value, BaseModel):
+                pending.extend((value.__dict__, value.__pydantic_fields_set__))
+            elif isinstance(value, dict):
+                self._containers.append((value, value.copy()))
+                pending.extend(value.values())
+            elif isinstance(value, list):
+                self._containers.append((value, value.copy()))
+                pending.extend(value)
+            elif isinstance(value, set):
+                # The state models' sets contain immutable field names.
+                self._containers.append((value, value.copy()))
+            elif isinstance(value, tuple):
+                pending.extend(value)
+
+    def restore(self) -> None:
+        for target, contents in self._containers:
+            if isinstance(target, list):
+                target[:] = contents
+            else:
+                target.clear()
+                target.update(contents)
+        del self._history[self._history_length:]
 
 
 def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
@@ -131,41 +181,47 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             + "); no further actions are accepted.",
         )
 
-    # Q-001: auto-confirm setup_transport_choice decisions for the
-    # active side at first Levy action (skipping the explicit
-    # confirm/set/confirm_all actions and system actions). This lets
-    # Levy proceed normally without forcing the agent to clear
-    # default-confirm decisions one-by-one.
-    auto_confirmed: list[dict[str, Any]] = []
-    if (
-        state.meta.phase == "levy"
-        and side in ("teutonic", "russian")
-        and atype not in (
-            "confirm_setup_transport",
-            "set_setup_transport",
-            "confirm_all_setup_transports",
-            "system_setup_complete",
-        )
-    ):
-        auto_confirmed = _auto_confirm_setup_transport_choices(state, side)  # type: ignore[arg-type]
+    # BRIEF's rejected-action contract covers setup auto-confirmation,
+    # mechanical resolution, consumed dice, and the history commit.
+    checkpoint = _ActionCheckpoint(state)
+    try:
+        # Q-001: auto-confirm setup_transport_choice decisions for the
+        # active side at first Levy action (skipping the explicit
+        # confirm/set/confirm_all actions and system actions). This lets
+        # Levy proceed normally without forcing the agent to clear
+        # default-confirm decisions one-by-one.
+        auto_confirmed: list[dict[str, Any]] = []
+        if (
+            state.meta.phase == "levy"
+            and side in ("teutonic", "russian")
+            and atype not in (
+                "confirm_setup_transport",
+                "set_setup_transport",
+                "confirm_all_setup_transports",
+                "system_setup_complete",
+            )
+        ):
+            auto_confirmed = _auto_confirm_setup_transport_choices(state, side)  # type: ignore[arg-type]
 
-    # Each handler returns (result_dict, dice_list).
-    result, dice = handler(state, side, args)  # may raise IllegalAction
-    if auto_confirmed:
-        # Surface the auto-confirms in the result for transparency.
-        if isinstance(result, dict):
-            result.setdefault("_auto_confirmed_setup_transports", auto_confirmed)
+        # Each handler returns (result_dict, dice_list).
+        result, dice = handler(state, side, args)
+        if auto_confirmed:
+            if isinstance(result, dict):
+                result.setdefault("_auto_confirmed_setup_transports", auto_confirmed)
 
-    state.meta.sequence += 1
-    state.history.append(
-        HistoryEntry(
-            sequence=state.meta.sequence,
-            actor=side,  # Literal-typed in HistoryEntry
-            action={"type": atype, "side": side, "args": args},
-            dice=dice,
-            result=result,
+        state.meta.sequence += 1
+        state.history.append(
+            HistoryEntry(
+                sequence=state.meta.sequence,
+                actor=side,  # Literal-typed in HistoryEntry
+                action={"type": atype, "side": side, "args": args},
+                dice=dice,
+                result=result,
+            )
         )
-    )
+    except Exception:
+        checkpoint.restore()
+        raise
     return result
 
 
