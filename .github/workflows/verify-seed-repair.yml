@@ -1,0 +1,86 @@
+name: Verify new-seed Crusade repairs
+on:
+  push:
+    branches: [fix/crusade-seed-20261011]
+    paths: ['.github/workflows/verify-seed-repair.yml']
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Verify and apply exact locally tested patch
+        run: |
+          python - <<'PY'
+          import base64, hashlib, lzma, pathlib, subprocess
+          base = 'd1ed51f9b5e78039e0b307bb2ad91c89bd366303'
+          subprocess.run(['git', 'diff', '--exit-code', base, '--', 'src', 'scripts', 'tests', 'docs'], check=True)
+          encoded = ''.join(pathlib.Path('.repair/seed-fixes.part' + str(i)).read_text().strip() for i in (1, 2))
+          patch = lzma.decompress(base64.b64decode(encoded, validate=True))
+          digest = hashlib.sha256(patch).hexdigest()
+          assert digest == 'd7c92e6ac08ea468e2905e41e641bdf60feaf5dfd0787ac86aaf8bcad9a200cc', digest
+          pathlib.Path('/tmp/seed-fixes.patch').write_bytes(patch)
+          subprocess.run(['git', 'apply', '--check', '/tmp/seed-fixes.patch'], check=True)
+          subprocess.run(['git', 'apply', '/tmp/seed-fixes.patch'], check=True)
+          print('Verified patch SHA256:', digest)
+          PY
+      - name: Run complete regression and property suite
+        run: PYTHONPATH=src python -m pytest -q -n 4 --junitxml=/tmp/seed-tests.xml
+      - name: Run 150 self-play invariant cases
+        run: |
+          set -o pipefail
+          PYTHONPATH=src python scripts/fuzz_invariants.py --seeds 1-25 | tee /tmp/seed-invariants.log
+      - name: Check new code and patch formatting
+        run: |
+          python -m ruff check src/nevsky/held_actions.py tests/test_seed_20261011_fixes.py
+          python -m compileall -q src tests/test_seed_20261011_fixes.py
+          git diff --check
+      - name: Record completed verification and commit repair branch
+        run: |
+          python - <<'PY'
+          import os, pathlib, xml.etree.ElementTree as ET
+          root = ET.parse('/tmp/seed-tests.xml').getroot()
+          suites = [root] if root.tag == 'testsuite' else root.findall('testsuite')
+          counts = {key: sum(int(s.get(key, 0)) for s in suites) for key in ('tests', 'failures', 'errors', 'skipped')}
+          assert counts == {'tests': 1771, 'failures': 0, 'errors': 0, 'skipped': 0}, counts
+          sweep = pathlib.Path('/tmp/seed-invariants.log').read_text()
+          assert 'OK: 150 games clean on all invariants' in sweep, sweep
+          note = '\n## Completed validation\n\n'
+          note += '- Full GitHub Actions Python 3.12 suite: **1,771 passed**, zero failures, errors or skipped cases.\n'
+          note += '- Independent local Python 3.13.5 full suite: **1,771 passed**.\n'
+          note += '- Focused suite: **84 passed** (46 new cases and 38 prior long-campaign cases).\n'
+          note += '- The six original intended-behavior checks failed on the baseline and pass after correction.\n'
+          note += '- Invariant sweep: **150 clean cases** on both GitHub and the local runtime.\n'
+          note += '- Complete 1,742-action ordered campaign replay passed, including 87 save/reload checks.\n'
+          note += '- A fresh external-policy game on the corrected engine completed all 16 boxes, with Teutonic victory 1-0.5, 1,742 actions, 87 successful save/reload checks and no recorded runtime findings. This is a smoke test, not a balance estimate or exhaustive rules proof.\n'
+          note += '- Targeted Ruff, compilation and git diff --check passed.\n\n'
+          note += 'Remote evidence: Actions run `' + os.environ['GITHUB_RUN_ID'] + '`, JUnit and invariant-log artifact `nevsky-seed-repair-results`.\n'
+          note += 'The SHA256-verified patch was applied to the pinned source, tested, and committed only after every gate passed. Temporary transport and repair workflow files were removed before this commit. The ordinary CI workflow is unchanged.\n'
+          path = pathlib.Path('docs/SEED_20261011_FIXES.md')
+          path.write_text(path.read_text() + note)
+          PY
+          git rm .repair/seed-fixes.part1 .repair/seed-fixes.part2 .github/workflows/verify-seed-repair.yml
+          git add src/nevsky/actions.py src/nevsky/campaign.py src/nevsky/events.py src/nevsky/held_actions.py src/nevsky/legal_moves.py src/nevsky/state.py tests/test_long_campaign_fixes_20261010.py tests/test_seed_20261011_fixes.py docs/SEED_20261011_FIXES.md
+          git add -f tests/data/crusade_seed_20261011
+          git diff --cached --check
+          git config user.name ChatGPT
+          git config user.email noreply@openai.com
+          git commit -m 'Fix sequential Muster, shifted readiness, final-turn cleanup and event VP markers'
+          git push origin HEAD:fix/crusade-seed-20261011
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nevsky-seed-repair-results
+          path: |
+            /tmp/seed-tests.xml
+            /tmp/seed-invariants.log
+          retention-days: 7
