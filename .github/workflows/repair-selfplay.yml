@@ -1,0 +1,50 @@
+name: Repair self-play bugs
+on:
+  push:
+    branches: [fix/nevsky-selfplay-bugs-20261009]
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Demonstrate regressions on the unmodified engine
+        run: |
+          set +e
+          python -m pytest -q -o addopts='' tests/test_selfplay_fixes_20261009.py > /tmp/nevsky-baseline.log 2>&1
+          code=$?
+          cat /tmp/nevsky-baseline.log
+          if [ "$code" -ne 1 ]; then exit 1; fi
+      - name: Apply pinned-source fixes
+        run: |
+          python scripts/apply_selfplay_fixes_20261009.py
+          git diff --check
+          git diff --stat
+          git diff -- src/nevsky/actions.py src/nevsky/legal_moves.py scripts/chatgpt_play_helper.py
+      - name: Run focused regressions and original-game replay
+        run: python -m pytest -q -s -o addopts='' tests/test_selfplay_fixes_20261009.py
+      - name: Run complete test suite
+        run: python -m pytest -q -n 2 -o addopts=''
+      - name: Run invariant sweep
+        run: python scripts/fuzz_invariants.py --seeds 1-25
+      - name: Check new regression code
+        run: python -m ruff check tests/test_selfplay_fixes_20261009.py
+      - name: Commit verified changes to this repair branch only
+        run: |
+          git rm .github/workflows/repair-selfplay.yml scripts/apply_selfplay_fixes_20261009.py
+          git add src/nevsky/actions.py src/nevsky/legal_moves.py scripts/chatgpt_play_helper.py
+          git diff --cached --check
+          git config user.name 'ChatGPT'
+          git config user.email 'noreply@openai.com'
+          git commit -m 'Fix planning menu, Pleskau departures, and self-play diagnostics'
+          git push origin HEAD:refs/heads/fix/nevsky-selfplay-bugs-20261009
+          git rev-parse HEAD
