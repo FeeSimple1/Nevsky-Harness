@@ -999,7 +999,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                             if l.side == side and l.state == "mustered"]
                 # Concrete entries: one per Mustered Lord + one for pass.
                 for lid in mustered:
-                    if lid not in deck.plan:  # cannot plan same Lord twice in one stack
+                    if deck.plan.count(lid) < 3:  # 1.9.2: three Command cards per Lord
                         out.append({
                             "type": "plan_add_card", "side": side,
                             "args": {"card": lid},

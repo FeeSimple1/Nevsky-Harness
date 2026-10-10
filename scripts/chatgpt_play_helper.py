@@ -25,7 +25,8 @@ import importlib.util
 import json
 import sys
 import traceback
-from collections import Counter, defaultdict
+from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 
 if "src" not in sys.path:
@@ -136,6 +137,13 @@ def show():
     return acts
 
 
+def _record_action(side, action):
+    """Record each successful manual or forced move once, before advancing."""
+    _S["history"].append({"turn": _S["turn"], "side": side,
+                          "action": deepcopy(action)})
+    _S["turn"] += 1
+
+
 def apply(choice):
     """Apply a move: an int index from the last show(), or a raw action dict.
     Runs invariant checks + captures any anomaly, then shows the next state."""
@@ -170,8 +178,7 @@ def apply(choice):
                                "msg": str(e)[:200], "tb": traceback.format_exc()[-700:]})
         print(f"!! EXCEPTION (recorded): {type(e).__name__}: {e}")
         return
-    _S["history"].append({"turn": _S["turn"], "side": side, "action": action})
-    _S["turn"] += 1
+    _record_action(side, action)
     bad = _check_invariants()
     if bad:
         print("!! INVARIANT VIOLATION (recorded):", bad)
@@ -204,7 +211,7 @@ def auto(max_steps: int = 300):
                                    "msg": str(e)[:200], "tb": traceback.format_exc()[-700:]})
             print(f"!! EXCEPTION during auto (recorded): {type(e).__name__}: {e}")
             return
-        _S["turn"] += 1
+        _record_action(side, action)
         n += 1
         if _check_invariants():
             print("!! INVARIANT VIOLATION during auto (recorded) at turn", _S["turn"])
@@ -215,11 +222,12 @@ def auto(max_steps: int = 300):
 def findings_report():
     notable = [f for f in _S["findings"]
                if f["kind"] in ("illegal_concrete_action", "exception",
-                                "no_legal_moves", "invariant")]
+                                "no_legal_moves", "invariant",
+                                "over_enum_filtered")]
     print(f"\n===== FINDINGS: {len(_S['findings'])} total, {len(notable)} notable =====")
-    for f in notable:
-        print("  ", json.dumps(f, default=str)[:240])
-    if not notable:
+    for f in _S["findings"]:
+        print("  ", json.dumps(f, default=str))
+    if not _S["findings"]:
         print("  (none — no engine anomalies on this trajectory)")
     return _S["findings"]
 
