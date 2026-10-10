@@ -1,0 +1,36 @@
+name: Long Crusade diagnostic play
+on:
+  push:
+    branches: [playtest/crusade-long-20261010]
+    paths: ['scripts/crusade_diagnostic.py', '.github/workflows/crusade-playtest.yml']
+permissions:
+  contents: write
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: playtest/crusade-long-20261010
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - name: Play the full-length scenario and preserve diagnostics
+        run: python scripts/crusade_diagnostic.py
+      - name: Publish diagnostic evidence on the playtest branch only
+        if: always()
+        run: |
+          git config user.name 'ChatGPT'
+          git config user.email 'noreply@openai.com'
+          git add reports/crusade_20261010
+          if ! git diff --cached --quiet; then
+            git commit -m 'Record long Crusade playthrough and reproducible diagnostics'
+            git push origin HEAD:playtest/crusade-long-20261010
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crusade-long-playtest
+          path: reports/crusade_20261010
