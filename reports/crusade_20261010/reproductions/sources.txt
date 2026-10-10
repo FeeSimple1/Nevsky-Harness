@@ -1,0 +1,229 @@
+### /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:3266
+def _h_aow_play_hold(
+    state: "GameState", side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Play a Hold event from the side's `holds` list. The event's
+    effect resolves immediately; the card is discarded (per "discard the
+    moment used"). args.card_id required, plus event-specific args.
+    Phase 4c covers a subset; uncovered holds get a deferred placeholder.
+    """
+    from nevsky.events import resolve_hold_event
+    sd = _require_side_player(state, side)
+    cid = args.get("card_id")
+    if not isinstance(cid, str):
+        raise IllegalAction("missing_arg", "args.card_id required")
+    deck = _side_deck(state, sd)
+    if cid not in deck.holds:
+        raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    # SMOKE-056 (Round 65): verify card belongs to playing side.
+    # Holds drift into the wrong list only via state-edits / fixtures,
+    # but the play handler should never let a Teutonic player resolve
+    # a Russian Hold (or vice versa) per 1.9.1 eligibility.
+    from nevsky.static_data import load_cards
+    card_meta = load_cards().get(cid)
+    if card_meta is not None and card_meta.get("side") != sd:
+        raise IllegalAction(
+            "wrong_side",
+            f"{cid} belongs to {card_meta['side']}; {sd} cannot play it",
+        )
+    result = resolve_hold_event(state, cid, args)
+    deck.holds.remove(cid)
+    deck.discard.append(cid)
+    return ({"card": cid, "result": result}, [])
+
+
+### /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:3299
+def _h_aow_lordship_plus_2(
+    state: "GameState", side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Use a Lordship-or-shift Hold event for +2 Lordship to a target Lord.
+    Card discarded the moment used. Allowed in Muster (3.4) and Call to
+    Arms (3.5).
+    args.card_id, args.lord_id, args.mode = "lordship" | "shift",
+    args.direction (when mode=shift): "left" | "right".
+    """
+    from nevsky.events import apply_calendar_shift_hold, apply_lordship_plus_2
+    sd = _require_side_player(state, side)
+    cid = args.get("card_id")
+    lord_id = args.get("lord_id")
+    mode = args.get("mode", "lordship")
+    if not (isinstance(cid, str) and isinstance(lord_id, str)):
+        raise IllegalAction("missing_arg", "args.card_id and args.lord_id required")
+    if state.meta.phase != "levy":
+        raise IllegalAction("wrong_phase", "Lordship +2 hold play allowed in Levy only")
+    if state.meta.levy_step not in ("muster", "call_to_arms"):
+        raise IllegalAction("wrong_step", "Lordship +2 hold allowed in Muster or Call to Arms")
+    deck = _side_deck(state, sd)
+    if cid not in deck.holds:
+        raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    # SMOKE-056 (Round 65) extension: side-validate the card here too.
+    from nevsky.static_data import load_cards
+    card_meta = load_cards().get(cid)
+    if card_meta is not None and card_meta.get("side") != sd:
+        raise IllegalAction(
+            "wrong_side",
+            f"{cid} belongs to {card_meta['side']}; {sd} cannot play it",
+        )
+    if mode == "lordship":
+        result = apply_lordship_plus_2(state, cid, lord_id)
+    elif mode == "shift":
+        direction = args.get("direction", "left")
+        result = apply_calendar_shift_hold(state, cid, lord_id, direction)
+    else:
+        raise IllegalAction("bad_mode", "mode must be lordship or shift")
+    deck.holds.remove(cid)
+    deck.discard.append(cid)
+    return ({"card": cid, "result": result}, [])
+
+
+### /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:1975
+def _spend_lordship(state: GameState, lord_id: str) -> None:
+    """Decrement an action against a Lord's Lordship budget (3.4)."""
+    from nevsky.static_data import load_lords
+
+    sl = load_lords()[lord_id]
+    lord = state.lords[lord_id]
+    if lord.state != "mustered":
+        raise IllegalAction("not_mustered", f"{lord_id} is not Mustered")
+    if lord.just_arrived_this_levy:
+        raise IllegalAction(
+            "just_arrived",
+            f"{lord_id} arrived this Levy and cannot use Lordship in same Muster (3.4)",
+        )
+    if _is_besieged(state, lord_id):
+        raise IllegalAction(
+            "besieged_no_muster",
+            f"{lord_id} is Besieged; cannot Muster (3.4 actor_eligibility)",
+        )
+    if lord.location is None or not _is_friendly_locale(state, lord.location, lord.side):
+        raise IllegalAction(
+            "muster_location",
+            f"{lord_id} must be at a Friendly Locale to use Lordship (3.4)",
+        )
+    # Phase 4c: this-levy block (R11 Valdemar, R17 Dietrich).
+    block = (
+        state.meta.block_lords_this_levy_t
+        if lord.side == "teutonic"
+        else state.meta.block_lords_this_levy_r
+    )
+    if lord_id in block:
+        raise IllegalAction(
+            "blocked_this_levy",
+            f"{lord_id} cannot use Lordship this Levy (R11 / R17)",
+        )
+    base = int(sl["ratings"]["lordship"])
+    bonus = int(state.meta.lordship_bonus.get(lord_id, 0))
+    budget = base + bonus
+    if lord.lordship_used >= budget:
+        raise IllegalAction(
+            "lordship_exhausted",
+            f"{lord_id} has spent {lord.lordship_used}/{budget} Lordship this Muster",
+        )
+    lord.lordship_used += 1
+
+
+### /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/events.py:1075
+def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
+    """T3 Vodian Treachery (hold). Play if Teuton Lord closer than any
+    Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils).
+
+    "Closer" means shortest chain of adjacent Locales (by Ways, not by
+    sea). Cannot apply if a Stone Kremlin (R18) Walls +1 marker is at
+    the target. If Stonemasons converted both Forts to Castles, the
+    event cannot be played.
+
+    args:
+      target: "kaibolovo" | "koporye"
+    """
+    from nevsky.static_data import load_locales, load_ways
+
+    target = args.get("target")
+    if target not in ("kaibolovo", "koporye"):
+        raise IllegalAction("bad_target", "target must be kaibolovo or koporye")
+    if target not in state.locales:
+        raise IllegalAction("bad_target", f"{target} not in state")
+    static = load_locales()[target]
+    # Must still be a Fort (not converted to Castle).
+    if static["type"] != "fort":
+        raise IllegalAction("not_fort", f"{target} is no longer a Fort (Castle?)")
+    # SMOKE-051 (Round 62): dynamic Castle marker also disqualifies.
+    # T17 Stonemasons Tip: "Castles are permanent." Plus T3 Tip: "If
+    # Stonemasons converted both Forts to Castles, this Event cannot
+    # be played, because neither Locale has a Fort." The static type
+    # stays "fort" even after a Castle marker is placed; we must
+    # consult state.locales[*].teutonic_castle / russian_castle.
+    if state.locales[target].teutonic_castle or state.locales[target].russian_castle:
+        raise IllegalAction(
+            "castle_marker",
+            f"{target} has a Castle marker; Vodian Treachery requires a Fort (T3 Tip)",
+        )
+    # Walls +1 from R18 blocks Vodian Treachery.
+    if state.locales[target].walls_plus_one:
+        raise IllegalAction("stone_kremlin", f"{target} has Walls +1; Vodian Treachery blocked")
+    # Compute closeness: BFS from target via Ways. Find min distance to
+    # any T-side Mustered Lord vs any R-side.
+    ways = load_ways()
+    adj: dict[str, list[str]] = {}
+    for w in ways:
+        adj.setdefault(w["a"], []).append(w["b"])
+        adj.setdefault(w["b"], []).append(w["a"])
+    visited = {target: 0}
+    frontier = [target]
+    teu_dist = None
+    rus_dist = None
+    # SMOKE-052 (Round 62): check Lords AT the target locale (distance
+    # 0). Previously the BFS only registered Lords as it expanded
+    # outward; a Teutonic Lord standing at the target Fort itself was
+    # silently missed, producing wrong teu_dist or no_teutonic_lord.
+    for _lid, l in state.lords.items():
+        if l.state == "mustered" and l.location == target:
+            if l.side == "teutonic" and teu_dist is None:
+                teu_dist = 0
+            elif l.side == "russian" and rus_dist is None:
+                rus_dist = 0
+    while frontier and (teu_dist is None or rus_dist is None):
+        nxt = []
+        for n in frontier:
+            for m in adj.get(n, []):
+                if m in visited:
+                    continue
+                visited[m] = visited[n] + 1
+                nxt.append(m)
+                # Check Lords here.
+                for _lid, l in state.lords.items():
+                    if l.state == "mustered" and l.location == m:
+                        if l.side == "teutonic" and teu_dist is None:
+                            teu_dist = visited[m]
+                        elif l.side == "russian" and rus_dist is None:
+                            rus_dist = visited[m]
+        frontier = nxt
+    if teu_dist is None:
+        raise IllegalAction("no_teutonic_lord", "no Teutonic Lord reachable from target")
+    if rus_dist is not None and teu_dist >= rus_dist:
+        raise IllegalAction(
+            "not_closer",
+            f"Teu distance {teu_dist} not strictly less than Rus distance {rus_dist}",
+        )
+    # Conquer (no Spoils).
+    state.locales[target].teutonic_conquered += 1
+    state.calendar.teutonic_vp += 1.0  # Fort = 1 VP
+    return {"event": "T3", "conquered": target, "teu_dist": teu_dist, "rus_dist": rus_dist}
+
+
+### /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/events.py:810
+def apply_lordship_plus_2(state: GameState, card_id: str, lord_id: str) -> dict[str, Any]:
+    """Apply Lordship +2 from a Hold event card to `lord_id`. Used during
+    Muster (3.4) or Call to Arms (3.5). Adds 2 to meta.lordship_bonus[lord_id].
+    """
+    if card_id not in _LORDSHIP_PLUS_2_TARGETS:
+        raise IllegalAction("bad_card", f"{card_id} is not a Lordship +2 hold")
+    spec = _LORDSHIP_PLUS_2_TARGETS[card_id]
+    lords = spec["lords"]
+    if lords == "any_russian":
+        if state.lords[lord_id].side != "russian":
+            raise IllegalAction("bad_target", f"{card_id} targets any Russian Lord")
+    else:
+        if lord_id not in lords:  # type: ignore[operator]
+            raise IllegalAction("bad_target", f"{card_id} targets {sorted(lords)} only")
+    state.meta.lordship_bonus[lord_id] = state.meta.lordship_bonus.get(lord_id, 0) + 2
+    return {"card": card_id, "lord_id": lord_id, "bonus": 2}

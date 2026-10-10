@@ -1,0 +1,491 @@
+{
+  "extra_muster_hidden_veche_action": {
+    "game": "first",
+    "before_action_index": 30,
+    "calendar_box": 1,
+    "phase": "levy",
+    "step": "call_to_arms",
+    "active_side": "russian",
+    "state_file": "extra_muster_hidden_veche_action.state.json",
+    "actions": [
+      {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "C",
+          "target_lord": "gavrilo"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "gavrilo",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "extra_muster_result": {
+      "option": "C",
+      "target_lord": "gavrilo",
+      "extra_muster": true
+    },
+    "next_menu_types": [
+      "advance_step"
+    ],
+    "accepted_spend_result": {
+      "by_lord": "gavrilo",
+      "transport_type": "cart",
+      "new_count": 4
+    },
+    "lord": "gavrilo",
+    "vp_before": 1.0,
+    "vp_after_choice": 0.0
+  },
+  "hidden_lordship_teutonic": {
+    "game": "first",
+    "before_action_index": 254,
+    "calendar_box": 3,
+    "phase": "levy",
+    "step": "muster",
+    "active_side": "teutonic",
+    "state_file": "hidden_lordship_teutonic.state.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T17",
+          "lord_id": "rudolf",
+          "mode": "lordship"
+        }
+      }
+    ],
+    "menu_types": [
+      "advance_step",
+      "levy_capability",
+      "levy_transport",
+      "muster_lord",
+      "muster_vassal"
+    ],
+    "accepted_result": {
+      "card": "T17",
+      "result": {
+        "card": "T17",
+        "lord_id": "rudolf",
+        "bonus": 2
+      }
+    },
+    "card": {
+      "card_id": "T17",
+      "side": "teutonic",
+      "event_name": "Dietrich von Grueningen",
+      "event_persistence": "hold",
+      "capability_name": "Stonemasons",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false,
+      "event_text": "Hold: Play on Andreas OR Rudolf to shift cylinder 2 Calendar boxes OR for Lordship +2.",
+      "capability_text": "This Lord for his full Command and 6 Prov puts available Castle at Unbesieged Fort or Town in Rus",
+      "event_eligibility": {
+        "raw": "Andreas, Rudolf",
+        "scope": "lords",
+        "side": null,
+        "lords": [
+          "andreas",
+          "rudolf"
+        ]
+      },
+      "capability_eligibility": {
+        "raw": "any Teuton",
+        "scope": "any",
+        "side": "teutonic",
+        "lords": []
+      }
+    }
+  },
+  "bonus_budget_hidden_teutonic": {
+    "game": "first",
+    "before_action_index": 254,
+    "calendar_box": 3,
+    "phase": "levy",
+    "step": "muster",
+    "active_side": "teutonic",
+    "state_file": "bonus_budget_hidden_teutonic.state.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T17",
+          "lord_id": "rudolf",
+          "mode": "lordship"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "boat"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "lord": "rudolf",
+    "card_id": "T17",
+    "printed_lordship": 1,
+    "spent_before_hidden_moves": 1,
+    "bonus": 2,
+    "spent_after": 3,
+    "offered_actions_for_lord_at_base_budget": [],
+    "accepted_extra_moves": [
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "cart"
+        }
+      }
+    ]
+  },
+  "hidden_hold_R3": {
+    "game": "first",
+    "before_action_index": 379,
+    "calendar_box": 4,
+    "phase": "campaign",
+    "step": "command",
+    "active_side": "russian",
+    "state_file": "hidden_hold_R3.state.json",
+    "actions": [
+      {
+        "type": "aow_play_hold",
+        "side": "russian",
+        "args": {
+          "card_id": "R3",
+          "target": "aleksandr"
+        }
+      }
+    ],
+    "menu_types": [
+      "fpd_resolve"
+    ],
+    "accepted_result": {
+      "card": "R3",
+      "result": {
+        "event": "R3",
+        "lord_id": "aleksandr",
+        "provender_added": 4
+      }
+    },
+    "assets_before": {
+      "provender": 1,
+      "cart": 3,
+      "boat": 1
+    },
+    "assets_after": {
+      "sled": 2,
+      "provender": 4
+    },
+    "card": {
+      "card_id": "R3",
+      "side": "russian",
+      "event_name": "Pogost",
+      "event_persistence": "hold",
+      "capability_name": "Streltsy",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false,
+      "event_text": "Hold: Play at any time to add 4 Provender to a Lord in Rus",
+      "capability_text": "This Lord's Men-at-Arms have Archery with -2 to target's Armor",
+      "event_eligibility": {
+        "raw": "any Russian",
+        "scope": "any",
+        "side": "russian",
+        "lords": []
+      },
+      "capability_eligibility": {
+        "raw": "NOT Karelians",
+        "scope": "any_except",
+        "side": "russian",
+        "excluded": [
+          "karelians"
+        ],
+        "lords": []
+      }
+    }
+  },
+  "hidden_hold_T3": {
+    "game": "first",
+    "before_action_index": 1050,
+    "calendar_box": 10,
+    "phase": "campaign",
+    "step": "command",
+    "active_side": "teutonic",
+    "state_file": "hidden_hold_T3.state.json",
+    "actions": [
+      {
+        "type": "aow_play_hold",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T3",
+          "target": "kaibolovo"
+        }
+      }
+    ],
+    "menu_types": [
+      "fpd_resolve"
+    ],
+    "accepted_result": {
+      "card": "T3",
+      "result": {
+        "event": "T3",
+        "conquered": "kaibolovo",
+        "teu_dist": 0,
+        "rus_dist": 1
+      }
+    },
+    "assets_before": null,
+    "assets_after": null,
+    "card": {
+      "card_id": "T3",
+      "side": "teutonic",
+      "event_name": "Vodian Treachery",
+      "event_persistence": "hold",
+      "capability_name": "Converts",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false,
+      "event_text": "Hold: Play if Teuton Lord closer than any Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils)",
+      "capability_text": "This Lord's or his group's March with Light Horse reaches 1st Locale each card for 0 actions Tip: The group of a Marshall or Lieutenant receives the benefit if any of the Lords Marching together have Converts and at least one has Light Horse\u2014it need not be the same Lord, nor need it be the Active Lord. The March for 0 actions may be Laden but may not carry more than twice as much Provender as usable Transport. Converts does not affect Sail.",
+      "event_eligibility": {
+        "raw": "any Teuton",
+        "scope": "any",
+        "side": "teutonic",
+        "lords": []
+      },
+      "capability_eligibility": {
+        "raw": "any Teuton",
+        "scope": "any",
+        "side": "teutonic",
+        "lords": []
+      }
+    }
+  },
+  "T3_double_conquest": {
+    "game": "first",
+    "before_action_index": 1133,
+    "calendar_box": 11,
+    "phase": "campaign",
+    "step": "command",
+    "active_side": "teutonic",
+    "state_file": "T3_double_conquest.state.json",
+    "actions": [
+      {
+        "type": "aow_play_hold",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T3",
+          "target": "kaibolovo"
+        }
+      }
+    ],
+    "fort": "kaibolovo",
+    "markers_before": 1,
+    "markers_after": 2,
+    "vp_before": 4.0,
+    "vp_after": 5.0,
+    "accepted_result": {
+      "card": "T3",
+      "result": {
+        "event": "T3",
+        "conquered": "kaibolovo",
+        "teu_dist": 0,
+        "rus_dist": 1
+      }
+    },
+    "card": {
+      "card_id": "T3",
+      "side": "teutonic",
+      "event_name": "Vodian Treachery",
+      "event_persistence": "hold",
+      "capability_name": "Converts",
+      "capability_scope": "this_lord",
+      "no_event": false,
+      "no_capability": false,
+      "event_text": "Hold: Play if Teuton Lord closer than any Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils)",
+      "capability_text": "This Lord's or his group's March with Light Horse reaches 1st Locale each card for 0 actions Tip: The group of a Marshall or Lieutenant receives the benefit if any of the Lords Marching together have Converts and at least one has Light Horse\u2014it need not be the same Lord, nor need it be the Active Lord. The March for 0 actions may be Laden but may not carry more than twice as much Provender as usable Transport. Converts does not affect Sail.",
+      "event_eligibility": {
+        "raw": "any Teuton",
+        "scope": "any",
+        "side": "teutonic",
+        "lords": []
+      },
+      "capability_eligibility": {
+        "raw": "any Teuton",
+        "scope": "any",
+        "side": "teutonic",
+        "lords": []
+      }
+    }
+  },
+  "hidden_lordship_russian": {
+    "game": "reserve_game",
+    "before_action_index": 1490,
+    "calendar_box": 15,
+    "phase": "levy",
+    "step": "muster",
+    "active_side": "russian",
+    "state_file": "hidden_lordship_russian.state.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "russian",
+        "args": {
+          "card_id": "R8",
+          "lord_id": "domash",
+          "mode": "lordship"
+        }
+      }
+    ],
+    "menu_types": [
+      "advance_step",
+      "levy_capability",
+      "levy_transport",
+      "muster_vassal"
+    ],
+    "accepted_result": {
+      "card": "R8",
+      "result": {
+        "card": "R8",
+        "lord_id": "domash",
+        "bonus": 2
+      }
+    },
+    "card": {
+      "card_id": "R8",
+      "side": "russian",
+      "event_name": "Prince of Polotsk",
+      "event_persistence": "hold",
+      "capability_name": "Black Sea Trade",
+      "capability_scope": "side_wide",
+      "no_event": false,
+      "no_capability": false,
+      "event_text": "Hold: Play on a Russian Lord to shift cylinder 1 Calendar box OR for Lordship +2. Tip. The Lordship bonus can apply to either the Muster or the Call to Arms segment. Discard the moment used. The Lord may use the bonus to Levy the Capability on the same card.",
+      "capability_text": "Each Call to Arms, add 1 Coin to Veche unless Novgorod or Lovat Conquered",
+      "event_eligibility": {
+        "raw": "any Russian",
+        "scope": "any",
+        "side": "russian",
+        "lords": []
+      },
+      "capability_eligibility": {
+        "raw": "ALL Russian",
+        "scope": "all",
+        "side": "russian",
+        "lords": []
+      }
+    }
+  },
+  "bonus_budget_hidden_russian": {
+    "game": "reserve_game",
+    "before_action_index": 1490,
+    "calendar_box": 15,
+    "phase": "levy",
+    "step": "muster",
+    "active_side": "russian",
+    "state_file": "bonus_budget_hidden_russian.state.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "russian",
+        "args": {
+          "card_id": "R8",
+          "lord_id": "domash",
+          "mode": "lordship"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "boat"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "boat"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "lord": "domash",
+    "card_id": "R8",
+    "printed_lordship": 2,
+    "spent_before_hidden_moves": 2,
+    "bonus": 2,
+    "spent_after": 4,
+    "offered_actions_for_lord_at_base_budget": [],
+    "accepted_extra_moves": [
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "cart"
+        }
+      }
+    ]
+  }
+}
