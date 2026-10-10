@@ -231,7 +231,9 @@ def test_failed_auto_action_is_not_recorded_as_completed(helper, monkeypatch):
     assert helper._S["findings"][-1]["kind"] == "exception"
 
 
-@pytest.mark.parametrize("diagnostic", [{"code": "fixture_rejection"}, {"exception": "RuntimeError: fixture"}])
+@pytest.mark.parametrize("diagnostic", [
+    {"code": "fixture_rejection"}, {"exception": "RuntimeError: fixture"},
+])
 def test_filtered_rejections_are_notable_and_visible(helper, capsys, diagnostic):
     finding = {"kind": "over_enum_filtered", "turn": 0, "side": "teutonic",
                "action": {"type": "diagnostic_fixture", "args": {}}, **diagnostic}
@@ -300,7 +302,7 @@ def test_fresh_menu_driven_selfplay_completes_with_departure_accounting():
         concrete = [a for a in menu if isinstance(a.get("args"), dict)]
         assert concrete, (step, state.meta)
 
-        def score(action):
+        def score(action, side=side):
             typ, args = action["type"], action.get("args", {})
             if typ == "plan_add_card":
                 return 110 if args.get("card") != "pass" else 20
@@ -324,4 +326,5 @@ def test_fresh_menu_driven_selfplay_completes_with_departure_accounting():
             args = action["args"]
             visits[(side, args.get("lord_id"), args.get("to"))] += 1
     assert state.meta.game_over, "Fresh self-play failed to reach a terminal state"
-    print("FRESH_SELFPLAY_VERIFIED", json.dumps({"actions": step, "winner": determine_scenario_winner(state)}))
+    print("FRESH_SELFPLAY_VERIFIED",
+          json.dumps({"actions": step, "winner": determine_scenario_winner(state)}))
