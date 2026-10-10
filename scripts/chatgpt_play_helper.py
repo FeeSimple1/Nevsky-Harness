@@ -112,15 +112,19 @@ def _active():
     return _S["state"].meta.active_player or "teutonic"
 
 
-def show():
+def show(side: str | None = None):
     """Print the active side's briefing + numbered legal actions. Returns
     the list of concrete actions (so you can also inspect programmatically)."""
     s = _S["state"]
     if _terminal():
         print("GAME OVER:", determine_scenario_winner(s))
         return []
-    side = _active()
+    side = side or _active()
+    if side not in ("teutonic", "russian"):
+        raise ValueError("side must be teutonic or russian")
     acts = _validated(s, side)
+    if side != _active():
+        print(f"Optional interruptions for {side.upper()}; activation remains {_active()}.")
     step = s.meta.campaign_step if s.meta.phase == "campaign" else s.meta.levy_step
     print(f"\n===== turn {_S['turn']} | {side.upper()} | {s.meta.phase}/{step} | box {s.meta.box} "
           f"| VP T{s.calendar.teutonic_vp:.1f}/R{s.calendar.russian_vp:.1f} =====")
@@ -130,7 +134,7 @@ def show():
         argp = json.dumps(a.get("args") or a.get("args_template") or {}, default=str)
         note = a.get("note", "")
         print(f"  [{i}] {a.get('type','?'):<22} {argp}" + (f"   // {note}" if note else ""))
-    if not acts:
+    if not acts and side == _active():
         _S["findings"].append({"kind": "no_legal_moves", "turn": _S["turn"],
                                "phase": s.meta.phase, "step": step, "side": side})
         print("!! no legal moves (stall) — recorded as a finding")
@@ -144,14 +148,18 @@ def _record_action(side, action):
     _S["turn"] += 1
 
 
-def apply(choice):
+def apply(choice, side: str | None = None):
     """Apply a move: an int index from the last show(), or a raw action dict.
     Runs invariant checks + captures any anomaly, then shows the next state."""
     s = _S["state"]
-    side = _active()
+    side = side or _active()
+    if side not in ("teutonic", "russian"):
+        raise ValueError("side must be teutonic or russian")
     acts = _validated(s, side, log_rejects=False)
     if isinstance(choice, int):
         if not (0 <= choice < len(acts)):
+            if side != _active():
+                raise ValueError("interruption index out of range; no action applied")
             print(f"index {choice} out of range 0..{len(acts)-1}; applying safe fallback")
             action = safe_fallback_for_side(s, side)
         else:
@@ -162,6 +170,7 @@ def apply(choice):
     elif isinstance(choice, dict):
         action = {k: v for k, v in choice.items() if k in ("type", "side", "args")}
         action.setdefault("side", side)
+        side = action["side"]
     else:
         raise TypeError("choice must be an int index or an action dict")
     try:
@@ -169,6 +178,9 @@ def apply(choice):
     except IllegalAction as e:
         _S["findings"].append({"kind": "illegal_concrete_action", "turn": _S["turn"],
                                "side": side, "action": action, "code": str(e.args[0])[:160]})
+        if side != _active():
+            print(f"!! ILLEGAL interruption (recorded): {e}; no fallback applied")
+            return show(side)
         print(f"!! ILLEGAL (recorded): {str(e.args[0])[:160]} — applying safe fallback")
         action = safe_fallback_for_side(s, side)
         result = apply_action(s, action)
@@ -197,7 +209,14 @@ def auto(max_steps: int = 300):
     while n < max_steps and not _terminal():
         side = _active()
         acts = _validated(s, side)
-        if len(acts) != 1:
+        if len(acts) != 1 or acts[0].get("optional"):
+            break
+        from nevsky.held_actions import held_actions_for_side
+        opponent = "russian" if side == "teutonic" else "teutonic"
+        if held_actions_for_side(s, opponent, interrupts_only=True):
+            print(f"Optional interruption window for {opponent.upper()}; "
+                  f"call nv.show('{opponent}') to inspect that side's choices. "
+                  "To decline, apply the ordinary active-side action manually.")
             break
         a = acts[0]
         action = {k: v for k, v in a.items() if k in ("type", "side", "args")}

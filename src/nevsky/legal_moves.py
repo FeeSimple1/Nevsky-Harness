@@ -23,8 +23,10 @@ from nevsky.actions import (
     _find_service_marker_box,
     _free_seats_for,
     _is_besieged,
+    _is_extra_muster_actor,
     _is_friendly_locale,
     _is_ready,
+    _lordship_budget,
     _season_of_box,
 )
 from nevsky.state import GameState, Side
@@ -39,7 +41,7 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
     losses). Each augmentation runs ~15 simulations per option, ~50ms
     each. Set False in hot loops where preview cost dominates."""
     side = state.meta.active_player
-    if side is None:
+    if state.meta.game_over or side is None:
         return []
 
     moves: list[dict[str, Any]] = []
@@ -89,6 +91,8 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
             moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))
+    from nevsky.held_actions import held_actions_for_side
+    moves.extend(held_actions_for_side(state, side))
     return moves
 
 
@@ -337,13 +341,16 @@ def _disband_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     }]
 
 
-def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
+def _muster_moves(
+    state: GameState, side: Side, *, only_lord: str | None = None,
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     levy_box = _find_levy_marker_box(state)
     own_mustered = [
         lid for lid, lord in state.lords.items()
         if lord.side == side and lord.state == "mustered"
-        and not lord.just_arrived_this_levy
+        and (only_lord is None or lid == only_lord)
+        and (not lord.just_arrived_this_levy or _is_extra_muster_actor(state, lid))
         and not _is_besieged(state, lid)
         and lord.location is not None
         and _is_friendly_locale(state, lord.location, side)
@@ -362,7 +369,7 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
               else state.meta.block_lords_this_levy_r)
     by_with_budget = [
         lid for lid in own_mustered
-        if state.lords[lid].lordship_used < int(static[lid]["ratings"]["lordship"])
+        if state.lords[lid].lordship_used < _lordship_budget(state, lid)
         and lid not in _block
     ]
 
@@ -534,6 +541,10 @@ def _muster_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
 
 def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    owner = state.legate if side == "teutonic" else state.veche
+    extra_target = owner.extra_muster_target_lord
+    if extra_target is not None:
+        out.extend(_muster_moves(state, side, only_lord=extra_target))
     if side == "teutonic":
         if state.legate.william_of_modena_in_play and not state.legate.acted_this_call_to_arms:
             if state.legate.location == "card":

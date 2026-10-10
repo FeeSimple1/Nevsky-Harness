@@ -500,6 +500,11 @@ def _h_advance_step(
             state.meta.block_lords_this_levy_t = []
             state.meta.block_lords_this_levy_r = []
             state.meta.lordship_bonus = {}
+            # Completed Muster expenditure expires with the Levy's budget.
+            # Otherwise spending a legal +2 bonus leaves a stale over-budget
+            # counter after the bonus is cleared on entering Campaign.
+            for lord in state.lords.values():
+                lord.lordship_used = 0
             state.meta.special_rules.pop("block_william_of_modena_this_levy", None)
             # 4.0 capability discard (in excess of own Mustered Lord count).
             # SMOKE-031: route each discard through _discard_side_capability
@@ -1972,15 +1977,29 @@ def _conditional_seat_satisfied(state: GameState, lord_id: str, c: dict[str, Any
     return True
 
 
-def _spend_lordship(state: GameState, lord_id: str) -> None:
-    """Decrement an action against a Lord's Lordship budget (3.4)."""
+def _lordship_budget(state: GameState, lord_id: str) -> int:
+    """Shared printed-plus-event budget for the handler and action menu."""
     from nevsky.static_data import load_lords
 
-    sl = load_lords()[lord_id]
+    return (int(load_lords()[lord_id]["ratings"]["lordship"])
+            + int(state.meta.lordship_bonus.get(lord_id, 0)))
+
+
+def _is_extra_muster_actor(state: GameState, lord_id: str) -> bool:
+    """An actual CtA grant permits this Lord, including a Muster arrival."""
+    if state.meta.phase != "levy" or state.meta.levy_step != "call_to_arms":
+        return False
+    lord = state.lords[lord_id]
+    owner = state.legate if lord.side == "teutonic" else state.veche
+    return owner.extra_muster_target_lord == lord_id
+
+
+def _spend_lordship(state: GameState, lord_id: str) -> None:
+    """Decrement an action against a Lord's Lordship budget (3.4)."""
     lord = state.lords[lord_id]
     if lord.state != "mustered":
         raise IllegalAction("not_mustered", f"{lord_id} is not Mustered")
-    if lord.just_arrived_this_levy:
+    if lord.just_arrived_this_levy and not _is_extra_muster_actor(state, lord_id):
         raise IllegalAction(
             "just_arrived",
             f"{lord_id} arrived this Levy and cannot use Lordship in same Muster (3.4)",
@@ -2006,9 +2025,7 @@ def _spend_lordship(state: GameState, lord_id: str) -> None:
             "blocked_this_levy",
             f"{lord_id} cannot use Lordship this Levy (R11 / R17)",
         )
-    base = int(sl["ratings"]["lordship"])
-    bonus = int(state.meta.lordship_bonus.get(lord_id, 0))
-    budget = base + bonus
+    budget = _lordship_budget(state, lord_id)
     if lord.lordship_used >= budget:
         raise IllegalAction(
             "lordship_exhausted",

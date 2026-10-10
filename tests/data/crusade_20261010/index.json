@@ -1,0 +1,190 @@
+{
+  "extra_muster_hidden_veche_action": {
+    "file": "extra_muster_hidden_veche_action.json",
+    "actions": [
+      {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "C",
+          "target_lord": "gavrilo"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "gavrilo",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "original_action_index": 30,
+    "box": 1
+  },
+  "hidden_lordship_teutonic": {
+    "file": "hidden_lordship_teutonic.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T17",
+          "lord_id": "rudolf",
+          "mode": "lordship"
+        }
+      }
+    ],
+    "original_action_index": 254,
+    "box": 3
+  },
+  "bonus_budget_hidden_teutonic": {
+    "file": "bonus_budget_hidden_teutonic.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T17",
+          "lord_id": "rudolf",
+          "mode": "lordship"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "boat"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "rudolf",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "original_action_index": 254,
+    "box": 3
+  },
+  "hidden_hold_R3": {
+    "file": "hidden_hold_R3.json",
+    "actions": [
+      {
+        "type": "aow_play_hold",
+        "side": "russian",
+        "args": {
+          "card_id": "R3",
+          "target": "aleksandr"
+        }
+      }
+    ],
+    "original_action_index": 379,
+    "box": 4
+  },
+  "hidden_hold_T3": {
+    "file": "hidden_hold_T3.json",
+    "actions": [
+      {
+        "type": "aow_play_hold",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T3",
+          "target": "kaibolovo"
+        }
+      }
+    ],
+    "original_action_index": 1050,
+    "box": 10
+  },
+  "T3_double_conquest": {
+    "file": "T3_double_conquest.json",
+    "actions": [
+      {
+        "type": "aow_play_hold",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T3",
+          "target": "kaibolovo"
+        }
+      }
+    ],
+    "original_action_index": 1133,
+    "box": 11
+  },
+  "hidden_lordship_russian": {
+    "file": "hidden_lordship_russian.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "russian",
+        "args": {
+          "card_id": "R8",
+          "lord_id": "domash",
+          "mode": "lordship"
+        }
+      }
+    ],
+    "original_action_index": 1490,
+    "box": 15
+  },
+  "bonus_budget_hidden_russian": {
+    "file": "bonus_budget_hidden_russian.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "russian",
+        "args": {
+          "card_id": "R8",
+          "lord_id": "domash",
+          "mode": "lordship"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "boat"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "boat"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "original_action_index": 1490,
+    "box": 15
+  }
+}

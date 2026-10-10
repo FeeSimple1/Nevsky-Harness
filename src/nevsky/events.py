@@ -1091,6 +1091,9 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
         raise IllegalAction("bad_target", "target must be kaibolovo or koporye")
     if target not in state.locales:
         raise IllegalAction("bad_target", f"{target} not in state")
+    loc = state.locales[target]
+    if loc.teutonic_conquered > 0:
+        raise IllegalAction("already_conquered", f"{target} is already Teutonic-conquered")
     static = load_locales()[target]
     # Must still be a Fort (not converted to Castle).
     if static["type"] != "fort":
@@ -1154,8 +1157,11 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
             f"Teu distance {teu_dist} not strictly less than Rus distance {rus_dist}",
         )
     # Conquer (no Spoils).
-    state.locales[target].teutonic_conquered += 1
+    loc.teutonic_conquered = 1
+    loc.siege_markers = 0  # The garrison's Fort has fallen; there is no Siege left.
     state.calendar.teutonic_vp += 1.0  # Fort = 1 VP
+    from nevsky.scenarios import refresh_victory_markers
+    refresh_victory_markers(state)  # Keep Calendar display and the VP cap synchronized.
     return {"event": "T3", "conquered": target, "teu_dist": teu_dist, "rus_dist": rus_dist}
 
 

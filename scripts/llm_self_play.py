@@ -212,14 +212,14 @@ def cmd_status(args):
 
 def cmd_briefing(args):
     state, _, _ = load_state(Path(args.state))
-    side = active_side(state)
+    side = getattr(args, "side", None) or active_side(state)
     print(f"=== briefing for {side.upper()} ===")
     print(briefing_for_side(state, side))
 
 
 def cmd_actions(args):
     state, _, _ = load_state(Path(args.state))
-    side = active_side(state)
+    side = getattr(args, "side", None) or active_side(state)
     raw = getattr(args, "raw", False)
     actions, rejected = _cli_palette(state, side, raw)
     mode = "raw" if raw else "validated"
@@ -244,7 +244,7 @@ def cmd_actions(args):
 
 def cmd_apply(args):
     state, scenario_id, history = load_state(Path(args.state))
-    side = active_side(state)
+    side = getattr(args, "side", None) or active_side(state)
     # R224: index resolves against the SAME palette `actions` prints, so
     # `actions` + `apply N` stay consistent. Default validated; --raw opts
     # out. (JSON-dict applies are unaffected — they carry their own args.)
@@ -272,6 +272,7 @@ def cmd_apply(args):
 
     action = {k: v for k, v in chosen.items()
               if k in ("type", "side", "args")}
+    side = action["side"]  # A raw-JSON Hold may interrupt the other side.
     try:
         result = apply_action(state, action)
     except IllegalAction as e:
@@ -363,12 +364,16 @@ def main():
     p_status.set_defaults(func=cmd_status)
 
     p_briefing = sub.add_parser("briefing", help="briefing for active side")
+    p_briefing.add_argument("--side", choices=("teutonic", "russian"),
+                           help="query/act as this side; inactive side gets only Hold interruptions")
     p_briefing.set_defaults(func=cmd_briefing)
 
     p_actions = sub.add_parser("actions", help="legal actions for active side")
     p_actions.add_argument("--raw", action="store_true",
                            help="show the unfiltered _concrete_actions palette "
                                 "(default: validated — handler-rejected moves removed)")
+    p_actions.add_argument("--side", choices=("teutonic", "russian"),
+                           help="query/act as this side; inactive side gets only Hold interruptions")
     p_actions.set_defaults(func=cmd_actions)
 
     p_apply = sub.add_parser("apply", help="apply an action")
@@ -378,6 +383,8 @@ def main():
                               "(must match how `actions` was listed)")
     p_apply.add_argument("--reasoning", default=None,
                          help="optional rationale recorded in history")
+    p_apply.add_argument("--side", choices=("teutonic", "russian"),
+                           help="query/act as this side; inactive side gets only Hold interruptions")
     p_apply.set_defaults(func=cmd_apply)
 
     p_fb = sub.add_parser("fallback", help="apply safe phase-appropriate fallback")
