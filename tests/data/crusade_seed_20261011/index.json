@@ -1,0 +1,129 @@
+{
+  "muster_interleaving": {
+    "file": "muster_interleaving.json",
+    "actions": [
+      {
+        "type": "muster_lord",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "hermann",
+          "target_lord": "rudolf",
+          "seat": "wenden"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "transport_type": "cart"
+        }
+      },
+      {
+        "type": "levy_transport",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "hermann",
+          "transport_type": "cart"
+        }
+      }
+    ],
+    "original_action_index": 15,
+    "box": 1
+  },
+  "shifted_disbanded_not_ready": {
+    "file": "shifted_disbanded_not_ready.json",
+    "actions": [
+      {
+        "type": "aow_lordship_plus_2",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T7",
+          "lord_id": "hermann",
+          "mode": "shift",
+          "direction": "left"
+        }
+      },
+      {
+        "type": "muster_lord",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "andreas",
+          "target_lord": "hermann",
+          "seat": "dorpat"
+        }
+      }
+    ],
+    "original_action_index": 663,
+    "box": 7
+  },
+  "post_final_turn_cleanup_teutonic": {
+    "file": "post_final_turn_cleanup_teutonic.json",
+    "actions": [
+      {
+        "type": "end_campaign_resolve",
+        "side": "teutonic",
+        "args": {
+          "wastage": {
+            "rudolf": "cart",
+            "yaroslav": "cart",
+            "knud_and_abel": "capability:T2"
+          }
+        }
+      }
+    ],
+    "original_action_index": 1740,
+    "box": 16
+  },
+  "post_final_turn_cleanup_russian": {
+    "file": "post_final_turn_cleanup_russian.json",
+    "actions": [
+      {
+        "type": "end_campaign_resolve",
+        "side": "russian",
+        "args": {
+          "wastage": {
+            "domash": "capability:R14",
+            "gavrilo": "capability:R16",
+            "vladislav": "boat",
+            "karelians": "cart"
+          }
+        }
+      }
+    ],
+    "original_action_index": 1741,
+    "box": 16
+  },
+  "victory_display_T15": {
+    "file": "victory_display_T15.json",
+    "actions": [
+      {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T15",
+          "locale": "ostrov"
+        }
+      }
+    ],
+    "original_action_index": 651,
+    "box": 7,
+    "numeric_score_after": 1.0
+  },
+  "victory_display_R12": {
+    "file": "victory_display_R12.json",
+    "actions": [
+      {
+        "type": "aow_implement_card",
+        "side": "russian",
+        "args": {
+          "card_id": "R12",
+          "locale": "rositten"
+        }
+      }
+    ],
+    "original_action_index": 1329,
+    "box": 13,
+    "numeric_score_after": 1.0
+  }
+}

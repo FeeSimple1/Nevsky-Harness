@@ -1,7 +1,8 @@
 """Regressions for the October 10 full Crusade review.
 
 Fixtures are actual saved positions, with only append-only history removed.
-The two replays retain every original action, including setup.
+The two old logs retain all original actions; the corrected engine rejects
+their illegal Muster interleaving. New full-replay coverage uses a legal log.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from nevsky.actions import IllegalAction, _lordship_budget, apply_action
 from nevsky.held_actions import held_actions_for_side
 from nevsky.legal_moves import legal_moves
 from nevsky.llm.tools import legal_actions_for_side
-from nevsky.scenarios import determine_scenario_winner, load_scenario, refresh_victory_markers
+from nevsky.scenarios import load_scenario, refresh_victory_markers
 from nevsky.state import GameState
 
 DATA = Path(__file__).parent / "data" / "crusade_20261010"
@@ -228,18 +229,21 @@ def test_helper_auto_stops_for_opponent_hold(monkeypatch):
 
 
 @pytest.mark.parametrize("name,expected_count", [("first", 1322), ("reserve", 1685)])
-def test_complete_recorded_long_campaign_replay(name, expected_count):
+def test_old_long_campaign_log_rejects_previously_allowed_muster_interleaving(name, expected_count):
+    # The 20261011 audit found that action 18 returns to Hermann AFTER
+    # Knud & Abel starts. Keep the original evidence, but never make an
+    # invalid recorded game bypass the repaired rule. The legal, full
+    # 1,742-action replacement replay is in test_seed_20261011_fixes.py.
     payload = json.loads((DATA / (name + "_replay.json")).read_text())
     assert len(payload["actions"]) == expected_count
     state = load_scenario(payload["scenario"], seed=payload["seed"])
-    for number, action in enumerate(payload["actions"], 1):
+    for action in payload["actions"][:17]:
         apply_action(state, action)
-        if number % 20 == 0:
-            serialized = state.model_dump_json()
-            state = GameState.model_validate_json(serialized)
-            assert state.model_dump_json() == serialized
-    assert state.meta.game_over and state.meta.box == payload["expected_box"]
-    assert determine_scenario_winner(state) == payload["expected_winner"]
+    before = state.model_dump_json()
+    assert state.meta.muster_lord_order == ["hermann", "knud_and_abel"]
+    with pytest.raises(IllegalAction, match="muster_finished"):
+        apply_action(state, payload["actions"][17])
+    assert state.model_dump_json() == before
 
 
 @pytest.mark.parametrize("cid,side,lid,seat", [

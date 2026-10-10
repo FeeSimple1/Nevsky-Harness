@@ -209,6 +209,9 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             if isinstance(result, dict):
                 result.setdefault("_auto_confirmed_setup_transports", auto_confirmed)
 
+        # Cylinder shifts can make a Disbanded Lord Ready within a segment,
+        # not just on entry to Muster. Keep the stored display status in sync.
+        _refresh_lord_readiness(state)
         state.meta.sequence += 1
         state.history.append(
             HistoryEntry(
@@ -422,6 +425,7 @@ def _h_advance_step(
             state.meta.disband_resolved_t = False
             state.meta.disband_resolved_r = False
         if next_step == "muster":
+            state.meta.muster_lord_order = []
             # Reset per-Lord Lordship counters at start of Muster (3.4).
             for lord in state.lords.values():
                 lord.lordship_used = 0
@@ -456,6 +460,7 @@ def _h_advance_step(
             # Knight units up those shown on the Vassal marker."
             _t11_summer_auto_muster(state)
         if next_step == "call_to_arms":
+            state.meta.muster_lord_order = []
             # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
             state.legate.acted_this_call_to_arms = False
             state.veche.acted_this_call_to_arms = False
@@ -1994,6 +1999,14 @@ def _is_extra_muster_actor(state: GameState, lord_id: str) -> bool:
     return owner.extra_muster_target_lord == lord_id
 
 
+def _may_continue_muster(state: GameState, lord_id: str) -> bool:
+    """3.4 ordinary Muster order; a granted CtA Muster is independent."""
+    if state.meta.phase != "levy" or state.meta.levy_step != "muster":
+        return True
+    order = state.meta.muster_lord_order
+    return lord_id not in order or order[-1] == lord_id
+
+
 def _spend_lordship(state: GameState, lord_id: str) -> None:
     """Decrement an action against a Lord's Lordship budget (3.4)."""
     lord = state.lords[lord_id]
@@ -2025,12 +2038,21 @@ def _spend_lordship(state: GameState, lord_id: str) -> None:
             "blocked_this_levy",
             f"{lord_id} cannot use Lordship this Levy (R11 / R17)",
         )
+    if not _may_continue_muster(state, lord_id):
+        raise IllegalAction(
+            "muster_finished",
+            f"{lord_id} finished ordinary Muster when the next Lord began (3.4)",
+        )
     budget = _lordship_budget(state, lord_id)
     if lord.lordship_used >= budget:
         raise IllegalAction(
             "lordship_exhausted",
             f"{lord_id} has spent {lord.lordship_used}/{budget} Lordship this Muster",
         )
+    if state.meta.phase == "levy" and state.meta.levy_step == "muster":
+        order = state.meta.muster_lord_order
+        if not order or order[-1] != lord_id:
+            order.append(lord_id)
     lord.lordship_used += 1
 
 
@@ -2088,7 +2110,7 @@ def _h_muster_lord(
         )
 
     target = state.lords[target_id]
-    if target.state != "ready":
+    if target.state not in ("ready", "disbanded"):
         raise IllegalAction("bad_target", f"{target_id} state is {target.state} (not 'ready')")
 
     levy_box = _find_levy_marker_box(state)
@@ -2741,7 +2763,7 @@ def _h_legate_use(
             raise IllegalAction(
                 "muster_blocked",
                 f"{target_id} may not be Mustered this Levy (R11 Valdemar / R17 Dietrich)")
-        if target.state != "ready":
+        if target.state not in ("ready", "disbanded"):
             raise IllegalAction("bad_target", f"{target_id} must be Ready (state={target.state})")
         cyl_box = _find_cylinder_box(state, target_id)
         if cyl_box is None or cyl_box > levy_box:
@@ -2927,7 +2949,7 @@ def _h_veche_action(
             raise IllegalAction("bad_target", f"{target_id} not Russian")
         if state.veche.vp_markers < 1:
             raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
-        if target.state != "ready":
+        if target.state not in ("ready", "disbanded"):
             raise IllegalAction("bad_target", f"{target_id} not Ready (state={target.state})")
         levy_box = _find_levy_marker_box(state)
         cyl_box = _find_cylinder_box(state, target_id)
@@ -3026,11 +3048,23 @@ def _h_veche_action(
     return ({"option": "D", "slid": slid, "vp_added": min(1, 8 - (state.veche.vp_markers - 1))}, [])
 
 
+def _refresh_lord_readiness(state: GameState) -> None:
+    """Refresh Disbanded cylinders after any Calendar-changing action.
+
+    Recruitment also derives readiness from position via _is_ready, so a
+    saved state's display label can never hide a legal recruitment attempt.
+    Removed Lords and on-map Lords must never become recruitment targets.
+    """
+    for lid, lord in state.lords.items():
+        if lord.state == "disbanded" and _is_ready(state, lid, state.meta.box):
+            lord.state = "ready"
+
+
 def _is_ready(state: GameState, lord_id: str, levy_box: int) -> bool:
     if lord_id not in state.lords:
         return False
     lord = state.lords[lord_id]
-    if lord.state != "ready":
+    if lord.state not in ("ready", "disbanded"):
         return False
     cyl_box = _find_cylinder_box(state, lord_id)
     if cyl_box is None:

@@ -27,6 +27,7 @@ from nevsky.actions import (
     _is_friendly_locale,
     _is_ready,
     _lordship_budget,
+    _may_continue_muster,
     _season_of_box,
 )
 from nevsky.state import GameState, Side
@@ -350,6 +351,7 @@ def _muster_moves(
         lid for lid, lord in state.lords.items()
         if lord.side == side and lord.state == "mustered"
         and (only_lord is None or lid == only_lord)
+        and _may_continue_muster(state, lid)
         and (not lord.just_arrived_this_levy or _is_extra_muster_actor(state, lid))
         and not _is_besieged(state, lid)
         and lord.location is not None
@@ -378,7 +380,7 @@ def _muster_moves(
     for lid, sl in static.items():
         if sl["side"] != side or lid == "aleksandr":
             continue
-        if state.lords[lid].state != "ready":
+        if not _is_ready(state, lid, levy_box):
             continue
         # SMOKE-147 (R209): a Lord blocked this Levy (R11/R17) cannot be a
         # Muster TARGET either -- _h_muster_lord rejects target_id in block
@@ -574,7 +576,7 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 from nevsky.actions import _seats_of as _seats
                 cand_2a = [
                     lid for lid, l in state.lords.items()
-                    if l.side == "teutonic" and l.state == "ready"
+                    if l.side == "teutonic" and _is_ready(state, lid, _find_levy_marker_box(state))
                     and pawn_loc in _seats(state, lid)
                     and lid not in state.meta.block_lords_this_levy_t
                 ]
@@ -688,7 +690,7 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 # Option B: auto-Muster a Ready Russian Lord at a Free Seat (no Fealty).
                 ready_ru = [
                     lid for lid, lord in state.lords.items()
-                    if lord.side == "russian" and lord.state == "ready"
+                    if lord.side == "russian"
                     and _is_ready(state, lid, levy_box)
                     and _free_seats_for(state, lid)
                 ]
@@ -1643,8 +1645,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 if total > 0:
                     key = "sled" if _box in _END_OF_SUMMER_BOXES else "cart"
                     assets_preview[key] = (total + 1) // 2
-            if (any(v > 1 for v in assets_preview.values())
-                    or len(lord.this_lord_capabilities) > 1):
+            if (_box < state.meta.span_end_box
+                    and (any(v > 1 for v in assets_preview.values())
+                         or len(lord.this_lord_capabilities) > 1)):
                 wastage_candidates[lid] = sorted(
                     k for k, v in assets_preview.items() if v > 0
                 ) + [f"capability:{c}" for c in lord.this_lord_capabilities]
@@ -1676,7 +1679,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # the deck via args.reset_discard=[card_ids].
         _holds = (state.decks.teutonic.holds if side == "teutonic"
                   else state.decks.russian.holds)
-        if _holds:
+        if _holds and _box < state.meta.span_end_box:
             candidates["reset_discard"] = sorted(_holds)
             notes.append("4.9.5 Reset: optionally return held AoW cards "
                          "to the deck via args.reset_discard=[...]")

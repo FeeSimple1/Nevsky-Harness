@@ -1912,6 +1912,38 @@ def _h_end_campaign_resolve(
                 state.calendar.teutonic_vp = max(0.0, state.calendar.teutonic_vp - 0.5)
             grew.append(rid)
 
+    # Keep the Calendar display correct after EACH half of Grow, including
+    # the final turn; no later cleanup is needed to synchronize the score.
+    if grew:
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
+
+    # 4.9.2 precedes all remaining steps. Both sides must finish Grow before
+    # determining the winner; neither may discard Wastage or Reset on this turn.
+    if box >= state.meta.span_end_box:
+        if sd == "teutonic":
+            if state.meta.end_campaign_completed_t:
+                raise IllegalAction("already_done", "Teutonic End Campaign already done")
+            state.meta.end_campaign_completed_t = True
+            state.meta.active_player = "russian"
+        else:
+            if state.meta.end_campaign_completed_r:
+                raise IllegalAction("already_done", "Russian End Campaign already done")
+            state.meta.end_campaign_completed_r = True
+        game_over = (state.meta.end_campaign_completed_t
+                     and state.meta.end_campaign_completed_r)
+        if game_over:
+            from nevsky.scenarios import determine_scenario_winner
+            state.meta.campaign_step = "done"
+            result = determine_scenario_winner(state)
+            state.meta.winner = result["winner"]
+            state.meta.victory_reason = result["reason"]
+            state.meta.game_over = True
+        return ({"side": sd, "grew": grew, "wastage": [], "reset_discard": [],
+                 "this_campaign_discarded": [], "serfs_returned": [],
+                 "crusade_auto_discarded": False, "summer_crusaders_disbanded": [],
+                 "advanced_to_next_levy": False, "game_over": game_over}, [])
+
     # PLAY-21 (Fable audit): 4.9.5 RESET -- "Each side may discard any
     # Arts of War cards back to its deck (Teutons then Russians)."
     # args.reset_discard = [card_ids] returns held cards (holds zone)
@@ -2058,94 +2090,77 @@ def _h_end_campaign_resolve(
     advanced = False
     game_over = False
     if state.meta.end_campaign_completed_t and state.meta.end_campaign_completed_r:
-        # 4.9.2 Game-end check: was this the scenario's final 40-Days?
-        if state.meta.box >= state.meta.span_end_box:
-            state.meta.phase = "campaign"
-            state.meta.campaign_step = "done"
-            game_over = True
-            # 5.3 End of Scenario: record the terminal outcome on the single
-            # game_over flag so apply_action rejects any later action and
-            # session/winner reporting has a recorded result. (A 5.2 Campaign
-            # Victory would already have ended the game earlier via
-            # _apply_immediate_campaign_victory; this branch is the VP path.)
-            if not state.meta.game_over:
-                from nevsky.scenarios import determine_scenario_winner
-                _res = determine_scenario_winner(state)
-                state.meta.winner = _res["winner"]
-                state.meta.victory_reason = _res["reason"]
-                state.meta.game_over = True
-        else:
-            # 4.9.3 Plow & Reap ran per side (PLAY-17), before each
-            # side's Wastage.
-            # Advance Calendar marker by 1, flip to Levy.
-            cal = state.calendar
-            new_box_after_advance: int | None = None
-            for cb in cal.boxes:
-                if cb.has_levy_campaign_marker:
-                    cb.has_levy_campaign_marker = False
-                    cb.levy_campaign_face = None
-                    new_box = cb.box + 1
-                    if new_box <= 16:
-                        cal.boxes[new_box - 1].has_levy_campaign_marker = True
-                        cal.boxes[new_box - 1].levy_campaign_face = "levy"
-                    state.meta.box = new_box
-                    new_box_after_advance = new_box
-                    break
-            # 4.9.5 Reset (SMOKE-028b/c, refactored R44/SMOKE-031): If the
-            # new 40 Days is the year's first Late Winter (box 5 or 13),
-            # discard the Crusade Capability (T11) if in play; the unified
-            # _discard_side_capability helper cascades the Summer
-            # Crusaders Disband per AoW Reference T11 Tip.
-            crusade_auto_discarded = False
-            summer_crusaders_disbanded: list[dict[str, Any]] = []
-            if new_box_after_advance in (5, 13):
-                # Disband Summer Crusaders unconditionally per rule 4.9.5
-                # (the rule pairs Crusade-discard with Summer-Crusaders-
-                # Disband; the latter must fire even when T11 was never
-                # in capabilities_in_play, e.g., state was edited or the
-                # Vassal was force-set by a test fixture). Then if T11 is
-                # in play, discard it through the helper (which would do
-                # an idempotent re-disband — no double effect).
-                summer_crusaders_disbanded = _disband_special_vassals(
-                    state, "teutonic", "summer_crusaders")
-                if "T11" in state.decks.teutonic.capabilities_in_play:
-                    _discard_side_capability(state, "teutonic", "T11")
-                    crusade_auto_discarded = True
-            # Reset campaign-turn / step bookkeeping for next Campaign;
-            # transition to Levy.
-            state.meta.phase = "levy"
-            state.meta.levy_step = "arts_of_war"
-            state.meta.levy_step_completed_t = False
-            state.meta.levy_step_completed_r = False
-            # R199 (SMOKE-132): new Levy -> each side may draw again.
-            state.meta.aow_drawn_t = False
-            state.meta.aow_drawn_r = False
-            state.meta.first_levy_done = True  # post-first-Levy
-            state.meta.active_player = "teutonic"
-            state.meta.campaign_step = "plan"  # ready for next Campaign
-            state.meta.plan_complete_t = False
-            state.meta.plan_complete_r = False
-            state.meta.end_campaign_completed_t = False
-            state.meta.end_campaign_completed_r = False
-            state.campaign_turn.next_to_reveal = "teutonic"
-            state.campaign_turn.active_card = None
-            state.campaign_turn.active_lord = None
-            state.campaign_turn.actions_remaining = 0
-            state.campaign_turn.in_feed_pay_disband = False
-            state.campaign_turn.fpd_completed_t = False
-            state.campaign_turn.fpd_completed_r = False
-            # SMOKE-035 (Round 47): reset per-Levy Lord flags when
-            # transitioning Campaign -> next Levy. just_arrived_this_levy
-            # marks a Lord that Mustered in the current Levy (3.4 blocks
-            # them from Lordship-spending in the same Muster step). The
-            # previous Levy is done; the new Levy has not yet Mustered
-            # anyone, so the flag must clear for all Lords. Without this
-            # reset, a Lord who Mustered in Levy N still counts as
-            # "just arrived" in Levy N+1's Muster step and is wrongly
-            # blocked from acting as a Lordship source.
-            for lord in state.lords.values():
-                lord.just_arrived_this_levy = False
-            advanced = True
+        # 4.9.3 Plow & Reap ran per side (PLAY-17), before each
+        # side's Wastage.
+        # Advance Calendar marker by 1, flip to Levy.
+        cal = state.calendar
+        new_box_after_advance: int | None = None
+        for cb in cal.boxes:
+            if cb.has_levy_campaign_marker:
+                cb.has_levy_campaign_marker = False
+                cb.levy_campaign_face = None
+                new_box = cb.box + 1
+                if new_box <= 16:
+                    cal.boxes[new_box - 1].has_levy_campaign_marker = True
+                    cal.boxes[new_box - 1].levy_campaign_face = "levy"
+                state.meta.box = new_box
+                new_box_after_advance = new_box
+                break
+        # 4.9.5 Reset (SMOKE-028b/c, refactored R44/SMOKE-031): If the
+        # new 40 Days is the year's first Late Winter (box 5 or 13),
+        # discard the Crusade Capability (T11) if in play; the unified
+        # _discard_side_capability helper cascades the Summer
+        # Crusaders Disband per AoW Reference T11 Tip.
+        crusade_auto_discarded = False
+        summer_crusaders_disbanded: list[dict[str, Any]] = []
+        if new_box_after_advance in (5, 13):
+            # Disband Summer Crusaders unconditionally per rule 4.9.5
+            # (the rule pairs Crusade-discard with Summer-Crusaders-
+            # Disband; the latter must fire even when T11 was never
+            # in capabilities_in_play, e.g., state was edited or the
+            # Vassal was force-set by a test fixture). Then if T11 is
+            # in play, discard it through the helper (which would do
+            # an idempotent re-disband — no double effect).
+            summer_crusaders_disbanded = _disband_special_vassals(
+                state, "teutonic", "summer_crusaders")
+            if "T11" in state.decks.teutonic.capabilities_in_play:
+                _discard_side_capability(state, "teutonic", "T11")
+                crusade_auto_discarded = True
+        # Reset campaign-turn / step bookkeeping for next Campaign;
+        # transition to Levy.
+        state.meta.phase = "levy"
+        state.meta.levy_step = "arts_of_war"
+        state.meta.levy_step_completed_t = False
+        state.meta.levy_step_completed_r = False
+        # R199 (SMOKE-132): new Levy -> each side may draw again.
+        state.meta.aow_drawn_t = False
+        state.meta.aow_drawn_r = False
+        state.meta.first_levy_done = True  # post-first-Levy
+        state.meta.active_player = "teutonic"
+        state.meta.campaign_step = "plan"  # ready for next Campaign
+        state.meta.plan_complete_t = False
+        state.meta.plan_complete_r = False
+        state.meta.end_campaign_completed_t = False
+        state.meta.end_campaign_completed_r = False
+        state.campaign_turn.next_to_reveal = "teutonic"
+        state.campaign_turn.active_card = None
+        state.campaign_turn.active_lord = None
+        state.campaign_turn.actions_remaining = 0
+        state.campaign_turn.in_feed_pay_disband = False
+        state.campaign_turn.fpd_completed_t = False
+        state.campaign_turn.fpd_completed_r = False
+        # SMOKE-035 (Round 47): reset per-Levy Lord flags when
+        # transitioning Campaign -> next Levy. just_arrived_this_levy
+        # marks a Lord that Mustered in the current Levy (3.4 blocks
+        # them from Lordship-spending in the same Muster step). The
+        # previous Levy is done; the new Levy has not yet Mustered
+        # anyone, so the flag must clear for all Lords. Without this
+        # reset, a Lord who Mustered in Levy N still counts as
+        # "just arrived" in Levy N+1's Muster step and is wrongly
+        # blocked from acting as a Lordship source.
+        for lord in state.lords.values():
+            lord.just_arrived_this_levy = False
+        advanced = True
 
     return ({"side": sd, "grew": grew, "wastage": wastage_actions, "reset_discard": reset_discarded,
              "this_campaign_discarded": discarded_camp_events,
