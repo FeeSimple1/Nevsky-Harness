@@ -1,0 +1,74 @@
+{
+  "hidden_hold_T3": {
+    "box": 10,
+    "target": "kaibolovo",
+    "action": {
+      "type": "aow_play_hold",
+      "side": "teutonic",
+      "args": {
+        "card_id": "T3",
+        "target": "kaibolovo"
+      }
+    },
+    "conquered_before": 0,
+    "conquered_after": 1,
+    "siege_before": 1,
+    "siege_after": 1,
+    "vp_before": 2.0,
+    "vp_after": 3.0,
+    "vp_markers_before": [
+      2
+    ],
+    "vp_markers_after": [
+      2
+    ],
+    "vp_markers_expected_from_live_score": [
+      3
+    ],
+    "result": {
+      "card": "T3",
+      "result": {
+        "event": "T3",
+        "conquered": "kaibolovo",
+        "teu_dist": 0,
+        "rus_dist": 1
+      }
+    }
+  },
+  "T3_double_conquest": {
+    "box": 11,
+    "target": "kaibolovo",
+    "action": {
+      "type": "aow_play_hold",
+      "side": "teutonic",
+      "args": {
+        "card_id": "T3",
+        "target": "kaibolovo"
+      }
+    },
+    "conquered_before": 1,
+    "conquered_after": 2,
+    "siege_before": 0,
+    "siege_after": 0,
+    "vp_before": 4.0,
+    "vp_after": 5.0,
+    "vp_markers_before": [
+      4
+    ],
+    "vp_markers_after": [
+      4
+    ],
+    "vp_markers_expected_from_live_score": [
+      5
+    ],
+    "result": {
+      "card": "T3",
+      "result": {
+        "event": "T3",
+        "conquered": "kaibolovo",
+        "teu_dist": 0,
+        "rus_dist": 1
+      }
+    }
+  }
+}

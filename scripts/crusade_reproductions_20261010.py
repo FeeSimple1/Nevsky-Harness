@@ -51,6 +51,7 @@ def add(key, s, game, index, data):
     results[key] = {'game': game, 'before_action_index': index, 'calendar_box': s.meta.box,
                     'phase': s.meta.phase, 'step': s.meta.levy_step if s.meta.phase == 'levy' else s.meta.campaign_step,
                     'active_side': s.meta.active_player, 'state_file': file, **data}
+    results[key] = copy.deepcopy(results[key])
     print('REPRO', key, json.dumps(results[key]), flush=True)
 
 

@@ -203,9 +203,7 @@
       }
     },
     "assets_before": {
-      "provender": 1,
-      "cart": 3,
-      "boat": 1
+      "sled": 2
     },
     "assets_after": {
       "sled": 2,
