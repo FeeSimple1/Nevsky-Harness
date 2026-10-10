@@ -1,0 +1,3225 @@
+{
+  "interesting": [
+    {
+      "index": 15,
+      "box": 1,
+      "action": {
+        "type": "muster_lord",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "hermann",
+          "target_lord": "rudolf",
+          "seat": "wenden"
+        }
+      },
+      "roster_changes": {
+        "rudolf": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "wenden"
+          ]
+        }
+      },
+      "vp_before": [
+        0.0,
+        1.0
+      ],
+      "vp_after": [
+        0.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "hermann",
+        "target_lord": "rudolf",
+        "seat": "wenden",
+        "roll": 1,
+        "fealty": 5
+      }
+    },
+    {
+      "index": 23,
+      "box": 1,
+      "action": {
+        "type": "muster_lord",
+        "side": "russian",
+        "args": {
+          "by_lord": "gavrilo",
+          "target_lord": "domash",
+          "seat": "novgorod"
+        }
+      },
+      "roster_changes": {
+        "domash": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "novgorod"
+          ]
+        }
+      },
+      "vp_before": [
+        0.0,
+        1.0
+      ],
+      "vp_after": [
+        0.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "gavrilo",
+        "target_lord": "domash",
+        "seat": "novgorod",
+        "roll": 1,
+        "fealty": 4
+      }
+    },
+    {
+      "index": 30,
+      "box": 1,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "A",
+          "target_lord": "aleksandr"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        0.0,
+        1.0
+      ],
+      "vp_after": [
+        0.0,
+        0.0
+      ],
+      "result": {
+        "option": "A",
+        "target_lord": "aleksandr",
+        "from_box": 5,
+        "to_box": 3
+      }
+    },
+    {
+      "index": 156,
+      "box": 2,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        0.0,
+        0.0
+      ],
+      "vp_after": [
+        0.0,
+        0.0
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 184,
+      "box": 2,
+      "action": {
+        "type": "cmd_ravage",
+        "side": "teutonic",
+        "args": {
+          "lord_id": "hermann",
+          "locale_id": "izborsk"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        0.0,
+        0.0
+      ],
+      "vp_after": [
+        0.5,
+        0.0
+      ],
+      "result": {
+        "lord_id": "hermann",
+        "locale": "izborsk",
+        "actions_used": 2,
+        "ravaged_color": "teutonic",
+        "loot_added": true
+      }
+    },
+    {
+      "index": 235,
+      "box": 2,
+      "action": {
+        "type": "avoid_battle",
+        "side": "teutonic",
+        "args": {
+          "to": "lettgallia",
+          "way_type": "trackway"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        0.5,
+        0.0
+      ],
+      "vp_after": [
+        0.5,
+        0.0
+      ],
+      "result": {
+        "avoided_to": "lettgallia",
+        "placed_siege": false,
+        "spoils_to_attacker": {
+          "loot": 1,
+          "provender": 1
+        },
+        "spoils_distribution": {
+          "gavrilo": {
+            "loot": 1,
+            "provender": 1
+          }
+        },
+        "spoils_lost_to_cap": {},
+        "discards_per_lord": [
+          {
+            "lord_id": "hermann",
+            "loot": 1,
+            "excess_provender": 1
+          }
+        ]
+      }
+    },
+    {
+      "index": 242,
+      "box": 3,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T15",
+          "locale": "ostrov"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        0.5,
+        0.0
+      ],
+      "vp_after": [
+        1.0,
+        0.0
+      ],
+      "result": {
+        "card": "T15",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T15",
+          "locale": "ostrov"
+        }
+      }
+    },
+    {
+      "index": 252,
+      "box": 3,
+      "action": {
+        "type": "disband_resolve",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "vladislav": {
+          "before": [
+            "mustered",
+            "ladoga"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        0.0
+      ],
+      "vp_after": [
+        1.0,
+        0.0
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "vladislav",
+            "new_box": 6
+          }
+        ],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 260,
+      "box": 3,
+      "action": {
+        "type": "muster_lord",
+        "side": "russian",
+        "args": {
+          "by_lord": "domash",
+          "target_lord": "karelians",
+          "seat": "ladoga"
+        }
+      },
+      "roster_changes": {
+        "karelians": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "ladoga"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        0.0
+      ],
+      "vp_after": [
+        1.0,
+        0.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "domash",
+        "target_lord": "karelians",
+        "seat": "ladoga",
+        "roll": 2,
+        "fealty": 4
+      }
+    },
+    {
+      "index": 267,
+      "box": 3,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "D"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "option": "D",
+        "slid": [
+          "aleksandr"
+        ],
+        "vp_added": 1
+      }
+    },
+    {
+      "index": 308,
+      "box": 3,
+      "action": {
+        "type": "stand_battle",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "hermann": {
+          "before": [
+            "mustered",
+            "izborsk"
+          ],
+          "after": [
+            "removed",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "winner": "russian",
+        "loser": "teutonic",
+        "retreats": [
+          {
+            "lord": "hermann",
+            "to": "lettgallia",
+            "service_shift": 1
+          }
+        ],
+        "spoils": [
+          {
+            "from": "hermann",
+            "to": "gavrilo",
+            "distributed": {
+              "gavrilo": {
+                "provender": 2,
+                "sled": 3
+              }
+            },
+            "transferred": {
+              "provender": 2,
+              "sled": 3
+            },
+            "lost_to_cap": {},
+            "mode": "all_except_ships",
+            "retreat_way_type": null
+          }
+        ],
+        "removed": [
+          "hermann"
+        ]
+      }
+    },
+    {
+      "index": 351,
+      "box": 4,
+      "action": {
+        "type": "muster_lord",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "target_lord": "andreas",
+          "seat": "riga"
+        }
+      },
+      "roster_changes": {
+        "andreas": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "riga"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "knud_and_abel",
+        "target_lord": "andreas",
+        "seat": "riga",
+        "roll": 2,
+        "fealty": 2
+      }
+    },
+    {
+      "index": 363,
+      "box": 4,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "B",
+          "target_lord": "aleksandr",
+          "seat": "novgorod"
+        }
+      },
+      "roster_changes": {
+        "aleksandr": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "novgorod"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        0.0
+      ],
+      "result": {
+        "option": "B",
+        "target_lord": "aleksandr",
+        "seat": "novgorod"
+      }
+    },
+    {
+      "index": 425,
+      "box": 4,
+      "action": {
+        "type": "cmd_raiders_ravage",
+        "side": "russian",
+        "args": {
+          "lord_id": "gavrilo",
+          "to": "lettgallia"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.0
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "lord_id": "gavrilo",
+        "target": "lettgallia",
+        "loot_added": false
+      }
+    },
+    {
+      "index": 426,
+      "box": 4,
+      "action": {
+        "type": "cmd_raiders_ravage",
+        "side": "russian",
+        "args": {
+          "lord_id": "gavrilo",
+          "to": "ugaunia"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "lord_id": "gavrilo",
+        "target": "ugaunia",
+        "loot_added": false
+      }
+    },
+    {
+      "index": 444,
+      "box": 5,
+      "action": {
+        "type": "disband_resolve",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "domash": {
+          "before": [
+            "mustered",
+            "dubrovno"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "domash",
+            "new_box": 9
+          }
+        ],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 456,
+      "box": 5,
+      "action": {
+        "type": "muster_lord",
+        "side": "russian",
+        "args": {
+          "by_lord": "aleksandr",
+          "target_lord": "andrey",
+          "seat": "novgorod"
+        }
+      },
+      "roster_changes": {
+        "andrey": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "novgorod"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "aleksandr",
+        "target_lord": "andrey",
+        "seat": "novgorod",
+        "roll": 3,
+        "fealty": 4
+      }
+    },
+    {
+      "index": 463,
+      "box": 5,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 543,
+      "box": 6,
+      "action": {
+        "type": "advance_step",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "vladislav": {
+          "before": [
+            "disbanded",
+            null
+          ],
+          "after": [
+            "ready",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "new_step": "muster",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "index": 546,
+      "box": 6,
+      "action": {
+        "type": "muster_lord",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "target_lord": "heinrich",
+          "seat": "leal"
+        }
+      },
+      "roster_changes": {
+        "heinrich": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "leal"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "knud_and_abel",
+        "target_lord": "heinrich",
+        "seat": "leal",
+        "roll": 3,
+        "fealty": 3
+      }
+    },
+    {
+      "index": 557,
+      "box": 6,
+      "action": {
+        "type": "muster_lord",
+        "side": "russian",
+        "args": {
+          "by_lord": "gavrilo",
+          "target_lord": "vladislav",
+          "seat": "ladoga"
+        }
+      },
+      "roster_changes": {
+        "vladislav": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "ladoga"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "gavrilo",
+        "target_lord": "vladislav",
+        "seat": "ladoga",
+        "roll": 2,
+        "fealty": 5
+      }
+    },
+    {
+      "index": 561,
+      "box": 6,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        1.0
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 632,
+      "box": 7,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T14",
+          "locale": "ugaunia"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        1.0
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "card": "T14",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T14",
+          "locale": "ugaunia"
+        }
+      }
+    },
+    {
+      "index": 633,
+      "box": 7,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T15",
+          "locale": "velikaya_river"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.5,
+        0.5
+      ],
+      "result": {
+        "card": "T15",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T15",
+          "locale": "velikaya_river"
+        }
+      }
+    },
+    {
+      "index": 641,
+      "box": 7,
+      "action": {
+        "type": "disband_resolve",
+        "side": "teutonic",
+        "args": {}
+      },
+      "roster_changes": {
+        "andreas": {
+          "before": [
+            "mustered",
+            "metsepole"
+          ],
+          "after": [
+            "removed",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.5,
+        0.5
+      ],
+      "vp_after": [
+        1.5,
+        0.5
+      ],
+      "result": {
+        "permanently_removed": [
+          "andreas"
+        ],
+        "disbanded": [],
+        "vassal_advanced": {
+          "side": "teutonic",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 660,
+      "box": 7,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.5,
+        0.5
+      ],
+      "vp_after": [
+        1.5,
+        0.5
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 753,
+      "box": 8,
+      "action": {
+        "type": "disband_resolve",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "gavrilo": {
+          "before": [
+            "mustered",
+            "pskov"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.5,
+        0.5
+      ],
+      "vp_after": [
+        1.5,
+        0.5
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "gavrilo",
+            "new_box": 12
+          }
+        ],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 771,
+      "box": 8,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.5,
+        0.5
+      ],
+      "vp_after": [
+        1.5,
+        0.5
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 844,
+      "box": 8,
+      "action": {
+        "type": "end_campaign_resolve",
+        "side": "russian",
+        "args": {
+          "wastage": {
+            "aleksandr": "capability:R16",
+            "andrey": "capability:R12",
+            "vladislav": "cart",
+            "karelians": "cart"
+          }
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.5,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "side": "russian",
+        "grew": [
+          "izborsk"
+        ],
+        "wastage": [
+          {
+            "lord_id": "aleksandr",
+            "discarded": "capability:R16"
+          },
+          {
+            "lord_id": "andrey",
+            "discarded": "capability:R12"
+          },
+          {
+            "lord_id": "vladislav",
+            "discarded": "cart"
+          },
+          {
+            "lord_id": "karelians",
+            "discarded": "cart"
+          }
+        ],
+        "reset_discard": [],
+        "this_campaign_discarded": [],
+        "serfs_returned": [],
+        "crusade_auto_discarded": false,
+        "summer_crusaders_disbanded": [],
+        "advanced_to_next_levy": true,
+        "game_over": false
+      }
+    },
+    {
+      "index": 855,
+      "box": 9,
+      "action": {
+        "type": "disband_resolve",
+        "side": "teutonic",
+        "args": {}
+      },
+      "roster_changes": {
+        "rudolf": {
+          "before": [
+            "mustered",
+            "adsel"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "rudolf",
+            "new_box": 11
+          }
+        ],
+        "vassal_advanced": {
+          "side": "teutonic",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 857,
+      "box": 9,
+      "action": {
+        "type": "advance_step",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "domash": {
+          "before": [
+            "disbanded",
+            null
+          ],
+          "after": [
+            "ready",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "new_step": "muster",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "index": 866,
+      "box": 9,
+      "action": {
+        "type": "muster_lord",
+        "side": "russian",
+        "args": {
+          "by_lord": "aleksandr",
+          "target_lord": "domash",
+          "seat": "novgorod"
+        }
+      },
+      "roster_changes": {
+        "domash": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "novgorod"
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "aleksandr",
+        "target_lord": "domash",
+        "seat": "novgorod",
+        "roll": 4,
+        "fealty": 4
+      }
+    },
+    {
+      "index": 870,
+      "box": 9,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 967,
+      "box": 10,
+      "action": {
+        "type": "disband_resolve",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "aleksandr": {
+          "before": [
+            "mustered",
+            "shelon_river"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        },
+        "andrey": {
+          "before": [
+            "mustered",
+            "pskov"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "aleksandr",
+            "new_box": 16
+          },
+          {
+            "lord_id": "andrey",
+            "new_box": 15
+          }
+        ],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 983,
+      "box": 10,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.0,
+        0.5
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 1011,
+      "box": 10,
+      "action": {
+        "type": "cmd_raiders_ravage",
+        "side": "teutonic",
+        "args": {
+          "lord_id": "knud_and_abel",
+          "to": "kaibolovo"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.0,
+        0.5
+      ],
+      "vp_after": [
+        1.5,
+        0.5
+      ],
+      "result": {
+        "lord_id": "knud_and_abel",
+        "target": "kaibolovo",
+        "loot_added": true
+      }
+    },
+    {
+      "index": 1038,
+      "box": 10,
+      "action": {
+        "type": "cmd_ravage",
+        "side": "teutonic",
+        "args": {
+          "lord_id": "yaroslav",
+          "locale_id": "izborsk"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        1.5,
+        0.5
+      ],
+      "vp_after": [
+        2.0,
+        0.5
+      ],
+      "result": {
+        "lord_id": "yaroslav",
+        "locale": "izborsk",
+        "actions_used": 1,
+        "ravaged_color": "teutonic",
+        "loot_added": true
+      }
+    },
+    {
+      "index": 1080,
+      "box": 11,
+      "action": {
+        "type": "disband_resolve",
+        "side": "teutonic",
+        "args": {}
+      },
+      "roster_changes": {
+        "heinrich": {
+          "before": [
+            "mustered",
+            "leal"
+          ],
+          "after": [
+            "removed",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        2.0,
+        0.5
+      ],
+      "vp_after": [
+        2.0,
+        0.5
+      ],
+      "result": {
+        "permanently_removed": [
+          "heinrich"
+        ],
+        "disbanded": [],
+        "vassal_advanced": {
+          "side": "teutonic",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 1082,
+      "box": 11,
+      "action": {
+        "type": "advance_step",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "rudolf": {
+          "before": [
+            "disbanded",
+            null
+          ],
+          "after": [
+            "ready",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        2.0,
+        0.5
+      ],
+      "vp_after": [
+        2.0,
+        0.5
+      ],
+      "result": {
+        "new_step": "muster",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "index": 1091,
+      "box": 11,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        2.0,
+        0.5
+      ],
+      "vp_after": [
+        2.0,
+        0.5
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 1104,
+      "box": 11,
+      "action": {
+        "type": "cmd_siege",
+        "side": "teutonic",
+        "args": {
+          "lord_id": "yaroslav"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        2.0,
+        0.5
+      ],
+      "vp_after": [
+        3.0,
+        0.5
+      ],
+      "result": {
+        "locale": "izborsk",
+        "surrender": {
+          "conquered": true,
+          "change": {
+            "type": "conquest",
+            "side": "teutonic",
+            "vp": 1
+          }
+        },
+        "siege_added": false,
+        "siege_markers": 0
+      }
+    },
+    {
+      "index": 1114,
+      "box": 11,
+      "action": {
+        "type": "cmd_storm",
+        "side": "teutonic",
+        "args": {
+          "lord_id": "knud_and_abel"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        3.0,
+        0.5
+      ],
+      "vp_after": [
+        3.0,
+        0.5
+      ],
+      "result": {
+        "storm_failed": true
+      }
+    },
+    {
+      "index": 1132,
+      "box": 11,
+      "action": {
+        "type": "cmd_storm",
+        "side": "teutonic",
+        "args": {
+          "lord_id": "knud_and_abel"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        3.0,
+        0.5
+      ],
+      "vp_after": [
+        4.0,
+        0.5
+      ],
+      "result": {
+        "besieged_removed": [],
+        "conquest_change": {
+          "type": "conquest",
+          "side": "teutonic",
+          "vp": 1
+        },
+        "stronghold_spoils_distribution": {
+          "knud_and_abel": {
+            "loot": 1,
+            "provender": 1,
+            "coin": 1
+          }
+        },
+        "stronghold_spoils": {
+          "loot": 1,
+          "provender": 1,
+          "coin": 1
+        },
+        "spoils_recipient": "knud_and_abel"
+      }
+    },
+    {
+      "index": 1138,
+      "box": 11,
+      "action": {
+        "type": "withdraw",
+        "side": "teutonic",
+        "args": {}
+      },
+      "roster_changes": {},
+      "vp_before": [
+        4.0,
+        0.5
+      ],
+      "vp_after": [
+        4.0,
+        0.5
+      ],
+      "result": {
+        "withdrew_into": "kaibolovo",
+        "capacity": 1,
+        "withdrew_lords": [
+          "knud_and_abel"
+        ]
+      }
+    },
+    {
+      "index": 1145,
+      "box": 12,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T15",
+          "locale": "sorot_river"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        4.0,
+        0.5
+      ],
+      "vp_after": [
+        4.5,
+        0.5
+      ],
+      "result": {
+        "card": "T15",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T15",
+          "locale": "sorot_river"
+        }
+      }
+    },
+    {
+      "index": 1146,
+      "box": 12,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T14",
+          "locale": "lettgallia"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        4.5,
+        0.5
+      ],
+      "vp_after": [
+        4.5,
+        0.0
+      ],
+      "result": {
+        "card": "T14",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T14",
+          "locale": "lettgallia"
+        }
+      }
+    },
+    {
+      "index": 1156,
+      "box": 12,
+      "action": {
+        "type": "advance_step",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "gavrilo": {
+          "before": [
+            "disbanded",
+            null
+          ],
+          "after": [
+            "ready",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        4.5,
+        0.0
+      ],
+      "vp_after": [
+        4.5,
+        0.0
+      ],
+      "result": {
+        "new_step": "muster",
+        "phase": "levy",
+        "campaign_step": null,
+        "active_player": "teutonic"
+      }
+    },
+    {
+      "index": 1163,
+      "box": 12,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        4.5,
+        0.0
+      ],
+      "vp_after": [
+        4.5,
+        0.0
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 1178,
+      "box": 12,
+      "action": {
+        "type": "fpd_resolve",
+        "side": "teutonic",
+        "args": {}
+      },
+      "roster_changes": {
+        "yaroslav": {
+          "before": [
+            "mustered",
+            "dorpat"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        4.5,
+        0.0
+      ],
+      "vp_after": [
+        4.5,
+        0.0
+      ],
+      "result": {
+        "side": "teutonic",
+        "feed": [
+          {
+            "lord_id": "yaroslav",
+            "units": 3,
+            "cost": 1,
+            "consumed": {
+              "provender": 0,
+              "loot": 0
+            },
+            "unfed": true
+          }
+        ],
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "yaroslav",
+            "new_box": 15
+          }
+        ],
+        "advanced": false
+      }
+    },
+    {
+      "index": 1224,
+      "box": 13,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T15",
+          "locale": "dubrovno"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        4.5,
+        0.0
+      ],
+      "vp_after": [
+        5.0,
+        0.0
+      ],
+      "result": {
+        "card": "T15",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T15",
+          "locale": "dubrovno"
+        }
+      }
+    },
+    {
+      "index": 1228,
+      "box": 13,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "russian",
+        "args": {
+          "card_id": "R12",
+          "locale": "rositten"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        5.0,
+        0.0
+      ],
+      "vp_after": [
+        5.0,
+        0.5
+      ],
+      "result": {
+        "card": "R12",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "R12",
+          "locale": "rositten"
+        }
+      }
+    },
+    {
+      "index": 1234,
+      "box": 13,
+      "action": {
+        "type": "disband_resolve",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "vladislav": {
+          "before": [
+            "mustered",
+            "vod"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        5.0,
+        0.5
+      ],
+      "vp_after": [
+        5.0,
+        0.5
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "vladislav",
+            "new_box": 16
+          }
+        ],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 1236,
+      "box": 13,
+      "action": {
+        "type": "muster_lord",
+        "side": "teutonic",
+        "args": {
+          "by_lord": "knud_and_abel",
+          "target_lord": "rudolf",
+          "seat": "wenden"
+        }
+      },
+      "roster_changes": {
+        "rudolf": {
+          "before": [
+            "ready",
+            null
+          ],
+          "after": [
+            "mustered",
+            "wenden"
+          ]
+        }
+      },
+      "vp_before": [
+        5.0,
+        0.5
+      ],
+      "vp_after": [
+        5.0,
+        0.5
+      ],
+      "result": {
+        "outcome": "mustered",
+        "by_lord": "knud_and_abel",
+        "target_lord": "rudolf",
+        "seat": "wenden",
+        "roll": 1,
+        "fealty": 5
+      }
+    },
+    {
+      "index": 1245,
+      "box": 13,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        5.0,
+        0.5
+      ],
+      "vp_after": [
+        5.0,
+        0.5
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    },
+    {
+      "index": 1304,
+      "box": 14,
+      "action": {
+        "type": "aow_implement_card",
+        "side": "teutonic",
+        "args": {
+          "card_id": "T14",
+          "locale": "rositten"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        5.0,
+        0.5
+      ],
+      "vp_after": [
+        5.0,
+        0.0
+      ],
+      "result": {
+        "card": "T14",
+        "outcome": "immediate_event_discarded",
+        "effect": {
+          "event": "T14",
+          "locale": "rositten"
+        }
+      }
+    },
+    {
+      "index": 1314,
+      "box": 14,
+      "action": {
+        "type": "disband_resolve",
+        "side": "russian",
+        "args": {}
+      },
+      "roster_changes": {
+        "domash": {
+          "before": [
+            "mustered",
+            "pskov"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        },
+        "karelians": {
+          "before": [
+            "mustered",
+            "neva"
+          ],
+          "after": [
+            "disbanded",
+            null
+          ]
+        }
+      },
+      "vp_before": [
+        5.0,
+        0.0
+      ],
+      "vp_after": [
+        5.0,
+        0.0
+      ],
+      "result": {
+        "permanently_removed": [],
+        "disbanded": [
+          {
+            "lord_id": "domash",
+            "new_box": 17
+          },
+          {
+            "lord_id": "karelians",
+            "new_box": 16
+          }
+        ],
+        "vassal_advanced": {
+          "side": "russian",
+          "removed": [],
+          "to_mat_unready": [],
+          "lord_disbanded_due_to_no_forces": []
+        }
+      }
+    },
+    {
+      "index": 1320,
+      "box": 14,
+      "action": {
+        "type": "veche_action",
+        "side": "russian",
+        "args": {
+          "option": "skip"
+        }
+      },
+      "roster_changes": {},
+      "vp_before": [
+        5.0,
+        0.0
+      ],
+      "vp_after": [
+        5.0,
+        0.0
+      ],
+      "result": {
+        "outcome": "skipped"
+      }
+    }
+  ],
+  "windows": [
+    {
+      "kind": "lordship_hold",
+      "action_index": 343,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_implement_card"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 346,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 348,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 355,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 363,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 436,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 437,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 441,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 442,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 443,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 444,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 446,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 455,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 462,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 463,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 532,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 536,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 540,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 541,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 542,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 543,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 544,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 549,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 560,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 561,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 631,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 635,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 639,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 640,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 641,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 643,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 644,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 648,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 659,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 660,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 742,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 746,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 750,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 751,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 752,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 753,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 755,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 762,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 770,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 771,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 845,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 849,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 853,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 854,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 855,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 857,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 858,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 862,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 869,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 870,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 955,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 959,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 964,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 965,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 966,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 967,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 969,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 976,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 982,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 983,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1069,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1073,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1078,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1079,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1080,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1082,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1083,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1084,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1090,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1091,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1144,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1148,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1152,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "pay_with_coin"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1154,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1155,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1156,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1157,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1158,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1162,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1163,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1223,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1227,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1231,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1232,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1233,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1234,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1236,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1240,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1244,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1245,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1302,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1306,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1310,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "pay_with_coin"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1312,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1313,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1314,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1316,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1318,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1319,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1320,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    }
+  ],
+  "issues": []
+}

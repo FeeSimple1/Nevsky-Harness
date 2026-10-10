@@ -1,0 +1,1303 @@
+{
+  "interesting_events": 57,
+  "windows": [
+    {
+      "kind": "lordship_hold",
+      "action_index": 343,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_implement_card"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 346,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 348,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 355,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 363,
+      "box": 4,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 436,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 437,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 441,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 442,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 443,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 444,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 446,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 455,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 462,
+      "box": 5,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 463,
+      "box": 5,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 532,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 536,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 540,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 541,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 542,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 543,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 544,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 549,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 560,
+      "box": 6,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 561,
+      "box": 6,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 631,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 635,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 639,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 640,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 641,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 643,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 644,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 648,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 659,
+      "box": 7,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 660,
+      "box": 7,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 742,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 746,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 750,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 751,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 752,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 753,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 755,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 762,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 770,
+      "box": 8,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 771,
+      "box": 8,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 845,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 849,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 853,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 854,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 855,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 857,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 858,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 862,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 869,
+      "box": 9,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 870,
+      "box": 9,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 955,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 959,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 964,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 965,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 966,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 967,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 969,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 976,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 982,
+      "box": 10,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 983,
+      "box": 10,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1069,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1073,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1078,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1079,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1080,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1082,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1083,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1084,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1090,
+      "box": 11,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1091,
+      "box": 11,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1144,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1148,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1152,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "pay_with_coin"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1154,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1155,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1156,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1157,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1158,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1162,
+      "box": 12,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1163,
+      "box": 12,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1223,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1227,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1231,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1232,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1233,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1234,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1236,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1240,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_lord",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1244,
+      "box": 13,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1245,
+      "box": 13,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "veche_action"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1302,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "arts_of_war",
+      "card": "T3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1306,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "arts_of_war",
+      "card": "R3",
+      "menu_types": [
+        "aow_draw"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1310,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "pay",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "pay_with_coin"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1312,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "pay",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1313,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "disband",
+      "card": "T3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1314,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "disband",
+      "card": "R3",
+      "menu_types": [
+        "disband_resolve"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1316,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "muster",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "levy_capability",
+        "levy_transport",
+        "muster_vassal"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1318,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "muster",
+      "card": "R3",
+      "menu_types": [
+        "advance_step"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1319,
+      "box": 14,
+      "side": "teutonic",
+      "levy_step": "call_to_arms",
+      "card": "T3",
+      "menu_types": [
+        "advance_step",
+        "legate_skip"
+      ]
+    },
+    {
+      "kind": "lordship_hold",
+      "action_index": 1320,
+      "box": 14,
+      "side": "russian",
+      "levy_step": "call_to_arms",
+      "card": "R3",
+      "menu_types": [
+        "advance_step",
+        "aow_discard_this_levy",
+        "veche_action"
+      ]
+    }
+  ],
+  "issues": [],
+  "handler_names": [
+    "advance_step",
+    "aow_discard_this_levy",
+    "aow_draw",
+    "aow_implement_card",
+    "aow_lordship_plus_2",
+    "aow_play_hold",
+    "aow_shuffle",
+    "avoid_battle",
+    "cmd_forage",
+    "cmd_march",
+    "cmd_muster_serf",
+    "cmd_pass",
+    "cmd_raiders_ravage",
+    "cmd_ravage",
+    "cmd_sail",
+    "cmd_sally",
+    "cmd_siege",
+    "cmd_stone_kremlin",
+    "cmd_stonemasons",
+    "cmd_storm",
+    "cmd_supply",
+    "cmd_tax",
+    "command_reveal",
+    "confirm_all_setup_transports",
+    "confirm_setup_transport",
+    "decline_ambush_block",
+    "disband_resolve",
+    "end_campaign_resolve",
+    "end_card",
+    "finalize_plan",
+    "fpd_resolve",
+    "legate_arrives",
+    "legate_command_bonus",
+    "legate_move",
+    "legate_skip",
+    "legate_use",
+    "levy_capability",
+    "levy_transport",
+    "muster_lord",
+    "muster_vassal",
+    "pay_with_coin",
+    "pay_with_loot",
+    "place_lieutenant",
+    "plan_add_card",
+    "play_ambush_block",
+    "set_setup_transport",
+    "stand_battle",
+    "system_setup_complete",
+    "veche_action",
+    "withdraw"
+  ]
+}

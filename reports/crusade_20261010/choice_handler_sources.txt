@@ -1,0 +1,877 @@
+### aow_lordship_plus_2: /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:3299
+def _h_aow_lordship_plus_2(
+    state: "GameState", side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Use a Lordship-or-shift Hold event for +2 Lordship to a target Lord.
+    Card discarded the moment used. Allowed in Muster (3.4) and Call to
+    Arms (3.5).
+    args.card_id, args.lord_id, args.mode = "lordship" | "shift",
+    args.direction (when mode=shift): "left" | "right".
+    """
+    from nevsky.events import apply_calendar_shift_hold, apply_lordship_plus_2
+    sd = _require_side_player(state, side)
+    cid = args.get("card_id")
+    lord_id = args.get("lord_id")
+    mode = args.get("mode", "lordship")
+    if not (isinstance(cid, str) and isinstance(lord_id, str)):
+        raise IllegalAction("missing_arg", "args.card_id and args.lord_id required")
+    if state.meta.phase != "levy":
+        raise IllegalAction("wrong_phase", "Lordship +2 hold play allowed in Levy only")
+    if state.meta.levy_step not in ("muster", "call_to_arms"):
+        raise IllegalAction("wrong_step", "Lordship +2 hold allowed in Muster or Call to Arms")
+    deck = _side_deck(state, sd)
+    if cid not in deck.holds:
+        raise IllegalAction("not_in_holds", f"{cid} not in your holds")
+    # SMOKE-056 (Round 65) extension: side-validate the card here too.
+    from nevsky.static_data import load_cards
+    card_meta = load_cards().get(cid)
+    if card_meta is not None and card_meta.get("side") != sd:
+        raise IllegalAction(
+            "wrong_side",
+            f"{cid} belongs to {card_meta['side']}; {sd} cannot play it",
+        )
+    if mode == "lordship":
+        result = apply_lordship_plus_2(state, cid, lord_id)
+    elif mode == "shift":
+        direction = args.get("direction", "left")
+        result = apply_calendar_shift_hold(state, cid, lord_id, direction)
+    else:
+        raise IllegalAction("bad_mode", "mode must be lordship or shift")
+    deck.holds.remove(cid)
+    deck.discard.append(cid)
+    return ({"card": cid, "result": result}, [])
+
+
+### cmd_muster_serf: /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/campaign.py:5104
+def _h_cmd_muster_serf(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """R4 Smerdi (capability event). 1 Command action; active Russian
+    Lord Unbesieged in Rus may Muster 1 Serf (max 6 total Serfs in
+    play; serfs return to Smerdi card when removed).
+    """
+    from nevsky.capabilities import has_side_capability
+    from nevsky.static_data import load_locales
+
+    sd = _require_side_player(state, side)
+    if sd != "russian":
+        raise IllegalAction("wrong_side", "Smerdi is a Russian capability (R4)")
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    if not isinstance(lord_id, str):
+        raise IllegalAction("missing_arg", "args.lord_id required")
+    _require_active_lord_command(state, sd, lord_id)
+    if not has_side_capability(state, "russian", "Smerdi"):
+        raise IllegalAction("no_capability", "Smerdi (R4) not in play")
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Smerdi requires Unbesieged Russian Lord")
+    if lord.location is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    if load_locales()[lord.location]["territory"] != "russian":
+        raise IllegalAction("not_in_rus", "Smerdi requires Russian Lord in Rus")
+    # Pool of 6 Serfs total in the side; count current Serfs across all
+    # Russian Mustered Lords.
+    in_play = sum(
+        l.forces.get("serfs", 0) for l in state.lords.values()
+        if l.side == "russian" and l.state == "mustered"
+    )
+    if in_play >= 6:
+        raise IllegalAction("serf_pool_empty", "Smerdi pool exhausted (6 Serfs already in play)")
+    if state.campaign_turn.actions_remaining < 1:
+        raise IllegalAction("insufficient_actions", "Smerdi muster costs 1 action")
+
+    lord.forces["serfs"] = lord.forces.get("serfs", 0) + 1
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
+    _consume_actions(state, 1)
+    return ({"lord_id": lord_id, "serfs_added": 1, "in_play_after": in_play + 1}, [])
+
+
+### legate_use: /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:2682
+def _h_legate_use(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.1 Option 2: USE the Legate. sub-options 2a/2b/2c.
+
+    args:
+      sub_option: "2a" | "2b" | "2c"
+      target_lord:  required for 2a, 2b, 2c
+    Pawn returns to William of Modena card after use.
+    """
+
+    sd = _require_side_player(state, side)
+    if sd != "teutonic":
+        raise IllegalAction("wrong_side", "only Teutons act in 3.5.1")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+
+    if not state.legate.william_of_modena_in_play:
+        raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
+    if state.legate.location != "locale":
+        raise IllegalAction("legate_off_map", "Legate must be on map to USE (3.5.1)")
+    if state.legate.acted_this_call_to_arms:
+        raise IllegalAction("already_acted", "Legate has already acted this Call to Arms (3.5.1)")
+
+    sub = args.get("sub_option")
+    target_id = args.get("target_lord")
+    if sub not in ("2a", "2b", "2c"):
+        raise IllegalAction("bad_sub_option", "sub_option must be 2a, 2b, or 2c")
+    if not isinstance(target_id, str) or target_id not in state.lords:
+        raise IllegalAction("missing_arg", "args.target_lord required")
+
+    target = state.lords[target_id]
+    if target.side != "teutonic":
+        raise IllegalAction("bad_target", "Legate USE targets Teutonic Lord")
+
+    pawn_locale = state.legate.locale_id
+    levy_box = _find_levy_marker_box(state)
+
+    if sub == "2a":
+        # auto-Muster a Ready Lord at his Seat (no Fealty roll)
+        if target_id in state.meta.block_lords_this_levy_t:
+            raise IllegalAction(
+                "muster_blocked",
+                f"{target_id} may not be Mustered this Levy (R11 Valdemar / R17 Dietrich)")
+        if target.state != "ready":
+            raise IllegalAction("bad_target", f"{target_id} must be Ready (state={target.state})")
+        cyl_box = _find_cylinder_box(state, target_id)
+        if cyl_box is None or cyl_box > levy_box:
+            raise IllegalAction("not_ready", f"{target_id} not Ready (3.4.1)")
+        if pawn_locale not in _seats_of(state, target_id):
+            raise IllegalAction("not_at_seat", f"Legate must be at a Seat of {target_id}")
+        free = _free_seats_for(state, target_id)
+        if pawn_locale not in free:
+            raise IllegalAction("seat_not_free", f"{pawn_locale} is not a Free Seat for {target_id}")
+        _place_lord_on_map(state, target_id, pawn_locale, levy_box)  # type: ignore[arg-type]
+        result_extra: dict[str, Any] = {"target_lord": target_id, "seat": pawn_locale}
+    elif sub == "2b":
+        # slide cylinder of a Lord on the Calendar 1 box LEFT, requires
+        # pawn at that Lord's Seat
+        if pawn_locale not in _seats_of(state, target_id):
+            raise IllegalAction("not_at_seat", f"Legate must be at a Seat of {target_id}")
+        cyl_box = _find_cylinder_box(state, target_id)
+        # PLAY-37 (2.2.3): off-left cylinders ignore further left shifts
+        # (a guaranteed no-op that would waste the once-per-CtA Legate
+        # use) -- still rejected. Off-right cylinders slide back onto
+        # box 16 ("the first shift back toward the Calendar places the
+        # marker into ... box 16"), and a box-1 cylinder slides just OFF
+        # the left edge (was: rejected "already at box 1").
+        if cyl_box is None or cyl_box == 0:
+            raise IllegalAction(
+                "no_cylinder",
+                f"{target_id} cylinder not on Calendar (off-left ignores "
+                "further left shifts, 2.2.3)")
+        if cyl_box >= 17:
+            state.calendar.off_right.remove(target_id)
+            state.calendar.boxes[16 - 1].cylinders.append(target_id)
+            new_box = 16
+        elif cyl_box == 1:
+            state.calendar.boxes[0].cylinders.remove(target_id)
+            state.calendar.off_left.append(target_id)
+            new_box = 0
+        else:
+            cb = state.calendar.boxes[cyl_box - 1]
+            cb.cylinders.remove(target_id)
+            state.calendar.boxes[cyl_box - 2].cylinders.append(target_id)
+            new_box = cyl_box - 1
+        result_extra = {"target_lord": target_id, "from_box": cyl_box, "to_box": new_box}
+    else:  # 2c
+        if target_id in state.meta.block_lords_this_levy_t:
+            raise IllegalAction(
+                "muster_blocked",
+                f"{target_id} may not be Mustered/use Lordship this Levy (R11 / R17)")
+        if target.state != "mustered" or target.location is None:
+            raise IllegalAction("bad_target", f"{target_id} must be Mustered with a location")
+        if pawn_locale != target.location:
+            raise IllegalAction("not_co_located", f"Legate must be at {target_id}'s location")
+        if not _is_friendly_locale(state, target.location, "teutonic"):
+            raise IllegalAction("not_friendly", "Legate USE 2c requires Friendly Locale")
+        # Grant an extra Muster: reset lordship_used so target gets full
+        # Lordship to spend during the immediate continuation. The Lord
+        # then performs his extra Muster via subsequent muster_* actions
+        # (we do not trigger them here -- the agent emits them next).
+        target.lordship_used = 0
+        target.just_arrived_this_levy = False  # already-Mustered Lord
+        # SMOKE-106 (Round 152): mark the target so the Muster handlers
+        # accept call_to_arms-step Muster actions from this Lord. The
+        # flag clears at the next CtA boundary in _h_advance_step.
+        state.legate.extra_muster_target_lord = target_id
+        result_extra = {"target_lord": target_id, "extra_muster": True}
+
+    state.legate.acted_this_call_to_arms = True
+    state.legate.location = "card"
+    state.legate.locale_id = None
+    return ({"sub_option": sub, **result_extra}, [])
+
+
+### muster_lord: /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:2020
+def _h_muster_lord(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.1 Muster a Ready Lord at a Free Seat. Costs 1 Lordship.
+
+    args:
+      by_lord    Lord spending his Lordship (must be Mustered, not Besieged)
+      target_lord Ready Lord with at least one Free Seat
+      seat       chosen Free Seat (locale_id)
+    Roll d6: success on roll <= target.fealty.
+    On success: place cylinder at Seat, deploy starting forces/assets/
+    vassals, place Service marker SERVICE_RATING boxes RIGHT of Levy box.
+    Aleksandr exception: NEVER Muster by Lord (3.4.1).
+    """
+    from nevsky.rng import roll_d6
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_active(state, sd)
+    by_id = args.get("by_lord")
+    target_id = args.get("target_lord")
+    seat = args.get("seat")
+    # SMOKE-106 (Round 152): allow call_to_arms when Legate-2c
+    # extra-Muster target matches by_id.
+    if isinstance(by_id, str):
+        _require_muster_or_legate_2c_extra(state, by_id)
+    else:
+        _require_levy_step(state, "muster")
+    for k, v in (("by_lord", by_id), ("target_lord", target_id), ("seat", seat)):
+        if not isinstance(v, str):
+            raise IllegalAction("missing_arg", f"args.{k} must be a string")
+
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+    if target_id not in state.lords or state.lords[target_id].side != sd:
+        raise IllegalAction("bad_target", f"{target_id} must be on your side")
+    if target_id == "aleksandr":
+        raise IllegalAction(
+            "aleksandr_veche_only",
+            "Aleksandr can only enter play via Veche auto-Muster (3.4.1, 3.5.2)",
+        )
+    block = (
+        state.meta.block_lords_this_levy_t
+        if sd == "teutonic"
+        else state.meta.block_lords_this_levy_r
+    )
+    if target_id in block:
+        raise IllegalAction(
+            "blocked_this_levy",
+            f"{target_id} cannot be Mustered this Levy (R11 / R17)",
+        )
+
+    target = state.lords[target_id]
+    if target.state != "ready":
+        raise IllegalAction("bad_target", f"{target_id} state is {target.state} (not 'ready')")
+
+    levy_box = _find_levy_marker_box(state)
+    cyl_box = _find_cylinder_box(state, target_id)
+    if cyl_box is None or cyl_box > levy_box:
+        raise IllegalAction(
+            "not_ready",
+            f"{target_id} cylinder is at {cyl_box}; Levy is at {levy_box}; not Ready (3.4.1)",
+        )
+
+    free = _free_seats_for(state, target_id)
+    if seat not in free:
+        raise IllegalAction(
+            "no_free_seat",
+            f"{seat} is not a Free Seat for {target_id}. Free: {free}",
+        )
+
+    # Spend Lordship before rolling. (Failed roll still consumes the action.)
+    _spend_lordship(state, by_id)
+    roll = roll_d6(state)
+    fealty = int(load_lords()[target_id]["ratings"]["fealty"])
+    success = roll <= fealty
+    dice = [{"d6": roll, "vs_fealty": fealty, "success": success}]
+    if not success:
+        return (
+            {
+                "outcome": "fealty_failed",
+                "by_lord": by_id,
+                "target_lord": target_id,
+                "seat": seat,
+                "roll": roll,
+                "fealty": fealty,
+            },
+            dice,
+        )
+
+    _place_lord_on_map(state, target_id, seat, levy_box)
+    return (
+        {
+            "outcome": "mustered",
+            "by_lord": by_id,
+            "target_lord": target_id,
+            "seat": seat,
+            "roll": roll,
+            "fealty": fealty,
+        },
+        dice,
+    )
+
+
+### muster_vassal: /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:2259
+def _h_muster_vassal(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.2 Muster a Vassal. Costs 1 Lordship.
+
+    args: by_lord (the parent Lord), vassal_id.
+    Vassal must be ready (face up) on by_lord's mat. Vassal's Forces are
+    added to the parent's forces dict. Special Vassals require their
+    gating Capability in play (R10 Steppe Warriors for Mongols/Kipchaqs;
+    T11 Crusade + Summer season for Summer Crusaders).
+    """
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_active(state, sd)
+    by_id = args.get("by_lord")
+    vid = args.get("vassal_id")
+    if isinstance(by_id, str):
+        _require_muster_or_legate_2c_extra(state, by_id)
+    else:
+        _require_levy_step(state, "muster")
+    if not (isinstance(by_id, str) and isinstance(vid, str)):
+        raise IllegalAction("missing_arg", "args: by_lord, vassal_id")
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+    lord = state.lords[by_id]
+    if vid not in lord.vassals:
+        raise IllegalAction("unknown_vassal", f"{by_id} has no Vassal {vid!r}")
+    vstate = lord.vassals[vid]
+    if vstate.mustered:
+        raise IllegalAction("already_mustered", f"Vassal {vid} already Mustered")
+
+    sl = load_lords()[by_id]
+    vdata = next((v for v in sl["vassals"] if v["vassal_id"] == vid), None)
+    if vdata is None:
+        raise IllegalAction("unknown_vassal", f"static data missing Vassal {vid!r}")
+
+    special = vdata.get("special")
+    if special == "summer_crusaders":
+        if "T11" not in state.decks.teutonic.capabilities_in_play:
+            raise IllegalAction(
+                "vassal_gated",
+                "Summer Crusaders require T11 Crusade in play (3.4.2)",
+            )
+        # SMOKE-059 (Round 67): AoW Reference T11 Tip — "Teutons may
+        # Levy the Crusade Capability card in any Season, but Crusader
+        # Forces still would Muster only in Summer." Reject Muster in
+        # non-Summer seasons even when T11 is in play.
+        from nevsky.campaign import _season_of_box
+        if _season_of_box(state.meta.box) != "summer":
+            raise IllegalAction(
+                "vassal_season",
+                "Summer Crusaders may Muster only in Summer (T11 Tip)",
+            )
+    elif special == "steppe_warriors":
+        # Mongols/Kipchaqs (SMOKE-013 fix: was checking
+        # "mongols"/"kipchaqs" which never matched).
+        if "R10" not in state.decks.russian.capabilities_in_play:
+            raise IllegalAction(
+                "vassal_gated",
+                "Steppe Warriors (Mongols/Kipchaqs) require R10 in play (3.4.2)",
+            )
+
+    if not vstate.ready:
+        raise IllegalAction("vassal_unready", f"Vassal {vid} is not face-up Ready")
+
+    _spend_lordship(state, by_id)
+    # Add Vassal forces to parent.
+    for k, v in vdata.get("forces", {}).items():
+        lord.forces[k] = lord.forces.get(k, 0) + int(v)  # type: ignore[index]
+    vstate.mustered = True
+    # Advanced Vassal Service (3.4.2 optional): place Service marker on
+    # Calendar at (current_levy_box + vassal.service) IF that's left of
+    # the Lord's Service marker. Otherwise the marker stays on the mat
+    # (the default) because the Lord's Service governs.
+    if state.meta.optional_rules.get("advanced_vassal_service", False):
+        levy_box = _find_levy_marker_box(state)
+        v_service = int(vdata.get("service", 0))
+        target_box = levy_box + v_service
+        lord_svc_box = _find_service_marker_box(state, by_id)
+        # off_right_service Lord = effectively box 17.
+        lord_svc_box_eff = lord_svc_box if lord_svc_box is not None else 17
+        if 1 <= target_box <= 16 and target_box < lord_svc_box_eff:
+            # Place Vassal marker on Calendar.
+            state.calendar.boxes[target_box - 1].vassal_service_markers.append(vid)
+            vstate.on_calendar = True
+            vstate.calendar_box = target_box
+    return ({"by_lord": by_id, "vassal_id": vid, "added_forces": vdata.get("forces", {})}, [])
+
+
+### veche_action: /home/runner/work/Nevsky-Harness/Nevsky-Harness/src/nevsky/actions.py:2821
+def _h_veche_action(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.5.2 Veche action. options: A | B | C | D | sea_trade | skip.
+
+    A: SLIDE LEFT (cost 1 VP) -- slide one Russian Lord cylinder 2 boxes LEFT
+    B: AUTO-MUSTER (cost 1 VP) -- auto-Muster a Ready Russian Lord
+    C: EXTRA MUSTER (cost 1 VP) -- enable a non-Besieged Russian Lord at
+       a Friendly Locale to perform an immediate extra Muster
+    D: DECLINE (gain 1 VP) -- slide Aleksandr/Andrey if Ready 1 box RIGHT
+    sea_trade: add R8 / R9 Coin to Veche box (3.5.2 + R8/R9)
+    skip: pass
+    """
+
+    sd = _require_side_player(state, side)
+    if sd != "russian":
+        raise IllegalAction("wrong_side", "only Russians act in 3.5.2 (Veche)")
+    _require_levy_phase(state)
+    _require_levy_step(state, "call_to_arms")
+    _require_active(state, sd)
+
+    option = args.get("option")
+    if option not in ("A", "B", "C", "D", "sea_trade", "skip"):
+        raise IllegalAction("bad_option", "option must be A|B|C|D|sea_trade|skip")
+
+    if option == "sea_trade":
+        return _veche_sea_trade(state, args)
+
+    # All other options consume the once-per-segment slot.
+    if option == "skip":
+        state.veche.acted_this_call_to_arms = True
+        return ({"outcome": "skipped"}, [])
+
+    if state.veche.acted_this_call_to_arms:
+        raise IllegalAction("already_acted", "Veche has already acted this Call to Arms (3.5.2)")
+
+    if option == "A":
+        target_id = args.get("target_lord")
+        if not isinstance(target_id, str) or target_id not in state.lords:
+            raise IllegalAction("missing_arg", "Option A requires args.target_lord")
+        target = state.lords[target_id]
+        if target.side != "russian":
+            raise IllegalAction("bad_target", f"{target_id} not Russian")
+        if state.veche.vp_markers < 1:
+            raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
+        cyl_box = _find_cylinder_box(state, target_id)
+        # PLAY-37 (2.2.3): a cylinder OFF-LEFT ignores further left
+        # shifts -- targeting it would burn 1 VP for a guaranteed no-op,
+        # so it stays rejected. A cylinder OFF-RIGHT is a legal target:
+        # "the first shift back toward the Calendar places the marker
+        # into ... box 16" and the slide's second box continues to 15.
+        if cyl_box is None or cyl_box == 0:
+            raise IllegalAction(
+                "no_cylinder",
+                f"{target_id} cylinder not on Calendar (off-left ignores "
+                "further left shifts, 2.2.3)")
+        if cyl_box >= 17:
+            state.calendar.off_right.remove(target_id)
+            new_box = 15
+            state.calendar.boxes[new_box - 1].cylinders.append(target_id)
+        else:
+            cb = state.calendar.boxes[cyl_box - 1]
+            cb.cylinders.remove(target_id)
+            new_box = cyl_box - 2
+            if new_box < 1:
+                # 2.2.3: "If a ... cylinder would be placed or shifted
+                # below (left of) box 1 ... set the ... cylinder just
+                # off the board" (was: clamped to box 1, making a box-1
+                # target a VP-burning literal no-op).
+                state.calendar.off_left.append(target_id)
+                new_box = 0
+            else:
+                state.calendar.boxes[new_box - 1].cylinders.append(target_id)
+        state.veche.vp_markers -= 1
+        state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
+        state.veche.acted_this_call_to_arms = True
+        return (
+            {"option": "A", "target_lord": target_id, "from_box": cyl_box, "to_box": new_box},
+            [],
+        )
+
+    if option == "B":
+        target_id = args.get("target_lord")
+        if not isinstance(target_id, str) or target_id not in state.lords:
+            raise IllegalAction("missing_arg", "Option B requires args.target_lord")
+        target = state.lords[target_id]
+        if target.side != "russian":
+            raise IllegalAction("bad_target", f"{target_id} not Russian")
+        if state.veche.vp_markers < 1:
+            raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
+        if target.state != "ready":
+            raise IllegalAction("bad_target", f"{target_id} not Ready (state={target.state})")
+        levy_box = _find_levy_marker_box(state)
+        cyl_box = _find_cylinder_box(state, target_id)
+        if cyl_box is None or cyl_box > levy_box:
+            raise IllegalAction("not_ready", f"{target_id} cylinder not Ready")
+        free = _free_seats_for(state, target_id)
+        seat = args.get("seat")
+        if not isinstance(seat, str) or seat not in free:
+            raise IllegalAction("no_free_seat", f"args.seat must be a Free Seat: {free}")
+        _place_lord_on_map(state, target_id, seat, levy_box)
+        state.veche.vp_markers -= 1
+        state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
+        state.veche.acted_this_call_to_arms = True
+        return ({"option": "B", "target_lord": target_id, "seat": seat}, [])
+
+    if option == "C":
+        target_id = args.get("target_lord")
+        if not isinstance(target_id, str) or target_id not in state.lords:
+            raise IllegalAction("missing_arg", "Option C requires args.target_lord")
+        target = state.lords[target_id]
+        if target.side != "russian":
+            raise IllegalAction("bad_target", f"{target_id} not Russian")
+        if state.veche.vp_markers < 1:
+            raise IllegalAction("insufficient_vp", "Veche box has 0 VP markers (3.5.2)")
+        if target.state != "mustered" or target.location is None:
+            raise IllegalAction("bad_target", f"{target_id} not Mustered")
+        if _is_besieged(state, target_id):
+            raise IllegalAction("besieged", f"{target_id} is Besieged; Option C unavailable (3.5.2)")
+        if not _is_friendly_locale(state, target.location, "russian"):
+            raise IllegalAction("not_friendly", f"{target_id} not at Friendly Locale (3.5.2 Option C)")
+        # PLAY-18 (Fable audit): Call to Arms reference, Option C note --
+        # "a Lord Mustered DURING the standard Muster segment CAN use
+        # his Lordship via Option C, but a Lord Mustered VIA Option B
+        # (auto-Muster) within Call to Arms cannot." The old
+        # just_arrived_this_levy gate blocked every Lord Mustered this
+        # Levy, including the Muster-segment arrivals the rules allow.
+        # Since the Veche acts once per Levy (3.5.2), an Option-B
+        # arrival can never be targeted by an Option C in the same
+        # Call to Arms anyway -- so no gate is needed at all. (Mirrors
+        # Legate 2c, which already cleared the flag for already-
+        # Mustered Lords.)
+        target.lordship_used = 0
+        # SMOKE-107 (Round 153): mark target for call_to_arms-step
+        # Muster handler bypass; clears at CtA -> done in _h_advance_step.
+        state.veche.extra_muster_target_lord = target_id
+        state.veche.vp_markers -= 1
+        state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 1.0)
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
+        state.veche.acted_this_call_to_arms = True
+        return ({"option": "C", "target_lord": target_id, "extra_muster": True}, [])
+
+    # option == "D" Decline
+    levy_box = _find_levy_marker_box(state)
+    aleks_ready = _is_ready(state, "aleksandr", levy_box)
+    andrey_ready = _is_ready(state, "andrey", levy_box)
+    if not (aleks_ready or andrey_ready):
+        raise IllegalAction(
+            "decline_unavailable",
+            "Option D requires Aleksandr or Andrey to be Ready (3.5.2 Option D)",
+        )
+    slid: list[str] = []
+    target_box = levy_box + 1
+    if target_box > 16:
+        target_box = 17
+    for lord_id, ready in (("aleksandr", aleks_ready), ("andrey", andrey_ready)):
+        if ready:
+            cyl_box = _find_cylinder_box(state, lord_id)
+            if cyl_box is None:
+                continue
+            # SMOKE-058 (Round 66): handle cyl_box=0 (off_left). The
+            # previous `cyl_box <= 16` branch tried boxes[-1] which
+            # crashes with ValueError; the Lord was actually in
+            # cal.off_left. _is_ready accepts cyl_box <= levy_box,
+            # which includes 0 for early scenarios.
+            if cyl_box == 0:
+                state.calendar.off_left.remove(lord_id)
+            elif cyl_box <= 16:
+                state.calendar.boxes[cyl_box - 1].cylinders.remove(lord_id)
+            else:
+                state.calendar.off_right.remove(lord_id)
+            if target_box > 16:
+                state.calendar.off_right.append(lord_id)
+            else:
+                state.calendar.boxes[target_box - 1].cylinders.append(lord_id)
+            slid.append(lord_id)
+    if state.veche.vp_markers < 8:
+        state.veche.vp_markers += 1
+        state.calendar.russian_vp += 1.0
+        from nevsky.scenarios import refresh_victory_markers
+        refresh_victory_markers(state)
+    # else: cap forfeit per 1.4.2.
+    state.veche.acted_this_call_to_arms = True
+    return ({"option": "D", "slid": slid, "vp_added": min(1, 8 - (state.veche.vp_markers - 1))}, [])
+
+
+### _spend_lordship
+def _spend_lordship(state: GameState, lord_id: str) -> None:
+    """Decrement an action against a Lord's Lordship budget (3.4)."""
+    from nevsky.static_data import load_lords
+
+    sl = load_lords()[lord_id]
+    lord = state.lords[lord_id]
+    if lord.state != "mustered":
+        raise IllegalAction("not_mustered", f"{lord_id} is not Mustered")
+    if lord.just_arrived_this_levy:
+        raise IllegalAction(
+            "just_arrived",
+            f"{lord_id} arrived this Levy and cannot use Lordship in same Muster (3.4)",
+        )
+    if _is_besieged(state, lord_id):
+        raise IllegalAction(
+            "besieged_no_muster",
+            f"{lord_id} is Besieged; cannot Muster (3.4 actor_eligibility)",
+        )
+    if lord.location is None or not _is_friendly_locale(state, lord.location, lord.side):
+        raise IllegalAction(
+            "muster_location",
+            f"{lord_id} must be at a Friendly Locale to use Lordship (3.4)",
+        )
+    # Phase 4c: this-levy block (R11 Valdemar, R17 Dietrich).
+    block = (
+        state.meta.block_lords_this_levy_t
+        if lord.side == "teutonic"
+        else state.meta.block_lords_this_levy_r
+    )
+    if lord_id in block:
+        raise IllegalAction(
+            "blocked_this_levy",
+            f"{lord_id} cannot use Lordship this Levy (R11 / R17)",
+        )
+    base = int(sl["ratings"]["lordship"])
+    bonus = int(state.meta.lordship_bonus.get(lord_id, 0))
+    budget = base + bonus
+    if lord.lordship_used >= budget:
+        raise IllegalAction(
+            "lordship_exhausted",
+            f"{lord_id} has spent {lord.lordship_used}/{budget} Lordship this Muster",
+        )
+    lord.lordship_used += 1
+
+
+### _h_advance_step
+def _h_advance_step(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Mark current side's segment of current Levy step finished.
+
+    SoP 2.2.4: T-then-R within each Levy step. Both T and R must call
+    advance_step (in T then R order) before the step is considered
+    complete and the next step begins. Call to Arms differs: T does only
+    Legate (3.5.1), R does only Veche (3.5.2), then 3.5.3 discard runs.
+    """
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_active(state, sd)
+    _require_no_aow_choice(state)
+
+    # R199 (SMOKE-131): during Arts of War, a side may not advance while
+    # it still owes implementation of drawn cards. SoP 3.1.2/3.1.3:
+    # "draw 2 cards; implement in order drawn" -- implementation is
+    # mandatory. The aow_implement_card handler already auto-discards
+    # cards with no eligible target (Q-R190-A), so a non-empty
+    # pending_draw always has a resolving move available; advancing
+    # past it would orphan the card.
+    # PLAY-19 (Fable audit): 3.3 Disband is MANDATORY -- "At the start
+    # of each Levy, every Lord whose Service marker is left of the
+    # current 40-Days box ... Disbands"; an at-limit Lord "must
+    # Disband". advance_step previously had no guard, so a palette
+    # agent could skip disband_resolve entirely and keep a
+    # beyond-limit Lord Mustered through the whole Levy.
+    if state.meta.levy_step == "disband":
+        _resolved = (state.meta.disband_resolved_t if sd == "teutonic"
+                     else state.meta.disband_resolved_r)
+        if not _resolved:
+            _levy_box = _find_levy_marker_box(state)
+            for _lid, _lord in state.lords.items():
+                if _lord.side != sd or _lord.state != "mustered":
+                    continue
+                _smb = _find_service_marker_box(state, _lid)
+                if _smb is not None and _smb <= _levy_box:
+                    raise IllegalAction(
+                        "must_disband",
+                        f"{_lid} owes a mandatory Disband (3.3); resolve "
+                        "disband_resolve before advancing")
+    if (state.meta.levy_step == "arts_of_war"
+            and _side_deck(state, sd).pending_draw):
+        # R199/R201 (SMOKE-131): a side may not advance Arts of War
+        # while it still owes implementation of drawn cards (SoP
+        # 3.1.2/3.1.3). Now applies at ALL Levies: first-Levy
+        # Capabilities clear via implement-or-auto-discard (Q-R190-A),
+        # and subsequent-Levy Events clear via resolve-with-target OR
+        # bare-implement no-op-discard (R201), so pending_draw can
+        # always be cleared -- no deadlock.
+        raise IllegalAction(
+            "pending_draw_nonempty",
+            "cannot advance: implement (or resolve/discard) pending AoW "
+            "cards first (SoP 3.1.2/3.1.3)",
+        )
+    if (state.meta.levy_step == "arts_of_war"
+            and not (state.meta.aow_drawn_t if sd == "teutonic"
+                     else state.meta.aow_drawn_r)):
+        raise IllegalAction("must_draw_aow",
+                            "draw and implement this Levy's Arts of War cards first (3.1)")
+
+    if sd == "teutonic":
+        if state.meta.levy_step_completed_t:
+            raise IllegalAction("already_done", "Teutonic side already finished this step")
+        state.meta.levy_step_completed_t = True
+        state.meta.active_player = "russian"
+    else:
+        if state.meta.levy_step_completed_r:
+            raise IllegalAction("already_done", "Russian side already finished this step")
+        state.meta.levy_step_completed_r = True
+
+    next_step = None
+    if state.meta.levy_step_completed_t and state.meta.levy_step_completed_r:
+        # Advance to next step.
+        order: list[str] = ["arts_of_war", "pay", "disband", "muster", "call_to_arms", "done"]
+        i = order.index(state.meta.levy_step)
+        next_step = order[i + 1]
+        state.meta.levy_step = next_step  # type: ignore[assignment]
+        state.meta.levy_step_completed_t = False
+        state.meta.levy_step_completed_r = False
+        state.meta.active_player = "teutonic"
+        if next_step == "disband":
+            # Fresh Disband step: clear the per-side resolved latches so the
+            # first disband_resolve from each side runs, and any second one
+            # is rejected as a no-op (3.3).
+            state.meta.disband_resolved_t = False
+            state.meta.disband_resolved_r = False
+        if next_step == "muster":
+            # Reset per-Lord Lordship counters at start of Muster (3.4).
+            for lord in state.lords.values():
+                lord.lordship_used = 0
+            # SMOKE-044 (Round 56): transition disbanded -> ready for
+            # Lords whose cylinder is on the Calendar at or before the
+            # Levy marker. Without this transition, a Lord Disbanded at
+            # limit (3.3.2) in a prior Levy stays state="disbanded"
+            # forever and _h_muster_lord rejects them. Per rules a
+            # Disbanded Lord re-Musters in future Levies when the Levy
+            # marker catches up to their cylinder.
+            try:
+                levy_box = _find_levy_marker_box(state)
+            except IllegalAction:
+                levy_box = None
+            if levy_box is not None:
+                for lord_id, lord in state.lords.items():
+                    if lord.state != "disbanded":
+                        continue
+                    cyl_box = _find_cylinder_box(state, lord_id)
+                    if cyl_box is None:
+                        continue
+                    # off_left (0) or boxes 1..levy_box: Ready
+                    if cyl_box <= levy_box:
+                        lord.state = "ready"  # type: ignore[assignment]
+            # SMOKE-060 (Round 68): AoW Reference T11 Crusade —
+            # "Each Summer Levy, free Muster all Unbesieged Crusaders;
+            # ... automatically Musters all Summer Crusader Knights to
+            # Andreas and Rudolf at no cost in Lordship actions, even
+            # in enemy territory, provided that the Lord is himself
+            # Mustered and is Unbesieged. If already Mustered and any
+            # Knights have been lost from the Lord's Forces, restore
+            # Knight units up those shown on the Vassal marker."
+            _t11_summer_auto_muster(state)
+        if next_step == "call_to_arms":
+            # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
+            state.legate.acted_this_call_to_arms = False
+            state.veche.acted_this_call_to_arms = False
+            # SMOKE-092 (Round 105): clear per-card sea_trade usage
+            # flags at CtA entry so "Each Call to Arms" auto-fires.
+            for _flag in ("sea_trade_r8_used_this_cta", "sea_trade_r9_used_this_cta"):
+                state.meta.special_rules.pop(_flag, None)
+            # Advanced Vassal Service (3.4.2): "After a side finishes
+            # all Vassal Muster for this Levy, flip up all Service
+            # markers that are Coat-of-Arms side down (3.3.2), making
+            # them Ready for Muster later in the game."
+            if state.meta.optional_rules.get("advanced_vassal_service", False):
+                for lord in state.lords.values():
+                    for vstate in lord.vassals.values():
+                        if not vstate.ready and not vstate.mustered:
+                            vstate.ready = True
+        if next_step == "done":
+            # SMOKE-106 (Round 152) + SMOKE-107 (Round 153): clear
+            # Legate-2c / Veche-C extra-Muster targets on CtA exit.
+            # Flags should not persist into subsequent Levies.
+            state.legate.extra_muster_target_lord = None
+            state.veche.extra_muster_target_lord = None
+            # SMOKE-039 (Round 51): auto-fire 3.5.3 ("both sides discard
+            # This-Levy events") on the call_to_arms -> done transition.
+            # The explicit aow_discard_this_levy action stays available
+            # for tests/agents that prefer to call it manually; calling
+            # it before advance_step leaves the list empty, so this
+            # post-call_to_arms sweep is idempotent. Without this auto-
+            # fire, agents that skip the action leak events into the
+            # next Levy / Campaign decks (3.5.3 is mandatory per rules).
+            for _sd_deck in (state.decks.teutonic, state.decks.russian):
+                if _sd_deck.this_levy_events:
+                    _sd_deck.discard.extend(_sd_deck.this_levy_events)
+                    _sd_deck.this_levy_events = []
+            # Levy complete -- transition to Campaign Plan (4.0).
+            state.meta.phase = "campaign"
+            state.meta.campaign_step = "plan"
+            state.meta.plan_complete_t = False
+            state.meta.plan_complete_r = False
+            state.meta.active_player = "teutonic"
+            # Phase 4c: clear per-Levy block lists and Lordship bonuses.
+            state.meta.block_lords_this_levy_t = []
+            state.meta.block_lords_this_levy_r = []
+            state.meta.lordship_bonus = {}
+            state.meta.special_rules.pop("block_william_of_modena_this_levy", None)
+            # 4.0 capability discard (in excess of own Mustered Lord count).
+            # SMOKE-031: route each discard through _discard_side_capability
+            # so per-card cleanup (Summer Crusaders Disband on T11, Mongols/
+            # Kipchaqs Disband on R10, Legate-leaves-map on T13) cascades.
+            # PLAY-34 (4.0): "The players (Teutonic first) must SELECT and
+            # discard any Capability cards they have in excess of their
+            # number of Mustered Lords" -- WHICH cards go is the owner's
+            # choice. args.rule_4_0_discards = {side: [card_id, ...]}
+            # names each side's preferred discards (validated: in play for
+            # that side, no duplicates, at most the excess count). Any
+            # remaining excess after the named cards falls back to the
+            # pre-PLAY-34 deterministic tail-drop.
+            from nevsky.campaign import _discard_side_capability as _disc_cap
+            _sel_4_0 = args.get("rule_4_0_discards") or {}
+            if not isinstance(_sel_4_0, dict):
+                raise IllegalAction(
+                    "bad_rule_4_0_discards",
+                    "rule_4_0_discards must be {side: [card_id, ...]}")
+            rule_4_0_cleanup: list[dict[str, Any]] = []
+            for sd_ in ("teutonic", "russian"):
+                deck = state.decks.teutonic if sd_ == "teutonic" else state.decks.russian
+                mustered_count = sum(
+                    1 for lord in state.lords.values()
+                    if lord.side == sd_ and lord.state == "mustered"
+                )
+                excess = len(deck.capabilities_in_play) - mustered_count
+                chosen = list(_sel_4_0.get(sd_) or [])
+                if chosen:
+                    if len(set(chosen)) != len(chosen):
+                        raise IllegalAction(
+                            "bad_rule_4_0_discards",
+                            f"duplicate card in rule_4_0_discards[{sd_}]")
+                    if len(chosen) > max(excess, 0):
+                        raise IllegalAction(
+                            "bad_rule_4_0_discards",
+                            f"{sd_} names {len(chosen)} discards but only "
+                            f"{max(excess, 0)} in excess (4.0)")
+                    for cid_ in chosen:
+                        if cid_ not in deck.capabilities_in_play:
+                            raise IllegalAction(
+                                "bad_rule_4_0_discards",
+                                f"{cid_} not among {sd_} side Capabilities "
+                                f"in play: {deck.capabilities_in_play}")
+                    for cid_ in chosen:
+                        rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_))
+                while len(deck.capabilities_in_play) > mustered_count:
+                    cid_to_drop = deck.capabilities_in_play[-1]
+                    rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_to_drop))
+
+            # Rule 5.2 Campaign Victory at the Levy -> Campaign boundary. The
+            # rule applies "during Campaign", so a side that lost its last
+            # Mustered Lord during Levy (Disband 3.3) and did not re-Muster
+            # is at zero the instant Campaign begins -- the first moment of
+            # the new Campaign. Check here, before any Plan action is
+            # offered, so the engine never enters a live Campaign with a
+            # zero-Lord side. (The shared helper is a no-op during Levy, so
+            # this boundary call is the one that catches the Levy-disband
+            # case; mid-Campaign disbands are caught at the removal site.)
+            _apply_immediate_campaign_victory(state)
+
+    return ({"new_step": state.meta.levy_step,
+             "phase": state.meta.phase,
+             "campaign_step": state.meta.campaign_step if state.meta.phase == "campaign" else None,
+             "active_player": state.meta.active_player}, [])
