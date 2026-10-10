@@ -1,0 +1,25 @@
+name: Export convergence test source
+on:
+  push:
+    branches: [test/nevsky-convergence-20261010]
+    paths: ['.github/workflows/export-convergence-source.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package tested source
+        run: |
+          mkdir -p /tmp/convergence-source
+          git archive 2258489c657403331cc3de5d67fd455b0af88bce | tar -x -C /tmp/convergence-source
+          git ls-tree -r 2258489c657403331cc3de5d67fd455b0af88bce > /tmp/convergence-source/SOURCE_TREE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nevsky-convergence-source
+          path: /tmp/convergence-source
+          include-hidden-files: true
+          retention-days: 1
