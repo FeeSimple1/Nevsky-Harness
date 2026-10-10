@@ -2314,6 +2314,32 @@ def _group_is_laden(state: GameState, group: list[str], way_type: "str | None" =
     return _group_provender(state, group) > _group_usable_transport(state, group, way_type)
 
 
+def _march_action_cost(
+    state: GameState, active_lord: str, group: list[str], way_type: str,
+    *, discard_excess_provender: bool = False, discard_to_unladen: bool = False,
+) -> int:
+    """Pure March cost shared by the action handler and its menu.
+
+    Discard flags preview the *resulting* cargo without changing the state.
+    Converts checks the entire moving group, not only the active Lord.
+    Membership, route and discard legality are validated by the handler.
+    """
+    from nevsky.capabilities import any_capability
+
+    if (not state.lords[active_lord].first_march_used_this_card
+            and any(any_capability(state, lid, "Converts") for lid in group)
+            and any(state.lords[lid].forces.get("light_horse", 0) > 0 for lid in group)):
+        return 0
+    if discard_to_unladen:
+        return 1
+    usable = _group_usable_transport(state, group, way_type)
+    provender = _group_provender(state, group)
+    if discard_excess_provender:
+        provender = min(provender, 2 * usable)
+    loot = any(state.lords[lid].assets.get("loot", 0) > 0 for lid in group)
+    return 2 if loot or provender > usable else 1
+
+
 def _group_excess_provender(state: GameState, group: list[str], way_type: "str | None" = None) -> int:
     """4.3.2: the group may not move with combined Provender exceeding 2x
     its combined usable Transport unless it discards the excess."""
@@ -2794,17 +2820,7 @@ def _h_cmd_march(
     laden = _group_is_laden(state, group, way_type=way_type)
     if args.get("discard_to_unladen"):
         assert not laden, "discard_to_unladen must leave the group Unladen"
-    cost = 2 if laden else 1
-    # Converts (T3): first March of this card with Light Horse in the
-    # group costs 0 actions. The active Lord need not have Converts
-    # himself; any group member with Converts plus any group member
-    # with Light Horse qualifies (rule 4.3.x Converts tip).
-    from nevsky.capabilities import any_capability as _any_cap
-    if not state.lords[lord_id].first_march_used_this_card:
-        any_converts = any(_any_cap(state, gid, "Converts") for gid in group)
-        any_lh = any(state.lords[gid].forces.get("light_horse", 0) > 0 for gid in group)
-        if any_converts and any_lh:
-            cost = 0
+    cost = _march_action_cost(state, lord_id, group, way_type)
     if state.campaign_turn.actions_remaining < cost:
         raise IllegalAction(
             "insufficient_actions",

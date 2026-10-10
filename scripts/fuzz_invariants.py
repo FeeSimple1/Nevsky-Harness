@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
 import random
 import sys
@@ -153,23 +154,32 @@ def check_invariants(state) -> str | None:
 
 
 def run_game(scenario: str, seed: int, policy: str = "priority",
-             max_steps: int = 600) -> str | None:
+             max_steps: int = 600, *, details: dict | None = None) -> str | None:
     """Play one self-play game; return the first invariant violation or None."""
     s = load_scenario(scenario, seed=seed)
+    def finish(reason, violation=None):
+        terminal = bool(s.meta.game_over or sp._is_terminal(s))
+        if details is not None:
+            details.update(scenario=scenario, seed=seed, policy=policy,
+                           completed=terminal, stop_reason=reason,
+                           actions=len(s.history), last_box=s.meta.box,
+                           violation=violation)
+        return violation
+
     rnd = random.Random(seed * 7 + (0 if policy == "priority" else 1))
     for side in ("teutonic", "russian"):
         try:
             apply_action(s, {"type": "confirm_all_setup_transports",
                              "side": side, "args": {}})
-        except Exception:
-            pass
+        except Exception as exc:
+            return finish("setup_error", f"{scenario}/seed{seed}/{policy}: {exc}")
     rac: Counter = Counter()
     for n in range(max_steps):
         v = check_invariants(s)
         if v:
-            return f"{scenario}/seed{seed}/{policy} step{n}: {v}"
+            return finish("invariant", f"{scenario}/seed{seed}/{policy} step{n}: {v}")
         if sp._is_terminal(s):
-            break
+            return finish("completed")
         raw = legal_moves(s, with_previews=False)
         moves = []
         for mv in raw:
@@ -178,14 +188,14 @@ def run_game(scenario: str, seed: int, policy: str = "priority",
             else:
                 moves.extend(sp._instantiate_templated_move(s, mv))
         if not moves:
-            break
+            return finish("no_moves", f"{scenario}/seed{seed}/{policy}: no moves before game end")
         if policy == "random":
             pick = rnd.choice(moves)
         else:
             pick = sorted(moves, key=lambda mm: -sp._move_priority(mm, rac))[
                 n % min(3, len(moves))]
         act = {k: v for k, v in pick.items() if k in ("type", "side", "args")}
-        if act["type"] == "aow_implement_card":
+        if act["type"] == "aow_implement_card" and s.meta.first_levy_done:
             act["args"] = sp._populate_event_args(s, act["args"].get("card_id"), act["args"])
         rac[(act["type"], act.get("side"))] += 1
         if n % 50 == 0 and n > 0:
@@ -205,18 +215,24 @@ def run_game(scenario: str, seed: int, policy: str = "priority",
                 except IllegalAction:
                     continue
             if not recovered:
-                break
-    return check_invariants(s)
+                return finish("no_accepted_moves",
+                              f"{scenario}/seed{seed}/{policy}: all candidates rejected")
+    violation = check_invariants(s)
+    reason = "completed" if s.meta.game_over or sp._is_terminal(s) else "step_limit"
+    return finish("invariant" if violation else reason, violation)
 
 
 def run_sweep(scenarios, seeds, policies=("priority", "random"),
-              max_steps: int = 600):
+              max_steps: int = 600, *, results: list | None = None):
     """Return a list of violation strings (empty == all clean)."""
     violations = []
     for scen in scenarios:
         for seed in seeds:
             for pol in policies:
-                v = run_game(scen, seed, pol, max_steps=max_steps)
+                detail = {}
+                v = run_game(scen, seed, pol, max_steps=max_steps, details=detail)
+                if results is not None:
+                    results.append(detail)
                 if v:
                     violations.append(v)
     return violations
@@ -238,6 +254,10 @@ def main(argv=None) -> int:
     ap.add_argument("--max-steps", type=int, default=600)
     ap.add_argument("--games", type=int, default=None,
                     help="optional cap on total games (overrides seed count)")
+    ap.add_argument("--require-completion", action="store_true",
+                    help="fail if any case reaches its step limit before Game End")
+    ap.add_argument("--report-json", type=Path,
+                    help="write per-case completion, stop reason and invariant results")
     args = ap.parse_args(argv)
 
     seeds = list(_parse_seeds(args.seeds))
@@ -249,14 +269,27 @@ def main(argv=None) -> int:
     total = len(args.scenarios) * len(seeds) * len(args.policies)
     print(f"Fuzzing {total} games: scenarios={args.scenarios} "
           f"seeds={seeds[0]}..{seeds[-1]} policies={args.policies}")
+    records = []
     violations = run_sweep(args.scenarios, seeds, tuple(args.policies),
-                           max_steps=args.max_steps)
+                           max_steps=args.max_steps, results=records)
+    completed = sum(r["completed"] for r in records)
+    bounded = sum(r["stop_reason"] == "step_limit" for r in records)
+    print(f"Completion: {completed}/{total} games ended; {bounded} cases hit the step limit.")
+    report = {"cases": total, "completed": completed, "step_limited": bounded,
+              "violations": violations, "results": records}
+    if args.report_json:
+        args.report_json.parent.mkdir(parents=True, exist_ok=True)
+        args.report_json.write_text(json.dumps(report, indent=2) + "\n")
     if violations:
         print(f"\nFAIL: {len(violations)} invariant violation(s):")
         for v in violations[:50]:
             print("  -", v)
         return 1
-    print(f"\nOK: {total} games clean on all invariants (I1-I12).")
+    if args.require_completion and completed != total:
+        print(f"\nINCOMPLETE: {total - completed} cases did not reach Game End.")
+        return 1
+    print(f"\nOK: {total} cases passed invariant checks (I1-I12); "
+          f"{completed} completed, {bounded} bounded. Not all cases are full games.")
     return 0
 
 

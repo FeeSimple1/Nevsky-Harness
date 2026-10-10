@@ -696,6 +696,34 @@ def _has_target_args(args: dict[str, Any]) -> bool:
     return any(k != "card_id" for k in args)
 
 
+def _first_levy_capability_targets(
+    state: GameState, side: Side, card: dict[str, Any],
+) -> list[str]:
+    """Assignable First-Levy targets, including name and per-mat limits.
+
+    3.1.2's unassignable-card discard includes duplicate names, not only
+    Lords excluded by coats of arms. Used by both menu and dispatcher.
+    """
+    from nevsky.static_data import load_cards
+
+    cards = load_cards()
+    targets = []
+    for lid, lord in state.lords.items():
+        if lord.side != side or lord.state != "mustered":
+            continue
+        if len(lord.this_lord_capabilities) >= 2:
+            continue
+        if any(cards[cid]["capability_name"] == card["capability_name"]
+               for cid in lord.this_lord_capabilities):
+            continue
+        try:
+            _check_capability_eligibility(card, lid, role="target")
+        except IllegalAction:
+            continue
+        targets.append(lid)
+    return targets
+
+
 def _h_aow_implement_card(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -840,6 +868,17 @@ def _h_aow_implement_card(
                     },
                     [],
                 )
+            # A coat-eligible Lord may still be unable to receive the
+            # card: duplicate Capability names and the per-mat limit also
+            # make it unassignable (3.1.2 / 3.4.4; Q-R190-A). Do not swallow
+            # an explicit invalid target: it retains the normal rejection.
+            if ("lord_id" not in args
+                    and not _first_levy_capability_targets(state, sd, card)):
+                deck.pending_draw = deck.pending_draw[1:]
+                deck.discard.append(cid)
+                return ({"card": cid, "outcome": "discarded_no_assignable_lord",
+                         "reason": "no_assignable_lord",
+                         "rule": "3.1.2: This Lord Capability cannot be assigned"}, [])
             lord_id = args.get("lord_id")
             if not isinstance(lord_id, str) or lord_id not in state.lords:
                 raise IllegalAction(
