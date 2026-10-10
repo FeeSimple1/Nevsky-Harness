@@ -1,0 +1,27 @@
+name: Export new-seed Crusade source
+on:
+  push:
+    branches: [playtest/crusade-seed-20261011]
+    paths: ['.github/workflows/export-crusade-seed-source.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package pinned engine and external test driver
+        run: |
+          mkdir -p /tmp/crusade-export/engine /tmp/crusade-export/driver
+          git archive d1ed51f9b5e78039e0b307bb2ad91c89bd366303 | tar -x -C /tmp/crusade-export/engine
+          git show 34617cf46c98df067e7e918b7a39bc75f24e51e1:scripts/crusade_diagnostic.py > /tmp/crusade-export/driver/crusade_diagnostic.py
+          git ls-tree -r --name-only d1ed51f9b5e78039e0b307bb2ad91c89bd366303 > /tmp/crusade-export/tracked-files.txt
+          git rev-parse d1ed51f9b5e78039e0b307bb2ad91c89bd366303 > /tmp/crusade-export/ENGINE_COMMIT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crusade-seed-20261011-source
+          path: /tmp/crusade-export
+          include-hidden-files: true
+          retention-days: 1
