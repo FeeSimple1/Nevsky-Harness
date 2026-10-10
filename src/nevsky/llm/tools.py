@@ -14,15 +14,20 @@ from nevsky.legal_moves import legal_moves
 def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
     """Return legal moves available to `side`. Pre-filters by
     state.meta.active_player so only the requesting side's options
-    are returned. Each move has either `args` (concrete) or
+    are returned. On the other side's turn, only that requesting side's
+    legal any-time Hold interruptions are returned; ordinary commands
+    and the opponent's held cards are never exposed. Each move has either `args` (concrete) or
     `args_template` + `candidates` (templated). The LLM should not
     see illegal options — only what this function returns.
 
     For combat-pending response windows, the moves include
     stand_battle / avoid_battle / withdraw / play_ambush_block etc.
     """
-    if state.meta.active_player != side:
+    if side not in ("teutonic", "russian") or state.meta.game_over:
         return []
+    if state.meta.active_player != side:
+        from nevsky.held_actions import held_actions_for_side
+        return held_actions_for_side(state, side, interrupts_only=True)
     moves = legal_moves(state, with_previews=False)
     # Add a strategic note if the move type has one (legal_moves
     # already adds notes for many moves). Return as-is.
