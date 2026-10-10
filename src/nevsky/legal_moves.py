@@ -124,22 +124,8 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         if (is_capability_phase
                 and scope_pending == "this_lord"
                 and not card_pending.get("no_event")):
-            from nevsky.actions import _check_capability_eligibility
-            eligible_lords = []
-            for lid, lord in state.lords.items():
-                if lord.side != side or lord.state != "mustered":
-                    continue
-                if len(lord.this_lord_capabilities) >= 2:
-                    continue
-                cap_name_p = card_pending.get("capability_name") or "?"
-                if any(cards[ex].get("capability_name") == cap_name_p
-                       for ex in lord.this_lord_capabilities):
-                    continue
-                try:
-                    _check_capability_eligibility(card_pending, lid, role="target")
-                except Exception:
-                    continue
-                eligible_lords.append(lid)
+            from nevsky.actions import _first_levy_capability_targets
+            eligible_lords = _first_levy_capability_targets(state, side, card_pending)
             for lid in eligible_lords:
                 out.append({
                     "type": "aow_implement_card",
@@ -159,8 +145,8 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     "side": side,
                     "args": {"card_id": cid_pending},
                     "note": f"auto-discards pending_draw {cid_pending} "
-                            f"— no Mustered own-side Lord matches "
-                            f"coats of arms (3.1.2 bullet)",
+                            "— no legal assignment under coats-of-arms, "
+                            "duplicate-name and per-mat limits (3.1.2 / 3.4.4)",
                 })
         elif not is_capability_phase and cid_pending == "R9":
             out.append({"type": "aow_implement_card", "side": side,
@@ -1075,136 +1061,79 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 _has_enemy_stronghold_at,
                 _group_excess_provender as _grp_excess_mr,
                 _group_is_laden as _grp_laden_mr,
+                _march_action_cost,
             )
-            for dest, way_type in adj:
-                # SMOKE-128 (Round 190): cmd_march costs 1 action
-                # Unladen, 2 Laden (4.3). Suppress the option when the
-                # active Lord's actions_remaining can't cover the cost
-                # for this specific way_type -- the handler raises
-                # insufficient_actions. The enumerator already had way
-                # information per-edge, so the check is cheap.
-                # SMOKE-146 (R209): an active Lieutenant MUST March
-                # together with his Lower Lord (4.1.3; handler raises
-                # lower_lord_required otherwise). The handler computes
-                # Laden cost and the 4.3.2 excess-Provender gate across
-                # ALL group members, so SMOKE-151 (R210) computes both
-                # over the whole March group -- not just the active Lord
-                # -- otherwise a Lieutenant whose Lower Lord is Laden /
-                # carries excess Provender is over-enumerated (rejected
-                # with insufficient_actions / excess_provender).
-                _lower = state.lords[active_lord].has_lower_lord
-                march_group = [active_lord] + ([_lower] if _lower is not None else [])
-                # 4.3.2 SHARED TRANSPORT: Laden/excess use the GROUP's
-                # combined Provender vs combined usable Transport.
-                march_laden = _grp_laden_mr(state, march_group, way_type=way_type)
-                march_cost = 2 if march_laden else 1
-                if state.campaign_turn.actions_remaining < march_cost:
-                    continue
-                # SMOKE-127 (Round 190): 4.3.2 gate -- a Lord with more
-                # than 2x usable Transport in Provender may NOT March
-                # unless he discards the excess. The handler accepts
-                # an explicit args.discard_excess_provender=True to
-                # auto-discard. Emit the flag when ANY group member
-                # would trip the gate, so every emitted cmd_march is legal.
-                excess_mr = _grp_excess_mr(state, march_group, way_type=way_type)
-                base_note = f"March {active_lord} {here}->{dest} via {way_type} (cost={march_cost})"
-                args_mr: dict[str, Any] = {"lord_id": active_lord, "to": dest}
-                # SMOKE-159 (R222, surfaced by the validated palette): pin
-                # the Way. odenpah<->dorpat (and other pairs) have parallel
-                # trackway + waterway edges with DIFFERENT Laden cost /
-                # excess-Provender requirements; the per-edge discard flag
-                # and cost computed here only hold for THIS way_type. Pass
-                # it so _h_cmd_march resolves the same Way (else the
-                # no-discard waterway entry could be applied as the trackway
-                # and rejected with excess_provender).
-                args_mr["way_type"] = way_type
-                if _lower is not None:
-                    args_mr["group"] = [active_lord, _lower]
-                if excess_mr > 0:
-                    args_mr["discard_excess_provender"] = True
-                    base_note += f" | NOTE: discards {excess_mr} excess Provender (4.3.2)"
-                # Warn when entering enemy-territory Stronghold: per rule
-                # 4.3 ends_card_when began_siege, this March places a
-                # Siege marker AND ends the Command card.
-                try:
-                    if _has_enemy_stronghold_at(state, dest, side):
-                        base_note += " | NOTE: enters enemy Stronghold; places Siege & ends the Command card (4.3)"
-                except (KeyError, AttributeError):
-                    pass
-                # Warn when entering Locale with enemy Lord(s) -- triggers
-                # Approach decision (Avoid Battle / Withdraw / Stand).
-                enemy_at_dest = [
-                    lid for lid, l in state.lords.items()
-                    if l.side != side and l.state == "mustered"
-                    and l.location == dest and not l.in_stronghold
+            from nevsky.campaign import (
+                _is_currently_marshal as _icm, _is_besieged as _ib_mr,
+            )
+            # SMOKE-127 / SMOKE-128: excess-cargo and action-cost gates now
+            # use post-discard group cost, including the Converts exception.
+            lower = active.has_lower_lord
+            solo_or_pair = [active_lord] + ([lower] if lower is not None else [])
+            march_groups = [solo_or_pair]
+            if lower is None and _icm(state, active_lord):
+                fellows = [
+                    lid for lid, lord in state.lords.items()
+                    if lid != active_lord and lord.side == side
+                    and lord.state == "mustered" and lord.location == here
+                    and not lord.in_stronghold and not _ib_mr(state, lid)
                 ]
-                if enemy_at_dest:
-                    base_note += f" | NOTE: enemy Lord(s) {enemy_at_dest} at dest; triggers Approach decision (4.3.4)"
-                out.append({
-                    "type": "cmd_march", "side": side,
-                    "args": args_mr,
-                    "note": base_note,
-                })
-                # PLAY-5 (Fable playtest): 4.3.1 Marshal group March.
-                # "A Marshal may at the player's discretion bring along
-                # any or all of his side's Unbesieged Lords at his
-                # Locale." The handler has always accepted args.group,
-                # but the enumerator never emitted a group variant, so
-                # an agent restricted to the legal_actions() palette
-                # (per LLM_PLAY_GUIDE principle 3) could never March an
-                # army. Emit ONE full-group variant per destination
-                # (cost/laden/discard recomputed for the whole group);
-                # any subset of the group is likewise legal via
-                # args.group.
-                from nevsky.campaign import (_is_currently_marshal as _icm,
-                                             _is_besieged as _ib_mr)
-                if _lower is None and _icm(state, active_lord):
-                    fellows = [
-                        lid for lid, l in state.lords.items()
-                        if lid != active_lord and l.side == side
-                        and l.state == "mustered" and l.location == here
-                        and not l.in_stronghold and not _ib_mr(state, lid)
-                    ]
-                    if fellows:
-                        full_group = [active_lord] + fellows
-                        g_laden = _grp_laden_mr(state, full_group, way_type=way_type)
-                        g_cost = 2 if g_laden else 1
-                        if state.campaign_turn.actions_remaining >= g_cost:
-                            g_args: dict[str, Any] = {
-                                "lord_id": active_lord, "to": dest,
-                                "way_type": way_type, "group": full_group,
-                            }
-                            g_excess = _grp_excess_mr(state, full_group, way_type=way_type)
-                            g_note = (f"Group March {'+'.join(full_group)} "
-                                      f"{here}->{dest} via {way_type} (cost={g_cost}; "
-                                      "4.3.1 Marshal; subsets legal via "
-                                      "args.group if Lieutenant+Lower pairs "
-                                      "stay together, PLAY-22)")
-                            if g_excess > 0:
-                                g_args["discard_excess_provender"] = True
-                                g_note += f" | NOTE: discards {g_excess} excess Provender (4.3.2)"
-                            if enemy_at_dest:
-                                g_note += (f" | NOTE: enemy Lord(s) {enemy_at_dest} at dest; "
-                                           "triggers Approach decision (4.3.4)")
+                if fellows:
+                    march_groups.append([active_lord] + fellows)
+            for dest, way_type in adj:
+                enemy_at_dest = [
+                    lid for lid, lord in state.lords.items()
+                    if lord.side != side and lord.state == "mustered"
+                    and lord.location == dest and not lord.in_stronghold
+                ]
+                # A solo Lord's unaffordable cost must not hide a legal
+                # Marshal group that can Share Transport or use Converts.
+                for group in march_groups:
+                    excess = _grp_excess_mr(state, group, way_type=way_type)
+                    cost = _march_action_cost(
+                        state, active_lord, group, way_type,
+                        discard_excess_provender=excess > 0,
+                    )
+                    args_mr: dict[str, Any] = {
+                        "lord_id": active_lord, "to": dest, "way_type": way_type,
+                    }
+                    if len(group) > 1:
+                        args_mr["group"] = list(group)
+                    if excess > 0:
+                        args_mr["discard_excess_provender"] = True
+                    choices = [(args_mr, cost, False)]
+                    # 1.7.2 / 4.3.2: discarding to move Unladen is a
+                    # voluntary alternative, not forced when Laden fits.
+                    if cost > 1 and _grp_laden_mr(state, group, way_type=way_type):
+                        discard_args = {**args_mr, "discard_to_unladen": True}
+                        choices.append((discard_args, _march_action_cost(
+                            state, active_lord, group, way_type,
+                            discard_to_unladen=True,
+                        ), True))
+                    for chosen_args, chosen_cost, unladen in choices:
+                        if state.campaign_turn.actions_remaining < chosen_cost:
+                            continue
+                        note = (f"March {'+'.join(group)} {here}->{dest} "
+                                f"via {way_type} (cost={chosen_cost})")
+                        if unladen:
+                            note += " | Discard Loot and excess Provender to move Unladen (1.7.2)"
+                        elif excess:
+                            note += f" | Discards {excess} excess Provender (4.3.2)"
+                        if len(group) > 1:
+                            note += " | Group March; Lieutenant/Lower pairs stay together (4.3.1)"
+                        if _has_enemy_stronghold_at(state, dest, side):
+                            note += " | Enemy Stronghold: places Siege and ends the Command card (4.3)"
+                        if enemy_at_dest:
+                            note += f" | Approach: enemy Lords {enemy_at_dest} respond (4.3.4)"
+                        out.append({"type": "cmd_march", "side": side,
+                                    "args": chosen_args, "note": note})
+                        if enemy_at_dest:
                             out.append({
                                 "type": "cmd_march", "side": side,
-                                "args": g_args,
-                                "note": g_note,
+                                "args": {**chosen_args, "concede": True},
+                                "note": note + " | CONCEDE the Field: attacker loses; "
+                                        "enemy Pursues (4.4.2)",
                             })
-                # 4.4.2 Concede: the attacker may declare a Concede of
-                # the Battle this March triggers. Captured on
-                # combat_pending and applied in stand_battle; without
-                # this the attacker had no way to Concede (only the
-                # responding defender did).
-                if enemy_at_dest:
-                    concede_args = dict(args_mr)
-                    concede_args["concede"] = True
-                    out.append({
-                        "type": "cmd_march", "side": side,
-                        "args": concede_args,
-                        "note": base_note + " | CONCEDE the Field (4.4.2): attacker loses the "
-                                "Battle; enemy gains Pursuit (attacker takes half Hits this Round).",
-                    })
         except (ImportError, KeyError, AttributeError, FileNotFoundError) as e:
             # Static-data load failure or shape mismatch: fall back to the
             # template form so the consumer still sees an action shape.
