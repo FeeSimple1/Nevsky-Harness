@@ -64,6 +64,8 @@ jobs:
               index[name] = {'file': name + '.json', 'actions': result['actions'], 'original_action_index': result['before_action_index'], 'box': result['calendar_box']}
           (dest / 'index.json').write_text(json.dumps(index, indent=2) + '\n')
           PY
+      - name: Include the property-test budget-lifecycle correction
+        run: python .repair/expire-lordship.py
       - name: Run all regression and property tests
         run: python -m pytest -q -n 2 -o addopts='' --junitxml=/tmp/long-campaign-tests.xml
       - name: Run 150-game invariant sweep
@@ -76,7 +78,7 @@ jobs:
         run: |
           git config user.name ChatGPT
           git config user.email noreply@openai.com
-          git rm .github/workflows/export-repair-source.yml .github/workflows/repair-dependencies.yml .github/workflows/apply-long-campaign-repair.yml .repair/long-campaign.patch.b64
+          git rm .github/workflows/export-repair-source.yml .github/workflows/repair-dependencies.yml .github/workflows/apply-long-campaign-repair.yml .repair/long-campaign.patch.b64 .repair/expire-lordship.py
           git add src/nevsky/actions.py src/nevsky/events.py src/nevsky/legal_moves.py src/nevsky/llm/tools.py src/nevsky/held_actions.py scripts/chatgpt_play_helper.py scripts/llm_self_play.py tests/test_long_campaign_fixes_20261010.py tests/data/crusade_20261010 docs/LONG_CAMPAIGN_FIXES_20261010.md
           git commit -m 'Fix long-campaign Hold choices, Lordship budgets, extra Muster, and Treachery bookkeeping'
           git push origin HEAD:fix/nevsky-long-campaign-20261010
