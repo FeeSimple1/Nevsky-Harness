@@ -22,8 +22,8 @@ jobs:
           python - <<'PY'
           import base64, hashlib, pathlib, subprocess, zlib
           encoded = pathlib.Path('.repair/long-campaign.patch.b64').read_text().strip()
-          # Repair two transcription insertions in the text-only transport;
-          # the decoded patch must match the exact locally tested SHA below.
+          # Normalize two text-transfer insertions, then check the exact
+          # locally tested patch. Any other corruption fails this gate.
           encoded = encoded.replace('txKH3zi', 'txKHzi').replace('RkM5ln', 'RkMln')
           patch = zlib.decompress(base64.b64decode(encoded, validate=True))
           assert hashlib.sha256(patch).hexdigest() == '5c18c40b19f838ea662c5d99eb7663ad72dde7ba5cc8c8c68a55fea4af0e0a86'
@@ -32,10 +32,12 @@ jobs:
           subprocess.run(['git', 'apply', '--check', '/tmp/long-campaign.patch'], check=True)
           subprocess.run(['git', 'apply', '/tmp/long-campaign.patch'], check=True)
           PY
-      - name: Reconstruct the original saved positions and complete game logs
+      - name: Reconstruct saved positions from the complete original logs
         run: |
           python - <<'PY'
           import json, pathlib, subprocess
+          from nevsky.actions import apply_action
+          from nevsky.scenarios import load_scenario
           ref = '34617cf46c98df067e7e918b7a39bc75f24e51e1'
           subprocess.run(['git', 'fetch', 'origin', ref], check=True)
           prefix = 'reports/crusade_20261010/'
@@ -43,19 +45,24 @@ jobs:
               return json.loads(subprocess.check_output(['git', 'show', ref + ':' + prefix + path]))
           dest = pathlib.Path('tests/data/crusade_20261010')
           dest.mkdir(parents=True, exist_ok=True)
-          index = {}
-          for name, result in read('reproductions/results.json').items():
-              state = read('reproductions/' + result['state_file'])
-              state['history'] = []
-              (dest / (name + '.json')).write_text(json.dumps(state, sort_keys=True, separators=(',', ':')) + '\n')
-              index[name] = {'file': name + '.json', 'actions': result['actions'], 'original_action_index': result['before_action_index'], 'box': result['calendar_box']}
-          (dest / 'index.json').write_text(json.dumps(index, indent=2) + '\n')
+          games = {}
           for name, folder in [('first', ''), ('reserve', 'reserve_game/')]:
               summary = read(folder + 'summary.json')
               transcript = read(folder + 'transcript.json')
               payload = {'scenario': summary['scenario'], 'seed': summary['seed'], 'expected_winner': summary['winner'], 'expected_box': summary['last_box'], 'actions': [entry['action'] for entry in transcript]}
               assert len(payload['actions']) == summary['actions_including_setup']
               (dest / (name + '_replay.json')).write_text(json.dumps(payload, separators=(',', ':')) + '\n')
+              games['first' if name == 'first' else 'reserve_game'] = payload
+          index = {}
+          for name, result in read('reproductions/results.json').items():
+              game = games[result['game']]
+              state = load_scenario(game['scenario'], seed=game['seed'])
+              for action in game['actions'][:result['before_action_index']]:
+                  apply_action(state, action)
+              state.history = []
+              (dest / (name + '.json')).write_text(json.dumps(state.model_dump(mode='json'), sort_keys=True, separators=(',', ':')) + '\n')
+              index[name] = {'file': name + '.json', 'actions': result['actions'], 'original_action_index': result['before_action_index'], 'box': result['calendar_box']}
+          (dest / 'index.json').write_text(json.dumps(index, indent=2) + '\n')
           PY
       - name: Run all regression and property tests
         run: python -m pytest -q -n 2 -o addopts='' --junitxml=/tmp/long-campaign-tests.xml
