@@ -15,6 +15,7 @@ from nevsky.actions import (
     _is_besieged,
     _is_extra_muster_actor,
     _is_friendly_locale,
+    _may_continue_muster,
     apply_action,
 )
 from nevsky.state import GameState, Side
@@ -105,6 +106,7 @@ def held_actions_for_side(
             # During CtA the extra Muster must first be granted to this Lord.
             extra = _is_extra_muster_actor(state, lid)
             if (lord.state == "mustered" and lord.location is not None
+                    and _may_continue_muster(state, lid)
                     and lid not in blocked and not _is_besieged(state, lid)
                     and _is_friendly_locale(state, lord.location, side)
                     and (not lord.just_arrived_this_levy or extra)

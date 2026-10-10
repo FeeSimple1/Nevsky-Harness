@@ -375,6 +375,8 @@ def _ev_bountiful_harvest_t(state: GameState, args: dict[str, Any]) -> dict[str,
         raise IllegalAction("not_ravaged", f"{locale} has no Russian Ravaged marker")
     state.locales[locale].russian_ravaged = False
     state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 0.5)
+    from nevsky.scenarios import refresh_victory_markers
+    refresh_victory_markers(state)
     return {"event": "T14", "locale": locale}
 
 
@@ -396,6 +398,8 @@ def _ev_bountiful_harvest_r(state: GameState, args: dict[str, Any]) -> dict[str,
         raise IllegalAction("not_ravaged", f"{locale} has no Teutonic Ravaged marker")
     state.locales[locale].teutonic_ravaged = False
     state.calendar.teutonic_vp = max(0.0, state.calendar.teutonic_vp - 0.5)
+    from nevsky.scenarios import refresh_victory_markers
+    refresh_victory_markers(state)
     return {"event": "R18", "locale": locale}
 
 
@@ -451,6 +455,8 @@ def _ev_mindaugas_t(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
         raise IllegalAction("already_ravaged", f"{locale} already Ravaged")
     sloc.teutonic_ravaged = True
     state.calendar.teutonic_vp += 0.5
+    from nevsky.scenarios import refresh_victory_markers
+    refresh_victory_markers(state)
     return {"event": "T15", "locale": locale}
 
 
@@ -502,6 +508,8 @@ def _ev_mindaugas_r(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
         raise IllegalAction("already_ravaged", f"{locale} already Ravaged")
     sloc.russian_ravaged = True
     state.calendar.russian_vp += 0.5
+    from nevsky.scenarios import refresh_victory_markers
+    refresh_victory_markers(state)
     return {"event": "R12", "locale": locale}
 
 

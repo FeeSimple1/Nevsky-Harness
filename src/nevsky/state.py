@@ -117,6 +117,10 @@ class Meta(BaseModel):
     block_lords_this_levy_t: list[str] = Field(default_factory=list)
     block_lords_this_levy_r: list[str] = Field(default_factory=list)
     lordship_bonus: dict[str, int] = Field(default_factory=dict)
+    # 3.4: a Lord must finish ordinary Muster before the next begins.
+    # Appending a different Lord closes the previous one's remaining actions.
+    # Reset at ordinary Muster entry; Call-to-Arms grants are separate Musters.
+    muster_lord_order: list[str] = Field(default_factory=list)
     active_player: Side | None = None
     span_start_box: int = Field(ge=1, le=16)
     span_end_box: int = Field(ge=1, le=16)
