@@ -1,0 +1,579 @@
+### nevsky.actions._h_muster_lord line 2020
+def _h_muster_lord(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """3.4.1 Muster a Ready Lord at a Free Seat. Costs 1 Lordship.
+
+    args:
+      by_lord    Lord spending his Lordship (must be Mustered, not Besieged)
+      target_lord Ready Lord with at least one Free Seat
+      seat       chosen Free Seat (locale_id)
+    Roll d6: success on roll <= target.fealty.
+    On success: place cylinder at Seat, deploy starting forces/assets/
+    vassals, place Service marker SERVICE_RATING boxes RIGHT of Levy box.
+    Aleksandr exception: NEVER Muster by Lord (3.4.1).
+    """
+    from nevsky.rng import roll_d6
+    from nevsky.static_data import load_lords
+
+    sd = _require_side_player(state, side)
+    _require_levy_phase(state)
+    _require_active(state, sd)
+    by_id = args.get("by_lord")
+    target_id = args.get("target_lord")
+    seat = args.get("seat")
+    # SMOKE-106 (Round 152): allow call_to_arms when Legate-2c
+    # extra-Muster target matches by_id.
+    if isinstance(by_id, str):
+        _require_muster_or_legate_2c_extra(state, by_id)
+    else:
+        _require_levy_step(state, "muster")
+    for k, v in (("by_lord", by_id), ("target_lord", target_id), ("seat", seat)):
+        if not isinstance(v, str):
+            raise IllegalAction("missing_arg", f"args.{k} must be a string")
+
+    if by_id not in state.lords or state.lords[by_id].side != sd:
+        raise IllegalAction("bad_actor", f"{by_id} must be your Lord")
+    if target_id not in state.lords or state.lords[target_id].side != sd:
+        raise IllegalAction("bad_target", f"{target_id} must be on your side")
+    if target_id == "aleksandr":
+        raise IllegalAction(
+            "aleksandr_veche_only",
+            "Aleksandr can only enter play via Veche auto-Muster (3.4.1, 3.5.2)",
+        )
+    block = (
+        state.meta.block_lords_this_levy_t
+        if sd == "teutonic"
+        else state.meta.block_lords_this_levy_r
+    )
+    if target_id in block:
+        raise IllegalAction(
+            "blocked_this_levy",
+            f"{target_id} cannot be Mustered this Levy (R11 / R17)",
+        )
+
+    target = state.lords[target_id]
+    if target.state != "ready":
+        raise IllegalAction("bad_target", f"{target_id} state is {target.state} (not 'ready')")
+
+    levy_box = _find_levy_marker_box(state)
+    cyl_box = _find_cylinder_box(state, target_id)
+    if cyl_box is None or cyl_box > levy_box:
+        raise IllegalAction(
+            "not_ready",
+            f"{target_id} cylinder is at {cyl_box}; Levy is at {levy_box}; not Ready (3.4.1)",
+        )
+
+    free = _free_seats_for(state, target_id)
+    if seat not in free:
+        raise IllegalAction(
+            "no_free_seat",
+            f"{seat} is not a Free Seat for {target_id}. Free: {free}",
+        )
+
+    # Spend Lordship before rolling. (Failed roll still consumes the action.)
+    _spend_lordship(state, by_id)
+    roll = roll_d6(state)
+    fealty = int(load_lords()[target_id]["ratings"]["fealty"])
+    success = roll <= fealty
+    dice = [{"d6": roll, "vs_fealty": fealty, "success": success}]
+    if not success:
+        return (
+            {
+                "outcome": "fealty_failed",
+                "by_lord": by_id,
+                "target_lord": target_id,
+                "seat": seat,
+                "roll": roll,
+                "fealty": fealty,
+            },
+            dice,
+        )
+
+    _place_lord_on_map(state, target_id, seat, levy_box)
+    return (
+        {
+            "outcome": "mustered",
+            "by_lord": by_id,
+            "target_lord": target_id,
+            "seat": seat,
+            "roll": roll,
+            "fealty": fealty,
+        },
+        dice,
+    )
+
+
+### nevsky.actions._is_ready line 3012
+def _is_ready(state: GameState, lord_id: str, levy_box: int) -> bool:
+    if lord_id not in state.lords:
+        return False
+    lord = state.lords[lord_id]
+    if lord.state != "ready":
+        return False
+    cyl_box = _find_cylinder_box(state, lord_id)
+    if cyl_box is None:
+        return False
+    return cyl_box <= levy_box
+
+
+### nevsky.campaign._h_cmd_supply line 1591
+def _h_cmd_supply(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.6: add one Provender per declared Source, costing one action.
+
+    sources entries contain locale_id, route (including both ends), transport.
+    transport="ship" selects a Ship Source; otherwise it is the route's default
+    boat/cart/sled type, or "auto" to verify any usable allocation. Optional
+    route_transports lists one boat/cart/sled type per Way, allowing mixed
+    routes. Ship Sources need Ships AND Transport along every intervening Way;
+    without route_transports their route allocation is verified automatically.
+    """
+    sd = _require_side_player(state, side)
+    lord_id = args.get("lord_id", state.campaign_turn.active_lord)
+    sources = args.get("sources", [])
+    if not (isinstance(lord_id, str) and isinstance(sources, list)):
+        raise IllegalAction("missing_arg", "args.lord_id required, args.sources required (list)")
+    _require_active_lord_command(state, sd, lord_id)
+    lord = state.lords[lord_id]
+    if _is_besieged(state, lord_id):
+        raise IllegalAction("besieged", "Supply requires Unbesieged Lord")
+    if lord.location is None:
+        raise IllegalAction("no_location", "Lord has no location")
+    if state.campaign_turn.actions_remaining < 1:
+        raise IllegalAction("insufficient_actions", "Supply costs 1 action")
+
+    static_locales = load_locales()
+    way_index: dict[tuple[str, str], set[str]] = {}
+    for w in load_ways():
+        way_index.setdefault((w["a"], w["b"]), set()).add(w["type"])
+        way_index.setdefault((w["b"], w["a"]), set()).add(w["type"])
+    season = _season_of_box(state.meta.box)
+    winter = season in ("early_winter", "late_winter")
+
+    def check_season(ttype: str) -> None:
+        if ttype in ("ship", "boat") and winter:
+            raise IllegalAction(f"{ttype}_winter", f"{ttype} not usable in Winter (1.7.4)")
+        if ttype == "cart" and season != "summer":
+            raise IllegalAction("cart_non_summer", "Carts usable in Summer only (1.7.4)")
+        if ttype == "sled" and not winter:
+            raise IllegalAction("sled_non_winter", "Sleds usable in Winter only (1.7.4)")
+
+    seat_limits = _supply_seat_counts(state, lord_id)
+    seen_seats: dict[str, int] = {}
+    seat_count = ship_count = added = 0
+    requirements: list[set[str]] = []
+    for src in sources:
+        if not isinstance(src, dict):
+            raise IllegalAction("bad_source", "each source must be an object")
+        sid, route, ttype = src.get("locale_id"), src.get("route", []), src.get("transport")
+        if (not isinstance(sid, str) or sid not in static_locales
+                or not isinstance(route, list) or not isinstance(ttype, str)):
+            raise IllegalAction("bad_source", "each source: {locale_id, route[], transport}")
+        if ttype not in ("boat", "cart", "sled", "ship", "auto"):
+            raise IllegalAction("bad_source", f"unknown transport {ttype}")
+        check_season(ttype)
+        if ttype == "ship":
+            if ((sd == "russian" and sid != "novgorod")
+                    or (sd == "teutonic" and not static_locales[sid].get("seaport"))):
+                raise IllegalAction("bad_source", "Ship Source must be Novgorod for Russians or a Seaport for Teutons")
+            ship_count += 1
+            requirements.append({"ship"})
+        else:
+            if sid not in seat_limits:
+                raise IllegalAction("bad_source", f"{sid} not a Seat of {lord_id}")
+            seen_seats[sid] = seen_seats.get(sid, 0) + 1
+            if seen_seats[sid] > seat_limits[sid]:
+                raise IllegalAction("duplicate_source", f"{sid} has only {seat_limits[sid]} Seat(s) for {lord_id} (4.6.1)")
+            seat_count += 1
+
+        if (not route or any(not isinstance(loc, str) or loc not in state.locales for loc in route)
+                or route[0] != sid or route[-1] != lord.location):
+            raise IllegalAction("bad_route", "route must list valid Locales from Source to Active Lord")
+        # 4.6.2 applies to the Source too, and to Strongholds even without
+        # enemy Lords or Conquered markers. Besieged enemies do not block.
+        for chk in route:
+            cloc = state.locales[chk]
+            if _unbesieged_enemy_lord_at(state, chk, sd):
+                raise IllegalAction("route_blocked", f"Enemy Lord at {chk} blocks Route (4.6.2)")
+            enemy_marker = cloc.russian_conquered if sd == "teutonic" else cloc.teutonic_conquered
+            if cloc.siege_markers == 0 and (enemy_marker or _has_enemy_stronghold_at(state, chk, sd)):
+                raise IllegalAction("route_blocked", f"Enemy Stronghold or Conquered marker at {chk} blocks Route (4.6.2)")
+
+        chosen = src.get("route_transports")
+        if chosen is not None and (not isinstance(chosen, list) or len(chosen) != len(route) - 1):
+            raise IllegalAction("bad_route_transport", "route_transports must have one Transport type per Way")
+        for i, (a, b) in enumerate(zip(route, route[1:])):
+            wtypes = way_index.get((a, b))
+            if not wtypes:
+                raise IllegalAction("bad_route", f"no Way between {a} and {b}")
+            usable: set[str] = set()
+            if winter:
+                usable.add("sled")
+            else:
+                if "waterway" in wtypes:
+                    usable.add("boat")
+                if season == "summer" and "trackway" in wtypes:
+                    usable.add("cart")
+            selected = chosen[i] if chosen is not None else (ttype if ttype not in ("auto", "ship") else None)
+            if selected is not None:
+                if selected not in ("boat", "cart", "sled"):
+                    raise IllegalAction("bad_route_transport", "Ways require boat, cart, or sled Transport (1.7.4)")
+                check_season(selected)
+                if selected not in usable:
+                    raise IllegalAction("transport_way", f"{selected} cannot serve {a}-{b} (1.7.4)")
+                usable = {selected}
+            requirements.append(usable)
+        added += 1
+
+    if seat_count > 2:
+        raise IllegalAction("too_many_seat_sources", "max 2 Seat sources (4.6.1)")
+    if ship_count > 2:
+        raise IllegalAction("too_many_ship_sources", "max 2 Ship sources (4.6.3)")
+    transport_used = _allocate_supply_transport(
+        requirements, _supply_transport_pool(state, lord_id, args.get("lodya_conversions")),
+    )
+
+    # SMOKE-030: T16 Famine (against Russian) / R7 Famine (against
+    # Teutonic) cap Seat-sourced Provender at 1 per Command card.
+    # Ship-sourced Provender is NOT affected (Tip: "does not affect
+    # Provender via Supply from Ships, Ravage, or Spoils").
+    famine_against_us = (
+        ("T16" in state.decks.teutonic.this_campaign_events) if sd == "russian"
+        else ("R7" in state.decks.russian.this_campaign_events)
+    )
+    famine_seats_dropped = 0
+    if famine_against_us and seat_count > 0:
+        already_used = state.campaign_turn.seat_supply_this_card
+        allowed = max(0, 1 - already_used)
+        if seat_count > allowed:
+            famine_seats_dropped = seat_count - allowed
+            added -= famine_seats_dropped
+        state.campaign_turn.seat_supply_this_card = already_used + min(seat_count, allowed)
+
+    # Add provender (cap 8).
+    final_added = min(added, 8 - lord.assets.get("provender", 0))
+    lord.assets["provender"] = lord.assets.get("provender", 0) + final_added
+    # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
+    # so it does not trigger Feed (4.8.1). Moved/Fought is only
+    # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
+    _consume_actions(state, 1)
+    return ({"lord_id": lord_id, "added": final_added,
+             "lost_to_cap": added + famine_seats_dropped - final_added,
+             "famine_seats_dropped": famine_seats_dropped,
+             "famine_active": famine_against_us,
+             "transport_used": transport_used}, [])
+
+
+### nevsky.campaign._h_end_campaign_resolve line 1848
+def _h_end_campaign_resolve(
+    state: GameState, side: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """4.9 End Campaign sequence:
+    - 4.9.1 Grow (only at end of Rasputitsa, turn 8 or 16)
+    - 4.9.2 Game-end check
+    - 4.9.3 Plow & Reap (end-of-Summer or end-of-Late-Winter)
+    - 4.9.4 Wastage (per Lord, discard if >1 of any Asset type or
+            >1 this-lord-capability)
+    - 4.9.5 Reset: discard This-Campaign events; advance box; flip
+            to Levy
+
+    Both sides call this; we run the side-specific portion (Wastage,
+    discard This-Campaign events) then on R completion advance the
+    Calendar marker.
+    """
+    sd = _require_side_player(state, side)
+    if state.meta.phase != "campaign":
+        raise IllegalAction("wrong_phase", "end_campaign_resolve requires campaign phase")
+    if state.meta.campaign_step != "end_campaign":
+        raise IllegalAction("wrong_step", "end_campaign_resolve requires campaign_step=end_campaign")
+    _require_active(state, sd)
+
+    box = state.meta.box
+    season = _season_of_box(box)
+
+    # 4.9.1 Grow (T then R) -- runs only on T's turn for both sides combined,
+    # since both halves halve enemy markers. We model: when T resolves, T
+    # halves Russian Ravaged markers; when R resolves, R halves Teuton
+    # Ravaged markers. Only at end of Rasputitsa (turn 8/16).
+    grew = []
+    if season == "rasputitsa" and (box == 8 or box == 16):
+        target_color = "russian" if sd == "teutonic" else "teutonic"
+        ravaged = [
+            lid for lid, loc in state.locales.items()
+            if (target_color == "russian" and loc.russian_ravaged)
+            or (target_color == "teutonic" and loc.teutonic_ravaged)
+        ]
+        # Reduce to half rounded UP -> we REMOVE half rounded DOWN so half-up remain.
+        to_remove = len(ravaged) // 2
+        # 4.9.1: the removing side SELECTS which Enemy Ravaged markers to
+        # reduce. args.grow_remove may name exactly `to_remove` of them;
+        # otherwise fall back to a deterministic sort (which Locales stay
+        # Ravaged is VP-neutral but affects future Forage legality).
+        ravaged_set = set(ravaged)
+        chosen = args.get("grow_remove")
+        if chosen is not None:
+            if not isinstance(chosen, list) or any(c not in ravaged_set for c in chosen):
+                raise IllegalAction(
+                    "bad_grow_remove",
+                    f"grow_remove must list Enemy ({target_color}) Ravaged Locales")
+            if len(set(chosen)) != to_remove:
+                raise IllegalAction(
+                    "bad_grow_remove",
+                    f"grow_remove must name exactly {to_remove} Locale(s) to reduce to half")
+            ravaged_sorted = list(dict.fromkeys(chosen))
+        else:
+            ravaged_sorted = sorted(ravaged)
+        for rid in ravaged_sorted[:to_remove]:
+            if target_color == "russian":
+                state.locales[rid].russian_ravaged = False
+                state.calendar.russian_vp = max(0.0, state.calendar.russian_vp - 0.5)
+            else:
+                state.locales[rid].teutonic_ravaged = False
+                state.calendar.teutonic_vp = max(0.0, state.calendar.teutonic_vp - 0.5)
+            grew.append(rid)
+
+    # PLAY-21 (Fable audit): 4.9.5 RESET -- "Each side may discard any
+    # Arts of War cards back to its deck (Teutons then Russians)."
+    # args.reset_discard = [card_ids] returns held cards (holds zone)
+    # to the owning side's deck. Previously this printed option had no
+    # engine path: a dead situational Hold (e.g. an Ambush the side
+    # will never use) was stuck forever.
+    reset_discarded: list[str] = []
+    _rd = args.get("reset_discard")
+    if _rd is not None:
+        if not isinstance(_rd, list):
+            raise IllegalAction("bad_reset_discard",
+                                "reset_discard must be a list of card ids")
+        _deck = _side_deck(state, sd)
+        for cid in _rd:
+            if cid not in _deck.holds:
+                raise IllegalAction(
+                    "bad_reset_discard",
+                    f"{cid} not in {sd} holds (4.9.5 returns held cards)")
+            _deck.holds.remove(cid)
+            _deck.deck.append(cid)
+            reset_discarded.append(cid)
+
+    # PLAY-17 (Fable audit): 4.9 order is GROW (4.9.1) -> GAME END
+    # (4.9.2) -> PLOW AND REAP (4.9.3) -> WASTAGE (4.9.4) -> RESET
+    # (4.9.5). The engine ran Wastage per side BEFORE the global Plow &
+    # Reap, so Wastage qualification/discard used pre-flip, pre-halving
+    # Transport counts (e.g. 4 Sleds at box 6: rules flip->4 Carts,
+    # halve->2, Wastage->1 Cart; engine discarded a Sled first ->2
+    # Carts). Transport flips only touch the owning side's mats, so the
+    # flip is run per side here, before that side's Wastage; the global
+    # call in the both-sides-done block is gone. Skipped when this box
+    # is the scenario's final 40 Days (4.9.2 GAME END precedes 4.9.3).
+    if state.meta.box < state.meta.span_end_box:
+        _plow_and_reap(state, state.meta.box, side=sd)
+
+    # 4.9.4 Wastage (per side). A Lord qualifies when he has more than
+    # one of any single Asset type OR more than one This Lord
+    # Capability card; the OWNING PLAYER then selects ANY one Asset or
+    # This Lord Capability from that Lord to discard (rule example: a
+    # Lord with two Boats, one Provender, and one card may discard a
+    # Boat, the Provender, OR the card).
+    # PLAY-6 (Fable playtest): pre-fix the engine auto-discarded one of
+    # the most-numerous Asset type with no player choice, and could
+    # never discard a card (or a singleton Asset) from a Lord who
+    # qualified via a doubled Asset. Mirror the 4.9.1 grow_remove
+    # pattern: args.wastage = {lord_id: "<asset_type>" |
+    # "capability:<card_id>"} selects per-Lord; unspecified Lords fall
+    # back to the deterministic most-numerous-Asset discard.
+    wastage_actions = []
+    wastage_choices = args.get("wastage") or {}
+    if not isinstance(wastage_choices, dict):
+        raise IllegalAction(
+            "bad_wastage",
+            'wastage must be {lord_id: "<asset_type>" | "capability:<card_id>"}')
+    for lord_id, lord in state.lords.items():
+        if lord.side != sd or lord.state != "mustered":
+            continue
+        qualifies = (any(v > 1 for v in lord.assets.values())
+                     or len(lord.this_lord_capabilities) > 1)
+        chosen = wastage_choices.get(lord_id)
+        if chosen is not None and not qualifies:
+            raise IllegalAction(
+                "bad_wastage",
+                f"{lord_id} owes no Wastage (no Asset type >1 and <2 "
+                "This Lord Capabilities, 4.9.4)")
+        if not qualifies:
+            continue
+        discarded_asset = None
+        if chosen is not None:
+            if isinstance(chosen, str) and chosen.startswith("capability:"):
+                cid = chosen.split(":", 1)[1]
+                if cid not in lord.this_lord_capabilities:
+                    raise IllegalAction(
+                        "bad_wastage",
+                        f"{lord_id} has no This Lord Capability {cid!r}")
+                lord.this_lord_capabilities.remove(cid)
+                _side_deck(state, sd).deck.append(cid)
+                discarded_asset = f"capability:{cid}"
+            else:
+                if not isinstance(chosen, str) or lord.assets.get(chosen, 0) < 1:
+                    raise IllegalAction(
+                        "bad_wastage",
+                        f"{lord_id} has no Asset of type {chosen!r}")
+                lord.assets[chosen] -= 1  # type: ignore[index]
+                if lord.assets[chosen] == 0:  # type: ignore[index]
+                    del lord.assets[chosen]  # type: ignore[arg-type]
+                discarded_asset = chosen
+        else:
+            # Deterministic fallback (legacy behavior): discard one of
+            # the most-numerous Asset type, else pop a This Lord card.
+            most_type = None
+            most_count = 0
+            for k, v in lord.assets.items():
+                if v > most_count:
+                    most_count = v
+                    most_type = k
+            if most_count > 1:
+                lord.assets[most_type] -= 1  # type: ignore[index]
+                if lord.assets[most_type] == 0:  # type: ignore[index]
+                    del lord.assets[most_type]  # type: ignore[arg-type]
+                discarded_asset = most_type
+            else:
+                cid = lord.this_lord_capabilities.pop()
+                _side_deck(state, sd).deck.append(cid)
+                discarded_asset = f"capability:{cid}"
+        if discarded_asset:
+            wastage_actions.append({"lord_id": lord_id, "discarded": discarded_asset})
+
+    # 4.9.5 Reset: unstack Lieutenants / Lower Lords (4.1.3) and
+    # discard This-Campaign events.
+    for lord in state.lords.values():
+        if lord.side == sd:
+            lord.lieutenant_of = None
+            lord.has_lower_lord = None
+    deck = _side_deck(state, sd)
+    discarded_camp_events = list(deck.this_campaign_events)
+    deck.discard.extend(discarded_camp_events)
+    deck.this_campaign_events = []
+
+    # 4.9.5 Reset (SMOKE-028a): Remove all Serfs from Russian Lord mats
+    # (even if Besieged) back to the Smerdi (R4) Capability card / pool.
+    # Reference: Nevsky Calender and Veche Reference.txt lines 175-176:
+    # "Remove all Serfs from Russian mats (even if Besieged) to the
+    #  Smerdi Capability card."
+    serfs_returned: list[dict[str, Any]] = []
+    if sd == "russian":
+        for lord_id, lord in state.lords.items():
+            if lord.side == "russian":
+                count = lord.forces.get("serfs", 0)
+                if count > 0:
+                    lord.forces.pop("serfs", None)
+                    serfs_returned.append({"lord_id": lord_id, "count": count})
+
+    if sd == "teutonic":
+        if state.meta.end_campaign_completed_t:
+            raise IllegalAction("already_done", "Teutonic End Campaign already done")
+        state.meta.end_campaign_completed_t = True
+        state.meta.active_player = "russian"
+    else:
+        if state.meta.end_campaign_completed_r:
+            raise IllegalAction("already_done", "Russian End Campaign already done")
+        state.meta.end_campaign_completed_r = True
+
+    advanced = False
+    game_over = False
+    if state.meta.end_campaign_completed_t and state.meta.end_campaign_completed_r:
+        # 4.9.2 Game-end check: was this the scenario's final 40-Days?
+        if state.meta.box >= state.meta.span_end_box:
+            state.meta.phase = "campaign"
+            state.meta.campaign_step = "done"
+            game_over = True
+            # 5.3 End of Scenario: record the terminal outcome on the single
+            # game_over flag so apply_action rejects any later action and
+            # session/winner reporting has a recorded result. (A 5.2 Campaign
+            # Victory would already have ended the game earlier via
+            # _apply_immediate_campaign_victory; this branch is the VP path.)
+            if not state.meta.game_over:
+                from nevsky.scenarios import determine_scenario_winner
+                _res = determine_scenario_winner(state)
+                state.meta.winner = _res["winner"]
+                state.meta.victory_reason = _res["reason"]
+                state.meta.game_over = True
+        else:
+            # 4.9.3 Plow & Reap ran per side (PLAY-17), before each
+            # side's Wastage.
+            # Advance Calendar marker by 1, flip to Levy.
+            cal = state.calendar
+            new_box_after_advance: int | None = None
+            for cb in cal.boxes:
+                if cb.has_levy_campaign_marker:
+                    cb.has_levy_campaign_marker = False
+                    cb.levy_campaign_face = None
+                    new_box = cb.box + 1
+                    if new_box <= 16:
+                        cal.boxes[new_box - 1].has_levy_campaign_marker = True
+                        cal.boxes[new_box - 1].levy_campaign_face = "levy"
+                    state.meta.box = new_box
+                    new_box_after_advance = new_box
+                    break
+            # 4.9.5 Reset (SMOKE-028b/c, refactored R44/SMOKE-031): If the
+            # new 40 Days is the year's first Late Winter (box 5 or 13),
+            # discard the Crusade Capability (T11) if in play; the unified
+            # _discard_side_capability helper cascades the Summer
+            # Crusaders Disband per AoW Reference T11 Tip.
+            crusade_auto_discarded = False
+            summer_crusaders_disbanded: list[dict[str, Any]] = []
+            if new_box_after_advance in (5, 13):
+                # Disband Summer Crusaders unconditionally per rule 4.9.5
+                # (the rule pairs Crusade-discard with Summer-Crusaders-
+                # Disband; the latter must fire even when T11 was never
+                # in capabilities_in_play, e.g., state was edited or the
+                # Vassal was force-set by a test fixture). Then if T11 is
+                # in play, discard it through the helper (which would do
+                # an idempotent re-disband — no double effect).
+                summer_crusaders_disbanded = _disband_special_vassals(
+                    state, "teutonic", "summer_crusaders")
+                if "T11" in state.decks.teutonic.capabilities_in_play:
+                    _discard_side_capability(state, "teutonic", "T11")
+                    crusade_auto_discarded = True
+            # Reset campaign-turn / step bookkeeping for next Campaign;
+            # transition to Levy.
+            state.meta.phase = "levy"
+            state.meta.levy_step = "arts_of_war"
+            state.meta.levy_step_completed_t = False
+            state.meta.levy_step_completed_r = False
+            # R199 (SMOKE-132): new Levy -> each side may draw again.
+            state.meta.aow_drawn_t = False
+            state.meta.aow_drawn_r = False
+            state.meta.first_levy_done = True  # post-first-Levy
+            state.meta.active_player = "teutonic"
+            state.meta.campaign_step = "plan"  # ready for next Campaign
+            state.meta.plan_complete_t = False
+            state.meta.plan_complete_r = False
+            state.meta.end_campaign_completed_t = False
+            state.meta.end_campaign_completed_r = False
+            state.campaign_turn.next_to_reveal = "teutonic"
+            state.campaign_turn.active_card = None
+            state.campaign_turn.active_lord = None
+            state.campaign_turn.actions_remaining = 0
+            state.campaign_turn.in_feed_pay_disband = False
+            state.campaign_turn.fpd_completed_t = False
+            state.campaign_turn.fpd_completed_r = False
+            # SMOKE-035 (Round 47): reset per-Levy Lord flags when
+            # transitioning Campaign -> next Levy. just_arrived_this_levy
+            # marks a Lord that Mustered in the current Levy (3.4 blocks
+            # them from Lordship-spending in the same Muster step). The
+            # previous Levy is done; the new Levy has not yet Mustered
+            # anyone, so the flag must clear for all Lords. Without this
+            # reset, a Lord who Mustered in Levy N still counts as
+            # "just arrived" in Levy N+1's Muster step and is wrongly
+            # blocked from acting as a Lordship source.
+            for lord in state.lords.values():
+                lord.just_arrived_this_levy = False
+            advanced = True
+
+    return ({"side": sd, "grew": grew, "wastage": wastage_actions, "reset_discard": reset_discarded,
+             "this_campaign_discarded": discarded_camp_events,
+             "serfs_returned": serfs_returned,
+             "crusade_auto_discarded": (
+                 crusade_auto_discarded if advanced else False),
+             "summer_crusaders_disbanded": (
+                 summer_crusaders_disbanded if advanced else []),
+             "advanced_to_next_levy": advanced, "game_over": game_over}, [])

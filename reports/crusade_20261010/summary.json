@@ -1,0 +1,190 @@
+{
+  "scenario": "crusade_on_novgorod",
+  "seed": 20261010,
+  "engine_commit": "394de473fd886f3f5f898dc2d0dcfb3b517253cb",
+  "policy": "resource-aware automated play, with explicit raw-JSON legal requests",
+  "terminal": true,
+  "last_box": 14,
+  "boxes_entered": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+  ],
+  "winner": {
+    "winner": "teutonic",
+    "reason": "Campaign Victory 5.2 (R has 0 Mustered Lords)",
+    "t_vp": 5.0,
+    "r_vp": 0.0,
+    "applied_override": "campaign_victory"
+  },
+  "actions_including_setup": 1322,
+  "action_counts": {
+    "aow_draw": 28,
+    "aow_implement_card": 58,
+    "advance_step": 140,
+    "pay_with_coin": 45,
+    "muster_lord": 16,
+    "levy_transport": 82,
+    "veche_action": 14,
+    "plan_add_card": 124,
+    "finalize_plan": 26,
+    "command_reveal": 124,
+    "cmd_tax": 40,
+    "fpd_resolve": 380,
+    "cmd_forage": 60,
+    "cmd_march": 61,
+    "cmd_supply": 25,
+    "end_campaign_resolve": 26,
+    "muster_vassal": 18,
+    "levy_capability": 18,
+    "end_card": 10,
+    "cmd_ravage": 2,
+    "cmd_siege": 2,
+    "avoid_battle": 1,
+    "disband_resolve": 9,
+    "stand_battle": 1,
+    "pay_with_loot": 4,
+    "cmd_raiders_ravage": 3,
+    "cmd_storm": 2,
+    "withdraw": 1
+  },
+  "save_reload_checks": 66,
+  "replay_errors": [],
+  "finding_groups": 0,
+  "finding_kinds": {},
+  "finding_occurrences": {},
+  "final": {
+    "box": 14,
+    "phase": "campaign",
+    "step": "done",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 5.0,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "removed",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "removed",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "sled": 2
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "removed",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "koporye",
+        "service": 17,
+        "assets": {
+          "provender": 2,
+          "sled": 3
+        },
+        "forces": {
+          "men_at_arms": 3,
+          "militia": 2,
+          "light_horse": 1,
+          "knights": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "andrey": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "domash": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "karelians": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      }
+    }
+  }
+}
