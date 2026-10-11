@@ -1,0 +1,115 @@
+name: Return of the Prince audited playtest
+on:
+  push:
+    branches: [playtest/return-prince-20261028]
+    paths: ['.github/workflows/return-prince-playtest.yml']
+permissions:
+  contents: write
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - name: Prepare scenario-specific audited player
+        run: |
+          cp scripts/convergence_play.py /tmp/return_prince_play.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/return_prince_play.py')
+          text = p.read_text()
+          old = 'SCENARIO = "crusade_on_novgorod"'
+          new = 'SCENARIO = "return_of_the_prince"'
+          assert old in text
+          p.write_text(text.replace(old, new, 1))
+          PY
+      - name: Play three complete trajectories
+        run: |
+          mkdir -p reports/return_prince_20261028
+          PYTHONPATH=src:scripts python /tmp/return_prince_play.py --seed 20261028 --policy logistics --label 6bbbfa0 --out reports/return_prince_20261028/logistics
+          PYTHONPATH=src:scripts python /tmp/return_prince_play.py --seed 20261029 --policy combined --label 6bbbfa0 --out reports/return_prince_20261028/combined
+          PYTHONPATH=src:scripts python /tmp/return_prince_play.py --seed 20261030 --policy maritime --label 6bbbfa0 --out reports/return_prince_20261028/maritime
+      - name: Aggregate results and verify replay evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('reports/return_prince_20261028')
+          runs = []
+          for name in ('logistics','combined','maritime'):
+              summary = json.loads((root/name/'summary.json').read_text())
+              findings = json.loads((root/name/'findings.json').read_text())
+              assert summary['scenario'] == 'return_of_the_prince'
+              assert summary['terminal'], (name, summary)
+              assert not summary['replay_errors'], (name, summary['replay_errors'])
+              runs.append({
+                  'name': name,
+                  'seed': summary['seed'],
+                  'actions': summary['actions_including_setup'],
+                  'last_box': summary['last_box'],
+                  'winner': summary['winner'],
+                  'save_reload_checks': summary['save_reload_checks'],
+                  'finding_groups': summary['finding_groups'],
+                  'finding_kinds': summary['finding_kinds'],
+                  'finding_occurrences': summary['finding_occurrences'],
+                  'findings': findings,
+                  'action_counts': summary['action_counts'],
+              })
+          aggregate = {
+              'engine_commit': '6bbbfa045650387a3b8d3f27a21550fac94cda1c',
+              'scenario': 'return_of_the_prince',
+              'runs': runs,
+              'total_actions': sum(r['actions'] for r in runs),
+              'total_save_reload_checks': sum(r['save_reload_checks'] for r in runs),
+              'all_terminal': all(r['last_box'] <= 16 for r in runs),
+              'finding_groups': sum(r['finding_groups'] for r in runs),
+          }
+          (root/'aggregate.json').write_text(json.dumps(aggregate, indent=2, default=str))
+          lines = [
+              '# Return of the Prince playtest — seeds 20261028–20261030',
+              '',
+              'Engine: `6bbbfa045650387a3b8d3f27a21550fac94cda1c`.',
+              '',
+              '| Policy | Seed | Actions | Final box | Findings | Result |',
+              '| --- | ---: | ---: | ---: | ---: | --- |',
+          ]
+          for r in runs:
+              winner = r['winner']
+              result = f"{winner.get('winner')} — {winner.get('reason')} (T {winner.get('t_vp')}, R {winner.get('r_vp')})" if isinstance(winner, dict) else str(winner)
+              lines.append(f"| {r['name']} | {r['seed']} | {r['actions']} | {r['last_box']} | {r['finding_groups']} | {result} |")
+          lines += [
+              '',
+              f"Total: **{aggregate['total_actions']} actions** and **{aggregate['total_save_reload_checks']} save/reload checks**.",
+              '',
+              'Each complete action log replayed exactly to the recorded final state. These are automated diagnostic trajectories, not expert play or a balance study.',
+              '',
+              '## Findings',
+              '',
+          ]
+          if aggregate['finding_groups']:
+              for r in runs:
+                  for f in r['findings']:
+                      lines.append(f"- **{r['name']} / {f['kind']}** at action {f['first_action']}, box {f['box']}; occurrences: {f['occurrences']}; action: `{json.dumps(f.get('action'), sort_keys=True)}`; details: `{json.dumps(f.get('details'), sort_keys=True, default=str)}`")
+          else:
+              lines.append('No runtime, invariant, menu/handler, conservation, score-accounting, Calendar-marker, readiness, replay, or save/reload finding was recorded by the audited player.')
+          lines += ['', 'Full transcripts, pre-action positions, final saves, boundaries and source-context snapshots are in the workflow artifact.']
+          (root/'REPORT.md').write_text('\n'.join(lines)+'\n')
+          PY
+      - name: Publish playtest evidence on isolated branch
+        run: |
+          git config user.name ChatGPT
+          git config user.email noreply@openai.com
+          git add reports/return_prince_20261028
+          git commit -m 'Record audited Return of the Prince playthroughs' || true
+          git push origin HEAD:playtest/return-prince-20261028
+      - uses: actions/upload-artifact@v4
+        with:
+          name: return-prince-playtest
+          path: reports/return_prince_20261028
+          retention-days: 7
