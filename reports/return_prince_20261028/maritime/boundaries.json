@@ -1,0 +1,1501 @@
+[
+  {
+    "box": 9,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 9.0,
+      "russian": 3.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "mustered",
+        "at": "koporye",
+        "service": 12,
+        "assets": {
+          "provender": 2,
+          "ship": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 2,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "hermann": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "novgorod",
+        "service": 14,
+        "assets": {
+          "boat": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "domash": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "karelians": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 10,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 9.0,
+      "russian": 2.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "mustered",
+        "at": "zheltsy",
+        "service": 11,
+        "assets": {
+          "ship": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 2,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 13,
+        "assets": {
+          "provender": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 13,
+        "assets": {
+          "provender": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 13,
+        "assets": {
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 15,
+        "assets": {
+          "boat": 1,
+          "cart": 1,
+          "ship": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "dubrovno",
+        "service": 14,
+        "assets": {
+          "boat": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "karelians": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 13,
+        "assets": {
+          "provender": 2
+        },
+        "forces": {
+          "light_horse": 1,
+          "militia": 4
+        },
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 11,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 7.0,
+      "russian": 1.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "mustered",
+        "at": "plyussa_river",
+        "service": 11,
+        "assets": {
+          "ship": 1,
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 2,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 14,
+        "assets": {
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 15,
+        "assets": {
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 14,
+        "assets": {
+          "provender": 2
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 14,
+        "assets": {
+          "boat": 1,
+          "ship": 1,
+          "provender": 3,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 14,
+        "assets": {
+          "boat": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 13,
+        "assets": {
+          "provender": 1,
+          "boat": 1,
+          "sled": 0
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "mustered",
+        "at": "neva",
+        "service": 15,
+        "assets": {
+          "ship": 1,
+          "sled": 0
+        },
+        "forces": {
+          "light_horse": 1,
+          "militia": 4
+        },
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 12,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 6.5,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 14,
+        "assets": {
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 16,
+        "assets": {
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "mustered",
+        "at": "gdov",
+        "service": 14,
+        "assets": {
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "wesenberg",
+        "service": 14,
+        "assets": {
+          "ship": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "uzmen",
+        "service": 15,
+        "assets": {
+          "ship": 2,
+          "provender": 1,
+          "sled": 2
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "zhelcha_river",
+        "service": 14,
+        "assets": {
+          "boat": 1,
+          "sled": 1,
+          "ship": 1,
+          "provender": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "mustered",
+        "at": "zhelcha_river",
+        "service": 15,
+        "assets": {
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 14,
+        "assets": {
+          "provender": 1,
+          "boat": 1,
+          "sled": 0,
+          "ship": 1
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "mustered",
+        "at": "neva",
+        "service": 15,
+        "assets": {
+          "ship": 1,
+          "sled": 1
+        },
+        "forces": {
+          "light_horse": 1,
+          "militia": 4
+        },
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 13,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 7.0,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 15,
+        "assets": {
+          "provender": 1,
+          "sled": 3
+        },
+        "forces": {
+          "knights": 3,
+          "sergeants": 1,
+          "men_at_arms": 3,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "mustered",
+        "at": "gdov",
+        "service": 14,
+        "assets": {
+          "sled": 1,
+          "provender": 1,
+          "loot": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "wesenberg",
+        "service": 15,
+        "assets": {
+          "ship": 2,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 15,
+        "assets": {
+          "ship": 3,
+          "provender": 2,
+          "sled": 3
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 3
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 15,
+        "assets": {
+          "sled": 1,
+          "ship": 2,
+          "provender": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "mustered",
+        "at": "zhelcha_river",
+        "service": 15,
+        "assets": {
+          "provender": 1,
+          "sled": 1,
+          "ship": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 15,
+        "assets": {
+          "provender": 1,
+          "sled": 1,
+          "ship": 2
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "mustered",
+        "at": "neva",
+        "service": 15,
+        "assets": {
+          "ship": 1,
+          "sled": 1,
+          "provender": 2
+        },
+        "forces": {
+          "light_horse": 1,
+          "militia": 4
+        },
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 14,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 7.0,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 16,
+        "assets": {
+          "provender": 1,
+          "sled": 3,
+          "boat": 1
+        },
+        "forces": {
+          "knights": 3,
+          "sergeants": 1,
+          "men_at_arms": 3,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "sled": 1,
+          "coin": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 14,
+        "assets": {
+          "provender": 2
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "wesenberg",
+        "service": 16,
+        "assets": {
+          "ship": 3,
+          "sled": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 16,
+        "assets": {
+          "ship": 4,
+          "provender": 5,
+          "sled": 3,
+          "boat": 1
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 4
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 15,
+        "assets": {
+          "sled": 2,
+          "ship": 2,
+          "provender": 2
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "mustered",
+        "at": "zhelcha_river",
+        "service": 15,
+        "assets": {
+          "provender": 5,
+          "sled": 2,
+          "ship": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 16,
+        "assets": {
+          "provender": 1,
+          "sled": 1,
+          "ship": 2
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "mustered",
+        "at": "koporye",
+        "service": 15,
+        "assets": {
+          "ship": 1,
+          "sled": 1
+        },
+        "forces": {
+          "light_horse": 1,
+          "militia": 4
+        },
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 15,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 7.0,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 3,
+          "sergeants": 1,
+          "men_at_arms": 3,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "mustered",
+        "at": "pernau",
+        "service": 17,
+        "assets": {
+          "ship": 1,
+          "cart": 0
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "wesenberg",
+        "service": 17,
+        "assets": {
+          "ship": 3,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 16,
+        "assets": {
+          "ship": 6,
+          "provender": 6,
+          "boat": 1,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 4
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 16,
+        "assets": {
+          "ship": 3,
+          "provender": 2,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "mustered",
+        "at": "novgorod",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "coin": 1,
+          "cart": 1
+        },
+        "forces": {
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "mustered",
+        "at": "zhelcha_river",
+        "service": 15,
+        "assets": {
+          "provender": 5,
+          "ship": 2,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "ship": 1,
+          "cart": 1
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 16,
+    "phase": "levy",
+    "step": "arts_of_war",
+    "active": "teutonic",
+    "vp": {
+      "teutonic": 7.0,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 3,
+          "boat": 1
+        },
+        "forces": {
+          "knights": 3,
+          "sergeants": 1,
+          "men_at_arms": 3,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "mustered",
+        "at": "pernau",
+        "service": 17,
+        "assets": {
+          "ship": 1,
+          "cart": 1,
+          "provender": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "wesenberg",
+        "service": 17,
+        "assets": {
+          "ship": 3,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 17,
+        "assets": {
+          "ship": 7,
+          "provender": 6,
+          "boat": 1,
+          "cart": 3
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 4
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "pskov",
+        "service": 17,
+        "assets": {
+          "ship": 3,
+          "provender": 3,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "mustered",
+        "at": "novgorod",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 1,
+          "ship": 1
+        },
+        "forces": {
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "ship": 1,
+          "cart": 2
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      }
+    }
+  },
+  {
+    "box": 16,
+    "phase": "campaign",
+    "step": "done",
+    "active": "russian",
+    "vp": {
+      "teutonic": 5.5,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "mustered",
+        "at": "adsel",
+        "service": 17,
+        "assets": {
+          "provender": 2,
+          "ship": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 2,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "dorpat",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 3,
+          "boat": 1
+        },
+        "forces": {
+          "knights": 3,
+          "sergeants": 1,
+          "men_at_arms": 3,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "mustered",
+        "at": "pernau",
+        "service": 17,
+        "assets": {
+          "ship": 2,
+          "cart": 2,
+          "provender": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "men_at_arms": 1,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "wesenberg",
+        "service": 17,
+        "assets": {
+          "cart": 2,
+          "ship": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "mustered",
+        "at": "dubrovno",
+        "service": 17,
+        "assets": {
+          "ship": 7,
+          "boat": 1,
+          "cart": 3
+        },
+        "forces": {
+          "knights": 3,
+          "men_at_arms": 4
+        },
+        "besieged": false
+      },
+      "andrey": {
+        "state": "removed",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "domash": {
+        "state": "mustered",
+        "at": "novgorod",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 1,
+          "ship": 2
+        },
+        "forces": {
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "light_horse": 1,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "ship": 3,
+          "cart": 2
+        },
+        "forces": {
+          "sergeants": 1,
+          "light_horse": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "karelians": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      }
+    }
+  }
+]
