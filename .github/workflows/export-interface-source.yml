@@ -1,0 +1,23 @@
+name: Export interface source
+on:
+  push:
+    branches: [feat/token-efficient-helper-20261016]
+    paths: ['.github/workflows/export-interface-source.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          mkdir -p /tmp/interface-source
+          git archive 51f73b98110dedf864fb2616ab133a19acbfbe0d | tar -x -C /tmp/interface-source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nevsky-interface-source
+          path: /tmp/interface-source
+          include-hidden-files: true
+          retention-days: 1
