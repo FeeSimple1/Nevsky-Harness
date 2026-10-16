@@ -1,0 +1,218 @@
+{
+  "scenario": "return_of_the_prince",
+  "seed": 20261029,
+  "engine_commit": "6bbbfa0",
+  "policy": "combined",
+  "terminal": true,
+  "last_box": 16,
+  "boxes_entered": [
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "winner": {
+    "winner": "teutonic",
+    "reason": "5.3 higher VP",
+    "t_vp": 8.0,
+    "r_vp": 0.0,
+    "applied_override": null
+  },
+  "actions_including_setup": 795,
+  "action_counts": {
+    "aow_draw": 16,
+    "aow_implement_card": 32,
+    "advance_step": 80,
+    "muster_lord": 11,
+    "levy_transport": 39,
+    "levy_capability": 17,
+    "veche_action": 8,
+    "place_lieutenant": 8,
+    "plan_add_card": 76,
+    "finalize_plan": 16,
+    "command_reveal": 76,
+    "cmd_tax": 41,
+    "fpd_resolve": 238,
+    "pay_with_coin": 46,
+    "cmd_supply": 23,
+    "cmd_march": 21,
+    "end_campaign_resolve": 16,
+    "muster_vassal": 9,
+    "legate_skip": 3,
+    "cmd_forage": 6,
+    "aow_lordship_plus_2": 3,
+    "cmd_storm": 2,
+    "disband_resolve": 3,
+    "cmd_ravage": 1,
+    "aow_discard_this_levy": 1,
+    "aow_play_hold": 1
+  },
+  "save_reload_checks": 40,
+  "replay_errors": [],
+  "finding_groups": 0,
+  "finding_kinds": {},
+  "finding_occurrences": {},
+  "final": {
+    "box": 16,
+    "phase": "campaign",
+    "step": "done",
+    "active": "russian",
+    "vp": {
+      "teutonic": 8.0,
+      "russian": 0.0
+    },
+    "lords": {
+      "andreas": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "hermann": {
+        "state": "mustered",
+        "at": "odenpah",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "boat": 1,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1,
+          "militia": 2,
+          "light_horse": 1
+        },
+        "besieged": false
+      },
+      "rudolf": {
+        "state": "mustered",
+        "at": "wenden",
+        "service": 17,
+        "assets": {
+          "provender": 1,
+          "cart": 2
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 1
+        },
+        "besieged": false
+      },
+      "heinrich": {
+        "state": "mustered",
+        "at": "leal",
+        "service": 17,
+        "assets": {
+          "cart": 3
+        },
+        "forces": {
+          "knights": 2,
+          "sergeants": 1,
+          "men_at_arms": 2
+        },
+        "besieged": false
+      },
+      "yaroslav": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "knud_and_abel": {
+        "state": "mustered",
+        "at": "plyussa_river",
+        "service": 17,
+        "assets": {
+          "ship": 1,
+          "cart": 1
+        },
+        "forces": {
+          "knights": 1,
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "militia": 1
+        },
+        "besieged": false
+      },
+      "aleksandr": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "andrey": {
+        "state": "mustered",
+        "at": "novgorod",
+        "service": 17,
+        "assets": {
+          "cart": 3,
+          "provender": 4,
+          "boat": 1
+        },
+        "forces": {
+          "men_at_arms": 4
+        },
+        "besieged": false
+      },
+      "domash": {
+        "state": "mustered",
+        "at": "novgorod",
+        "service": 17,
+        "assets": {
+          "boat": 1,
+          "cart": 3
+        },
+        "forces": {
+          "sergeants": 1,
+          "men_at_arms": 2,
+          "light_horse": 1,
+          "militia": 3
+        },
+        "besieged": false
+      },
+      "gavrilo": {
+        "state": "ready",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "vladislav": {
+        "state": "disbanded",
+        "at": null,
+        "service": null,
+        "assets": {},
+        "forces": {},
+        "besieged": false
+      },
+      "karelians": {
+        "state": "mustered",
+        "at": "ladoga",
+        "service": 17,
+        "assets": {
+          "provender": 2,
+          "cart": 1
+        },
+        "forces": {
+          "light_horse": 1,
+          "militia": 4
+        },
+        "besieged": false
+      }
+    }
+  }
+}
