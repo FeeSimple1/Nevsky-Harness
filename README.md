@@ -38,6 +38,20 @@ reports any divergences. The `agent_compare_sweep.py` runs greedy vs
 strategic across all scenarios. The `llm_tournament.py` runs
 configurable agents head-to-head and emits a leaderboard.
 
+## Compact interactive play
+
+`scripts/chatgpt_play_helper.py` defaults to a fresh compact position and action
+category counts. Browse with `nv.actions(category, lord=..., page=...)`, inspect
+`nv.action(ID)`, and select with `nv.apply(ID)`. State-bound IDs reject stale
+selections without a fallback; original templates and all generator choices
+remain discoverable. `nv.details(...)`, `nv.full_state()`, and `nv.load(...)`
+provide filtered detail and resume. Legacy integer/dictionary APIs remain.
+
+See [`docs/TOKEN_EFFICIENT_INTERFACE.md`](docs/TOKEN_EFFICIENT_INTERFACE.md) for
+templates, player visibility and compatibility, and
+[`docs/TOKEN_EFFICIENCY_MEASUREMENTS.md`](docs/TOKEN_EFFICIENCY_MEASUREMENTS.md)
+for total-output measurements including follow-up interactions.
+
 ## How to run things
 
 Install in editable mode and run the tests:
