@@ -1,0 +1,79 @@
+name: Verify compact LLM interface
+on:
+  push:
+    branches: [feat/token-efficient-helper-20261016]
+    paths: ['.github/workflows/verify-interface.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test and measurement dependencies
+        run: python -m pip install -e '.[dev]' tiktoken
+      - name: Verify and apply exact tested interface patch
+        run: |
+          python - <<'PY'
+          import base64, hashlib, lzma, pathlib, subprocess
+          base = '51f73b98110dedf864fb2616ab133a19acbfbe0d'
+          subprocess.run(['git', 'diff', '--exit-code', base, '--', 'src', 'scripts', 'tests', 'docs', 'README.md', 'reports'], check=True)
+          encoded = ''.join(pathlib.Path('.repair/interface.part' + str(i)).read_text().strip() for i in (1,2,3,4))
+          patch = lzma.decompress(base64.b64decode(encoded, validate=True))
+          digest = hashlib.sha256(patch).hexdigest()
+          assert digest == '0e0c17cd0309c57810faf1d55ab84ad57660388da2f3ff2656e2d05a5294012e', digest
+          pathlib.Path('/tmp/interface.patch').write_bytes(patch)
+          subprocess.run(['git', 'apply', '--check', '/tmp/interface.patch'], check=True)
+          subprocess.run(['git', 'apply', '/tmp/interface.patch'], check=True)
+          pathlib.Path('/tmp/interface-validation').mkdir()
+          print('Verified interface patch', digest)
+          PY
+      - name: Complete regression, privacy, stale-ID and save-resume suite
+        run: PYTHONPATH=src python -m pytest -q -n 4 --junitxml=/tmp/interface-validation/tests.xml
+      - name: Require actual completion of 150 invariant cases
+        run: |
+          set -o pipefail
+          PYTHONPATH=src python scripts/fuzz_invariants.py --seeds 1-25 --max-steps 3000 --require-completion --report-json /tmp/interface-validation/invariants.json | tee /tmp/interface-validation/invariants.log
+      - name: Measure all paired output including menu and detail requests
+        run: |
+          set -o pipefail
+          PYTHONPATH=src python scripts/benchmark_helper_output.py --require-tokenizer --output /tmp/interface-validation/benchmark | tee /tmp/interface-validation/benchmark.log
+      - name: Lint new modules and compile changed Python
+        run: |
+          python -m ruff check --select I,F,B,UP src/nevsky/llm/action_browser.py src/nevsky/llm/compact.py scripts/benchmark_helper_output.py scripts/report_helper_measurements.py tests/test_token_efficient_helper.py
+          python -m compileall -q src/nevsky/llm scripts/chatgpt_play_helper.py scripts/benchmark_helper_output.py scripts/report_helper_measurements.py tests/test_token_efficient_helper.py
+          git diff --check
+      - name: Write measured report and publish only verified changes
+        run: |
+          python scripts/report_helper_measurements.py /tmp/interface-validation/benchmark/measurements.json --output docs/TOKEN_EFFICIENCY_MEASUREMENTS.md --tests-xml /tmp/interface-validation/tests.xml --invariants /tmp/interface-validation/invariants.json
+          python - <<'PY'
+          import json, os, pathlib, shutil
+          measurements = pathlib.Path('/tmp/interface-validation/benchmark/measurements.json')
+          data = json.loads(measurements.read_text())
+          assert set(data['tokenizers']) == {'cl100k_base', 'o200k_base'}
+          target = pathlib.Path('reports/token_interface_20261016')
+          target.mkdir(parents=True, exist_ok=True)
+          shutil.copyfile(measurements, target / 'measurements.json')
+          p = pathlib.Path('docs/TOKEN_EFFICIENCY_MEASUREMENTS.md')
+          with p.open('a') as out:
+              out.write('\nGitHub validation run: `' + os.environ['GITHUB_RUN_ID'] + '`. Artifact: `nevsky-interface-validation`.\n')
+          PY
+          git rm .repair/interface.part1 .repair/interface.part2 .repair/interface.part3 .repair/interface.part4 .github/workflows/export-interface-source.yml .github/workflows/verify-interface.yml
+          git add README.md docs/CHATGPT_PROJECT_PLAY.md docs/CHATGPT_SELF_PLAY.md docs/TOKEN_EFFICIENT_INTERFACE.md docs/TOKEN_EFFICIENCY_MEASUREMENTS.md scripts/chatgpt_play_helper.py scripts/benchmark_helper_output.py scripts/report_helper_measurements.py src/nevsky/llm/action_browser.py src/nevsky/llm/compact.py tests/test_token_efficient_helper.py reports/token_interface_20261016/measurements.json
+          git diff --cached --check
+          git config user.name ChatGPT
+          git config user.email noreply@openai.com
+          git commit -m 'Add lossless compact helper browsing, state-bound action IDs and measured token output'
+          git push origin HEAD:feat/token-efficient-helper-20261016
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nevsky-interface-validation
+          path: /tmp/interface-validation
+          retention-days: 14
