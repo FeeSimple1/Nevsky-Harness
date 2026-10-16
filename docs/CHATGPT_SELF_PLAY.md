@@ -1,5 +1,10 @@
 # Playing Nevsky-Harness with ChatGPT (or any OpenAI model)
 
+For **in-process ChatGPT play**, use the state-bound, paginated helper described
+in [TOKEN_EFFICIENT_INTERFACE.md](TOKEN_EFFICIENT_INTERFACE.md). The API-driven
+agent below retains its existing numbered-list contract; it was not changed
+by the helper display redesign.
+
 `scripts/openai_self_play.py` lets an OpenAI chat model play the harness
 autonomously, BOTH sides, turn by turn — the same model-agnostic LLM
 interface Cowork-Claude uses (per-side natural-language briefing + a

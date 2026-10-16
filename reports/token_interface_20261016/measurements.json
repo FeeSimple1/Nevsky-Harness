@@ -1,0 +1,563 @@
+{
+  "baseline_ref": "51f73b98110dedf864fb2616ab133a19acbfbe0d",
+  "baseline_helper_sha256": "2d89e5524119acb8b3684a10f1a34aea9584ac14fdee99e45527159419d6c06d",
+  "new_helper_sha256": "d0c5304e0e03e1b139268c04a9f19bafb84a2f8c1edfd98143b835f9b2cda28e",
+  "tokenizers": [
+    "cl100k_base",
+    "o200k_base"
+  ],
+  "cases": [
+    {
+      "sequence": "campaign_recruitment",
+      "scenario": "crusade_on_novgorod",
+      "policy": "crusade_logistics",
+      "seed": 20261011,
+      "offset": 462,
+      "actions": 40,
+      "mode": "focused",
+      "new_menu_requests": 30,
+      "shared_detail_requests": 6,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 47,
+        "stdout_characters": 354351,
+        "stdout_bytes": 356282,
+        "notebook_echo_characters": 124358,
+        "request_characters": 1263,
+        "cl100k_base": {
+          "stdout_tokens": 118229,
+          "echo_tokens": 46034,
+          "request_tokens": 467
+        },
+        "o200k_base": {
+          "stdout_tokens": 118243,
+          "echo_tokens": 45792,
+          "request_tokens": 471
+        }
+      },
+      "after": {
+        "interactions": 77,
+        "stdout_characters": 281016,
+        "stdout_bytes": 281019,
+        "notebook_echo_characters": 4615,
+        "request_characters": 3907,
+        "cl100k_base": {
+          "stdout_tokens": 95244,
+          "echo_tokens": 1175,
+          "request_tokens": 1687
+        },
+        "o200k_base": {
+          "stdout_tokens": 95595,
+          "echo_tokens": 1175,
+          "request_tokens": 1732
+        }
+      }
+    },
+    {
+      "sequence": "opening_levy",
+      "scenario": "return_of_the_prince",
+      "policy": "logistics",
+      "seed": 20261028,
+      "offset": 2,
+      "actions": 40,
+      "mode": "focused",
+      "new_menu_requests": 22,
+      "shared_detail_requests": 3,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 44,
+        "stdout_characters": 173267,
+        "stdout_bytes": 174396,
+        "notebook_echo_characters": 39279,
+        "request_characters": 1109,
+        "cl100k_base": {
+          "stdout_tokens": 58680,
+          "echo_tokens": 13999,
+          "request_tokens": 421
+        },
+        "o200k_base": {
+          "stdout_tokens": 58877,
+          "echo_tokens": 14005,
+          "request_tokens": 422
+        }
+      },
+      "after": {
+        "interactions": 66,
+        "stdout_characters": 151207,
+        "stdout_bytes": 151207,
+        "notebook_echo_characters": 4078,
+        "request_characters": 3293,
+        "cl100k_base": {
+          "stdout_tokens": 51860,
+          "echo_tokens": 1054,
+          "request_tokens": 1506
+        },
+        "o200k_base": {
+          "stdout_tokens": 51995,
+          "echo_tokens": 1054,
+          "request_tokens": 1547
+        }
+      }
+    },
+    {
+      "sequence": "plan_and_command",
+      "scenario": "return_of_the_prince",
+      "policy": "combined",
+      "seed": 20261029,
+      "offset": 27,
+      "actions": 32,
+      "mode": "focused",
+      "new_menu_requests": 21,
+      "shared_detail_requests": 3,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 36,
+        "stdout_characters": 143368,
+        "stdout_bytes": 144517,
+        "notebook_echo_characters": 16608,
+        "request_characters": 916,
+        "cl100k_base": {
+          "stdout_tokens": 48432,
+          "echo_tokens": 5576,
+          "request_tokens": 348
+        },
+        "o200k_base": {
+          "stdout_tokens": 48545,
+          "echo_tokens": 5530,
+          "request_tokens": 349
+        }
+      },
+      "after": {
+        "interactions": 57,
+        "stdout_characters": 142375,
+        "stdout_bytes": 142377,
+        "notebook_echo_characters": 3464,
+        "request_characters": 2841,
+        "cl100k_base": {
+          "stdout_tokens": 48997,
+          "echo_tokens": 891,
+          "request_tokens": 1268
+        },
+        "o200k_base": {
+          "stdout_tokens": 49168,
+          "echo_tokens": 891,
+          "request_tokens": 1304
+        }
+      }
+    },
+    {
+      "sequence": "midgame_feed_pay",
+      "scenario": "return_of_the_prince",
+      "policy": "logistics",
+      "seed": 20261028,
+      "offset": 287,
+      "actions": 32,
+      "mode": "focused",
+      "new_menu_requests": 15,
+      "shared_detail_requests": 8,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 41,
+        "stdout_characters": 210231,
+        "stdout_bytes": 211712,
+        "notebook_echo_characters": 17012,
+        "request_characters": 1479,
+        "cl100k_base": {
+          "stdout_tokens": 68960,
+          "echo_tokens": 5879,
+          "request_tokens": 520
+        },
+        "o200k_base": {
+          "stdout_tokens": 69323,
+          "echo_tokens": 5877,
+          "request_tokens": 524
+        }
+      },
+      "after": {
+        "interactions": 56,
+        "stdout_characters": 204484,
+        "stdout_bytes": 204486,
+        "notebook_echo_characters": 3416,
+        "request_characters": 2992,
+        "cl100k_base": {
+          "stdout_tokens": 68414,
+          "echo_tokens": 880,
+          "request_tokens": 1361
+        },
+        "o200k_base": {
+          "stdout_tokens": 68657,
+          "echo_tokens": 880,
+          "request_tokens": 1402
+        }
+      }
+    },
+    {
+      "sequence": "combat_interrupt",
+      "scenario": "return_of_the_prince",
+      "policy": "maritime",
+      "seed": 20261030,
+      "offset": 320,
+      "actions": 32,
+      "mode": "focused",
+      "new_menu_requests": 14,
+      "shared_detail_requests": 14,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 47,
+        "stdout_characters": 260634,
+        "stdout_bytes": 262082,
+        "notebook_echo_characters": 65300,
+        "request_characters": 1598,
+        "cl100k_base": {
+          "stdout_tokens": 85567,
+          "echo_tokens": 23449,
+          "request_tokens": 551
+        },
+        "o200k_base": {
+          "stdout_tokens": 85934,
+          "echo_tokens": 23390,
+          "request_tokens": 558
+        }
+      },
+      "after": {
+        "interactions": 61,
+        "stdout_characters": 232753,
+        "stdout_bytes": 232764,
+        "notebook_echo_characters": 3661,
+        "request_characters": 3076,
+        "cl100k_base": {
+          "stdout_tokens": 77595,
+          "echo_tokens": 935,
+          "request_tokens": 1385
+        },
+        "o200k_base": {
+          "stdout_tokens": 78024,
+          "echo_tokens": 935,
+          "request_tokens": 1426
+        }
+      }
+    },
+    {
+      "sequence": "scenario_end",
+      "scenario": "return_of_the_prince",
+      "policy": "combined",
+      "seed": 20261029,
+      "offset": 763,
+      "actions": 32,
+      "mode": "focused",
+      "new_menu_requests": 14,
+      "shared_detail_requests": 5,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 38,
+        "stdout_characters": 304492,
+        "stdout_bytes": 305742,
+        "notebook_echo_characters": 15409,
+        "request_characters": 991,
+        "cl100k_base": {
+          "stdout_tokens": 95841,
+          "echo_tokens": 5418,
+          "request_tokens": 359
+        },
+        "o200k_base": {
+          "stdout_tokens": 96379,
+          "echo_tokens": 5444,
+          "request_tokens": 361
+        }
+      },
+      "after": {
+        "interactions": 52,
+        "stdout_characters": 297557,
+        "stdout_bytes": 297559,
+        "notebook_echo_characters": 3224,
+        "request_characters": 2531,
+        "cl100k_base": {
+          "stdout_tokens": 94209,
+          "echo_tokens": 836,
+          "request_tokens": 1183
+        },
+        "o200k_base": {
+          "stdout_tokens": 94834,
+          "echo_tokens": 836,
+          "request_tokens": 1220
+        }
+      }
+    },
+    {
+      "sequence": "campaign_recruitment",
+      "scenario": "crusade_on_novgorod",
+      "policy": "crusade_logistics",
+      "seed": 20261011,
+      "offset": 462,
+      "actions": 40,
+      "mode": "all_pages",
+      "new_menu_requests": 81,
+      "shared_detail_requests": 6,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 49,
+        "stdout_characters": 354786,
+        "stdout_bytes": 356717,
+        "notebook_echo_characters": 124358,
+        "request_characters": 1321,
+        "cl100k_base": {
+          "stdout_tokens": 118363,
+          "echo_tokens": 46034,
+          "request_tokens": 475
+        },
+        "o200k_base": {
+          "stdout_tokens": 118383,
+          "echo_tokens": 45792,
+          "request_tokens": 479
+        }
+      },
+      "after": {
+        "interactions": 128,
+        "stdout_characters": 377050,
+        "stdout_bytes": 377053,
+        "notebook_echo_characters": 7063,
+        "request_characters": 4744,
+        "cl100k_base": {
+          "stdout_tokens": 134354,
+          "echo_tokens": 1736,
+          "request_tokens": 2010
+        },
+        "o200k_base": {
+          "stdout_tokens": 135836,
+          "echo_tokens": 1736,
+          "request_tokens": 2054
+        }
+      }
+    },
+    {
+      "sequence": "opening_levy",
+      "scenario": "return_of_the_prince",
+      "policy": "logistics",
+      "seed": 20261028,
+      "offset": 2,
+      "actions": 40,
+      "mode": "all_pages",
+      "new_menu_requests": 32,
+      "shared_detail_requests": 3,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 45,
+        "stdout_characters": 173441,
+        "stdout_bytes": 174570,
+        "notebook_echo_characters": 39279,
+        "request_characters": 1138,
+        "cl100k_base": {
+          "stdout_tokens": 58732,
+          "echo_tokens": 13999,
+          "request_tokens": 425
+        },
+        "o200k_base": {
+          "stdout_tokens": 58932,
+          "echo_tokens": 14005,
+          "request_tokens": 426
+        }
+      },
+      "after": {
+        "interactions": 76,
+        "stdout_characters": 173690,
+        "stdout_bytes": 173690,
+        "notebook_echo_characters": 4558,
+        "request_characters": 3069,
+        "cl100k_base": {
+          "stdout_tokens": 60895,
+          "echo_tokens": 1164,
+          "request_tokens": 1475
+        },
+        "o200k_base": {
+          "stdout_tokens": 61396,
+          "echo_tokens": 1164,
+          "request_tokens": 1516
+        }
+      }
+    },
+    {
+      "sequence": "plan_and_command",
+      "scenario": "return_of_the_prince",
+      "policy": "combined",
+      "seed": 20261029,
+      "offset": 27,
+      "actions": 32,
+      "mode": "all_pages",
+      "new_menu_requests": 21,
+      "shared_detail_requests": 3,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 42,
+        "stdout_characters": 144952,
+        "stdout_bytes": 146101,
+        "notebook_echo_characters": 16608,
+        "request_characters": 1090,
+        "cl100k_base": {
+          "stdout_tokens": 48915,
+          "echo_tokens": 5576,
+          "request_tokens": 372
+        },
+        "o200k_base": {
+          "stdout_tokens": 49046,
+          "echo_tokens": 5530,
+          "request_tokens": 373
+        }
+      },
+      "after": {
+        "interactions": 57,
+        "stdout_characters": 148959,
+        "stdout_bytes": 148961,
+        "notebook_echo_characters": 3464,
+        "request_characters": 2340,
+        "cl100k_base": {
+          "stdout_tokens": 51442,
+          "echo_tokens": 891,
+          "request_tokens": 1145
+        },
+        "o200k_base": {
+          "stdout_tokens": 51656,
+          "echo_tokens": 891,
+          "request_tokens": 1178
+        }
+      }
+    },
+    {
+      "sequence": "midgame_feed_pay",
+      "scenario": "return_of_the_prince",
+      "policy": "logistics",
+      "seed": 20261028,
+      "offset": 287,
+      "actions": 32,
+      "mode": "all_pages",
+      "new_menu_requests": 16,
+      "shared_detail_requests": 8,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 47,
+        "stdout_characters": 211690,
+        "stdout_bytes": 213171,
+        "notebook_echo_characters": 17012,
+        "request_characters": 1653,
+        "cl100k_base": {
+          "stdout_tokens": 69417,
+          "echo_tokens": 5879,
+          "request_tokens": 544
+        },
+        "o200k_base": {
+          "stdout_tokens": 69800,
+          "echo_tokens": 5877,
+          "request_tokens": 548
+        }
+      },
+      "after": {
+        "interactions": 57,
+        "stdout_characters": 215996,
+        "stdout_bytes": 215998,
+        "notebook_echo_characters": 3464,
+        "request_characters": 2691,
+        "cl100k_base": {
+          "stdout_tokens": 72550,
+          "echo_tokens": 891,
+          "request_tokens": 1283
+        },
+        "o200k_base": {
+          "stdout_tokens": 72917,
+          "echo_tokens": 891,
+          "request_tokens": 1321
+        }
+      }
+    },
+    {
+      "sequence": "combat_interrupt",
+      "scenario": "return_of_the_prince",
+      "policy": "maritime",
+      "seed": 20261030,
+      "offset": 320,
+      "actions": 32,
+      "mode": "all_pages",
+      "new_menu_requests": 30,
+      "shared_detail_requests": 14,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 48,
+        "stdout_characters": 260880,
+        "stdout_bytes": 262328,
+        "notebook_echo_characters": 65300,
+        "request_characters": 1627,
+        "cl100k_base": {
+          "stdout_tokens": 85644,
+          "echo_tokens": 23449,
+          "request_tokens": 555
+        },
+        "o200k_base": {
+          "stdout_tokens": 86015,
+          "echo_tokens": 23390,
+          "request_tokens": 562
+        }
+      },
+      "after": {
+        "interactions": 77,
+        "stdout_characters": 266275,
+        "stdout_bytes": 266286,
+        "notebook_echo_characters": 4429,
+        "request_characters": 3240,
+        "cl100k_base": {
+          "stdout_tokens": 90704,
+          "echo_tokens": 1111,
+          "request_tokens": 1469
+        },
+        "o200k_base": {
+          "stdout_tokens": 91472,
+          "echo_tokens": 1111,
+          "request_tokens": 1508
+        }
+      }
+    },
+    {
+      "sequence": "scenario_end",
+      "scenario": "return_of_the_prince",
+      "policy": "combined",
+      "seed": 20261029,
+      "offset": 763,
+      "actions": 32,
+      "mode": "all_pages",
+      "new_menu_requests": 15,
+      "shared_detail_requests": 5,
+      "exact_same_final_state": true,
+      "before": {
+        "interactions": 48,
+        "stdout_characters": 307183,
+        "stdout_bytes": 308433,
+        "notebook_echo_characters": 15409,
+        "request_characters": 1281,
+        "cl100k_base": {
+          "stdout_tokens": 96668,
+          "echo_tokens": 5418,
+          "request_tokens": 399
+        },
+        "o200k_base": {
+          "stdout_tokens": 97255,
+          "echo_tokens": 5444,
+          "request_tokens": 401
+        }
+      },
+      "after": {
+        "interactions": 53,
+        "stdout_characters": 308420,
+        "stdout_bytes": 308422,
+        "notebook_echo_characters": 3272,
+        "request_characters": 2238,
+        "cl100k_base": {
+          "stdout_tokens": 98209,
+          "echo_tokens": 847,
+          "request_tokens": 1112
+        },
+        "o200k_base": {
+          "stdout_tokens": 98943,
+          "echo_tokens": 847,
+          "request_tokens": 1147
+        }
+      }
+    }
+  ]
+}
