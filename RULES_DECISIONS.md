@@ -981,3 +981,25 @@ result with no winner; hitting the emergency bound raises an error and
 the action transaction restores the original state. No artificial
 defender victory is awarded. Storm's rules-defined Siege round limit
 remains unchanged. Regression: `tests/test_review_20261009_combat.py`.
+
+---
+
+## Component audit correction — Q-001 / Q-002 transport quantities (2026-10-19)
+
+This is a verified component transcription correction, not a new user
+adjudication. The original answers above remain verbatim. Vassal 2.1's printed
+Lord mats and aids establish that Domash receives four Transport (any) and
+four Provender, while Gavrilo receives two Transport (any). The previous
+reference/default tables incorrectly assumed one choice for each. The
+second-edition changes do not alter these quantities. The Playbook p. 3 also
+illustrates Domash choosing three Sleds and one Ship.
+
+Apply the existing default-and-override policy to every printed slot:
+Domash's Watland/Peipus defaults are four Sleds; Gavrilo's listed summer-start
+defaults are two Carts. Each slot remains independently overridable. The
+interactive APIs preserve pending setup choices by default; callers that
+explicitly accept all defaults may request `confirm_transports=True`.
+
+See `docs/VASSAL_AUDIT_20261019.md` for provenance, the separate correction to
+Mstislavich Partisans Service (1), and validation. No historical inference or
+new house rule is involved.

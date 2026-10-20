@@ -190,7 +190,7 @@ def helper():
 
 
 def test_forced_draw_enters_action_history(helper):
-    helper.start("pleskau", seed=20261009)
+    helper.start("pleskau", seed=20261009, confirm_transports=True)
     helper.auto(max_steps=1)
     assert helper._S["turn"] == len(helper._S["history"]) == 1
     assert helper._S["history"][0] == {
@@ -200,7 +200,7 @@ def test_forced_draw_enters_action_history(helper):
 
 
 def test_mixed_manual_auto_history_saves_and_replays_exactly(helper, tmp_path):
-    helper.start("pleskau", seed=20261009)
+    helper.start("pleskau", seed=20261009, confirm_transports=True)
     helper.auto(max_steps=1)
     helper.apply(0)
     helper.auto(max_steps=8)
@@ -218,7 +218,7 @@ def test_mixed_manual_auto_history_saves_and_replays_exactly(helper, tmp_path):
 
 
 def test_failed_auto_action_is_not_recorded_as_completed(helper, monkeypatch):
-    helper.start("pleskau", seed=20261009)
+    helper.start("pleskau", seed=20261009, confirm_transports=True)
     before = helper._S["state"].model_dump_json()
 
     def fail(*_args):

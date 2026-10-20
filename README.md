@@ -52,6 +52,11 @@ templates, player visibility and compatibility, and
 [`docs/TOKEN_EFFICIENCY_MEASUREMENTS.md`](docs/TOKEN_EFFICIENCY_MEASUREMENTS.md)
 for total-output measurements including follow-up interactions.
 
+[`docs/VASSAL_AUDIT_20261019.md`](docs/VASSAL_AUDIT_20261019.md) records the
+Vassal component comparison, corrected starting Assets and vassal Service,
+edition differences, and repeatable checks. Interactive starts now preserve
+Transport choices; `confirm_transports=True` explicitly accepts all defaults.
+
 ## How to run things
 
 Install in editable mode and run the tests:

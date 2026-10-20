@@ -203,3 +203,18 @@ just a comparison of the first screen. Every requested page, selected-action
 detail, card rule, supply/position detail and full-state response is included.
 The exhaustive-browsing workflow may use more output than the old flat menu;
 those results are reported rather than hidden behind an output-size target.
+
+## Starting Transport choices
+
+`nv.start()` now preserves each Lord's pending Transport choices. Use the
+`set_setup_transport` category to choose Boat, Cart, Sled or Ship for each
+allowed slot, or `confirm_all_setup_transports` to accept the active side's
+defaults. Non-hotspot defaults still auto-confirm if you proceed with a normal
+Levy action, per Q-001. For an automated run that explicitly accepts both
+sides' defaults, use `nv.start(scenario, seed=1, confirm_transports=True)`.
+`LLMSession.start_new` supports the same keyword.
+
+The Vassal component audit corrected Domash to four starting Transport and
+four Provender, and Gavrilo to two starting Transport. Every Transport slot
+can be chosen independently, including mixed combinations. See
+[Vassal audit](VASSAL_AUDIT_20261019.md).

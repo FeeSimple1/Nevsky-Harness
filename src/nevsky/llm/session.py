@@ -48,7 +48,8 @@ class LLMSession:
 
     @classmethod
     def start_new(cls, scenario: str, llm_side: str | None = None,
-                  seed: int | None = None, randomize_side: bool = False
+                  seed: int | None = None, randomize_side: bool = False,
+                  *, confirm_transports: bool = False
                   ) -> "LLMSession":
         """Start a fresh game.
 
@@ -57,6 +58,7 @@ class LLMSession:
             llm_side: "teutonic" | "russian" | None (must pick if not randomized)
             seed: RNG seed (None → 1 for reproducibility)
             randomize_side: if True, randomly pick the LLM's side
+            confirm_transports: explicitly accept all setup Transport defaults
         """
         if scenario not in _LOADABLE_SCENARIOS:
             raise ValueError(
@@ -68,14 +70,12 @@ class LLMSession:
             raise ValueError("must specify llm_side or set randomize_side=True")
         seed = seed if seed is not None else 1
         state = load_scenario(scenario, seed=seed)
-        # Auto-confirm setup transports (these are Q-001 mechanical
-        # defaults the LLM doesn't need to micro-manage).
-        for side in ("teutonic", "russian"):
-            try:
+        # Preserve the player's printed Transport (any) choices. Automated
+        # callers can explicitly accept defaults, including both hotspots.
+        if confirm_transports:
+            for side in ("teutonic", "russian"):
                 apply_action(state, {"type": "confirm_all_setup_transports",
                                       "side": side, "args": {}})
-            except Exception:
-                pass
         return cls(state=state, llm_side=llm_side, scenario_id=scenario)
 
     @classmethod

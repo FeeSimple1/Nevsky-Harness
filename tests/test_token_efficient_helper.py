@@ -37,7 +37,8 @@ def helper():
 
 def start(nv, scenario="crusade_on_novgorod"):
     with contextlib.redirect_stdout(io.StringIO()):
-        nv.start(scenario, seed=20261016)
+        # These browsing fixtures begin after setup, as the old helper did.
+        nv.start(scenario, seed=20261016, confirm_transports=True)
     return nv._S["state"]
 
 
@@ -488,7 +489,7 @@ def test_complete_return_of_prince_via_ids_and_periodic_save_resume(tmp_path):
     transcript = json.loads((source / "transcript.json").read_text())
     nv = helper()
     with contextlib.redirect_stdout(io.StringIO()):
-        nv.start("return_of_the_prince", seed=20261030)
+        nv.start("return_of_the_prince", seed=20261030, confirm_transports=True)
         expected = nv._S["state"].model_copy(deep=True)
         for index, record in enumerate(transcript[2:]):
             intended = record["action"]

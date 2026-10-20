@@ -9,13 +9,13 @@ VP marker count: 1 for Forts/Castles, 2 for Bishoprics/Cities, 3 for Novgorod.
  
  
 ===============================================================
-LOCALES (51 total)
+LOCALES (53 total)
 ===============================================================
  
 TEUTONIC TERRITORY
 ------------------
  
-Danish Estonia (6):
+Danish Estonia (7):
   Warbola         - town
   Harrien         - region
   Wierland        - region
@@ -44,7 +44,7 @@ Crusader Livonia (17):
   Lettgallia      - region
  
  
-NOVGORODAN RUS (28)
+NOVGORODAN RUS (29)
 -------------------
   Luga            - trade route, port
   Kaibolovo       - fort

@@ -294,9 +294,12 @@ def test_mindaugas_refreshes_marker_and_respects_half_points_and_cap(cid, starti
     assert getattr(state.locales[action['args']['locale']], side + '_ravaged')
 
 
-def test_complete_1742_action_ordered_crusade_replay():
+def test_complete_1743_action_ordered_crusade_replay():
     payload = json.loads((DATA / 'ordered_replay.json').read_text())
-    assert len(payload['actions']) == 1742
+    # The Vassal audit restored Gavrilo's second starting Transport. His
+    # box-2 march now costs one fewer Command, so the historical 1,742-action
+    # trace needs an explicit end_card after Hermann avoids to Lettgallia.
+    assert len(payload['actions']) == 1743
     state = load_scenario(payload['scenario'], seed=payload['seed'])
     save_checks = 0
     for number, action in enumerate(payload['actions'], 1):

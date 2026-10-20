@@ -87,7 +87,7 @@ def load_scenario_raw(scenario_id: str) -> dict[str, Any]:
 _SETUP_TRANSPORT_DEFAULTS: dict[str, dict[str, list[str]]] = {
     "pleskau": {
         # Q-001 (any) slots:
-        "gavrilo":   ["cart"],
+        "gavrilo":   ["cart", "cart"],
         "vladislav": ["boat"],
         # Q-002 (no Ship) slots:
         "hermann":   ["cart"],   # Dorpat trackways into Rus (rule 3b)
@@ -95,7 +95,7 @@ _SETUP_TRANSPORT_DEFAULTS: dict[str, dict[str, list[str]]] = {
     },
     "watland": {
         "andreas":   ["sled", "sled"],
-        "domash":    ["sled"],
+        "domash":    ["sled", "sled", "sled", "sled"],
         "vladislav": ["sled"],
         # Q-002:
         "yaroslav":  ["sled"],   # Pskov, Late Winter start (rule 1)
@@ -108,21 +108,21 @@ _SETUP_TRANSPORT_DEFAULTS: dict[str, dict[str, list[str]]] = {
     "return_of_the_prince_nicolle": {
         "andreas":   ["ship", "cart"],
         "aleksandr": ["boat", "cart"],
-        "gavrilo":   ["cart"],
+        "gavrilo":   ["cart", "cart"],
         # Q-002:
         "hermann":   ["cart"],   # Dorpat (rule 3b)
     },
     "peipus": {
         "aleksandr": ["sled", "sled"],
         "andrey":    ["sled", "sled"],
-        "domash":    ["sled"],
+        "domash":    ["sled", "sled", "sled", "sled"],
         "karelians": ["sled"],
         # Q-002:
         "hermann":   ["sled"],   # Dorpat, Late Winter start (rule 1)
         "yaroslav":  ["sled"],   # Pskov, Late Winter start (rule 1)
     },
     "crusade_on_novgorod": {
-        "gavrilo":   ["cart"],
+        "gavrilo":   ["cart", "cart"],
         "vladislav": ["boat"],
         # Q-002:
         "hermann":   ["cart"],   # Dorpat (rule 3b)

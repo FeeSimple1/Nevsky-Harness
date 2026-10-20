@@ -83,8 +83,7 @@ def test_special_vassals_gated_by_capability() -> None:
 def test_locales_count_and_subregions() -> None:
     """Map reference: 51 trackways + 34 waterways across the 53 locales
     listed under Danish Estonia (7), Crusader Livonia (17), Novgorodan
-    Rus (29). Header count of '51 total' in the reference is
-    inconsistent with the listings; tests follow the listings."""
+    Rus (29). The Vassal audit also confirms all 53 printed locations."""
     locales = load_locales()
     assert len(locales) == 53
     by_subregion: dict[str, int] = {}

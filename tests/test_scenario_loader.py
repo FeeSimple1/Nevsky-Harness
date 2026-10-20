@@ -96,7 +96,7 @@ def test_starting_assets_include_transport_defaults_per_q001() -> None:
     expected_per_lord = {
         "aleksandr": {"sled": 2},
         "andrey":    {"sled": 2},
-        "domash":    {"sled": 1},
+        "domash":    {"sled": 4},
         "karelians": {"sled": 1},
     }
     for lid, expected_extra in expected_per_lord.items():
@@ -221,9 +221,9 @@ def test_setup_pending_transport_choices_match_lord_count() -> None:
     Ready Lords do not generate pending choices."""
     g = load_scenario("crusade_on_novgorod")
     pds = [pd for pd in g.pending_decisions if pd.kind == "setup_transport_choice"]
-    # Mustered: hermann (1 any), yaroslav (1 any), gavrilo (1 any),
+    # Mustered: hermann (1 any), yaroslav (1 any), gavrilo (2 any),
     # vladislav (1 any). Knud&Abel are explicitly Ship x2 (no any).
-    expected_lords = sorted(["hermann", "yaroslav", "gavrilo", "vladislav"])
+    expected_lords = sorted(["hermann", "yaroslav", "gavrilo", "gavrilo", "vladislav"])
     actual_lords = sorted(pd.context["lord_id"] for pd in pds)
     assert actual_lords == expected_lords
 

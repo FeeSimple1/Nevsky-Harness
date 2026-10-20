@@ -207,7 +207,7 @@ Assets (start):
   Mat: max 8 each; (no Ships)
  
 Vassals:
-  Mstislavich Partisans ...... 2x Militia .................... Service 2
+  Mstislavich Partisans ...... 2x Militia .................... Service 1
  
 See also:
   T7 Tverdilo — Pskovan ally (Teutonic Event) —
@@ -557,14 +557,14 @@ Forces (start):
   1x Militia
  
 Assets (start):
-  Transport x1 (any)   [exception to the standard "(no Ships)"
+  Transport x4 (any)   [exception to the standard "(no Ships)"
                         default — "any" means the player at setup
-                        selects any single Transport type INCLUDING
+                        selects each Transport independently INCLUDING
                         Ship, per Rule 3.4.1 procedure.
                         Domash's mat consequently carries a positive
                         "Ships" notation, authorizing him to Levy
                         Ships per Rule 3.4.3.]
-  Provender x1
+  Provender x4
   (No starting Coin)
   Mat: max 8 each; Ships allowed
  
@@ -624,9 +624,9 @@ Forces (start):
  
 Assets (start):
   Coin x1
-  Transport x1 (any)   [exception to the standard "(no Ships)"
+  Transport x2 (any)   [exception to the standard "(no Ships)"
                         default — "any" means the player at setup
-                        selects any single Transport type INCLUDING
+                        selects each Transport independently INCLUDING
                         Ship, per Rule 3.4.1 procedure.
                         Gavrilo's mat consequently carries a
                         positive "Ships" notation, authorizing him

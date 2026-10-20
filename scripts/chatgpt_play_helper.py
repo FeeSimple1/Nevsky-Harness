@@ -98,15 +98,13 @@ def _check_invariants():
     return out
 
 
-def start(scenario: str, seed: int = 1):
+def start(scenario: str, seed: int = 1, *, confirm_transports: bool = False):
     if scenario not in SCENARIO_IDS:
         raise ValueError(f"unknown scenario {scenario!r}; choose from {sorted(SCENARIO_IDS)}")
     s = load_scenario(scenario, seed=seed)
-    for sd in ("teutonic", "russian"):
-        try:
+    if confirm_transports:
+        for sd in ("teutonic", "russian"):
             apply_action(s, {"type": "confirm_all_setup_transports", "side": sd, "args": {}})
-        except Exception:
-            pass
     _S.update(state=s, scenario=scenario, history=[], findings=[], turn=0)
     _BROWSER.reset()
     print(f"started {scenario} (seed={seed}). Call nv.show() to see the first decision.")

@@ -45,7 +45,22 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
     if state.meta.game_over or side is None:
         return []
 
+    # Printed Transport (any) quantities are player choices. Keep each
+    # unresolved slot discoverable, including those with Q-001 defaults
+    # that will otherwise auto-confirm when the player proceeds with Levy.
     moves: list[dict[str, Any]] = []
+    for pd in state.pending_decisions:
+        if (state.meta.phase != "levy" or pd.kind != "setup_transport_choice"
+                or pd.owed_by != side):
+            continue
+        slot = {"lord_id": pd.context["lord_id"], "slot_index": pd.context["slot_index"]}
+        moves.append({"type": "confirm_setup_transport", "side": side, "args": slot,
+                      "note": f"Keep {pd.context.get('current_value')} for this Transport slot"})
+        for value in pd.context["allowed_values"]:
+            moves.append({"type": "set_setup_transport", "side": side,
+                          "args": {**slot, "value": value}})
+    if moves:
+        moves.append({"type": "confirm_all_setup_transports", "side": side, "args": {}})
     if state.meta.phase == "levy":
         step = state.meta.levy_step
         if step == "arts_of_war":

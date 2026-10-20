@@ -355,7 +355,7 @@
           "forces": {
             "militia": 2
           },
-          "service": 2,
+          "service": 1,
           "special": null
         }
       ]
@@ -649,7 +649,7 @@
       },
       "starting_assets": {
         "coin": 0,
-        "provender": 1,
+        "provender": 4,
         "loot": 0,
         "boat": 0,
         "cart": 0,
@@ -658,7 +658,7 @@
       },
       "starting_transport_choice": [
         {
-          "count": 1,
+          "count": 4,
           "options": [
             "boat",
             "cart",
@@ -735,7 +735,7 @@
       },
       "starting_transport_choice": [
         {
-          "count": 1,
+          "count": 2,
           "options": [
             "boat",
             "cart",

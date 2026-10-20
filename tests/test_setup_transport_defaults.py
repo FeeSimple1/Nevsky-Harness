@@ -12,25 +12,25 @@ from nevsky.actions import IllegalAction, apply_action
 from nevsky.scenarios import load_scenario
 
 
-# Canonical table per RULES_DECISIONS.md Q-001 + Q-002.
+# Defaults per Q-001 + Q-002, with printed counts corrected by the Vassal audit.
 # 16 (any) slot rows + 8 (no Ship) slot rows = 24 total.
 EXPECTED_DEFAULTS: list[tuple[str, str, list[str]]] = [
     # Q-001 (any) slots:
-    ("pleskau", "gavrilo",   ["cart"]),
+    ("pleskau", "gavrilo",   ["cart", "cart"]),
     ("pleskau", "vladislav", ["boat"]),
     ("watland", "andreas",   ["sled", "sled"]),
-    ("watland", "domash",    ["sled"]),
+    ("watland", "domash",    ["sled", "sled", "sled", "sled"]),
     ("watland", "vladislav", ["sled"]),
     ("return_of_the_prince", "andreas",   ["ship", "cart"]),
     ("return_of_the_prince", "aleksandr", ["boat", "cart"]),
     ("return_of_the_prince_nicolle", "andreas",   ["ship", "cart"]),
     ("return_of_the_prince_nicolle", "aleksandr", ["boat", "cart"]),
-    ("return_of_the_prince_nicolle", "gavrilo",   ["cart"]),
+    ("return_of_the_prince_nicolle", "gavrilo",   ["cart", "cart"]),
     ("peipus", "aleksandr", ["sled", "sled"]),
     ("peipus", "andrey",    ["sled", "sled"]),
-    ("peipus", "domash",    ["sled"]),
+    ("peipus", "domash",    ["sled", "sled", "sled", "sled"]),
     ("peipus", "karelians", ["sled"]),
-    ("crusade_on_novgorod", "gavrilo",   ["cart"]),
+    ("crusade_on_novgorod", "gavrilo",   ["cart", "cart"]),
     ("crusade_on_novgorod", "vladislav", ["boat"]),
     # Q-002 (no Ship) slots:
     ("pleskau", "hermann",  ["cart"]),

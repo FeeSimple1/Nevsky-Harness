@@ -1,0 +1,13 @@
+{
+  "module_sha256": "efe44cf19d75e528b3270ceae1a125ef8880f2c94559ecd2ef37d8b99e0c4c57",
+  "checks": {
+    "locales": 53,
+    "numbered_aow": 36,
+    "blank_aow": 6,
+    "command_cards": 42,
+    "lords": 12,
+    "saved_scenarios": 6
+  },
+  "problems": [],
+  "limits": "Inventory, Lord Service/Lordship/Command, forces and fixed assets only; scenario positions, map ways, printed choices and vassals reviewed separately."
+}
