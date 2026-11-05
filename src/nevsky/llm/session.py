@@ -11,7 +11,8 @@ import random
 from pathlib import Path
 from typing import Any
 
-from nevsky.actions import IllegalAction, apply_action
+from nevsky.actions import apply_action
+from nevsky.llm.tools import apply_action_for_side
 from nevsky.scenarios import (determine_scenario_winner,
                               load_scenario)
 from nevsky.state import GameState
@@ -133,20 +134,12 @@ class LLMSession:
         if who not in ("llm", "human"):
             raise ValueError(f"who must be 'llm' or 'human'; got {who!r}")
         side = self.llm_side if who == "llm" else self.human_side
-        action = dict(action)
-        action.setdefault("side", side)
-        # Authorization: actions must come from the correct side
-        if action.get("side") != side:
-            raise IllegalAction(
-                "wrong_actor",
-                f"{who} is {side}; action declares side={action.get('side')!r}",
-            )
-        result = apply_action(self.state, action)
+        result = apply_action_for_side(self.state, side, action)
         # Capture for replay
         self.history.append({
             "who": who,
             "side": side,
-            "action": action,
+            "action": {**action, "side": side},
             "reasoning": reasoning,
             "phase": self.state.meta.phase,
             "step": self.state.meta.levy_step or self.state.meta.campaign_step,

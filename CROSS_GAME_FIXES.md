@@ -177,3 +177,25 @@ passed 2,026 tests, and all 150 configured self-play cases completed without
 invariant violations or step-limit exits.
 
 Third-audit progress is **five of six Nevsky groups** and **12 of 23 overall**.
+
+## Third audit, batch 3 — IF3-01
+
+The player tool and both LLMSession roles now check every submitted Concede
+declaration before resolving combat. A defender can Concede on Stand and a
+Sallying attacker can Concede on Sally. The attacker's declaration on March
+survives save and reload and takes precedence in a same-round tie. The
+referee dispatcher accepts authorized declarations for either side.
+
+Only the defender may Stand. An attacker owing an Ambush response must
+resolve that response before the defender can accept Battle.
+
+Nineteen regression cases cover both forms of Concede input, mixed plans,
+LLM and human submissions, unchanged state and history after rejection,
+the Ambush handoff, save and reload, and referee controls. Thirteen fail
+on preceding main and six controls pass.
+
+All **2,045 tests passed**. All 150 configured self-play cases completed
+without invariant violations or step-limit exits.
+
+All **six third-audit Nevsky groups are fixed**. Overall progress is
+**13 of 23 groups**.

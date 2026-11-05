@@ -80,6 +80,16 @@ You have these functions available (call signatures shown):
   `reasoning` (1-2 sentences); this gets captured in the replay log.
   Raises `IllegalAction(code, message)` if rejected.
 
+Concede declarations on player actions belong to the submitting side.
+The approaching player can declare on `cmd_march` with `args.concede`
+set to `true` for Round 1 or a round number. On `stand_battle`, the
+defender can declare with `concede: "defender"` and an optional
+`concede_round`, or with `concede_decisions` using only `"defender"`
+entries. On `cmd_sally`, the Sallying player uses `"attacker"` in these
+same fields. A referee can use the engine's `nevsky.actions.apply_action`
+to enter authorized choices for both sides, including a besieger's
+Concede during Sally.
+
 ### Reference lookups (on demand)
 - `lookup_card(card_id)` — printed text + structured metadata for a
   card. Use when you need to explain or recall a card.

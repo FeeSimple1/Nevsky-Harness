@@ -3581,7 +3581,8 @@ def _merge_concede_decisions(declarations: list[tuple[int, str]]) -> dict[int, s
 
 
 def _concede_decisions_from_args(
-    args: dict[str, Any], *, attacker_round: int | None = None
+    args: dict[str, Any], *, attacker_round: int | None = None,
+    owner_role: str | None = None,
 ) -> dict[int, str]:
     """Build the per-Round Concede map (round -> "attacker"|"defender")
     passed to resolve_battle, merging (with attacker precedence):
@@ -3591,10 +3592,12 @@ def _concede_decisions_from_args(
       - args.concede_decisions ({round_int: side}) -- an explicit
         per-Round, per-side plan giving full control over both sides and
         all Rounds (4.4.2: either side may Concede at the start of ANY
-        Round)."""
+        Round).
+
+    Player-bound callers may restrict submitted declarations to owner_role.
+    The attacker's declaration from the Approach has its own authorization.
+    """
     decls: list[tuple[int, str]] = []
-    if attacker_round is not None:
-        decls.append((attacker_round, "attacker"))
     concede = args.get("concede")
     if concede is not None:
         if concede not in ("attacker", "defender"):
@@ -3619,6 +3622,11 @@ def _concede_decisions_from_args(
                 raise IllegalAction(
                     "bad_concede", f"concede_decisions[{k}] must be 'attacker' or 'defender'")
             decls.append((rnd, v))
+    # Check every declaration before precedence can hide an opponent choice.
+    if owner_role is not None and any(role != owner_role for _, role in decls):
+        raise IllegalAction("wrong_actor", f"only the {owner_role} may Concede in this action")
+    if attacker_round is not None:
+        decls.insert(0, (attacker_round, "attacker"))
     return _merge_concede_decisions(decls)
 
 
@@ -3639,6 +3647,8 @@ def _h_stand_battle(
     cp = state.combat_pending
     if cp is None:
         raise IllegalAction("no_combat", "no pending combat")
+    if sd != cp.defender_side:
+        raise IllegalAction("wrong_actor", "only the defender may Stand for Battle")
     if cp.pending_response_by != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
 

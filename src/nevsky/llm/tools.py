@@ -43,6 +43,7 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
     The LLM should always include "side" matching its play side. If
     the action's "side" field is missing, fill it from `side`. Conflicting
     sides reject before any engine setup or private card draw.
+    Concede declarations must also belong to the caller's combat role.
     """
     if side not in ("teutonic", "russian"):
         raise IllegalAction("wrong_actor", "side must be 'teutonic' or 'russian'")
@@ -53,6 +54,13 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
     if action["side"] != side:
         raise IllegalAction("wrong_actor",
                             f"caller is {side}; action declares side={action['side']!r}")
+    kind = action.get("type")
+    args = action.get("args")
+    if kind in ("stand_battle", "cmd_sally") and isinstance(args, dict):
+        from nevsky.campaign import _concede_decisions_from_args
+
+        role = "defender" if kind == "stand_battle" else "attacker"
+        _concede_decisions_from_args(args, owner_role=role)
     return apply_action(state, action)
 
 
