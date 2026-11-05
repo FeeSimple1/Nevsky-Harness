@@ -844,6 +844,13 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
     if state.combat_pending is not None:
         cp = state.combat_pending
         if cp.pending_response_by == side:
+            if cp.avoid_spoils:
+                from nevsky.campaign import _avoid_spoils_capacity
+                return [{"type": "allocate_avoid_spoils", "side": side, "args": {},
+                         "candidates": {"pool": dict(cp.avoid_spoils), "allocation":
+                                        _avoid_spoils_capacity(state, cp, cp.avoid_spoils)},
+                         "note": "Divide Avoid Spoils with args.allocation={lord:{asset:count}}. "
+                                 "Unassigned Assets fill mats in approaching order."}]
             if cp.ambush_block_pending:
                 # R204: Ambush response window (SMOKE-115). The attacker
                 # (response owed) holds T6/R6 and may Play it to block the
@@ -923,6 +930,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     "type": "avoid_battle", "side": side,
                     "args": {"to": _dest, "way_type": _wt},
                     "note": note,
+                    "avoid_keep_order_options": list(cp.defender_lords),
+                    "avoid_keep_template": {"avoid_keep": {"<lord_id>": "<count>"}},
+                    "avoid_keep_order_template": {"avoid_keep_order": ["<lord_id>", "..."]},
                 })
                 # PLAY-26 (4.3.4): "some or all ... to one or more adjacent
                 # Locales". Per-Lord Avoid so the Inactive side can split the

@@ -130,3 +130,31 @@ without invariant violations or step-limit exits. New tests pass Ruff, and
 changed source adds no Ruff diagnostics relative to the preceding main.
 
 All **four second-audit Nevsky groups are fixed**, as are the original six.
+
+## Third audit, batch 1 — N3-03 through N3-05
+
+An Avoid priority list now applies to the co-Avoiders' full usable Transport
+capacity, using the same calculation as Retreat. A player can also specify
+an exact retention split on the owners' mats. The default reserves each
+Lord's own Transport first and then shares spare capacity. Distinct Lord IDs
+are required before capacity is counted.
+
+When discarded Assets can be split more than one way, the approaching player
+allocates the public pool in a saved response window. The menu shows the pool
+and remaining room. An explicit plan can fill any part of that pool, with
+unassigned Assets spilling in approaching order. Forced awards resolve
+immediately. The choice resumes the remaining defenders' response or completes
+the Approach and any resulting Siege or Feed. Ambush follows validation of
+the declared Avoid and precedes movement, discards and allocation.
+
+Twenty-five regressions cover full and exact retention, malformed or repeated
+IDs, default and custom awards, cap overflow, owner authority, partial
+responses, atomic retry, save/load and Ambush timing. Against preceding main,
+22 fail and three control cases pass. The playbook replay explicitly assigns
+the discarded Provender to Andreas and verifies the original Feed totals.
+
+**2,020 tests passed.** All 150 configured invariant cases completed without
+violations or step-limit exits. New tests pass Ruff, and changed source adds
+no Ruff diagnostics relative to preceding main.
+
+Third-audit progress is **three of six Nevsky groups** and **10 of 23 overall**.

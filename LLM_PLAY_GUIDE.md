@@ -263,8 +263,11 @@ locales in a quiet Campaign.
 - **Shared Transport on Avoid (PLAY-36, 4.3.4).** Lords Avoiding
   together pool usable Transport for the Provender cap ("own or
   shared") — bring an empty-carted ally along to save the grain, and
-  use `avoid_keep_order` to pick whose Provender rides the spare
-  capacity. Loot is always dropped.
+  use `avoid_keep_order` to choose whose Provender has priority over the
+  full shared capacity. Use `avoid_keep` for an exact split of retainable
+  food among its owners. Loot is always dropped. If the discards can be
+  split more than one way, the approaching player allocates them with
+  `allocate_avoid_spoils` before the Approach continues.
 - Now also: attacker may interrupt Avoid with T6/R6 Ambush (block-mode).
 - **Flank-absorb choice (4.4.2, PLAY-28).** During Strike resolution, if
   one of your Lords is Flanking the enemy striker that is directly

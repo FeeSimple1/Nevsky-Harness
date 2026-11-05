@@ -2111,6 +2111,24 @@ def distribute_spoils(
     return {"added": added, "total_added": total, "lost_to_cap": lost}
 
 
+def _shared_provender_limits(
+    state: GameState, lords: list[str], way: str, keep_order: list[str] | None,
+) -> dict[str, int]:
+    """Keep food on its owner's mat within a co-moving group's transport."""
+    usable = {lid: _usable_transport_count_for_way(state, lid, way) for lid in lords}
+    food = {lid: int(state.lords[lid].assets.get("provender", 0)) for lid in lords}
+    priority = [lid for lid in (keep_order or []) if lid in food]
+    # An explicit priority can use all capacity, including the carts, boats
+    # or sleds of a Lord whose own food the player has elected to leave.
+    kept = {lid: 0 if priority else min(food[lid], usable[lid]) for lid in lords}
+    spare = sum(usable.values()) - sum(kept.values())
+    for lid in priority + [lid for lid in lords if lid not in priority]:
+        extra = min(food[lid] - kept[lid], spare)
+        kept[lid] += extra
+        spare -= extra
+    return kept
+
+
 def transfer_retreat_spoils(
     state: GameState, retreats: list[tuple[str, str | None]], winners: list[str],
     *, allocation: dict[str, dict[str, int]] | None = None,
@@ -2141,24 +2159,7 @@ def transfer_retreat_spoils(
         if way in ("trackway", "waterway"):
             groups.setdefault((lord.side, lord.location, way), []).append(lid)
     for (_, _, way), lords in groups.items():
-        usable = {lid: _usable_transport_count_for_way(state, lid, way) for lid in lords}
-        food = {lid: int(state.lords[lid].assets.get("provender", 0)) for lid in lords}
-        spare = sum(max(0, usable[lid] - food[lid]) for lid in lords)
-        order = [lid for lid in (keep_order or []) if lid in lords]
-        order += [lid for lid in lords if lid not in order]
-        if any(lid in lords for lid in (keep_order or [])):
-            # 1.5.2 permits any co-retreater to use Shared Transport. Unlike
-            # Feed, Retreat has no own-Assets-first requirement.
-            available = sum(usable.values())
-            for lid in order:
-                limits[lid] = min(food[lid], available)
-                available -= limits[lid]
-        else:
-            for lid in order:
-                own = min(food[lid], usable[lid])
-                shared = min(food[lid] - own, spare)
-                limits[lid] = own + shared
-                spare -= shared
+        limits.update(_shared_provender_limits(state, lords, way, keep_order))
     return [transfer_spoils(state, lid, winners, "loot_and_excess",
                             retreat_way_type=way, allocation=allocation,
                             provender_limit=limits.get(lid)) for lid, way in retreats]

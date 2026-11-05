@@ -181,6 +181,11 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             + "); no further actions are accepted.",
         )
 
+    if (state.combat_pending is not None and state.combat_pending.avoid_spoils
+            and atype != "allocate_avoid_spoils"):
+        raise IllegalAction("avoid_spoils_pending",
+                            "allocate Avoid Spoils before resuming Approach")
+
     # BRIEF's rejected-action contract covers setup auto-confirmation,
     # mechanical resolution, consumed dice, and the history commit.
     checkpoint = _ActionCheckpoint(state)

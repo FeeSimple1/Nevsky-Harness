@@ -107,8 +107,12 @@ def briefing_for_side(state, side: str) -> str:
                              f"{cp.way_type} to {cp.to_locale}.")
                 lines.append(f"Attacker group: {cp.attacker_group}.")
                 lines.append(f"Defender side: {cp.defender_side}, defenders: {cp.defender_lords}.")
-                lines.append(f"Response owed by: **{cp.pending_response_by}** "
-                             f"(options: avoid_battle / withdraw / stand_battle).")
+                if cp.avoid_spoils:
+                    lines.append(f"{cp.pending_response_by} must allocate Avoid Spoils "
+                                 f"{cp.avoid_spoils} with allocate_avoid_spoils.")
+                else:
+                    lines.append(f"Response owed by: **{cp.pending_response_by}** "
+                                 "(options: avoid_battle / withdraw / stand_battle).")
                 if cp.ambush_block_pending:
                     lines.append("AMBUSH BLOCK INTERRUPT: attacker has T6/R6 Ambush in holds; "
                                  "play_ambush_block or decline_ambush_block.")

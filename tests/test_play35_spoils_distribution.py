@@ -191,6 +191,8 @@ def test_avoid_discards_divide_among_attacker_group():
     s.meta.active_player = "russian"
     r = apply_action(s, {"type": "avoid_battle", "side": "russian",
                          "args": {"to": "dubrovno"}})
+    assert r["awaiting_avoid_spoils"]
+    r = apply_action(s, {"type": "allocate_avoid_spoils", "side": "teutonic"})
     # 3 loot dropped: heinrich takes 1 (to cap), hermann takes 2.
     assert s.lords["heinrich"].assets.get("loot", 0) == 8
     assert s.lords["hermann"].assets.get("loot", 0) == 2

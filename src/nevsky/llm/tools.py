@@ -89,6 +89,8 @@ def safe_fallback_for_side(state, side: str) -> dict:
             if state.campaign_turn.in_feed_pay_disband:
                 return {"type": "fpd_resolve", "side": side, "args": {}}
             if state.combat_pending is not None and state.combat_pending.pending_response_by == side:
+                if state.combat_pending.avoid_spoils:
+                    return {"type": "allocate_avoid_spoils", "side": side, "args": {}}
                 if state.combat_pending.ambush_block_pending:
                     return {"type": "decline_ambush_block", "side": side, "args": {}}
                 return {"type": "stand_battle", "side": side, "args": {}}

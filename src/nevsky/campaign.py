@@ -20,6 +20,7 @@ immediate events and Tier 2 Battle Holds resolve via events.py.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from nevsky.actions import (
@@ -3018,7 +3019,7 @@ def _h_cmd_march(
 
 
 def _h_avoid_battle(
-    state: GameState, side: str, args: dict[str, Any]
+    state: GameState, side: str, args: dict[str, Any], *, after_ambush: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """4.3.4 Avoid Battle: Inactive defender Lord(s) move to an adjacent
     Locale free of enemy Lord, Stronghold, and Conquered marker.
@@ -3029,8 +3030,8 @@ def _h_avoid_battle(
       - Defender 'may take no Loot'; all Loot is discarded.
       - Provender capped at Transport usable on the Avoid Way; excess
         is discarded.
-      - Discarded Loot + excess Provender transfer to the first
-        attacker as Spoils ('as if Spoils', 4.4.3).
+      - The approaching player divides discarded Assets as Spoils
+        when the group's capacity allows more than one split (4.4.3).
       - May not Avoid across the Way the enemy used to Approach: dest
         cannot be cp.from_locale via the same way_type (matches the
         retreat-restriction convention used elsewhere).
@@ -3042,13 +3043,13 @@ def _h_avoid_battle(
 
     args.to: destination locale_id.
     """
-    from nevsky.battle import _usable_transport_count_for_way
+    from nevsky.battle import _shared_provender_limits
 
     sd = _require_side_player(state, side)
     cp = state.combat_pending
     if cp is None:
         raise IllegalAction("no_combat", "no pending combat")
-    if cp.pending_response_by != sd:
+    if cp.pending_response_by != sd or cp.defender_side != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
     dest = args.get("to")
     if not isinstance(dest, str):
@@ -3064,28 +3065,12 @@ def _h_avoid_battle(
     else:
         if not isinstance(avoiders, list) or not avoiders:
             raise IllegalAction("bad_arg", "args.lords must be a non-empty list")
+        if (not all(isinstance(lid, str) for lid in avoiders)
+                or len(set(avoiders)) != len(avoiders)):
+            raise IllegalAction("bad_lords", "args.lords must list distinct Lord IDs")
         bad = [x for x in avoiders if x not in cp.defender_lords]
         if bad:
             raise IllegalAction("bad_lords", f"{bad} not among outside defenders {cp.defender_lords}")
-    # SMOKE-115 (Round 180): T6/R6 Ambush "Block Avoid Battle" mode.
-    # Per AoW Reference T6 Tip: "If played to block Avoid Battle,
-    # declare Event after Defender declares Avoid Battle; any discard
-    # of Assets to Avoid Battle also is blocked." When defender
-    # declares avoid, check if attacker has the relevant Ambush hold.
-    # If so, enter an interrupt window: stage the avoid args and let
-    # the attacker decide (play_ambush_block / decline_ambush_block).
-    if not args.get("_post_ambush_decline", False):
-        attacker_holds = (state.decks.teutonic.holds if cp.attacker_side == "teutonic"
-                          else state.decks.russian.holds)
-        ambush_cid = "T6" if cp.attacker_side == "teutonic" else "R6"
-        if ambush_cid in attacker_holds:
-            cp.ambush_block_pending = True
-            cp.pending_avoid_args = dict(args)
-            cp.pending_response_by = cp.attacker_side
-            state.meta.active_player = cp.attacker_side
-            return ({"ambush_interrupt": True, "ambush_card": ambush_cid,
-                     "owed_by": cp.attacker_side}, [])
-
     src = cp.to_locale  # defender currently at to_locale
     # SMOKE-068 (Round 73): for parallel-Ways pairs (dorpat<->odenpah
     # has both trackway and waterway), the defender may pick which Way
@@ -3132,34 +3117,41 @@ def _h_avoid_battle(
     if _has_enemy_stronghold_at(state, dest, sd) and state.locales[dest].siege_markers == 0:
         raise IllegalAction("dest_blocked", f"{dest} has Unbesieged enemy Stronghold")
 
-    # 4.3.4 discards: each Avoiding defender drops ALL Loot and any
-    # Provender beyond Transport usable on the Avoid Way. Discards
-    # accumulate as Spoils for the Approaching attacker.
-    # PLAY-36 (4.3.4): "take only Provender equal to their OWN OR SHARED
-    # Transport that is usable on the Way across which they are moving"
-    # -- the Lords Avoiding together in this call pool their usable
-    # Transport (1.5.2 Sharing). Each Lord's own Transport covers his
-    # own Provender first; the group's SPARE capacity then covers other
-    # avoiders' excess (markers stay on their owners' mats), in
-    # args.avoid_keep_order priority (list of avoider ids; unknown ids
-    # ignored; default = avoiders order). Only Provender beyond the
-    # GROUP total is discarded.
-    _usable_by = {d: _usable_transport_count_for_way(state, d, dest_way_type)
-                  for d in avoiders}
-    _prov_by = {d: int(state.lords[d].assets.get("provender", 0))
-                for d in avoiders}
-    _spare = sum(max(0, _usable_by[d] - _prov_by[d]) for d in avoiders)
-    _keep_pref = args.get("avoid_keep_order") or []
-    _keep_order = [d for d in _keep_pref if d in avoiders] + [
-        d for d in avoiders if d not in _keep_pref]
-    _extra_kept: dict[str, int] = {d: 0 for d in avoiders}
-    for _d in _keep_order:
-        if _spare <= 0:
-            break
-        _need = max(0, _prov_by[_d] - _usable_by[_d])
-        _take = min(_need, _spare)
-        _extra_kept[_d] = _take
-        _spare -= _take
+    keep_order = args.get("avoid_keep_order")
+    if keep_order is not None and (
+            not isinstance(keep_order, list)
+            or not all(isinstance(lid, str) for lid in keep_order)
+            or len(set(keep_order)) != len(keep_order)):
+        raise IllegalAction("bad_avoid_keep_order",
+                            "avoid_keep_order must list distinct Lord IDs")
+    kept = _shared_provender_limits(state, avoiders, dest_way_type, keep_order)
+    if "avoid_keep" in args:
+        exact = args["avoid_keep"]
+        if (keep_order is not None or not isinstance(exact, dict)
+                or any(lid not in kept or type(count) is not int
+                       or not 0 <= count <= state.lords[lid].assets.get("provender", 0)
+                       for lid, count in exact.items())
+                or sum(exact.values()) != sum(kept.values())):
+            raise IllegalAction("bad_avoid_keep", "avoid_keep must allocate all retainable "
+                                "Provender among its Avoiding owners, without a priority list")
+        kept = exact
+
+    # SMOKE-115: validate the Avoid before offering Ambush. Playing Ambush
+    # cancels both movement and discards. Only its decline handler resumes
+    # the validated declaration without offering the same interrupt again.
+    if not after_ambush:
+        attacker_holds = _side_deck(state, cp.attacker_side).holds
+        ambush_cid = "T6" if cp.attacker_side == "teutonic" else "R6"
+        if ambush_cid in attacker_holds:
+            cp.ambush_block_pending = True
+            cp.pending_avoid_args = deepcopy(args)
+            cp.pending_response_by = cp.attacker_side
+            state.meta.active_player = cp.attacker_side
+            return ({"ambush_interrupt": True, "ambush_card": ambush_cid,
+                     "owed_by": cp.attacker_side}, [])
+
+    # 4.3.4: the co-Avoiding group keeps its Unladen allowance and drops
+    # all Loot. Retained Provender stays on its original owner's mat.
     spoils_loot = 0
     spoils_prov = 0
     per_lord_discards: list[dict[str, Any]] = []
@@ -3169,9 +3161,8 @@ def _h_avoid_battle(
         if loot_n > 0:
             spoils_loot += loot_n
             lord.assets.pop("loot", None)
-        usable = _usable_by[did] + _extra_kept[did]
         prov_n = int(lord.assets.get("provender", 0))
-        excess = max(0, prov_n - usable)
+        excess = prov_n - kept.get(did, 0)
         if excess > 0:
             spoils_prov += excess
             new_prov = prov_n - excess
@@ -3182,23 +3173,6 @@ def _h_avoid_battle(
         per_lord_discards.append({
             "lord_id": did, "loot": loot_n, "excess_provender": excess,
         })
-    # Transfer discards to the Approaching Lords (4.3.4: they "receive
-    # and divide among them any Loot and Provender so discarded (as if
-    # Spoils, 4.4.3)"). PLAY-35: distribute among the WHOLE attacker
-    # group under the 1.7.3 cap, spilling to the next Lord with room --
-    # excess vanishes only when every Approaching Lord is at cap.
-    avoid_spoils_lost: dict[str, int] = {}
-    avoid_spoils_split: dict[str, dict[str, int]] = {}
-    if (spoils_loot > 0 or spoils_prov > 0) and cp.attacker_group:
-        from nevsky.battle import distribute_spoils
-        award = distribute_spoils(state, list(cp.attacker_group), {
-            "loot": spoils_loot, "provender": spoils_prov,
-        })
-        spoils_loot = award["total_added"].get("loot", 0)
-        spoils_prov = award["total_added"].get("provender", 0)
-        avoid_spoils_lost = award["lost_to_cap"]
-        avoid_spoils_split = award["added"]
-
     # Move the Avoiding subset and mark Moved/Fought (4.3.4 explicit:
     # "Mark Avoiding Lords as Moved/Fought").
     for did in avoiders:
@@ -3230,25 +3204,90 @@ def _h_avoid_battle(
         state.legate.location = "card"
         state.legate.locale_id = None
 
-    # PLAY-26 (4.3.4): if outside defenders remain, the Approach is not
-    # yet resolved -- the Inactive side may still Avoid/Withdraw more
-    # Lords or Stand with the rest. Keep the response window open; do not
-    # place a Siege, clear combat, or end the attacker's card yet.
+    result: dict[str, Any] = {
+        "avoided_to": dest, "avoided_lords": list(avoiders),
+        "discards_per_lord": per_lord_discards,
+    }
+    pool = {asset: count for asset, count in (("loot", spoils_loot), ("provender", spoils_prov))
+            if count > 0}
+    capacity = _avoid_spoils_capacity(state, cp, pool)
+    for asset, count in pool.items():
+        rooms = [room[asset] for room in capacity.values() if room[asset] > 0]
+        # If the pool fills every mat or only one mat has room, its division
+        # is forced. Otherwise the approaching player decides after seeing
+        # the actual discards, before any further Approach response or Feed.
+        if len(rooms) > 1 and count < sum(rooms):
+            cp.avoid_spoils = pool
+            cp.pending_response_by = cp.attacker_side
+            state.meta.active_player = cp.attacker_side
+            result.update(awaiting_avoid_spoils=True, owed_by=cp.attacker_side,
+                          avoid_spoils=dict(pool), remaining_defenders=list(cp.defender_lords))
+            return result, []
+    result.update(_complete_avoid(state, cp, pool))
+    return result, []
+
+
+def _avoid_spoils_capacity(
+    state: GameState, cp: CombatPending, pool: dict[str, int],
+) -> dict[str, dict[str, int]]:
+    return {lid: {asset: max(0, 8 - int(state.lords[lid].assets.get(asset, 0)))
+                  for asset in pool} for lid in cp.attacker_group}
+
+
+def _h_allocate_avoid_spoils(
+    state: GameState, side: str, args: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    sd = _require_side_player(state, side)
+    cp = state.combat_pending
+    if cp is None or not cp.avoid_spoils:
+        raise IllegalAction("no_avoid_spoils", "no Avoid Spoils allocation is pending")
+    if sd != cp.attacker_side or sd != cp.pending_response_by:
+        raise IllegalAction("wrong_actor", f"Avoid Spoils allocation is owed by {cp.attacker_side}")
+    pool = cp.avoid_spoils
+    allocation: dict[str, dict[str, int]] = {}
+    if "allocation" in args:
+        raw = args["allocation"]
+        capacity = _avoid_spoils_capacity(state, cp, pool)
+        totals = dict.fromkeys(pool, 0)
+        if not isinstance(raw, dict):
+            raise IllegalAction("bad_spoils_allocation",
+                                "allocation must map Lords to Asset counts")
+        for lid, counts in raw.items():
+            if lid not in capacity or not isinstance(counts, dict):
+                raise IllegalAction("bad_spoils_allocation",
+                                    "only approaching Lords receive Spoils")
+            for asset, count in counts.items():
+                if (asset not in pool or type(count) is not int
+                        or not 0 <= count <= capacity[lid][asset]):
+                    raise IllegalAction("bad_spoils_allocation",
+                                        "allocation must fit each Lord's available Asset room")
+                totals[asset] += count
+                if totals[asset] > pool[asset]:
+                    raise IllegalAction("bad_spoils_allocation",
+                                        "allocation exceeds discarded Assets")
+            allocation[lid] = dict(counts)
+    return _complete_avoid(state, cp, pool, allocation), []
+
+
+def _complete_avoid(
+    state: GameState, cp: CombatPending, pool: dict[str, int],
+    allocation: dict[str, dict[str, int]] | None = None,
+) -> dict[str, Any]:
+    from nevsky.battle import distribute_spoils
+
+    award = distribute_spoils(state, list(dict.fromkeys(cp.attacker_group)), pool, allocation)
+    result = {
+        "spoils_to_attacker": {asset: award["total_added"].get(asset, 0)
+                              for asset in ("loot", "provender")},
+        "spoils_distribution": award["added"],
+        "spoils_lost_to_cap": award["lost_to_cap"],
+    }
+    cp.avoid_spoils = {}
+    # A partial Avoid returns control to the remaining outside defenders.
     if cp.defender_lords:
+        cp.pending_response_by = cp.defender_side
         state.meta.active_player = cp.defender_side
-        return (
-            {
-                "avoided_to": dest,
-                "avoided_lords": list(avoiders),
-                "remaining_defenders": list(cp.defender_lords),
-                "awaiting_response": True,
-                "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
-                "spoils_distribution": avoid_spoils_split,
-                "spoils_lost_to_cap": avoid_spoils_lost,
-                "discards_per_lord": per_lord_discards,
-            },
-            [],
-        )
+        return {**result, "remaining_defenders": list(cp.defender_lords), "awaiting_response": True}
 
     # All defenders have now Avoided/Withdrawn -> resolve the Approach.
     # Stronghold present at the Approach Locale (with no defender Lords
@@ -3279,17 +3318,7 @@ def _h_avoid_battle(
     if placed_siege or state.campaign_turn.actions_remaining <= 0:
         state.campaign_turn.actions_remaining = 0
         _enter_feed_pay_disband(state)
-    return (
-        {
-            "avoided_to": dest,
-            "placed_siege": placed_siege,
-            "spoils_to_attacker": {"loot": spoils_loot, "provender": spoils_prov},
-            "spoils_distribution": avoid_spoils_split,
-            "spoils_lost_to_cap": avoid_spoils_lost,
-            "discards_per_lord": per_lord_discards,
-        },
-        [],
-    )
+    return {**result, "placed_siege": placed_siege}
 
 
 def _h_play_ambush_block(
@@ -3364,9 +3393,8 @@ def _h_decline_ambush_block(
     cp.pending_avoid_args = {}
     cp.pending_response_by = cp.defender_side
     state.meta.active_player = cp.defender_side
-    avoid_args["_post_ambush_decline"] = True
     # Re-invoke avoid_battle as the defender side.
-    return _h_avoid_battle(state, cp.defender_side, avoid_args)
+    return _h_avoid_battle(state, cp.defender_side, avoid_args, after_ambush=True)
 
 
 def _can_withdraw_into(state: GameState, locale_id: str, side: Side, n_lords: int) -> bool:
@@ -4111,6 +4139,7 @@ def _h_stand_battle(
 HANDLERS_PHASE_3B = {
     "cmd_march": _h_cmd_march,
     "avoid_battle": _h_avoid_battle,
+    "allocate_avoid_spoils": _h_allocate_avoid_spoils,
     "withdraw": _h_withdraw,
     "stand_battle": _h_stand_battle,
     # SMOKE-115 (Round 180): T6/R6 Ambush block-Avoid response actions

@@ -308,12 +308,14 @@ def test_avoid_discard_spoils_and_feed_math():
     assert d.location == "zheltsy"
     assert d.moved_fought is True
     assert d.assets.get("provender", 0) == 3
+    assert r["awaiting_avoid_spoils"]
+    r = apply_action(s, {"type": "allocate_avoid_spoils", "side": "teutonic",
+                         "args": {"allocation": {"andreas": {"provender": 1}}}})
     assert r["spoils_to_attacker"]["provender"] == 1
-    # Attacker group received it (Andreas first).
     assert s.lords["andreas"].assets.get("provender", 0) == 3
 
     # End Andreas's card, then Feed (4.8.1): T then R, no Pay wanted.
-    s.meta.active_player = "teutonic"
+    assert s.meta.active_player == "teutonic"
     apply_action(s, {"type": "end_card", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "fpd_resolve", "side": "teutonic",
                      "args": {"decline_pay": True}})

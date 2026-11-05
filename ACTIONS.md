@@ -282,16 +282,25 @@ The defender must choose exactly one of:
   picks the Way. Avoiding Lord(s) must be Unladen (Loot/excess Provender
   discarded to attacker as Spoils). PLAY-36 (4.3.4 "own or shared"):
   the co-Avoiding group POOLS its usable Transport for the Provender
-  cap -- own Transport covers own Provender first, spare group
-  capacity covers co-avoiders' excess, and only Provender beyond the
-  group total is discarded; `args.avoid_keep_order` (list of avoider
-  ids) sets who benefits from spare capacity first. A staying Lord's
-  Transport does not count. `args.lords` (optional, PLAY-26):
-  subset of the still-outside defenders that Avoid to `args.to`; default
-  = all of them. Different Lords may Avoid to different Locales via
+  cap. By default, each Lord's food uses his own Transport first, then
+  shares spare capacity. `args.avoid_keep_order` gives priority over the
+  full shared capacity. Alternatively, `args.avoid_keep` maps each Avoiding
+  Lord to an exact retained quantity on his own mat. Omitted Lords keep
+  zero with this map, and its total must equal the food the group can carry
+  Unladen. A staying Lord's Transport does not count. `args.lords` accepts
+  any nonempty subset of distinct still-outside defenders. It defaults to
+  all of them. Different Lords may Avoid to different Locales via
   separate calls (4.3.4 "some or all ... to one or more adjacent
-  Locales"). While outside defenders remain the response stays open
-  (`awaiting_response`).
+  Locales"). While outside defenders remain, Approach resumes after any
+  Spoils allocation (`awaiting_response`).
+- **`allocate_avoid_spoils`** — the approaching player's response when
+  discarded Loot or Provender admits more than one split. The menu gives
+  the pool and each recipient's remaining room. Use `args.allocation`
+  with `{lord_id: {asset: count}}` to assign amounts within those limits.
+  Any remainder fills approaching mats in order, respecting the cap of
+  eight per Asset type. Empty args uses that default for the entire pool. Forced
+  allocations resolve in the Avoid action. A pending allocation must
+  resolve before further Approach responses, commands or Feed.
 - **`withdraw`** — into a Friendly Stronghold at the Battle Locale.
   Capacity by Stronghold type (Commandery/Fort/Castle 1; City/
   Bishopric 2; Novgorod 3). Places a siege marker. `args.lords`

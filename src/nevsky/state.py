@@ -301,6 +301,9 @@ class CombatPending(BaseModel):
     ambush_block_pending: bool = False
     pending_avoid_args: dict[str, Any] = Field(default_factory=dict)
 
+    # 4.3.4: discarded Assets awaiting the Approaching owner's allocation.
+    avoid_spoils: dict[str, int] = Field(default_factory=dict)
+
     # PLAY-14 (Fable audit): 4.4.1 RELIEF SALLY -- "any Besieged Lords
     # MAY join any Attack". The join is the Approaching (attacker)
     # side's choice, declared on cmd_march via args.sally_join:
