@@ -757,3 +757,26 @@ Battle/Storm). After engagement:
 result includes a `losses` field per Lord with detailed per-unit rolls.
 Losses resolve BEFORE Spoils (4.4.3), so a Lord Removed-by-Losses
 transfers all Assets except Ships regardless of Concede.
+
+### Shared Retreat Transport and Relief Sally aftermath
+
+`stand_battle` and `cmd_sally` pool usable Transport for Conceding survivors
+Retreating together to the same Locale by the same Way type (4.3.2/4.4.3).
+Resolve Losses first. Lords removed by Losses, Lords Withdrawing into a
+Stronghold, and Lords taking other routes cannot lend capacity. Transport
+and retained Provender stay on their original mats. All Loot and only food
+beyond the group's Unladen capacity become Spoils.
+
+`args.retreat_keep_order` optionally names the priority for retaining each
+Lord's Provender when shared capacity is scarce. Named survivors go first;
+unnamed survivors follow in their original order. This can prioritize an
+ally's food over the Transport holder's food. Without a priority list, each
+Lord uses his own capacity first and spare capacity covers the others.
+Unknown names have no effect; malformed or duplicate IDs reject atomically.
+The Battle and Sally menus expose the priority parameter and candidate IDs.
+
+Losing Relief Sally joiners return inside their Stronghold and roll all
+Routed-unit Losses as Withdrew. They do not Retreat or roll Retreat Service.
+A Lord who loses his final Force is removed with normal Spoils and Ransom.
+Post-Battle Withdrawal capacity counts friendly Lords already inside,
+including those who Withdrew earlier during Approach.

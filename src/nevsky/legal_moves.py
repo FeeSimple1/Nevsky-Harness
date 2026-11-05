@@ -860,7 +860,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 {"type": "stand_battle", "side": side, "args": {}},
                 with_previews, "engage in Battle",
             )
-            _sb = {"type": "stand_battle", "side": side, "args": {}, "note": stand_note}
+            _sb = {"type": "stand_battle", "side": side, "args": {}, "note": stand_note,
+                   "retreat_keep_order_options": cp.attacker_group + cp.defender_lords,
+                   "retreat_keep_order_template": {"retreat_keep_order": ["<lord_id>", "..."]}}
             # PLAY-38 (item #9): name the playable Tier 2 Battle Holds so
             # palette-driven agents can discover them -- assemble chosen
             # entries into args.holds = {key: card, ...} (+ any listed
@@ -1236,6 +1238,8 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 sally_locale = state.lords[active_lord].location
                 assert sally_locale is not None  # Besieged Lords are on the map.
                 combat = _sally_combat_context(state, side, sally_locale)
+                sally["retreat_keep_order_options"] = combat.defender_lords
+                sally["retreat_keep_order_template"] = {"retreat_keep_order": ["<lord_id>", "..."]}
                 holds = _battle_holds_available(state, combat)
                 if holds:
                     sally["holds_available"] = holds

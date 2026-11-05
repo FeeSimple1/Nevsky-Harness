@@ -3747,20 +3747,12 @@ def _h_stand_battle(
         spoils_allocation = {k: dict(v) for k, v in spoils_allocation.items()}
 
     aftermath: dict[str, Any] = {"battle": result, "retreats": [], "spoils": [], "removed": []}
-    # Q-006 Relief Sally aftermath: if attackers lose AND Sallying
-    # Lords joined, those Sallying Lords Withdraw BACK INTO the
-    # Stronghold (not Retreat); the Locale's Siege markers are
-    # reduced to one (4.4.1 / 4.5.3 2E). Sallying Lords with 0
-    # Forces are still removed.
+    # 4.4.1 Relief Sally: all losing joiners return inside, including fully
+    # Routed Lords. The shared Withdrawal branch below resolves their Losses
+    # and removes those who lose their final Force, with Spoils and Ransom.
     sallying_loser_set: set[str] = set()
     if sallying_lords and result["loser"] == cp.attacker_side:
-        for lid in sallying_lords:
-            if lid in state.lords and state.lords[lid].forces:
-                # Withdraw back inside (already at the Locale; just
-                # mark in_stronghold).
-                state.lords[lid].in_stronghold = True
-                aftermath.setdefault("sally_withdrew", []).append(lid)
-                sallying_loser_set.add(lid)
+        sallying_loser_set = set(sallying_lords)
         # Reduce Siege markers to 1.
         if state.locales[cp.to_locale].siege_markers > 1:
             state.locales[cp.to_locale].siege_markers = 1
@@ -3797,10 +3789,14 @@ def _h_stand_battle(
             else:
                 raise IllegalAction("bad_withdraw_losers",
                                     "withdraw_losers must be true or a list of lord_ids")
-            if len(_chosen) > _cap:
+            inside = sum(1 for lord in state.lords.values()
+                         if lord.state == "mustered" and lord.location == cp.to_locale
+                         and lord.side == cp.defender_side and lord.in_stronghold)
+            if inside + len(_chosen) > _cap:
                 raise IllegalAction(
                     "over_capacity",
-                    f"{cp.to_locale} Stronghold capacity {_cap}; {len(_chosen)} Lords cannot all Withdraw")
+                    f"{cp.to_locale} Stronghold capacity {_cap}; {inside} already inside, "
+                    f"{len(_chosen)} more Lords cannot all Withdraw")
             withdraw_into_sh = set(_chosen)
         elif isinstance(_wl, list) and _wl:
             raise IllegalAction("no_withdraw_stronghold",
@@ -3836,13 +3832,12 @@ def _h_stand_battle(
     if _bad_rt:
         raise IllegalAction("bad_retreat_to",
                             f"retreat_to names non-losing Lords: {_bad_rt}")
+    conceded_retreats: list[tuple[str, str | None]] = []
+    conceded_spoil_indexes: list[int] = []
     for lid in list(loser_lords):
         if lid not in state.lords:
             continue
         lord = state.lords[lid]
-        # Q-006: skip Sallying Lords already handled by Withdraw path.
-        if lid in sallying_loser_set:
-            continue
         if (not lord.forces and not lord.routed_units) or lid in remove_losers_set:
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
                                     allocation=spoils_allocation)
@@ -3854,7 +3849,7 @@ def _h_stand_battle(
             _rem(state, lid, load_lords()[lid])
             aftermath["removed"].append(lid)
             continue
-        if lid in withdraw_into_sh:
+        if lid in withdraw_into_sh or lid in sallying_loser_set:
             # 4.4.3 Withdraw: keep all Assets (no Spoils), no Service shift,
             # Besieged inside the Stronghold at the Battle Locale.
             lord.in_stronghold = True
@@ -3870,7 +3865,8 @@ def _h_stand_battle(
             # win would hand them back for free via the winner-restore.
             from nevsky.battle import apply_losses_rolls
             if lord.routed_units:
-                apply_losses_rolls(state, lid, "withdrew")
+                aftermath.setdefault("losses", []).append(
+                    apply_losses_rolls(state, lid, "withdrew"))
             # PLAY-12: 4.4.4 "Permanently remove ... any Lord who loses
             # all his Forces"; 4.4.3 Spoils "Lords who were Removed (by
             # Losses ...) transfer all their Assets except Ships".
@@ -3885,7 +3881,8 @@ def _h_stand_battle(
                 _rem(state, lid, load_lords()[lid])
                 aftermath["removed"].append(lid)
                 continue
-            aftermath.setdefault("withdrew", []).append(lid)
+            key = "sally_withdrew" if lid in sallying_loser_set else "withdrew"
+            aftermath.setdefault(key, []).append(lid)
             continue
         # Default Phase 3b behavior: loser Retreats to from_locale (attackers)
         # or stays at to_locale (defenders auto-retreat to a random friendly
@@ -3990,15 +3987,18 @@ def _h_stand_battle(
             way_type = retreat_way_type_actual
             if way_type is None:  # defensive fallback (should not happen)
                 way_type = _way_type_between(cp.to_locale, target)
-            spoil = transfer_spoils(
-                state, lid, winner_lords, "loot_and_excess",
-                retreat_way_type=way_type,
-                allocation=spoils_allocation,
-            )
+            conceded_retreats.append((lid, way_type))
+            conceded_spoil_indexes.append(len(aftermath["spoils"]))
+            spoil = {}  # Filled after every co-retreater's Losses are known.
         else:
             spoil = transfer_spoils(state, lid, winner_lords, "all_except_ships",
                                     allocation=spoils_allocation)
         aftermath["spoils"].append(spoil)
+    from nevsky.battle import transfer_retreat_spoils
+    for index, spoil in zip(conceded_spoil_indexes, transfer_retreat_spoils(
+            state, conceded_retreats, winner_lords, allocation=spoils_allocation,
+            keep_order=args.get("retreat_keep_order")), strict=True):
+        aftermath["spoils"][index] = spoil
 
     # SMOKE-084 (Round 88): per AoW Reference 1.4.1 Legate —
     # "Whenever a Teutonic Lord ... Retreats ... remove the pawn and
@@ -4884,6 +4884,8 @@ def _h_cmd_sally(
         from nevsky.actions import _remove_lord_permanently as _rem
         from nevsky.battle import apply_retreat_service_shift, transfer_spoils
         from nevsky.static_data import load_lords
+        conceded_retreats = []
+        conceded_spoil_indexes = []
         for lid in list(defenders):
             if lid not in state.lords:
                 continue
@@ -4971,10 +4973,9 @@ def _h_cmd_sally(
                     # all non-Ship Assets even if he Conceded the Field.
                     removed_by_losses = not l.forces
                     if this_lord_conceded and not removed_by_losses:
-                        spoil = transfer_spoils(
-                            state, lid, attackers, "loot_and_excess",
-                            retreat_way_type=retreat_way_type_actual,
-                        )
+                        conceded_retreats.append((lid, retreat_way_type_actual))
+                        conceded_spoil_indexes.append(len(aftermath.get("spoils", [])))
+                        spoil = {}  # Shared capacity is known after all Losses.
                     else:
                         spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                     if removed_by_losses:
@@ -4985,6 +4986,11 @@ def _h_cmd_sally(
                         aftermath.setdefault("removed", []).append(lid)
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
+        from nevsky.battle import transfer_retreat_spoils
+        for index, spoil in zip(conceded_spoil_indexes, transfer_retreat_spoils(
+                state, conceded_retreats, attackers,
+                keep_order=args.get("retreat_keep_order")), strict=True):
+            aftermath["spoils"][index] = spoil
         # PLAY-11 (Fable audit): 4.4.4 Losses applies to BOTH sides of
         # a Sally-Battle -- winning sallying Lords roll each Routed
         # unit at unmodified Protection ("stood_field"). The previous

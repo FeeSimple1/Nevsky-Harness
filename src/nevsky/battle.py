@@ -2111,10 +2111,64 @@ def distribute_spoils(
     return {"added": added, "total_added": total, "lost_to_cap": lost}
 
 
+def transfer_retreat_spoils(
+    state: GameState, retreats: list[tuple[str, str | None]], winners: list[str],
+    *, allocation: dict[str, dict[str, int]] | None = None,
+    keep_order: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Conceding survivors Share usable Transport on the same Retreat Way.
+
+    Resolve all losers' Losses before calling: removed Lords, withdrawing
+    Lords, and Lords taking a different Way cannot lend carrying capacity.
+    By default each Lord covers his own food before sharing spare capacity.
+    A player priority list instead assigns the group's full capacity in that
+    order (unnamed survivors follow in their original order). Assets stay on
+    their owners' mats; only food exceeding shared capacity becomes Spoils.
+    Unknown priority names have no effect, as for Avoid.
+    """
+    from nevsky.actions import IllegalAction
+
+    if keep_order is not None and (
+            not isinstance(keep_order, list)
+            or not all(isinstance(lid, str) for lid in keep_order)
+            or len(set(keep_order)) != len(keep_order)):
+        raise IllegalAction("bad_retreat_keep_order",
+                            "retreat_keep_order must be a list of distinct Lord IDs")
+    groups: dict[tuple[str, str | None, str], list[str]] = {}
+    limits: dict[str, int] = {}
+    for lid, way in retreats:
+        lord = state.lords[lid]
+        if way in ("trackway", "waterway"):
+            groups.setdefault((lord.side, lord.location, way), []).append(lid)
+    for (_, _, way), lords in groups.items():
+        usable = {lid: _usable_transport_count_for_way(state, lid, way) for lid in lords}
+        food = {lid: int(state.lords[lid].assets.get("provender", 0)) for lid in lords}
+        spare = sum(max(0, usable[lid] - food[lid]) for lid in lords)
+        order = [lid for lid in (keep_order or []) if lid in lords]
+        order += [lid for lid in lords if lid not in order]
+        if any(lid in lords for lid in (keep_order or [])):
+            # 1.5.2 permits any co-retreater to use Shared Transport. Unlike
+            # Feed, Retreat has no own-Assets-first requirement.
+            available = sum(usable.values())
+            for lid in order:
+                limits[lid] = min(food[lid], available)
+                available -= limits[lid]
+        else:
+            for lid in order:
+                own = min(food[lid], usable[lid])
+                shared = min(food[lid] - own, spare)
+                limits[lid] = own + shared
+                spare -= shared
+    return [transfer_spoils(state, lid, winners, "loot_and_excess",
+                            retreat_way_type=way, allocation=allocation,
+                            provender_limit=limits.get(lid)) for lid, way in retreats]
+
+
 def transfer_spoils(
     state: GameState, from_lord: str, to_lords: list[str], mode: str,
     retreat_way_type: str | None = None,
     allocation: dict[str, dict[str, int]] | None = None,
+    *, provender_limit: int | None = None,
 ) -> dict[str, Any]:
     """4.4.5 Spoils: transfer Assets from loser Lord to winners.
 
@@ -2163,7 +2217,8 @@ def transfer_spoils(
         # Transport count on that Way determines how much Provender the
         # Lord can carry without being Laden (4.3.2).
         if retreat_way_type in ("trackway", "waterway"):
-            usable = _usable_transport_count_for_way(state, from_lord, retreat_way_type)
+            usable = (provender_limit if provender_limit is not None else
+                      _usable_transport_count_for_way(state, from_lord, retreat_way_type))
             prov = int(src.assets.get("provender", 0))
             excess = max(0, prov - usable)
             if excess > 0:

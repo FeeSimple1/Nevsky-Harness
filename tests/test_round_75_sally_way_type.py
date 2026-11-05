@@ -15,15 +15,15 @@ check result['conceded']. If conceded_side == 'defender' (besieger
 loser), use loot_and_excess + retreat_way_type. Otherwise keep
 all_except_ships.
 
-These are source-inspection regressions (matching SMOKE-069 style).
-The end-to-end Sally Spoils transfer is exercised by adjacent siege
-suite tests.
+The first two checks retain the original source assertions. The Spoils and
+Way-type cases execute real seeded Sally actions.
 """
 
 import inspect
 
 import nevsky.actions  # noqa: F401 — register handlers
 from nevsky.campaign import _h_cmd_sally
+from tests.test_cross_game_sally import sally, sally_state
 
 
 def test_sally_aftermath_captures_retreat_way_type() -> None:
@@ -45,21 +45,27 @@ def test_sally_aftermath_checks_conceded_flag() -> None:
 
 
 def test_sally_aftermath_uses_loot_and_excess_for_conceded() -> None:
-    src = inspect.getsource(_h_cmd_sally)
-    # The fix uses loot_and_excess for Conceded-then-Retreated defenders.
-    assert "loot_and_excess" in src, (
-        "Sally aftermath should use transfer_spoils mode 'loot_and_excess' "
-        "for besiegers who Conceded the Field and Retreated (4.4.3)"
-    )
+    state = sally_state(seed=8)
+    lord = state.lords["hermann"]
+    lord.forces = {"knights": 1, "militia": 1}
+    lord.assets = {"coin": 1, "cart": 1, "ship": 1, "provender": 2, "loot": 1}
+    result = sally(state, concede="defender", concede_round=2,
+                   retreat_to={"hermann": "dubrovno"})
+    assert result["spoils"][0]["mode"] == "loot_and_excess"
+    assert result["spoils"][0]["transferred"] == {"loot": 1, "provender": 1}
+    assert lord.state == "mustered" and lord.location == "dubrovno"
+    assert lord.assets == {"coin": 1, "cart": 1, "ship": 1, "provender": 1}
 
 
 def test_sally_aftermath_passes_retreat_way_type_to_transfer_spoils() -> None:
-    src = inspect.getsource(_h_cmd_sally)
-    # The loot_and_excess call must pass retreat_way_type so
-    # _usable_transport_count_for_way can be invoked.
-    # Look for the specific keyword pass-through.
-    assert "retreat_way_type=retreat_way_type_actual" in src, (
-        "Sally aftermath loot_and_excess transfer_spoils call should pass "
-        "retreat_way_type=retreat_way_type_actual so Unladen Transport can "
-        "be computed along the retreat Way"
-    )
+    state = sally_state(seed=8)
+    lord = state.lords["hermann"]
+    lord.forces = {"knights": 1, "militia": 1}
+    lord.assets = {"coin": 1, "cart": 4, "boat": 1, "ship": 1, "provender": 2, "loot": 1}
+    result = sally(state, concede="defender", concede_round=2,
+                   retreat_to={"hermann": "uzmen"})
+    spoil = result["spoils"][0]
+    assert spoil["retreat_way_type"] == "waterway"
+    assert spoil["transferred"] == {"loot": 1, "provender": 1}
+    assert lord.state == "mustered" and lord.location == "uzmen"
+    assert lord.assets == {"coin": 1, "cart": 4, "boat": 1, "ship": 1, "provender": 1}

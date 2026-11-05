@@ -76,3 +76,37 @@ exits. Changed source adds no Ruff diagnostics relative to main, and the new
 visibility module passes mypy.
 
 All six original Nevsky audit findings are fixed.
+
+## Second audit, batch 2 — N2-01, N2-02 and N2-03
+
+- **N2-01 — Relief Sally:** all losing besieged joiners use Withdrawal
+  aftermath, including fully Routed Lords. They roll Losses without Retreat
+  movement or Service rolls. Survivors stay inside; final-Force deaths apply
+  normal removal, non-Ship Spoils and Ransom. Routed piles no longer remain
+  unresolved after the Battle.
+- **N2-02 — Withdrawal capacity:** the post-Battle election counts friendly
+  Lords already inside, including partial Approach withdrawals. An overfull
+  selection rejects with state, dice and retained object references restored;
+  a legal retry is equivalent to resolving from the untouched save.
+- **N2-03 — Retreat Transport:** ordinary/Relief Battle and simple Sally
+  now group Conceding survivors by destination and actual Retreat Way after
+  Losses. Usable Transport is shared under the current Season. Removed Lords,
+  withdrawing Lords and different-route groups cannot donate capacity. An
+  optional, menu-discoverable `retreat_keep_order` preserves player choice
+  over whose food remains; food and Transport stay on their owners' mats.
+
+Twenty-five new regressions cover seeded Relief Sally, final-Force deaths,
+Spoils/Ransom, existing and partial-Approach occupancy, legal retries,
+co-Retreat loads, both priority choices, Transport-holder food priority,
+seasonal Boats/Carts/Sleds, separate destinations, withdrawn/removed donors,
+simple Sally, save/load, menus and malformed-priority rollback. Nineteen fail
+on the preceding main revision; six preservation cases pass.
+
+Validation: 1,979 tests passed. All 150 self-play cases across three scenarios,
+25 seeds and two policies completed without invariant violations or step-limit
+exits. New and updated tests pass Ruff; changed source adds no Ruff diagnostics
+relative to the preceding main. Two historical source-inspection checks now
+exercise public Sally outcomes for Spoils and the actual Retreat Way.
+
+Second-audit progress: **3 of 4 Nevsky groups fixed**. IF2-1, side-bound tool
+ownership validation, remains open. The original six groups remain fixed.
