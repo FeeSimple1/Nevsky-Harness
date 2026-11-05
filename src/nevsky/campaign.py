@@ -35,6 +35,7 @@ from nevsky.actions import (
     _side_deck,
 )
 from nevsky.state import (
+    CombatPending,
     GameState,
     Side,
     detach_vassal_marker,
@@ -4671,10 +4672,29 @@ def _h_cmd_storm(
     return (aftermath, [])
 
 
+def _sally_combat_context(
+    state: GameState, side: Side, locale_id: str,
+) -> CombatPending:
+    """Transient Battle participants/roles shared by Sally execution and menu."""
+    enemy: Side = "russian" if side == "teutonic" else "teutonic"
+    return CombatPending(
+        attacker_side=side,
+        attacker_group=[lid for lid, lord in state.lords.items()
+                        if lord.state == "mustered" and lord.location == locale_id
+                        and lord.side == side],
+        defender_side=enemy,
+        defender_lords=[lid for lid, lord in state.lords.items()
+                        if lord.state == "mustered" and lord.location == locale_id
+                        and lord.side == enemy],
+        from_locale=locale_id, to_locale=locale_id, way_type="sally",
+        pending_response_by=enemy,
+    )
+
+
 def _h_cmd_sally(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """4.5.3 Sally. Entire card. Besieged Lord conducts Battle.
+    """4.5.3 Sally. One Command action; Battle Recovery then ends the card.
 
     Sallying side does NOT benefit from Walls or Garrison (they remain
     behind in the Stronghold). Defenders (Besiegers) receive Siegeworks
@@ -4699,18 +4719,24 @@ def _h_cmd_sally(
     if locale_id is None:
         raise IllegalAction("no_location", "Lord has no location")
 
-    # Sallying attackers = besieged Lords of sd at locale.
-    attackers = [
-        lid for lid, l in state.lords.items()
-        if l.state == "mustered" and l.location == locale_id and l.side == sd
-    ]
-    # Defending besiegers = enemy Lords at the same locale (the besiegers).
-    defenders = [
-        lid for lid, l in state.lords.items()
-        if l.state == "mustered" and l.location == locale_id and l.side != sd
-    ]
+    combat = _sally_combat_context(state, sd, locale_id)
+    attackers = combat.attacker_group
+    defenders = combat.defender_lords
     if not defenders:
         raise IllegalAction("no_defenders", "no besieging enemy Lords to Sally against")
+
+    # A Sally is a Battle: use the same Hold ownership, season and target
+    # checks as ordinary Battle, rather than silently ignoring legal Events.
+    from nevsky.battle import BattleDecisionContext
+    from nevsky.events import _consume_battle_holds
+    holds_arg = args.get("holds") or {}
+    if not isinstance(holds_arg, dict):
+        raise IllegalAction("bad_holds", "holds must be a Battle Hold argument map")
+    consumed_holds = _consume_battle_holds(state, combat, holds_arg)
+    decision_ctx = BattleDecisionContext(
+        scripted=list(args.get("scripted_decisions") or []),
+        callback=args.get("decision_callback"),
+    )
 
     # Mark all Lords at Locale MOVED_FOUGHT.
     for _lid, l in state.lords.items():
@@ -4730,6 +4756,9 @@ def _h_cmd_sally(
     result = resolve_battle(
         state, attacker_side=sd,
         attacker_lords=attackers,
+        active_attacker=lord_id,
+        decision_ctx=decision_ctx,
+        holds=holds_arg,
         defender_lords=defenders,
         concede_decisions=sally_concede or None,
         siegeworks_for_sally=siege_markers_at_locale,
@@ -4738,6 +4767,8 @@ def _h_cmd_sally(
         attacker_absorption_policy=_validate_absorption_policy(
             args.get("absorption_policy")),
     )
+    if consumed_holds:
+        result["holds_consumed"] = consumed_holds
     aftermath: dict[str, Any] = {"battle": result, "siegeworks_walls": siege_markers_at_locale}
 
     if result["loser"] == sd:
@@ -4802,7 +4833,7 @@ def _h_cmd_sally(
             if lid not in state.lords:
                 continue
             l = state.lords[lid]
-            if not l.forces:
+            if not l.forces and not l.routed_units:
                 spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                 # SMOKE-101 (Round 131): Sally-win + besieger zero-
                 # forces — the sallying side (sd) killed the besieger,
@@ -4868,13 +4899,6 @@ def _h_cmd_sally(
                         conceded_side == "defender"
                         and result["loser"] != sd
                     )
-                    if this_lord_conceded:
-                        spoil = transfer_spoils(
-                            state, lid, attackers, "loot_and_excess",
-                            retreat_way_type=retreat_way_type_actual,
-                        )
-                    else:
-                        spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
                     # SMOKE-094 (Round 114): Sally aftermath Loser
                     # routed_units never resolved via 4.4.4 Losses
                     # (same gap as SMOKE-093 in Battle aftermath).
@@ -4885,7 +4909,25 @@ def _h_cmd_sally(
                         else "retreated_no_concede"
                     )
                     if l.routed_units:
-                        apply_losses_rolls(state, lid, sally_loss_state)
+                        aftermath.setdefault("losses", []).append(
+                            apply_losses_rolls(state, lid, sally_loss_state))
+                    # Losses precede Spoils. A fully Routed loser may recover;
+                    # if his final unit instead dies, remove him and capture
+                    # all non-Ship Assets even if he Conceded the Field.
+                    removed_by_losses = not l.forces
+                    if this_lord_conceded and not removed_by_losses:
+                        spoil = transfer_spoils(
+                            state, lid, attackers, "loot_and_excess",
+                            retreat_way_type=retreat_way_type_actual,
+                        )
+                    else:
+                        spoil = transfer_spoils(state, lid, attackers, "all_except_ships")
+                    if removed_by_losses:
+                        r = apply_ransom(state, lid, sd, locale_id)
+                        if r.get("ransom"):
+                            aftermath.setdefault("ransom", []).append(r)
+                        _rem(state, lid, load_lords()[lid])
+                        aftermath.setdefault("removed", []).append(lid)
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
         # PLAY-11 (Fable audit): 4.4.4 Losses applies to BOTH sides of

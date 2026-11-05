@@ -89,7 +89,7 @@ def test_smoke_101_sally_win_zero_forces_calls_apply_ransom():
     assert idx > 0, "sally success branch not found"
     branch_slice = src[idx:]
     # Locate the "if not l.forces:" inside this branch.
-    zf_idx = branch_slice.find("if not l.forces:")
+    zf_idx = branch_slice.find("if not l.forces and not l.routed_units:")
     assert zf_idx > 0
     zero_forces_block = branch_slice[zf_idx:zf_idx + 800]
     assert "SMOKE-101" in zero_forces_block
@@ -143,23 +143,25 @@ def test_smoke_101_sally_win_killer_is_sd():
     src = inspect.getsource(camp._h_cmd_sally)
     idx = src.find("Sallying side won. Besieging side Lords lose")
     branch_slice = src[idx:]
-    # Both Sally-win ransom calls use sd as killer.
+    # Losing besiegers pay the Sallying side; a winning Sally Lord who
+    # dies in Losses pays the opposing side.
     # Count apply_ransom calls and the sd argument in the slice.
     ransom_calls = [i for i in range(len(branch_slice))
                     if branch_slice[i:i + 12] == "apply_ransom"]
     # PLAY-11 (Fable audit) added a third call: a sallying WINNER Lord
     # removed by 4.4.4 Losses pays Ransom to the OTHER side ("removed
-    # in Battle", T16/R7 text). The two loser-removal calls still use
+    # in Battle", T16/R7 text). The loser-removal calls still use
     # sd as killer.
-    assert len(ransom_calls) == 3, \
-        f"expected 3 apply_ransom calls in Sally-win branch, got {len(ransom_calls)}"
+    # Cross-game N1 adds removal after the losing besieger's Losses roll.
+    assert len(ransom_calls) == 4, \
+        f"expected 4 apply_ransom calls in Sally-win branch, got {len(ransom_calls)}"
     sd_killer = sum(
         1 for pos in ransom_calls
         if "sd, locale_id" in branch_slice[pos:pos + 80])
     enemy_killer = sum(
         1 for pos in ransom_calls
         if "_kill_side_sally_won" in branch_slice[pos:pos + 80])
-    assert sd_killer == 2 and enemy_killer == 1
+    assert sd_killer == 3 and enemy_killer == 1
 
 
 # --- Functional check: apply_ransom hooks aftermath["ransom"] correctly ---

@@ -1230,9 +1230,17 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     with_previews,
                     "Sally (4.5.3) -- one Command action; Besieged Lord attacks Besiegers",
                 )
-                out.append({"type": "cmd_sally", "side": side,
-                            "args": {"lord_id": active_lord},
-                            "note": sally_note})
+                sally: dict[str, Any] = {"type": "cmd_sally", "side": side,
+                         "args": {"lord_id": active_lord}, "note": sally_note}
+                from nevsky.campaign import _sally_combat_context
+                sally_locale = state.lords[active_lord].location
+                assert sally_locale is not None  # Besieged Lords are on the map.
+                combat = _sally_combat_context(state, side, sally_locale)
+                holds = _battle_holds_available(state, combat)
+                if holds:
+                    sally["holds_available"] = holds
+                    sally["holds_template"] = {"holds": {"<key>": "<card_id>"}}
+                out.append(sally)
             # BUG-1 (R203): R18 Stone Kremlin is a Campaign Command
             # action (entire card) and was never enumerated, so a player
             # driving off legal_actions could never use the capability.
