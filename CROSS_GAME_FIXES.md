@@ -158,3 +158,22 @@ violations or step-limit exits. New tests pass Ruff, and changed source adds
 no Ruff diagnostics relative to preceding main.
 
 Third-audit progress is **three of six Nevsky groups** and **10 of 23 overall**.
+
+## Third audit, batch 2 — N3-01 and N3-02
+
+A Sallying Lord removed by Withdrawal Losses now yields all non-Ship
+Assets to the surviving besiegers. A surviving Withdrawer keeps his Assets,
+and the raid still reduces the Siege to one marker.
+
+Battle, Sally and successful Storm awards now use the winning mats that
+survive Losses. Captured Assets are set aside before a losing mat is
+removed. Existing allocation priorities and caps apply to the surviving
+recipients, including for Stronghold Spoils and Novgorod Veche Coin.
+The order of Loss rolls is preserved.
+
+Five seeded regressions fail on preceding main and pass here. A sixth case
+verifies that a surviving Withdrawer keeps his Assets. The full suite
+passed 2,026 tests, and all 150 configured self-play cases completed without
+invariant violations or step-limit exits.
+
+Third-audit progress is **five of six Nevsky groups** and **12 of 23 overall**.

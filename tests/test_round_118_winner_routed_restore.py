@@ -32,9 +32,9 @@ import nevsky.campaign as camp
 
 def test_storm_sack_winner_rolls_storm_attacker_losses():
     src = inspect.getsource(camp._h_cmd_storm)
-    idx = src.find("Novgorod special")
-    assert idx > 0
-    block = src[idx:idx + 2000]
+    start = src.index("# Sack: permanently remove Besieged Lords.")
+    end = src.index("# Attacker lost: Storm ends", start)
+    block = src[start:end]
     assert "PLAY-11" in block
     assert '"storm_attacker"' in block
 

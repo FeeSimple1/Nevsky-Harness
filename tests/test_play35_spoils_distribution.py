@@ -94,8 +94,10 @@ def test_transfer_spoils_spreads_over_winners():
 
 def _pending_battle(s, winners, loser):
     for lid in winners:
+        s.lords[lid].state = "mustered"
         s.lords[lid].location = "pskov"
         s.lords[lid].forces = {"knights": 5, "men_at_arms": 3}
+    s.lords[loser].state = "mustered"
     s.lords[loser].location = "pskov"
     s.lords[loser].forces = {"militia": 1}
     s.combat_pending = CombatPending(
@@ -125,9 +127,9 @@ def test_stand_battle_spoils_allocation_split():
         "args": {"spoils_allocation": {"hermann": {"loot": 1},
                                         "yaroslav": {"loot": 1}}},
     })
-    if res["winner"] == "teutonic" and s.lords["gavrilo"].state != "mustered":
-        assert s.lords["hermann"].assets.get("loot", 0) == 1
-        assert s.lords["yaroslav"].assets.get("loot", 0) == 1
+    assert res["winner"] == "teutonic"
+    assert s.lords["hermann"].assets.get("loot", 0) == 1
+    assert s.lords["yaroslav"].assets.get("loot", 0) == 1
 
 
 def test_stand_battle_spoils_allocation_validated():

@@ -2196,23 +2196,34 @@ def transfer_spoils(
     computes the excess-Provender amount along the retreat Way per the
     2E rule, instead of transferring zero Provender.
     """
+    captured = collect_spoils(state, from_lord, mode, retreat_way_type,
+                             provender_limit=provender_limit)
+    return award_spoils(state, to_lords, captured, allocation)
+
+
+def collect_spoils(
+    state: GameState, from_lord: str, mode: str,
+    retreat_way_type: str | None = None,
+    *, provender_limit: int | None = None,
+) -> dict[str, Any]:
+    """Take the losing Lord's Assets before his mat can be removed."""
     if mode == "none":
-        return {"from": from_lord, "transferred": {}, "mode": mode}
+        return {"from": from_lord, "assets": {}, "mode": mode}
     if from_lord not in state.lords:
-        return {"from": from_lord, "transferred": {}, "mode": mode, "error": "no_lord"}
+        return {"from": from_lord, "assets": {}, "mode": mode, "error": "no_lord"}
     src = state.lords[from_lord]
-    transferred: dict[str, int] = {}
+    assets: dict[str, int] = {}
     if mode == "all_except_ships":
         for k in ("coin", "provender", "loot", "boat", "cart", "sled"):
             amt = src.assets.get(k, 0)
             if amt > 0:
-                transferred[k] = amt
+                assets[k] = amt
                 src.assets.pop(k, None)
     elif mode == "loot_and_excess":
         # Conceded + Retreated: transfer all Loot.
         loot = int(src.assets.get("loot", 0))
         if loot > 0:
-            transferred["loot"] = loot
+            assets["loot"] = loot
             src.assets.pop("loot", None)
         # Provender beyond Unladen along the Retreat Way: usable
         # Transport count on that Way determines how much Provender the
@@ -2223,28 +2234,31 @@ def transfer_spoils(
             prov = int(src.assets.get("provender", 0))
             excess = max(0, prov - usable)
             if excess > 0:
-                transferred["provender"] = excess
+                assets["provender"] = excess
                 src.assets["provender"] = prov - excess  # type: ignore[index]
                 if src.assets["provender"] == 0:
                     src.assets.pop("provender", None)
-    # PLAY-35 (4.4.3): "the winning player distributes these Assets
-    # among mats of Lords at the Locale" -- distribute among ALL winner
-    # Lords (owner's `allocation` plan first, then spill-fill in
-    # to_lords order under the 1.7.3 cap). Assets vanish only when
-    # every winner Lord is at cap.
-    dist: dict[str, Any] = {"added": {}, "total_added": {}, "lost_to_cap": {}}
-    if to_lords and transferred:
-        dist = distribute_spoils(state, to_lords, transferred, allocation)
-        # The loser already had assets removed; the winners kept only
-        # `total_added`. The "lost_to_cap" portion vanishes (1.7.3:
-        # "any excess gained beyond 8 is lost immediately").
-        transferred = dict(dist["total_added"])
-    return {"from": from_lord, "to": to_lords[0] if to_lords else None,
-            "distributed": dist["added"],
-            "transferred": transferred,
-            "lost_to_cap": dist["lost_to_cap"],
-            "mode": mode,
+    return {"from": from_lord, "assets": assets, "mode": mode,
             "retreat_way_type": retreat_way_type}
+
+
+def award_spoils(
+    state: GameState, recipients: list[str], captured: dict[str, Any],
+    allocation: dict[str, dict[str, int]] | None = None,
+) -> dict[str, Any]:
+    """Settle captured Assets using the eligible mats after Losses."""
+    receipt = {**captured}
+    assets = receipt.pop("assets")
+    if receipt["mode"] == "none" or "error" in receipt:
+        return {**receipt, "transferred": {}}
+    if not recipients:
+        receipt.update(to=None, distributed={}, transferred={}, lost_to_cap={})
+        if assets:
+            receipt["lost_no_recipient"] = assets
+        return receipt
+    dist = distribute_spoils(state, recipients, assets, allocation)
+    return {**receipt, "to": recipients[0], "distributed": dist["added"],
+            "transferred": dist["total_added"], "lost_to_cap": dist["lost_to_cap"]}
 
 
 # ---------------------------------------------------------------------------
