@@ -110,3 +110,23 @@ exercise public Sally outcomes for Spoils and the actual Retreat Way.
 
 Second-audit progress: **3 of 4 Nevsky groups fixed**. IF2-1, side-bound tool
 ownership validation, remains open. The original six groups remain fixed.
+
+## Second audit, batch 3 — IF2-1
+
+The side-bound action tool rejects an explicitly conflicting action side,
+including attempts to use the system actor, before setup auto-confirmation,
+card drawing, RNG use or history changes. Invalid caller identities and
+malformed action envelopes reject as well. Missing sides still default to
+the caller, and valid owner actions retain the engine's normal turn and
+reactive-event validation. Caller dictionaries are not modified.
+
+Sixteen new cases cover both players, opponent/system/invalid identities,
+missing and explicit matching sides, malformed envelopes and rejected-action
+state/reference preservation. Nine fail on the preceding main revision;
+seven preservation cases pass.
+
+Validation: 1,995 tests passed. All 150 configured self-play cases completed
+without invariant violations or step-limit exits. New tests pass Ruff, and
+changed source adds no Ruff diagnostics relative to the preceding main.
+
+All **four second-audit Nevsky groups are fixed**, as are the original six.

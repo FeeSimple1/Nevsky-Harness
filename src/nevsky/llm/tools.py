@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nevsky.actions import apply_action
+from nevsky.actions import IllegalAction, apply_action
 from nevsky.legal_moves import legal_moves
 
 
@@ -41,10 +41,18 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
     action.
 
     The LLM should always include "side" matching its play side. If
-    the action's "side" field is missing, fill it from `side`.
+    the action's "side" field is missing, fill it from `side`. Conflicting
+    sides reject before any engine setup or private card draw.
     """
+    if side not in ("teutonic", "russian"):
+        raise IllegalAction("wrong_actor", "side must be 'teutonic' or 'russian'")
+    if not isinstance(action, dict):
+        raise IllegalAction("bad_envelope", "action must be a JSON object")
     action = dict(action)
     action.setdefault("side", side)
+    if action["side"] != side:
+        raise IllegalAction("wrong_actor",
+                            f"caller is {side}; action declares side={action['side']!r}")
     return apply_action(state, action)
 
 
