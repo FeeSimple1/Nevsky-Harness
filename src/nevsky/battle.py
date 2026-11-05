@@ -32,6 +32,7 @@ from typing import Any
 from nevsky.rng import roll_d6
 from nevsky.state import GameState, Side, move_vassal_marker, vassal_marker_box
 from nevsky.static_data import load_forces, load_ways
+from nevsky.visibility import reveal_combat_mats
 
 # Q-011 (adjudicated 2026-07-06): the old max_rounds=10 was a harness
 # artifact, not a rule -- 4.4.2 Battles continue Round after Round until a
@@ -1224,6 +1225,7 @@ def _all_routed(state: GameState, lord_ids: list[str]) -> bool:
     return _side_total_units(state, lord_ids) == 0
 
 
+@reveal_combat_mats
 def resolve_battle(
     state: GameState,
     attacker_side: Side,
@@ -2237,6 +2239,7 @@ def _walls_absorb(state: GameState, hits: int, walls_max: int) -> int:
     return remaining
 
 
+@reveal_combat_mats
 def resolve_storm(
     state: GameState,
     attacker_side: Side,

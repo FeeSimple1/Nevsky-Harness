@@ -679,20 +679,26 @@ def state_view_for_side(state: GameState, side: Side) -> GameState:
     1.5.2). Otherwise returns a deep copy unchanged.
 
     Masked on opposing Lords:
-      - forces (replaced with sentinel `{"_hidden": 1}` if non-empty)
+      - forces (replaced with constant sentinel `{"_hidden": 1}`)
       - routed_units (cleared)
       - assets (cleared)
       - this_lord_capabilities (cleared)
+      - vassal mat status (cleared)
     Visible on opposing Lords:
-      - lord_id, side, state, location, vassals (mustered status only)
+      - lord_id, side, state, location
+      - public Calendar Vassal Service markers, when that option is enabled
     Masked on opposing deck:
       - pending_draw (replaced with `["<hidden>"] * n`)
       - Side-wide capabilities_in_play remain visible per 3.4.4.
 
     Use this view as input to render_summary, lord_combat_summary, etc.
     so the consumer operates within the fog-of-war consistently.
+    Actual Battle/Storm callbacks reveal only their engagement's participants.
     """
     from copy import deepcopy
+
+    from nevsky.visibility import combat_visible_lords
+    revealed = combat_visible_lords(state)
     s2 = deepcopy(state)
     if not s2.meta.optional_rules.get("hidden_mats", False):
         return s2
@@ -700,12 +706,13 @@ def state_view_for_side(state: GameState, side: Side) -> GameState:
     for _lid, lord in s2.lords.items():
         if lord.side != other:
             continue
-        if lord.state != "mustered":
+        if lord.state != "mustered" or _lid in revealed:
             continue
-        lord.forces = {"_hidden": 1} if lord.forces else {}
+        lord.forces = {"_hidden": 1}
         lord.routed_units = {}
         lord.assets = {}
         lord.this_lord_capabilities = []
+        lord.vassals = {}
     opp_deck = s2.decks.teutonic if other == "teutonic" else s2.decks.russian
     if opp_deck.pending_draw:
         opp_deck.pending_draw = ["<hidden>"] * len(opp_deck.pending_draw)
@@ -721,5 +728,5 @@ def render_summary_for_side(state: GameState, side: Side) -> str:
         return render_summary(state)
     view = state_view_for_side(state, side)
     rendered = render_summary(view)
-    return f"[VIEW: {side} (Hidden Mats active — opposing Lord details concealed)]\n" + rendered
+    return f"[VIEW: {side} (Hidden Mats active)]\n" + rendered
 

@@ -15,10 +15,7 @@ TOPICS = ("state", "lord", "locale", "map", "supply", "cards", "card", "pending"
 
 
 def player_view(state, side):
-    """Use the existing card/history mask AND existing optional Hidden Mats mask."""
-    if state.meta.optional_rules.get("hidden_mats"):
-        from nevsky.render import state_view_for_side
-        state = state_view_for_side(state, side)
+    """Use the shared player filter for cards, history and optional Hidden Mats."""
     view = view_for_side(state, side)
     for pending in view["pending_decisions"]:
         if pending["owed_by"] != side:
@@ -119,7 +116,7 @@ def compact_briefing(state, side):
                     f"{ratings['lordship']}+{meta['lordship_bonus'].get(lid, 0)}")
             if mat["state"] != "mustered":
                 line += f" state={mat['state']}"
-            if hidden and owner != side:
+            if hidden and owner != side and mat["forces"].get("_hidden"):
                 line += " | mat=<hidden> | mat=<hidden> |"
             else:
                 line += f" | {_piles(mat['forces'])} | {_piles(mat['assets'])} |"

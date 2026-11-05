@@ -60,6 +60,9 @@ def _cylinder_box_str(state, lord_id: str) -> str:
 
 def briefing_for_side(state, side: str) -> str:
     """Generate the per-turn LLM briefing string."""
+    if state.meta.optional_rules.get("hidden_mats"):
+        from nevsky.render import state_view_for_side
+        state = state_view_for_side(state, side)
     lines = []
     other = "russian" if side == "teutonic" else "teutonic"
     sl = load_lords()
@@ -172,7 +175,9 @@ def briefing_for_side(state, side: str) -> str:
         lines.append(f"- **{lid}** [{lord.state}]: at {loc_str}{caps_str}")
         lines.append(f"    cmd {cmd}, service {srating}; cylinder {cyl_str}, "
                      f"service marker {svc_str}")
-        if forces_str:
+        if lord.forces.get("_hidden"):
+            lines.append("    mat contents hidden")
+        elif forces_str:
             lines.append(f"    forces: {forces_str}")
 
     # Own deck

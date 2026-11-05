@@ -22,6 +22,9 @@ Public state is always visible:
   - VP track (public)
   - Both sides' `capabilities_in_play` (public — these are on the
     board edge)
+
+Optional Hidden Mats conceals opposing Mustered Lord mats, including Vassal
+status. Public Calendar markers remain visible with Advanced Vassal Service.
 """
 from __future__ import annotations
 
@@ -59,6 +62,9 @@ def view_for_side(state, side: str) -> dict[str, Any]:
     """Return a dict view of state with opponent's hidden info masked."""
     if side not in ("teutonic", "russian"):
         raise ValueError("side must be 'teutonic' or 'russian'")
+    if state.meta.optional_rules.get("hidden_mats"):
+        from nevsky.render import state_view_for_side
+        state = state_view_for_side(state, side)
     other = "russian" if side == "teutonic" else "teutonic"
     d = state.model_dump()
     # The portable save retains the RNG state; a player's view must not

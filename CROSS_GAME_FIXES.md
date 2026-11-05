@@ -51,5 +51,28 @@ Validation: 1,931 tests passed. All 150 self-play cases across three scenarios,
 25 seeds and two policies completed without invariant violations or step-limit
 exits. The changed source adds no Ruff or mypy diagnostics relative to main.
 
-Five of six Nevsky findings are fixed. **IF-3**, Hidden Mats view consistency,
-remains open.
+## Hidden Mats repair batch — IF-3
+
+Session, notebook, compact and detailed player views now share the optional
+Hidden Mats filter. Opposing Mustered Lords' Forces, Routed units, Assets,
+This Lord Capabilities and Vassal mat status are concealed consistently.
+A constant mask avoids revealing whether a hidden Force pile is empty.
+Owners retain full access, and public Advanced Vassal Service Calendar
+markers remain visible. Player views leave the saved mechanical state intact.
+
+During actual Battle, Sally and Storm decision callbacks, participating mats
+are visible under the combat exception while other enemy mats stay hidden.
+The reveal scope ends on normal return or exception and is separate from
+saved game state.
+
+Twenty-three regressions cover both sides, Hidden Mats and Advanced Vassal
+Service combinations, real Muster changes, save/load, focused inspections,
+mask consistency and live combat callbacks. Nineteen fail against the
+preceding main revision; four preservation cases pass.
+
+Validation: 1,954 tests passed. All 150 self-play cases across three scenarios,
+25 seeds and two policies completed without invariant violations or step-limit
+exits. Changed source adds no Ruff diagnostics relative to main, and the new
+visibility module passes mypy.
+
+All six original Nevsky audit findings are fixed.
