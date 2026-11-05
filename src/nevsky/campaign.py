@@ -1749,6 +1749,56 @@ def _all_seats(state: GameState, lord_id: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _disband_empty_lord(state: GameState, lord_id: str) -> bool:
+    """1.6: losing the final Force outside combat requires temporary Disband."""
+    lord = state.lords[lord_id]
+    if (lord.state != "mustered" or any(lord.forces.values())
+            or any(lord.routed_units.values())):
+        return False
+    service = int(load_lords()[lord_id]["ratings"]["service"])
+    # 3.3.2 counts from the current Levy, or the next Levy during Campaign.
+    new_box = state.meta.box + (state.meta.phase == "campaign") + service
+    _disband_at_limit(state, lord_id, new_box)
+    return True
+
+
+def reset_discard_candidates(state: GameState, side: Side) -> list[str]:
+    """4.9.5: Holds and both scopes of in-play Capabilities may return to deck."""
+    deck = _side_deck(state, side)
+    return sorted(set(deck.holds + deck.capabilities_in_play + [
+        cid for lord in state.lords.values() if lord.side == side
+        for cid in lord.this_lord_capabilities
+    ]))
+
+
+def _reset_discard_cards(state: GameState, side: Side, cards: list[str]
+                         ) -> list[dict[str, Any]]:
+    """Return selected cards after Wastage/Serfs, including per-card cleanup."""
+    deck = _side_deck(state, side)
+    cleanup = []
+    for cid in cards:
+        if cid in deck.holds:
+            deck.holds.remove(cid)
+        elif cid in deck.capabilities_in_play:
+            cleanup.append(_discard_side_capability(state, side, cid))
+            deck.discard.remove(cid)
+        else:
+            owner = next((lord for lord in state.lords.values()
+                          if lord.side == side and cid in lord.this_lord_capabilities), None)
+            if owner is not None:
+                owner.this_lord_capabilities.remove(cid)
+            elif cid in deck.deck:
+                # Wastage or the owning Lord's Disband already returned it.
+                continue
+            elif cid in deck.discard:
+                # Another selected card's cascade may have discarded it.
+                deck.discard.remove(cid)
+            else:
+                raise IllegalAction("bad_reset_discard", f"{cid} is no longer in play")
+        deck.deck.append(cid)
+    return cleanup
+
+
 def _disband_special_vassals(state: GameState, side: str, special_kind: str
                               ) -> list[dict[str, Any]]:
     """SMOKE-031: Disband all Special Vassals of ``special_kind`` from
@@ -1771,6 +1821,7 @@ def _disband_special_vassals(state: GameState, side: str, special_kind: str
         if lord.side != side:
             continue
         sl = _slords.get(lord_id, {})
+        lord_returns = []
         for vid, vstate in list(lord.vassals.items()):
             vdata = next((v for v in sl.get("vassals", [])
                            if v["vassal_id"] == vid), None)
@@ -1800,6 +1851,13 @@ def _disband_special_vassals(state: GameState, side: str, special_kind: str
                 "was_mustered": was_mustered, "was_ready": was_ready,
                 "forces_returned": returned,
             })
+            lord_returns.append(vid)
+        if lord_returns and _disband_empty_lord(state, lord_id):
+            # The ordinary Disband readies Vassals for a future Muster;
+            # these Special Vassals remain unavailable without their card.
+            for vid in lord_returns:
+                lord.vassals[vid].ready = False
+            disbanded[-1]["lord_disbanded"] = True
     return disbanded
 
 
@@ -1945,27 +2003,16 @@ def _h_end_campaign_resolve(
                  "crusade_auto_discarded": False, "summer_crusaders_disbanded": [],
                  "advanced_to_next_levy": False, "game_over": game_over}, [])
 
-    # PLAY-21 (Fable audit): 4.9.5 RESET -- "Each side may discard any
-    # Arts of War cards back to its deck (Teutons then Russians)."
-    # args.reset_discard = [card_ids] returns held cards (holds zone)
-    # to the owning side's deck. Previously this printed option had no
-    # engine path: a dead situational Hold (e.g. an Ambush the side
-    # will never use) was stuck forever.
-    reset_discarded: list[str] = []
-    _rd = args.get("reset_discard")
-    if _rd is not None:
-        if not isinstance(_rd, list):
-            raise IllegalAction("bad_reset_discard",
-                                "reset_discard must be a list of card ids")
-        _deck = _side_deck(state, sd)
-        for cid in _rd:
-            if cid not in _deck.holds:
-                raise IllegalAction(
-                    "bad_reset_discard",
-                    f"{cid} not in {sd} holds (4.9.5 returns held cards)")
-            _deck.holds.remove(cid)
-            _deck.deck.append(cid)
-            reset_discarded.append(cid)
+    # Validate against the current zones, but execute Reset AFTER Wastage.
+    reset_discarded = args.get("reset_discard", [])
+    if (not isinstance(reset_discarded, list)
+            or any(not isinstance(cid, str) for cid in reset_discarded)
+            or len(set(reset_discarded)) != len(reset_discarded)):
+        raise IllegalAction("bad_reset_discard", "reset_discard must list distinct card ids")
+    available = reset_discard_candidates(state, sd)
+    for cid in reset_discarded:
+        if cid not in available:
+            raise IllegalAction("bad_reset_discard", f"{cid} is not a {sd} Hold or Capability")
 
     # PLAY-17 (Fable audit): 4.9 order is GROW (4.9.1) -> GAME END
     # (4.9.2) -> PLOW AND REAP (4.9.3) -> WASTAGE (4.9.4) -> RESET
@@ -2077,6 +2124,10 @@ def _h_end_campaign_resolve(
                 if count > 0:
                     lord.forces.pop("serfs", None)
                     serfs_returned.append({"lord_id": lord_id, "count": count})
+                    if _disband_empty_lord(state, lord_id):
+                        serfs_returned[-1]["lord_disbanded"] = True
+
+    reset_cleanup = _reset_discard_cards(state, sd, reset_discarded)
 
     if sd == "teutonic":
         if state.meta.end_campaign_completed_t:
@@ -2089,8 +2140,9 @@ def _h_end_campaign_resolve(
         state.meta.end_campaign_completed_r = True
 
     advanced = False
-    game_over = False
-    if state.meta.end_campaign_completed_t and state.meta.end_campaign_completed_r:
+    game_over = state.meta.game_over
+    if (not game_over and state.meta.end_campaign_completed_t
+            and state.meta.end_campaign_completed_r):
         # 4.9.3 Plow & Reap ran per side (PLAY-17), before each
         # side's Wastage.
         # Advance Calendar marker by 1, flip to Levy.
@@ -2107,6 +2159,9 @@ def _h_end_campaign_resolve(
                 state.meta.box = new_box
                 new_box_after_advance = new_box
                 break
+        # The next Levy has begun before its automatic Summer-Crusader
+        # Disband. Losing the last Lord here does not trigger Campaign 5.2.
+        state.meta.phase = "levy"
         # 4.9.5 Reset (SMOKE-028b/c, refactored R44/SMOKE-031): If the
         # new 40 Days is the year's first Late Winter (box 5 or 13),
         # discard the Crusade Capability (T11) if in play; the unified
@@ -2129,7 +2184,6 @@ def _h_end_campaign_resolve(
                 crusade_auto_discarded = True
         # Reset campaign-turn / step bookkeeping for next Campaign;
         # transition to Levy.
-        state.meta.phase = "levy"
         state.meta.levy_step = "arts_of_war"
         state.meta.levy_step_completed_t = False
         state.meta.levy_step_completed_r = False
@@ -2164,6 +2218,7 @@ def _h_end_campaign_resolve(
         advanced = True
 
     return ({"side": sd, "grew": grew, "wastage": wastage_actions, "reset_discard": reset_discarded,
+             **({"reset_cleanup": reset_cleanup} if reset_cleanup else {}),
              "this_campaign_discarded": discarded_camp_events,
              "serfs_returned": serfs_returned,
              "crusade_auto_discarded": (

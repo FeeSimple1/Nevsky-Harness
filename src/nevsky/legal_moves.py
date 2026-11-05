@@ -1627,13 +1627,12 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 notes.append("4.9.1 Grow: pick exactly "
                              f"{len(_rav) // 2} of the Enemy Ravaged "
                              "Locales via args.grow_remove=[...]")
-        # PLAY-21 palette: 4.9.5 Reset -- may return held AoW cards to
-        # the deck via args.reset_discard=[card_ids].
-        _holds = (state.decks.teutonic.holds if side == "teutonic"
-                  else state.decks.russian.holds)
-        if _holds and _box < state.meta.span_end_box:
-            candidates["reset_discard"] = sorted(_holds)
-            notes.append("4.9.5 Reset: optionally return held AoW cards "
+        # 4.9.5 Reset covers Holds and both scopes of Capabilities.
+        from nevsky.campaign import reset_discard_candidates
+        reset_cards = reset_discard_candidates(state, side)
+        if reset_cards and _box < state.meta.span_end_box:
+            candidates["reset_discard"] = reset_cards
+            notes.append("4.9.5 Reset: optionally return Holds or Capabilities "
                          "to the deck via args.reset_discard=[...]")
         if candidates:
             move["candidates"] = candidates

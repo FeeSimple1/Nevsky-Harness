@@ -27,6 +27,9 @@ def _one_teuton_mustered(s, caps):
             if lid == "andreas":
                 l.state = "mustered"
                 l.location = "dorpat"
+                # A Mustered Lord needs a regular Force to remain after
+                # Crusade's Special Vassals leave (1.6).
+                l.forces = {"knights": 1}
             else:
                 l.state = "ready"
                 l.location = None

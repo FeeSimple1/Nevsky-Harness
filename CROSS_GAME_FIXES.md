@@ -1,7 +1,7 @@
 # Cross-game audit repairs
 
 The November 4, 2026 cross-game audit identified six Nevsky defect groups.
-This batch addresses **N1, N2, and N3**, all in the simple Sally path.
+The first batch addressed **N1, N2, and N3**, all in the simple Sally path.
 
 - **N1 — Routed besiegers:** fully Routed losing Lords may Retreat and roll
   Losses. A Lord who loses his final unit in Losses is then removed, yields
@@ -20,5 +20,36 @@ combat effects, invalid Hold rollback, menu parameters, and Active-Lord/other
 Lord placement. Existing source-inspection Ransom checks were adjusted for
 removal after Losses.
 
-Three of six Nevsky findings are fixed. Serf Reset cleanup, voluntary Reset
-Capability discard, and Hidden Mats view consistency remain open.
+## Reset repair batch — N4 and N5
+
+- **N4 — Final Serf removal:** returning a Lord's final Serf immediately
+  Disbands him under 1.6/3.3.2. His cylinder goes his Service rating beyond the
+  next Levy; mat Assets, Capabilities and Service markers return normally.
+  A final-Lord departure ends the Campaign before any Calendar advance.
+  Removing Special Vassals follows the same empty-Lord rule. Automatic Summer
+  Crusader expiry occurs after the marker flips to Levy, so it counts from
+  that new box and does not create a Campaign victory in Levy.
+- **N5 — Voluntary Reset discards:** `args.reset_discard` and its legal menu
+  include Holds, side-wide Capabilities and This Lord Capabilities. Selection
+  is validated before resolution and executed after Wastage and Serf return.
+  Side-wide cards run their normal Legate/Special-Vassal cleanup, then return
+  to the draw deck. Cards already returned by mandatory cleanup are not
+  duplicated. Foreign, duplicate and malformed selections reject atomically.
+
+Capability-limit enforcement also recounts Mustered Lords after each cascade;
+players can name the extra discards a resulting Disband requires. Three older
+card-selection tests now give their Mustered fixture Lord a regular Force so
+they continue to test card choice while he survives Special-Vassal removal.
+
+Twenty-one new regression cases cover both findings, off-board Calendar
+placement, besieged Serfs, surviving Lords, marker/card cleanup, immediate
+victory, next-Levy timing, cascade-dependent Capability limits, save/load,
+legal-menu coverage and rejected-action rollback. Against the preceding main
+revision, fifteen cases fail and six preservation/validation cases pass.
+
+Validation: 1,931 tests passed. All 150 self-play cases across three scenarios,
+25 seeds and two policies completed without invariant violations or step-limit
+exits. The changed source adds no Ruff or mypy diagnostics relative to main.
+
+Five of six Nevsky findings are fixed. **IF-3**, Hidden Mats view consistency,
+remains open.
