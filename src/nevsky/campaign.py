@@ -35,6 +35,7 @@ from nevsky.actions import (
     _season_of_box,
     _side_deck,
 )
+from nevsky.rewards import apply_ransom as apply_ransom
 from nevsky.state import (
     CombatPending,
     GameState,
@@ -3637,11 +3638,11 @@ def _h_stand_battle(
     from nevsky.battle import (
         _way_type_between,
         apply_retreat_service_shift,
-        award_spoils,
+        collect_retreat_spoils,
         collect_spoils,
         resolve_battle,
-        transfer_retreat_spoils,
     )
+    from nevsky.rewards import record_combat_spoils
 
     sd = _require_side_player(state, side)
     cp = state.combat_pending
@@ -3882,10 +3883,7 @@ def _h_stand_battle(
             spoil = collect_spoils(state, lid, "all_except_ships")
             aftermath["spoils"].append(spoil)
             from nevsky.actions import _remove_lord_permanently as _rem
-            r = apply_ransom(state, lid, winner, cp.to_locale)
-            if r.get("ransom"):
-                aftermath.setdefault("ransom", []).append(r)
-            _rem(state, lid, load_lords()[lid])
+            _rem(state, lid, load_lords()[lid], combat_locale=cp.to_locale)
             aftermath["removed"].append(lid)
             continue
         if lid in withdraw_into_sh or lid in sallying_loser_set:
@@ -3913,10 +3911,7 @@ def _h_stand_battle(
                 spoil = collect_spoils(state, lid, "all_except_ships")
                 aftermath["spoils"].append(spoil)
                 from nevsky.actions import _remove_lord_permanently as _rem
-                r = apply_ransom(state, lid, winner, cp.to_locale)
-                if r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(r)
-                _rem(state, lid, load_lords()[lid])
+                _rem(state, lid, load_lords()[lid], combat_locale=cp.to_locale)
                 aftermath["removed"].append(lid)
                 continue
             key = "sally_withdrew" if lid in sallying_loser_set else "withdrew"
@@ -3963,15 +3958,7 @@ def _h_stand_battle(
                 spoil = collect_spoils(state, lid, "all_except_ships")
                 aftermath["spoils"].append(spoil)
                 from nevsky.actions import _remove_lord_permanently as _rem
-                # SMOKE-101 (Round 131): the zero-forces removal branch
-                # above calls apply_ransom, but this no-retreat-path
-                # branch previously did not — a Ransom-capable winner
-                # was paid in one removal case and not the other.
-                # Same audit pattern as SMOKE-098/099 (mirror gap).
-                r = apply_ransom(state, lid, winner, cp.to_locale)
-                if r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(r)
-                _rem(state, lid, load_lords()[lid])
+                _rem(state, lid, load_lords()[lid], combat_locale=cp.to_locale)
                 aftermath["removed"].append(lid)
                 continue
         lord.location = target
@@ -4008,10 +3995,7 @@ def _h_stand_battle(
             spoil = collect_spoils(state, lid, "all_except_ships")
             aftermath["spoils"].append(spoil)
             from nevsky.actions import _remove_lord_permanently as _rem
-            r = apply_ransom(state, lid, winner, cp.to_locale)
-            if r.get("ransom"):
-                aftermath.setdefault("ransom", []).append(r)
-            _rem(state, lid, load_lords()[lid])
+            _rem(state, lid, load_lords()[lid], combat_locale=cp.to_locale)
             aftermath["removed"].append(lid)
             continue
         if this_lord_conceded:
@@ -4116,19 +4100,20 @@ def _h_stand_battle(
             _alr_w(state, wlid, "stood_field")
         if not state.lords[wlid].forces:
             from nevsky.actions import _remove_lord_permanently as _rem_w
-            _rem_w(state, wlid, load_lords()[wlid])
+            _rem_w(state, wlid, load_lords()[wlid], combat_locale=cp.to_locale)
             aftermath.setdefault("winner_removed_by_losses", []).append(wlid)
 
     # 4.4.3: both sides take Losses before the winners receive Spoils.
     spoils_order = [lid for lid in winner_lords if state.lords[lid].state == "mustered"]
-    for index, captured in enumerate(aftermath["spoils"]):
-        if captured:
-            aftermath["spoils"][index] = award_spoils(
-                state, spoils_order, captured, spoils_allocation)
-    for index, spoil in zip(conceded_spoil_indexes, transfer_retreat_spoils(
-            state, conceded_retreats, spoils_order, allocation=spoils_allocation,
-            keep_order=args.get("retreat_keep_order")), strict=True):
-        aftermath["spoils"][index] = spoil
+    award_order = [i for i, captured in enumerate(aftermath["spoils"]) if captured]
+    for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
+            state, conceded_retreats, keep_order=args.get("retreat_keep_order")), strict=True):
+        aftermath["spoils"][index] = captured
+    if aftermath["spoils"]:
+        record_combat_spoils(
+            state, winner, spoils_order, aftermath.pop("spoils"), spoils_allocation,
+            award_order=award_order + conceded_spoil_indexes,
+        )
 
     # Mark all participants MOVED_FOUGHT. PLAY-14 (Fable audit): 4.4.5
     # "Mark all Attacking and Defending Lords" -- Sallying joiners are
@@ -4482,7 +4467,8 @@ def _h_cmd_storm(
       - If Novgorod: all Veche Coin to attackers as Spoils (4.5.2 + 1.3.3).
     On attacker loss: Storm ends; siege continues; no Spoils.
     """
-    from nevsky.battle import award_spoils, collect_spoils, distribute_spoils, resolve_storm
+    from nevsky.battle import collect_spoils, resolve_storm
+    from nevsky.rewards import record_combat_spoils
 
     sd = _require_side_player(state, side)
     lord_id = args.get("lord_id", state.campaign_turn.active_lord)
@@ -4557,6 +4543,8 @@ def _h_cmd_storm(
                 "bad_field_organ",
                 "field_organ_lord must be a Teutonic Storm participant (T10)")
         cid = (args.get("holds") or {}).get("field_organ") or "T10"
+        if cid != "T10":
+            raise IllegalAction("bad_hold", "Storm Field Organ requires T10")
         if cid not in state.decks.teutonic.holds:
             raise IllegalAction("not_in_holds", f"{cid} not in Teutonic holds")
         state.decks.teutonic.holds.remove(cid)
@@ -4613,10 +4601,7 @@ def _h_cmd_storm(
         captured_spoils = []
         for lid in besieged:
             captured_spoils.append(collect_spoils(state, lid, "all_except_ships"))
-            r = apply_ransom(state, lid, sd, locale_id)
-            if r.get("ransom"):
-                aftermath.setdefault("ransom", []).append(r)
-            _rem(state, lid, load_lords()[lid])
+            _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
         aftermath["besieged_removed"] = list(besieged)
         # Conquer/Liberate Stronghold per SMOKE-021 (Round 35).
         aftermath["conquest_change"] = _apply_conquest_or_liberation(
@@ -4641,45 +4626,26 @@ def _h_cmd_storm(
             if state.lords[alid].routed_units:
                 _alr_sack(state, alid, "storm_attacker")
             if not state.lords[alid].forces:
-                _rem_sack(state, alid, _ll_sack()[alid])
+                _rem_sack(state, alid, _ll_sack()[alid], combat_locale=locale_id)
                 aftermath.setdefault("winner_removed_by_losses", []).append(alid)
 
         # Sack awards follow Losses. Use the surviving Besiegers for all
         # three sources of Spoils, in the original priority order.
         spoils_order = [lid for lid in spoils_order if state.lords[lid].state == "mustered"]
-        for captured in captured_spoils:
-            award = award_spoils(state, spoils_order, captured, spoils_allocation)
-            aftermath.setdefault("sack_spoils_distribution", []).append({
-                "from_lord": award["from"], "split": award["distributed"],
-            })
-            if award["lost_to_cap"]:
-                aftermath.setdefault("storm_spoils_lost_to_cap", []).append({
-                    "from_lord": award["from"], "lost": award["lost_to_cap"],
-                })
         spoils = sh.get("spoils") or {}
-        if spoils_order and spoils:
-            _sh_award = distribute_spoils(
-                state, spoils_order, dict(spoils), spoils_allocation)
-            aftermath["stronghold_spoils_distribution"] = _sh_award["added"]
-            if _sh_award["lost_to_cap"]:
-                aftermath.setdefault("storm_spoils_lost_to_cap", []).append({
-                    "from_lord": "stronghold", "lost": _sh_award["lost_to_cap"],
-                })
         aftermath["stronghold_spoils"] = spoils
         aftermath["spoils_recipient"] = spoils_order[0] if spoils_order else None
-        # Novgorod Conquered (Sacked): mark the Veche state (1.3.3).
+        veche_coin = 0
         if locale_id == "novgorod":
             state.veche.novgorod_conquered = True
-        # Novgorod special: all Veche Coin to attackers (1.3.3), same
-        # distribution rules.
-        if locale_id == "novgorod" and state.veche.coin > 0:
-            if spoils_order:
-                _vc_award = distribute_spoils(
-                    state, spoils_order, {"coin": state.veche.coin},
-                    spoils_allocation)
-                aftermath["veche_coin_distribution"] = _vc_award["added"]
-            aftermath["veche_coin_taken"] = state.veche.coin
-            state.veche.coin = 0
+            veche_coin = state.veche.coin
+            if veche_coin:
+                aftermath["veche_coin_taken"] = veche_coin
+                state.veche.coin = 0
+        record_combat_spoils(
+            state, sd, spoils_order, captured_spoils, spoils_allocation,
+            stronghold=spoils, veche_coin=veche_coin,
+        )
     else:
         # Attacker lost: Storm ends; Siege continues.
         aftermath["storm_failed"] = True
@@ -4705,10 +4671,7 @@ def _h_cmd_storm(
         from nevsky.static_data import load_lords as _ll_storm
         for alid in list(attackers):
             if alid in state.lords and not state.lords[alid].forces:
-                _r = apply_ransom(state, alid, defending_side, locale_id)
-                if _r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(_r)
-                _rem_storm(state, alid, _ll_storm()[alid])
+                _rem_storm(state, alid, _ll_storm()[alid], combat_locale=locale_id)
                 aftermath.setdefault("removed_after_storm", []).append(alid)
         # PLAY-11 (Fable audit): 4.5.2 -- "Routed Defending units always
         # roll against Protection" (win or lose). The previous
@@ -4723,7 +4686,7 @@ def _h_cmd_storm(
             if state.lords[did].routed_units:
                 apply_losses_rolls(state, did, "storm_defender")
             if not state.lords[did].forces:
-                _rem_sd(state, did, _ll_sd()[did])
+                _rem_sd(state, did, _ll_sd()[did], combat_locale=locale_id)
                 aftermath.setdefault("winner_removed_by_losses", []).append(did)
 
     # SMOKE-086 (Round 90): per AoW Reference 1.4.1 Legate, when a
@@ -4784,7 +4747,8 @@ def _h_cmd_sally(
     as Walls. On Sallying Attackers loss: Withdraw back inside; reduce
     Siege markers at Locale to 1 (RAID).
     """
-    from nevsky.battle import award_spoils, collect_spoils, resolve_battle
+    from nevsky.battle import collect_spoils, resolve_battle
+    from nevsky.rewards import record_sally_spoils
 
     sd = _require_side_player(state, side)
     lord_id = args.get("lord_id", state.campaign_turn.active_lord)
@@ -4875,21 +4839,11 @@ def _h_cmd_sally(
         # removed per 1.5.1 (Lord with no units leaves the game).
         from nevsky.actions import _remove_lord_permanently as _rem
         from nevsky.static_data import load_lords
-        # killer is the besiegers (the winners of the failed Sally).
-        killer_side_failed_sally: "Side" = "russian" if sd == "teutonic" else "teutonic"
         for lid in list(attackers):
             if lid in state.lords and not state.lords[lid].forces:
                 aftermath.setdefault("spoils", []).append(
                     collect_spoils(state, lid, "all_except_ships"))
-                # SMOKE-101 (Round 131): failed-Sally zero-forces
-                # removal — the besiegers (the winners of this Sally)
-                # are the killers, so apply Ransom if it's in play
-                # for them. Mirror gap relative to Battle and Storm
-                # aftermath where apply_ransom is already called.
-                r = apply_ransom(state, lid, killer_side_failed_sally, locale_id)
-                if r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(r)
-                _rem(state, lid, load_lords()[lid])
+                _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
                 aftermath.setdefault("removed_after_sally", []).append(lid)
         # PLAY-11 (Fable audit): a Sally is a Battle (4.5.3 "Attack
         # Besiegers in a Battle (4.4)"), so 4.4.4 Losses applies to
@@ -4903,22 +4857,15 @@ def _h_cmd_sally(
             if state.lords[did].routed_units:
                 _alr_sw(state, did, "stood_field")
             if not state.lords[did].forces:
-                r = apply_ransom(state, did, sd, locale_id)
-                if r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(r)
-                _rem(state, did, load_lords()[did])
+                _rem(state, did, load_lords()[did], combat_locale=locale_id)
                 aftermath.setdefault("winner_removed_by_losses", []).append(did)
-        if "spoils" in aftermath:
-            spoils_order = [lid for lid in defenders if state.lords[lid].state == "mustered"]
-            aftermath["spoils"] = [
-                award_spoils(state, spoils_order, captured)
-                for captured in aftermath["spoils"]
-            ]
+        survivors = [lid for lid in defenders if state.lords[lid].state == "mustered"]
+        record_sally_spoils(state, result["winner"], survivors, aftermath.pop("spoils", []), {})
     else:
         # Sallying side won. Besieging side Lords lose per 4.4 Battle
         # aftermath. Siege is lifted (remove all siege markers).
         from nevsky.actions import _remove_lord_permanently as _rem
-        from nevsky.battle import apply_retreat_service_shift, transfer_retreat_spoils
+        from nevsky.battle import apply_retreat_service_shift, collect_retreat_spoils
         from nevsky.static_data import load_lords
         conceded_retreats = []
         conceded_spoil_indexes = []
@@ -4928,13 +4875,7 @@ def _h_cmd_sally(
             l = state.lords[lid]
             if not l.forces and not l.routed_units:
                 spoil = collect_spoils(state, lid, "all_except_ships")
-                # SMOKE-101 (Round 131): Sally-win + besieger zero-
-                # forces — the sallying side (sd) killed the besieger,
-                # so Ransom may apply. Mirror gap with Battle/Storm.
-                r = apply_ransom(state, lid, sd, locale_id)
-                if r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(r)
-                _rem(state, lid, load_lords()[lid])
+                _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
                 aftermath.setdefault("removed", []).append(lid)
                 aftermath.setdefault("spoils", []).append(spoil)
             else:
@@ -4966,13 +4907,7 @@ def _h_cmd_sally(
                     target, retreat_way_type_actual = _sdests[0]
                 if target is None:
                     spoil = collect_spoils(state, lid, "all_except_ships")
-                    # SMOKE-101 (Round 131): Sally-win + besieger has
-                    # no retreat path — killer is sd. Mirror gap with
-                    # Battle no-retreat and zero-forces branches.
-                    r = apply_ransom(state, lid, sd, locale_id)
-                    if r.get("ransom"):
-                        aftermath.setdefault("ransom", []).append(r)
-                    _rem(state, lid, load_lords()[lid])
+                    _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
                     aftermath.setdefault("removed", []).append(lid)
                     aftermath.setdefault("spoils", []).append(spoil)
                 else:
@@ -5015,10 +4950,7 @@ def _h_cmd_sally(
                     else:
                         spoil = collect_spoils(state, lid, "all_except_ships")
                     if removed_by_losses:
-                        r = apply_ransom(state, lid, sd, locale_id)
-                        if r.get("ransom"):
-                            aftermath.setdefault("ransom", []).append(r)
-                        _rem(state, lid, load_lords()[lid])
+                        _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
                         aftermath.setdefault("removed", []).append(lid)
                     aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
                     aftermath.setdefault("spoils", []).append(spoil)
@@ -5027,26 +4959,19 @@ def _h_cmd_sally(
         # unit at unmodified Protection ("stood_field"). The previous
         # restore-all rested on the SMOKE-099 misquote of 4.4.4.
         from nevsky.battle import apply_losses_rolls as _alr_sv
-        _kill_side_sally_won: "Side" = "russian" if sd == "teutonic" else "teutonic"
         for alid in list(attackers):
             if alid not in state.lords:
                 continue
             if state.lords[alid].routed_units:
                 _alr_sv(state, alid, "stood_field")
             if not state.lords[alid].forces:
-                r = apply_ransom(state, alid, _kill_side_sally_won, locale_id)
-                if r.get("ransom"):
-                    aftermath.setdefault("ransom", []).append(r)
-                _rem(state, alid, load_lords()[alid])
+                _rem(state, alid, load_lords()[alid], combat_locale=locale_id)
                 aftermath.setdefault("winner_removed_by_losses", []).append(alid)
-        spoils_order = [lid for lid in attackers if state.lords[lid].state == "mustered"]
-        for index, captured in enumerate(aftermath.get("spoils", [])):
-            if captured:
-                aftermath["spoils"][index] = award_spoils(state, spoils_order, captured)
-        for index, spoil in zip(conceded_spoil_indexes, transfer_retreat_spoils(
-                state, conceded_retreats, spoils_order,
-                keep_order=args.get("retreat_keep_order")), strict=True):
-            aftermath["spoils"][index] = spoil
+        for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
+                state, conceded_retreats, keep_order=args.get("retreat_keep_order")), strict=True):
+            aftermath["spoils"][index] = captured
+        survivors = [lid for lid in attackers if state.lords[lid].state == "mustered"]
+        record_sally_spoils(state, sd, survivors, aftermath.pop("spoils", []), args)
         # Siege lifted.
         state.locales[locale_id].siege_markers = 0
         aftermath["siege_lifted"] = True
@@ -5433,38 +5358,6 @@ def _h_cmd_raiders_ravage(
     # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
     _consume_actions(state, 1)
     return ({"lord_id": lord_id, "target": target, "loot_added": has_t2 and static["type"] != "region"}, [])
-
-
-def apply_ransom(
-    state: GameState, removed_lord: str, killer_side: Side, locale_id: str
-) -> dict[str, Any]:
-    """T16 / R7 Ransom hook (4.4 Aftermath / 4.5.2 Sack).
-
-    Called when an enemy Lord is removed in Battle/Storm or while
-    Besieged. If the killer side has Ransom in play, add Coin equal to
-    removed Lord's Service rating to a friendly Lord present at the
-    same locale.
-    """
-    from nevsky.capabilities import has_side_capability
-    from nevsky.static_data import load_lords
-
-    if not has_side_capability(state, killer_side, "Ransom"):
-        return {"ransom": False}
-    sl = load_lords().get(removed_lord)
-    if sl is None:
-        return {"ransom": False}
-    coin = int(sl["ratings"]["service"])
-    # Find a friendly Lord at locale_id.
-    candidates = [
-        lid for lid, l in state.lords.items()
-        if l.state == "mustered" and l.location == locale_id and l.side == killer_side
-    ]
-    if not candidates:
-        return {"ransom": True, "coin_lost_no_recipient": coin}
-    recip = candidates[0]
-    new_amt = min(8, state.lords[recip].assets.get("coin", 0) + coin)
-    state.lords[recip].assets["coin"] = new_amt
-    return {"ransom": True, "removed": removed_lord, "recipient": recip, "coin": coin}
 
 
 def effective_ship_count(state: GameState, lord_id: str) -> int:

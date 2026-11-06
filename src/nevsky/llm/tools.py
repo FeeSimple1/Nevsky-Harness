@@ -26,12 +26,84 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
     if side not in ("teutonic", "russian") or state.meta.game_over:
         return []
     if state.meta.active_player != side:
+        from nevsky.rewards import pending_reward
+        if pending_reward(state) is not None:
+            return []
         from nevsky.held_actions import held_actions_for_side
         return held_actions_for_side(state, side, interrupts_only=True)
     moves = legal_moves(state, with_previews=False)
+    for move in moves:
+        if "holds_available" in move:
+            move["holds_available"] = [hold for hold in move["holds_available"]
+                                       if hold["side"] == side]
+            if not move["holds_available"]:
+                move.pop("holds_available")
+                move.pop("holds_template", None)
+        if "retreat_keep_order_options" in move:
+            move["retreat_keep_order_options"] = [
+                lid for lid in move["retreat_keep_order_options"] if state.lords[lid].side == side]
+            if not move["retreat_keep_order_options"]:
+                move.pop("retreat_keep_order_options")
+                move.pop("retreat_keep_order_template", None)
     # Add a strategic note if the move type has one (legal_moves
     # already adds notes for many moves). Return as-is.
     return moves
+
+
+_BATTLE_HOLD_CARDS = {
+    "marsh": ("T5", "R2"),
+    "hill": ("T9", "R5"),
+    "ambush": ("T6", "R6"),
+    "field_organ": ("T10",),
+    "raven_rock": ("R4",),
+    "bridge": ("T4", "R1"),
+}
+
+
+def _validate_combat_owner(state, side: str, kind: str, args: dict[str, Any]) -> None:
+    from nevsky.campaign import _concede_decisions_from_args
+    from nevsky.static_data import load_cards
+
+    if kind in ("stand_battle", "cmd_sally"):
+        role = "defender" if kind == "stand_battle" else "attacker"
+        _concede_decisions_from_args(args, owner_role=role)
+
+    # The raw referee API can submit decisions for both combatants.
+    if args.get("scripted_decisions") or args.get("decision_callback") is not None:
+        raise IllegalAction("wrong_actor", "two-sided combat scripts require the referee API")
+
+    for field in ("remove_losers", "withdraw_losers", "retreat_to", "retreat_keep_order",
+                  "spoils_recipient", "spoils_allocation"):
+        election = args.get(field)
+        if not election:
+            continue
+        if field == "withdraw_losers" and election is True and kind == "stand_battle":
+            continue
+        if isinstance(election, str) and field == "spoils_recipient":
+            election = [election]
+        if not isinstance(election, (dict, list)) or any(
+            not isinstance(lid, str) or lid not in state.lords or state.lords[lid].side != side
+            for lid in election
+        ):
+            raise IllegalAction("wrong_actor", f"{field} may only name the caller's own Lords")
+
+    holds = args.get("holds") or {}
+    if not isinstance(holds, dict):
+        raise IllegalAction("bad_holds", "holds must be a Battle Hold argument map")
+    cards = load_cards() if holds else {}
+    for key, card in holds.items():
+        if key in ("field_organ_lord", "bridge_target_lord"):
+            continue
+        if card not in _BATTLE_HOLD_CARDS.get(key, ()):
+            raise IllegalAction("bad_hold", f"{key} requires its printed Hold card ID")
+        if cards[card]["side"] != side:
+            raise IllegalAction("wrong_actor", f"{key} requires the caller's own Held card")
+    hold_targets = (("field_organ_lord", "field_organ"), ("bridge_target_lord", "bridge"))
+    for target_key, card_key in hold_targets:
+        if target_key in holds and card_key not in holds:
+            raise IllegalAction("bad_hold", f"{target_key} requires its Held card")
+    if kind == "cmd_storm" and args.get("field_organ_lord") and side != "teutonic":
+        raise IllegalAction("wrong_actor", "only the Teutonic player may play Field Organ")
 
 
 def apply_action_for_side(state, side: str, action: dict) -> dict:
@@ -43,7 +115,7 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
     The LLM should always include "side" matching its play side. If
     the action's "side" field is missing, fill it from `side`. Conflicting
     sides reject before any engine setup or private card draw.
-    Concede declarations must also belong to the caller's combat role.
+    Combat elections must belong to the caller.
     """
     if side not in ("teutonic", "russian"):
         raise IllegalAction("wrong_actor", "side must be 'teutonic' or 'russian'")
@@ -56,11 +128,8 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
                             f"caller is {side}; action declares side={action['side']!r}")
     kind = action.get("type")
     args = action.get("args")
-    if kind in ("stand_battle", "cmd_sally") and isinstance(args, dict):
-        from nevsky.campaign import _concede_decisions_from_args
-
-        role = "defender" if kind == "stand_battle" else "attacker"
-        _concede_decisions_from_args(args, owner_role=role)
+    if kind in ("stand_battle", "cmd_sally", "cmd_storm") and isinstance(args, dict):
+        _validate_combat_owner(state, side, kind, args)
     return apply_action(state, action)
 
 
@@ -69,6 +138,10 @@ def safe_fallback_for_side(state, side: str) -> dict:
     repeated illegal-action retries. The LLM doesn't typically call
     this directly; the orchestrating loop calls it.
     """
+    from nevsky.rewards import REWARD_ACTION, pending_reward
+
+    if pending_reward(state) is not None:
+        return {"type": REWARD_ACTION, "side": side, "args": {}}
     phase = state.meta.phase
     levy_step = state.meta.levy_step
     camp_step = state.meta.campaign_step

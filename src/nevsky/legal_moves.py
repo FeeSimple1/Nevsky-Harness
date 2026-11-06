@@ -45,6 +45,11 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
     if state.meta.game_over or side is None:
         return []
 
+    from nevsky.rewards import pending_reward, reward_moves
+
+    if (reward := pending_reward(state)) is not None:
+        return reward_moves(state, reward)
+
     # Printed Transport (any) quantities are player choices. Keep each
     # unresolved slot discoverable, including those with Q-001 defaults
     # that will otherwise auto-confirm when the player proceeds with Levy.

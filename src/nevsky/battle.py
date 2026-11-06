@@ -2129,9 +2129,9 @@ def _shared_provender_limits(
     return kept
 
 
-def transfer_retreat_spoils(
-    state: GameState, retreats: list[tuple[str, str | None]], winners: list[str],
-    *, allocation: dict[str, dict[str, int]] | None = None,
+def collect_retreat_spoils(
+    state: GameState, retreats: list[tuple[str, str | None]],
+    *,
     keep_order: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Conceding survivors Share usable Transport on the same Retreat Way.
@@ -2160,9 +2160,8 @@ def transfer_retreat_spoils(
             groups.setdefault((lord.side, lord.location, way), []).append(lid)
     for (_, _, way), lords in groups.items():
         limits.update(_shared_provender_limits(state, lords, way, keep_order))
-    return [transfer_spoils(state, lid, winners, "loot_and_excess",
-                            retreat_way_type=way, allocation=allocation,
-                            provender_limit=limits.get(lid)) for lid, way in retreats]
+    return [collect_spoils(state, lid, "loot_and_excess", retreat_way_type=way,
+                           provender_limit=limits.get(lid)) for lid, way in retreats]
 
 
 def transfer_spoils(

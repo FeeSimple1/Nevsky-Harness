@@ -166,6 +166,11 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
 
+    from nevsky.rewards import REWARD_ACTION, pending_reward, settle_rewards
+
+    if pending_reward(state) is not None and atype != REWARD_ACTION:
+        raise IllegalAction("aftermath_reward_pending", "allocate the reward before resuming play")
+
     # Terminal guard: once the scenario is over (game_over flag set the
     # instant a 5.2 Campaign Victory fires or the final Campaign ends under
     # 5.3), the engine accepts no further action -- no calendar advance, no
@@ -204,12 +209,14 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
                 "set_setup_transport",
                 "confirm_all_setup_transports",
                 "system_setup_complete",
+                REWARD_ACTION,
             )
         ):
             auto_confirmed = _auto_confirm_setup_transport_choices(state, side)  # type: ignore[arg-type]
 
         # Each handler returns (result_dict, dice_list).
         result, dice = handler(state, side, args)
+        settle_rewards(state, result)
         if auto_confirmed:
             if isinstance(result, dict):
                 result.setdefault("_auto_confirmed_setup_transports", auto_confirmed)
@@ -1583,7 +1590,9 @@ def _award_lord_departure_vp(state: GameState, lord_id: str) -> None:
     refresh_victory_markers(state)  # Includes the 17.5-VP cap.
 
 
-def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any]) -> None:
+def _remove_lord_permanently(
+    state: GameState, lord_id: str, sl: dict[str, Any], *, combat_locale: str | None = None,
+) -> None:
     """3.3.1: permanent removal of a Lord.
 
     - Lord state -> 'removed', forces/assets cleared, vassals cleared.
@@ -1601,6 +1610,9 @@ def _remove_lord_permanently(state: GameState, lord_id: str, sl: dict[str, Any])
     # SMOKE-087 (Round 91): capture pre-removal location so we can
     # check the Legate's "no Teutonic, Russian present" auto-removal
     # rule after the Lord is gone.
+    if combat_locale is not None or _is_besieged(state, lord_id):
+        from nevsky.rewards import record_ransom
+        record_ransom(state, lord_id, locale=combat_locale)
     _smoke087_removed_location = lord.location
     _smoke087_removed_side = side
     _award_lord_departure_vp(state, lord_id)
@@ -1811,6 +1823,9 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     # SMOKE-088 (Round 92): capture pre-disband location for the
     # Legate auto-removal check (1.4.1 "Russian Lord(s) and no
     # Teutonic Lord at Legate's Locale").
+    if _is_besieged(state, lord_id):
+        from nevsky.rewards import record_ransom
+        record_ransom(state, lord_id)
     _smoke088_disband_location = lord.location
     _smoke088_disband_side = side
     deck = _side_deck(state, side)
@@ -3473,8 +3488,10 @@ _HANDLERS: dict[str, Any] = {
 # Phase 3 campaign handlers are registered at import time.
 def _register_campaign_handlers() -> None:
     from nevsky.campaign import HANDLERS as CAMPAIGN_HANDLERS
+    from nevsky.rewards import REWARD_ACTION, allocate_aftermath_reward
 
     _HANDLERS.update(CAMPAIGN_HANDLERS)
+    _HANDLERS[REWARD_ACTION] = allocate_aftermath_reward
 
 
 _register_campaign_handlers()

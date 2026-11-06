@@ -199,3 +199,22 @@ without invariant violations or step-limit exits.
 
 All **six third-audit Nevsky groups are fixed**. Overall progress is
 **13 of 23 groups**.
+
+## Fourth audit, first tranche — N4-01 to N4-03 and IF4-01
+
+- **Ransom:** Combat removal and Disband while Besieged share the same
+  trigger. Awards use the surviving friendly Lords at the relevant Locale
+  after Losses. The owner can choose one mat for each Ransom before Spoils
+  are distributed. The receipt reports the actual Coin added and any excess.
+- **Sally Spoils:** Winning Sallying Lords and winning Besiegers can allocate
+  captured Assets among surviving mats. When a choice is needed, the menu
+  offers `allocate_aftermath_reward` with the pool and available capacity.
+  Supply `args.recipient` for Ransom or `args.allocation` for Spoils.
+  Empty args use the default. Unambiguous awards settle immediately.
+  The pending choice survives save and reload, and play resumes after it.
+- **Player ownership:** The player tool and both LLMSession roles reject
+  opposing Lord elections, opposing Held cards, and shared combat scripts
+  before resolution. Player menus show only the caller's Hold choices.
+  The referee dispatcher accepts authorized choices for both sides.
+
+Fourth-audit progress is **four of 21 groups**. This tranche completes Nevsky.

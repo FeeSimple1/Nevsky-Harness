@@ -151,10 +151,15 @@ def test_fully_routed_besieger_without_retreat_is_still_removed():
         lord.in_stronghold = False
         lord.forces = {"militia": 1}
     assert _legal_retreat_dests(state, "pskov", "teutonic") == []
+    state.decks.russian.deck.remove("R7")
+    state.decks.russian.capabilities_in_play.append("R7")
     result = sally(state)
     assert state.lords["hermann"].state == "removed"
     assert "hermann" in result["removed"]
     assert not result.get("retreats")
+    assert result["ransom"][0]["recipient"] == "gavrilo"
+    assert result["ransom"][0]["coin"] == 4
+    assert state.lords["gavrilo"].assets["coin"] == 6
 
 
 def test_surviving_conceding_besieger_retains_non_spoils_assets():

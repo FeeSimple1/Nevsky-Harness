@@ -197,18 +197,23 @@ def test_smoke_032_transfer_spoils_none_mode_unchanged():
 
 # --- Storm Sack (path 3) ---
 
-def test_smoke_032_storm_sack_uses_capped_helper():
-    """Confirm the Storm Sack inter-Lord transfer routes through
-    _award_assets_capped (regression on the previously uncapped block).
-    Inspect the source to lock the pattern."""
-    import nevsky.campaign as camp
-    import inspect
-    src = inspect.getsource(camp._h_cmd_storm)
-    # The uncapped pattern is dead.
-    assert "w.assets[k] = w.assets.get(k, 0) + v" not in src, (
-        "Storm Sack still has uncapped += pattern"
-    )
-    # The helper-routed pattern is present. PLAY-35: the sack path now
-    # routes through distribute_spoils (also 1.7.3 cap-aware, spreading
-    # across all Besiegers before anything is lost to the cap).
-    assert "distribute_spoils" in src
+def test_storm_sack_captures_coin_up_to_each_survivor_cap():
+    from nevsky.actions import apply_action
+    from tests.test_play35_spoils_distribution import _storm_ready
+
+    state, first, second = _storm_ready()
+    victim = next(lid for lid, lord in state.lords.items()
+                  if lord.side == "russian" and lord.in_stronghold)
+    state.lords[victim].assets = {"coin": 4}
+    state.lords[first].assets = {"coin": 7}
+    state.lords[second].assets = {"coin": 6}
+    result = apply_action(state, {
+        "type": "cmd_storm", "side": "teutonic",
+        "args": {"lord_id": first, "spoils_recipient": [first, second]},
+    })
+    assert result["battle"]["winner"] == "attacker"
+    assert result["sack_spoils_distribution"] == [{
+        "from_lord": victim, "split": {first: {"coin": 1}, second: {"coin": 2}},
+    }]
+    assert {"from_lord": victim, "lost": {"coin": 1}} in result["storm_spoils_lost_to_cap"]
+    assert state.lords[first].assets["coin"] == state.lords[second].assets["coin"] == 8
