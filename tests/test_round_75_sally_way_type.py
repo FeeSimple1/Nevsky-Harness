@@ -22,12 +22,12 @@ Way-type cases execute real seeded Sally actions.
 import inspect
 
 import nevsky.actions  # noqa: F401 — register handlers
-from nevsky.campaign import _h_cmd_sally
+from nevsky.campaign import _finish_successful_sally, _h_cmd_sally
 from tests.test_cross_game_sally import sally, sally_state
 
 
 def test_sally_aftermath_captures_retreat_way_type() -> None:
-    src = inspect.getsource(_h_cmd_sally)
+    src = inspect.getsource(_finish_successful_sally)
     # The fix introduces retreat_way_type_actual.
     assert "retreat_way_type_actual" in src, (
         "Sally aftermath should capture retreat_way_type_actual from the "

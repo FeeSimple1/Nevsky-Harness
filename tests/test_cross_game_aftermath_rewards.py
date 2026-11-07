@@ -144,6 +144,10 @@ def test_successful_sally_winner_allocates_spoils(preselect):
     plan = {"gavrilo": {"loot": 2}}
     result = sally(state, **({"spoils_allocation": plan} if preselect else {}))
     assert result["battle"]["winner"] == "russian"
+    assert result["awaiting_sally_loser_fate"] == {"owed_by": "teutonic"}
+    result = apply_action_for_side(state, "teutonic", {
+        "type": "resolve_sally_loser_fate", "args": {},
+    })
     if not preselect:
         assert state.meta.active_player == "russian"
         assert legal_actions_for_side(state, "russian")[0]["reward"]["pool"] == {"loot": 2}

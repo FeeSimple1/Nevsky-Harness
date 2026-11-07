@@ -24,13 +24,13 @@ import nevsky.campaign as camp
 
 
 def test_sally_aftermath_calls_apply_losses_rolls():
-    src = inspect.getsource(camp._h_cmd_sally)
+    src = inspect.getsource(camp._finish_successful_sally)
     assert "SMOKE-094" in src
     assert "apply_losses_rolls" in src
 
 
 def test_sally_aftermath_picks_conceded_loss_state():
-    src = inspect.getsource(camp._h_cmd_sally)
+    src = inspect.getsource(camp._finish_successful_sally)
     smoke = src[src.find("SMOKE-094"):]
     # Should use "conceded_then_retreated" or "retreated_no_concede".
     assert "conceded_then_retreated" in smoke
@@ -38,6 +38,6 @@ def test_sally_aftermath_picks_conceded_loss_state():
 
 
 def test_sally_aftermath_only_runs_when_routed_units_exist():
-    src = inspect.getsource(camp._h_cmd_sally)
+    src = inspect.getsource(camp._finish_successful_sally)
     smoke = src[src.find("SMOKE-094"):]
     assert "routed_units" in smoke

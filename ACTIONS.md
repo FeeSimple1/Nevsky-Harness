@@ -411,6 +411,14 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
 ### 4.5.3 Sally
 
 - **`cmd_sally`** — one Command action (D-Q010; 4.5.3 "may use a Command"). `args.lord_id` (Besieged Lord). The Sally Battle ends the card via 4.4.5 Recovery.
+  On a successful Sally, player menus hand off to the defeated besieger for
+  `resolve_sally_loser_fate` before Recovery when any Lord has a choice.
+  Supply `args.remove_losers` (list of Lords to remove permanently) and
+  optional `args.retreat_to` (Lord-to-Locale map). Unnamed Lords Retreat
+  normally, using the first legal destination if unspecified. The referee
+  API can prearrange `remove_losers` on `cmd_sally`, receive
+  `sally_loser_fate` decisions via the combat callback, or set
+  `choose_loser_fate: true` for the same owner handoff as the player menus.
   - Sallying side does NOT benefit from Walls or Garrison.
   - Defenders (Besiegers at the same locale) receive Siegeworks
     as Walls. Phase 3c uses the Battle resolver for the engagement

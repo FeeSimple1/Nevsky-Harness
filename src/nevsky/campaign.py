@@ -39,6 +39,7 @@ from nevsky.rewards import apply_ransom as apply_ransom
 from nevsky.state import (
     CombatPending,
     GameState,
+    PendingDecision,
     Side,
     detach_vassal_marker,
     move_vassal_marker,
@@ -4737,6 +4738,22 @@ def _sally_combat_context(
     )
 
 
+SALLY_FATE_ACTION = "resolve_sally_loser_fate"
+
+
+def pending_sally_fate(state: GameState) -> PendingDecision | None:
+    return next((p for p in state.pending_decisions if p.kind == SALLY_FATE_ACTION), None)
+
+
+def _sally_removals(raw: Any, eligible: list[str]) -> set[str]:
+    if raw is None:
+        return set()
+    if not isinstance(raw, list) or any(not isinstance(lid, str) or lid not in eligible
+                                        for lid in raw):
+        raise IllegalAction("bad_remove_losers", "remove_losers must list losing besiegers")
+    return set(raw)
+
+
 def _h_cmd_sally(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -4771,6 +4788,12 @@ def _h_cmd_sally(
     defenders = combat.defender_lords
     if not defenders:
         raise IllegalAction("no_defenders", "no besieging enemy Lords to Sally against")
+    choose_fate = args.get("choose_loser_fate", False)
+    if type(choose_fate) is not bool:
+        raise IllegalAction("bad_sally_fate", "choose_loser_fate must be a boolean")
+    if choose_fate and (args.get("remove_losers") or args.get("retreat_to")):
+        raise IllegalAction("wrong_actor", "the losing besieger chooses Removal or Retreat")
+    remove_losers = _sally_removals(args.get("remove_losers"), defenders)
 
     # A Sally is a Battle: use the same Hold ownership, season and target
     # checks as ordinary Battle, rather than silently ignoring legal Events.
@@ -4819,6 +4842,8 @@ def _h_cmd_sally(
     aftermath: dict[str, Any] = {"battle": result, "siegeworks_walls": siege_markers_at_locale}
 
     if result["loser"] == sd:
+        if remove_losers:
+            raise IllegalAction("bad_remove_losers", "the besiegers won the Sally")
         # Sallying side lost: Withdraw back inside (4.5.3).
         # Siege markers reduced to 1 (RAID).
         state.locales[locale_id].siege_markers = 1
@@ -4862,152 +4887,231 @@ def _h_cmd_sally(
         survivors = [lid for lid in defenders if state.lords[lid].state == "mustered"]
         record_sally_spoils(state, result["winner"], survivors, aftermath.pop("spoils", []), {})
     else:
-        # Sallying side won. Besieging side Lords lose per 4.4 Battle
-        # aftermath. Siege is lifted (remove all siege markers).
-        from nevsky.actions import _remove_lord_permanently as _rem
-        from nevsky.battle import apply_retreat_service_shift, collect_retreat_spoils
-        from nevsky.static_data import load_lords
-        conceded_retreats = []
-        conceded_spoil_indexes = []
-        for lid in list(defenders):
-            if lid not in state.lords:
-                continue
-            l = state.lords[lid]
-            if not l.forces and not l.routed_units:
+        retreat_dests = _legal_retreat_dests(state, locale_id, combat.defender_side)
+        candidates = [lid for lid in defenders if retreat_dests
+                      and (state.lords[lid].forces or state.lords[lid].routed_units)]
+        if choose_fate and candidates:
+            from nevsky.rewards import _validate_allocation
+
+            spoils_args = {}
+            if "spoils_recipient" in args:
+                spoils_args["spoils_recipient"] = deepcopy(args["spoils_recipient"])
+            if (plan := args.get("spoils_allocation")) is not None:
+                spoils_args["spoils_allocation"] = _validate_allocation(plan, attackers)
+            context = {
+                "locale": locale_id, "attackers": attackers, "defenders": defenders,
+                "winner": sd, "conceded": result.get("conceded") == "defender",
+                "candidates": candidates,
+                "retreat_destinations": list(dict.fromkeys(dest for dest, _ in retreat_dests)),
+                "spoils_args": spoils_args,
+            }
+            state.pending_decisions.append(PendingDecision(
+                kind=SALLY_FATE_ACTION, owed_by=combat.defender_side, context=context,
+            ))
+            state.campaign_turn.actions_remaining = 0
+            state.meta.active_player = combat.defender_side
+            aftermath["awaiting_sally_loser_fate"] = {"owed_by": combat.defender_side}
+            return aftermath, []
+        if args.get("remove_losers") is None and (decision_ctx.callback or decision_ctx.scripted):
+            retreats = args.get("retreat_to")
+            for lid in candidates:
+                if isinstance(retreats, dict) and lid in retreats:
+                    continue
+                scripted = decision_ctx.scripted
+                if decision_ctx.callback is not None or (
+                    scripted and scripted[0].get("type") == "sally_loser_fate"
+                ):
+                    fate = decision_ctx.decide("sally_loser_fate", combat.defender_side,
+                                               ["retreat", "remove"], {"lord_id": lid})
+                    if fate == "remove":
+                        remove_losers.add(lid)
+            result["decisions"] = list(decision_ctx.log)
+        _finish_successful_sally(state, sd, locale_id, attackers, defenders,
+                                 result.get("conceded") == "defender", args,
+                                 remove_losers, aftermath)
+    state.campaign_turn.actions_remaining = 0
+    _enter_feed_pay_disband(state)
+    return (aftermath, [])
+
+
+def _h_resolve_sally_loser_fate(
+    state: GameState, side: str, args: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    pending = pending_sally_fate(state)
+    if pending is None:
+        raise IllegalAction("no_sally_loser_fate", "no Sally fate decision is pending")
+    if side != pending.owed_by or side != state.meta.active_player:
+        raise IllegalAction("wrong_actor", "only the losing besieger chooses each Lord's fate")
+    if set(args) - {"remove_losers", "retreat_to"}:
+        raise IllegalAction("bad_sally_fate", "choose remove_losers or retreat_to")
+    ctx = pending.context
+    removed = _sally_removals(args.get("remove_losers"), ctx["candidates"])
+    retreats = args.get("retreat_to", {})
+    if not isinstance(retreats, dict) or any(
+        lid not in ctx["candidates"] or lid in removed or dest not in ctx["retreat_destinations"]
+        for lid, dest in retreats.items()
+    ):
+        raise IllegalAction("bad_retreat_to", "choose a legal destination for a Retreating Lord")
+    state.pending_decisions.remove(pending)
+    aftermath: dict[str, Any] = {}
+    _finish_successful_sally(state, ctx["winner"], ctx["locale"], ctx["attackers"],
+                            ctx["defenders"], ctx["conceded"],
+                            {**ctx["spoils_args"], "retreat_to": retreats}, removed, aftermath,
+                            staged=True)
+    _enter_feed_pay_disband(state)
+    return aftermath, []
+
+
+def _finish_successful_sally(
+    state: GameState, sd: Side, locale_id: str, attackers: list[str], defenders: list[str],
+    defenders_conceded: bool, args: dict[str, Any], remove_losers: set[str],
+    aftermath: dict[str, Any], *, staged: bool = False,
+) -> None:
+    """Resolve a Sally victory after the besiegers have chosen their fate."""
+    from nevsky.battle import collect_spoils
+    from nevsky.rewards import record_sally_spoils
+
+    # Sallying side won. Besieging side Lords lose per 4.4 Battle
+    # aftermath. Siege is lifted (remove all siege markers).
+    from nevsky.actions import _remove_lord_permanently as _rem
+    from nevsky.battle import apply_retreat_service_shift, collect_retreat_spoils
+    from nevsky.static_data import load_lords
+    conceded_retreats = []
+    conceded_spoil_indexes = []
+    for lid in list(defenders):
+        if lid not in state.lords:
+            continue
+        l = state.lords[lid]
+        if lid in remove_losers or (not l.forces and not l.routed_units):
+            spoil = collect_spoils(state, lid, "all_except_ships")
+            _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
+            aftermath.setdefault("removed", []).append(lid)
+            aftermath.setdefault("spoils", []).append(spoil)
+        else:
+            # PLAY-29 (4.4.3): the losing Besieger Retreats to a single
+            # adjacent Locale with no UNBESIEGED enemy Lords or
+            # Strongholds. (SMOKE-049 previously also blocked enemy-
+            # Conquered Locales and omitted the "Unbesieged" qualifier;
+            # 4.4.3 has no Conquered-marker clause -- an enemy-Conquered
+            # Stronghold blocks only while Unbesieged, already covered by
+            # the Stronghold test.) There is no Approach Way to exclude
+            # in a Sally. The owning player may choose via
+            # args.retreat_to; unspecified -> first legal.
+            # SMOKE-071 (Round 75): capture the retreat Way's type for
+            # the Conceded+Retreated Spoils Unladen computation.
+            target = None
+            retreat_way_type_actual: str | None = None
+            _sdests = _legal_retreat_dests(state, locale_id, l.side)
+            _rt_map = args.get("retreat_to") or {}
+            if isinstance(_rt_map, dict) and lid in _rt_map:
+                _want = _rt_map[lid]
+                _match = [(d, wt) for d, wt in _sdests if d == _want]
+                if not _match:
+                    raise IllegalAction(
+                        "bad_retreat_dest",
+                        f"{_want} is not a legal Retreat destination for {lid} "
+                        f"(4.4.3); legal: {sorted({d for d, _ in _sdests})}")
+                target, retreat_way_type_actual = _match[0]
+            elif _sdests:
+                target, retreat_way_type_actual = _sdests[0]
+            if target is None:
                 spoil = collect_spoils(state, lid, "all_except_ships")
                 _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
                 aftermath.setdefault("removed", []).append(lid)
                 aftermath.setdefault("spoils", []).append(spoil)
             else:
-                # PLAY-29 (4.4.3): the losing Besieger Retreats to a single
-                # adjacent Locale with no UNBESIEGED enemy Lords or
-                # Strongholds. (SMOKE-049 previously also blocked enemy-
-                # Conquered Locales and omitted the "Unbesieged" qualifier;
-                # 4.4.3 has no Conquered-marker clause -- an enemy-Conquered
-                # Stronghold blocks only while Unbesieged, already covered by
-                # the Stronghold test.) There is no Approach Way to exclude
-                # in a Sally. The owning player may choose via
-                # args.retreat_to; unspecified -> first legal.
-                # SMOKE-071 (Round 75): capture the retreat Way's type for
-                # the Conceded+Retreated Spoils Unladen computation.
-                target = None
-                retreat_way_type_actual: str | None = None
-                _sdests = _legal_retreat_dests(state, locale_id, l.side)
-                _rt_map = args.get("retreat_to") or {}
-                if isinstance(_rt_map, dict) and lid in _rt_map:
-                    _want = _rt_map[lid]
-                    _match = [(d, wt) for d, wt in _sdests if d == _want]
-                    if not _match:
-                        raise IllegalAction(
-                            "bad_retreat_dest",
-                            f"{_want} is not a legal Retreat destination for {lid} "
-                            f"(4.4.3); legal: {sorted({d for d, _ in _sdests})}")
-                    target, retreat_way_type_actual = _match[0]
-                elif _sdests:
-                    target, retreat_way_type_actual = _sdests[0]
-                if target is None:
+                l.location = target
+                # SMOKE-036: clear in_stronghold on Sally retreat.
+                l.in_stronghold = False
+                # SMOKE-091 (Round 99): trade-route auto-flip on Sally retreat.
+                _flip_trade_route_if_uncontested(state, target, l.side)
+                shift = apply_retreat_service_shift(state, lid)
+                # SMOKE-071 (Round 75): honor 4.4.3 Concede-the-Field
+                # Spoils. If the defender (besieger) Conceded the
+                # Field and Retreated, only Loot and excess
+                # Provender transfer. Without Concede, all assets
+                # except Ships transfer (Retreat-without-Concede).
+                # SMOKE-094 (Round 114): Sally aftermath Loser
+                # routed_units never resolved via 4.4.4 Losses
+                # (same gap as SMOKE-093 in Battle aftermath).
+                from nevsky.battle import apply_losses_rolls
+                sally_loss_state = (
+                    "conceded_then_retreated"
+                    if defenders_conceded
+                    else "retreated_no_concede"
+                )
+                if l.routed_units:
+                    aftermath.setdefault("losses", []).append(
+                        apply_losses_rolls(state, lid, sally_loss_state))
+                # Losses precede Spoils. A fully Routed loser may recover;
+                # if his final unit instead dies, remove him and capture
+                # all non-Ship Assets even if he Conceded the Field.
+                removed_by_losses = not l.forces
+                if defenders_conceded and not removed_by_losses:
+                    conceded_retreats.append((lid, retreat_way_type_actual))
+                    conceded_spoil_indexes.append(len(aftermath.get("spoils", [])))
+                    spoil = {}  # Shared capacity is known after all Losses.
+                else:
                     spoil = collect_spoils(state, lid, "all_except_ships")
+                if removed_by_losses:
                     _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
                     aftermath.setdefault("removed", []).append(lid)
-                    aftermath.setdefault("spoils", []).append(spoil)
-                else:
-                    l.location = target
-                    # SMOKE-036: clear in_stronghold on Sally retreat.
-                    l.in_stronghold = False
-                    # SMOKE-091 (Round 99): trade-route auto-flip on Sally retreat.
-                    _flip_trade_route_if_uncontested(state, target, l.side)
-                    shift = apply_retreat_service_shift(state, lid)
-                    # SMOKE-071 (Round 75): honor 4.4.3 Concede-the-Field
-                    # Spoils. If the defender (besieger) Conceded the
-                    # Field and Retreated, only Loot and excess
-                    # Provender transfer. Without Concede, all assets
-                    # except Ships transfer (Retreat-without-Concede).
-                    conceded_side = result.get("conceded")
-                    this_lord_conceded = (
-                        conceded_side == "defender"
-                        and result["loser"] != sd
-                    )
-                    # SMOKE-094 (Round 114): Sally aftermath Loser
-                    # routed_units never resolved via 4.4.4 Losses
-                    # (same gap as SMOKE-093 in Battle aftermath).
-                    from nevsky.battle import apply_losses_rolls
-                    sally_loss_state = (
-                        "conceded_then_retreated"
-                        if this_lord_conceded
-                        else "retreated_no_concede"
-                    )
-                    if l.routed_units:
-                        aftermath.setdefault("losses", []).append(
-                            apply_losses_rolls(state, lid, sally_loss_state))
-                    # Losses precede Spoils. A fully Routed loser may recover;
-                    # if his final unit instead dies, remove him and capture
-                    # all non-Ship Assets even if he Conceded the Field.
-                    removed_by_losses = not l.forces
-                    if this_lord_conceded and not removed_by_losses:
-                        conceded_retreats.append((lid, retreat_way_type_actual))
-                        conceded_spoil_indexes.append(len(aftermath.get("spoils", [])))
-                        spoil = {}  # Shared capacity is known after all Losses.
-                    else:
-                        spoil = collect_spoils(state, lid, "all_except_ships")
-                    if removed_by_losses:
-                        _rem(state, lid, load_lords()[lid], combat_locale=locale_id)
-                        aftermath.setdefault("removed", []).append(lid)
-                    aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
-                    aftermath.setdefault("spoils", []).append(spoil)
-        # PLAY-11 (Fable audit): 4.4.4 Losses applies to BOTH sides of
-        # a Sally-Battle -- winning sallying Lords roll each Routed
-        # unit at unmodified Protection ("stood_field"). The previous
-        # restore-all rested on the SMOKE-099 misquote of 4.4.4.
-        from nevsky.battle import apply_losses_rolls as _alr_sv
-        for alid in list(attackers):
-            if alid not in state.lords:
-                continue
-            if state.lords[alid].routed_units:
-                _alr_sv(state, alid, "stood_field")
-            if not state.lords[alid].forces:
-                _rem(state, alid, load_lords()[alid], combat_locale=locale_id)
-                aftermath.setdefault("winner_removed_by_losses", []).append(alid)
-        for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
-                state, conceded_retreats, keep_order=args.get("retreat_keep_order")), strict=True):
-            aftermath["spoils"][index] = captured
-        survivors = [lid for lid in attackers if state.lords[lid].state == "mustered"]
-        record_sally_spoils(state, sd, survivors, aftermath.pop("spoils", []), args)
-        # Siege lifted.
-        state.locales[locale_id].siege_markers = 0
-        aftermath["siege_lifted"] = True
-        aftermath["sally_outcome"] = "broken_siege"
-        # PLAY-10 (Fable audit): with the Siege over, nobody at the
-        # Locale is inside a Besieged Stronghold anymore. Pre-fix the
-        # sallying winners kept in_stronghold=True, so a later enemy
-        # March skipped the 4.3.4 Approach (no Avoid/Withdraw/Battle
-        # choice) and silently re-Besieged them.
-        for _lid2, _l2 in state.lords.items():
-            if _l2.location == locale_id and _l2.in_stronghold:
-                _l2.in_stronghold = False
-                aftermath.setdefault("no_longer_besieged", []).append(_lid2)
-        # SMOKE-085 (Round 89): per AoW Reference 1.4.1 Legate, a
-        # Teutonic Lord that Retreats (Sally aftermath when besiegers
-        # lose) triggers Legate removal if the pawn is at the locale.
-        # Mirrors the Avoid Battle / Withdraw / Battle-aftermath fixes.
-        if (state.legate.william_of_modena_in_play
-                and state.legate.location == "locale"
-                and state.legate.locale_id == locale_id):
-            teu_lost = any(
-                lid in state.lords and state.lords[lid].side == "teutonic"
-                for lid in defenders
-            )
-            if teu_lost:
-                if "T13" in state.decks.teutonic.capabilities_in_play:
-                    state.decks.teutonic.capabilities_in_play.remove("T13")
-                    state.decks.teutonic.discard.append("T13")
-                state.legate.william_of_modena_in_play = False
-                state.legate.location = "card"
-                state.legate.locale_id = None
-                aftermath["legate_removed"] = True
-
-    state.campaign_turn.actions_remaining = 0
-    _enter_feed_pay_disband(state)
-    return (aftermath, [])
+                aftermath.setdefault("retreats", []).append({"lord": lid, "to": target, "service_shift": shift})
+                aftermath.setdefault("spoils", []).append(spoil)
+    # PLAY-11 (Fable audit): 4.4.4 Losses applies to BOTH sides of
+    # a Sally-Battle -- winning sallying Lords roll each Routed
+    # unit at unmodified Protection ("stood_field"). The previous
+    # restore-all rested on the SMOKE-099 misquote of 4.4.4.
+    from nevsky.battle import apply_losses_rolls as _alr_sv
+    for alid in list(attackers):
+        if alid not in state.lords:
+            continue
+        if state.lords[alid].routed_units:
+            _alr_sv(state, alid, "stood_field")
+        if not state.lords[alid].forces:
+            _rem(state, alid, load_lords()[alid], combat_locale=locale_id)
+            aftermath.setdefault("winner_removed_by_losses", []).append(alid)
+    for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
+            state, conceded_retreats, keep_order=args.get("retreat_keep_order")), strict=True):
+        aftermath["spoils"][index] = captured
+    survivors = [lid for lid in attackers if state.lords[lid].state == "mustered"]
+    if staged and any(lid not in survivors for lid in args.get("spoils_allocation", {})):
+        # Losses invalidated the winner's earlier plan. Let the winner choose
+        # again from the surviving recipients instead of blocking the handoff.
+        args = {}
+    record_sally_spoils(state, sd, survivors, aftermath.pop("spoils", []), args)
+    # Siege lifted.
+    state.locales[locale_id].siege_markers = 0
+    aftermath["siege_lifted"] = True
+    aftermath["sally_outcome"] = "broken_siege"
+    # PLAY-10 (Fable audit): with the Siege over, nobody at the
+    # Locale is inside a Besieged Stronghold anymore. Pre-fix the
+    # sallying winners kept in_stronghold=True, so a later enemy
+    # March skipped the 4.3.4 Approach (no Avoid/Withdraw/Battle
+    # choice) and silently re-Besieged them.
+    for _lid2, _l2 in state.lords.items():
+        if _l2.location == locale_id and _l2.in_stronghold:
+            _l2.in_stronghold = False
+            aftermath.setdefault("no_longer_besieged", []).append(_lid2)
+    # SMOKE-085 (Round 89): per AoW Reference 1.4.1 Legate, a
+    # Teutonic Lord that Retreats (Sally aftermath when besiegers
+    # lose) triggers Legate removal if the pawn is at the locale.
+    # Mirrors the Avoid Battle / Withdraw / Battle-aftermath fixes.
+    if (state.legate.william_of_modena_in_play
+            and state.legate.location == "locale"
+            and state.legate.locale_id == locale_id):
+        teu_lost = any(
+            lid in state.lords and state.lords[lid].side == "teutonic"
+            for lid in defenders
+        )
+        if teu_lost:
+            if "T13" in state.decks.teutonic.capabilities_in_play:
+                state.decks.teutonic.capabilities_in_play.remove("T13")
+                state.decks.teutonic.discard.append("T13")
+            state.legate.william_of_modena_in_play = False
+            state.legate.location = "card"
+            state.legate.locale_id = None
+            aftermath["legate_removed"] = True
 
 
 # Register Phase 3c handlers.
@@ -5015,6 +5119,7 @@ HANDLERS_PHASE_3C = {
     "cmd_siege": _h_cmd_siege,
     "cmd_storm": _h_cmd_storm,
     "cmd_sally": _h_cmd_sally,
+    SALLY_FATE_ACTION: _h_resolve_sally_loser_fate,
 }
 HANDLERS.update(HANDLERS_PHASE_3C)
 

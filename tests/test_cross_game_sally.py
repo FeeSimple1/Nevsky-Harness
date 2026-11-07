@@ -4,7 +4,10 @@ from __future__ import annotations
 import pytest
 
 from nevsky.actions import IllegalAction, apply_action
+from nevsky.campaign import SALLY_FATE_ACTION
 from nevsky.legal_moves import legal_moves
+from nevsky.llm.session import LLMSession
+from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side
 from nevsky.scenarios import load_scenario
 
 
@@ -55,6 +58,100 @@ def test_fully_routed_besieger_gets_losses_roll_and_survives():
     assert lord.forces == {"knights": 1} and not lord.routed_units
     assert "hermann" not in result.get("removed", [])
     assert result["siege_lifted"] is True
+
+
+@pytest.mark.parametrize("mode", ["referee", "callback"])
+def test_losing_besieger_can_choose_removal_before_retreat_losses(mode):
+    state = sally_state()
+    state.lords["hermann"].assets = {"coin": 2, "ship": 1}
+    seen = []
+
+    def choose(decision):
+        if decision["type"] == "sally_loser_fate":
+            seen.append((decision["side"], decision["info"]["lord_id"], decision["options"]))
+            return "remove"
+        return decision["options"][0]
+
+    if mode == "referee":
+        move = next(m for m in legal_moves(state, with_previews=False) if m["type"] == "cmd_sally")
+        assert move["remove_losers_options"] == ["hermann"]
+        result = sally(state, remove_losers=["hermann"])
+    else:
+        result = sally(state, decision_callback=choose)
+        assert seen == [("teutonic", "hermann", ["retreat", "remove"])]
+    assert result["removed"] == ["hermann"]
+    assert "retreats" not in result and "losses" not in result
+    assert result["spoils"][0]["distributed"] == {"gavrilo": {"coin": 2}}
+    assert state.lords["hermann"].state == "removed"
+    assert result["siege_lifted"] and state.campaign_turn.in_feed_pay_disband
+
+
+def test_player_sally_hands_off_loser_fate_and_preserves_it_on_reload(tmp_path):
+    state = sally_state()
+    state.lords["hermann"].assets = {"coin": 2}
+    state.decks.russian.deck.remove("R7")
+    state.decks.russian.capabilities_in_play.append("R7")  # Ransom
+    move = next(m for m in legal_actions_for_side(state, "russian") if m["type"] == "cmd_sally")
+    assert move["args"]["choose_loser_fate"] is True
+    before = state.model_dump_json()
+    with pytest.raises(IllegalAction, match="wrong_actor"):
+        apply_action_for_side(state, "russian", {
+            **move, "args": {**move["args"], "remove_losers": ["hermann"]},
+        })
+    with pytest.raises(IllegalAction, match="bad_spoils_allocation"):
+        apply_action_for_side(state, "russian", {
+            **move, "args": {**move["args"], "spoils_allocation": {"gavrilo": {"coin": True}}},
+        })
+    assert state.model_dump_json() == before
+    result = apply_action_for_side(state, "russian", move)
+    assert result["awaiting_sally_loser_fate"] == {"owed_by": "teutonic"}
+    assert state.meta.active_player == "teutonic"
+    assert not state.campaign_turn.in_feed_pay_disband
+    assert state.locales["pskov"].siege_markers == 1
+    assert state.lords["hermann"].routed_units == {"knights": 1}
+    assert legal_actions_for_side(state, "russian") == []
+    path = tmp_path / "sally.json"
+    LLMSession(state, "teutonic", "crusade_on_novgorod").save(path)
+    session = LLMSession.load(path)
+    [fate] = session.legal_actions()
+    assert fate["type"] == SALLY_FATE_ACTION
+    assert fate["remove_losers_options"] == ["hermann"]
+    assert "dubrovno" in fate["retreat_destinations"]
+    saved = session.state.model_dump_json()
+    fate["remove_losers_options"].append("gavrilo")
+    with pytest.raises(IllegalAction, match="wrong_actor"):
+        apply_action_for_side(session.state, "russian", fate | {"side": "russian"})
+    with pytest.raises(IllegalAction, match="sally_loser_fate_pending"):
+        apply_action_for_side(session.state, "teutonic", {"type": "fpd_resolve"})
+    with pytest.raises(IllegalAction, match="bad_remove_losers"):
+        session.apply(fate | {"args": {"remove_losers": ["gavrilo"]}})
+    assert session.state.model_dump_json() == saved
+    result = session.apply(fate | {"args": {"remove_losers": ["hermann"]}})
+    assert result["removed"] == ["hermann"]
+    assert result["ransom"][0]["recipient"] == "gavrilo"
+    assert result["spoils"][0]["distributed"] == {"gavrilo": {"coin": 2}}
+    assert result["siege_lifted"] and session.state.campaign_turn.in_feed_pay_disband
+
+
+def test_sally_fate_can_resume_when_a_preselected_spoils_recipient_routs():
+    state = sally_state(seed=1)
+    state.lords["gavrilo"].forces = {"militia": 1}
+    domash = state.lords["domash"]
+    domash.state = "mustered"
+    domash.location = "pskov"
+    domash.forces = {"knights": 4, "men_at_arms": 5}
+    domash.in_stronghold = True
+    state.lords["hermann"].assets = {"coin": 2}
+    result = apply_action_for_side(state, "russian", {"type": "cmd_sally", "args": {
+        "lord_id": "gavrilo", "spoils_allocation": {"gavrilo": {"coin": 2}},
+    }})
+    assert result["awaiting_sally_loser_fate"] == {"owed_by": "teutonic"}
+    result = apply_action_for_side(state, "teutonic", {"type": SALLY_FATE_ACTION, "args": {
+        "remove_losers": ["hermann"],
+    }})
+    assert result["winner_removed_by_losses"] == ["gavrilo"]
+    assert result["spoils"][0]["distributed"] == {"domash": {"coin": 2}}
+    assert state.campaign_turn.in_feed_pay_disband
 
 
 def test_field_organ_from_menu_is_consumed_and_changes_real_combat():

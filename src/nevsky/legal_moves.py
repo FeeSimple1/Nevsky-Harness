@@ -45,7 +45,18 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
     if state.meta.game_over or side is None:
         return []
 
+    from nevsky.campaign import SALLY_FATE_ACTION, pending_sally_fate
     from nevsky.rewards import pending_reward, reward_moves
+
+    if (fate := pending_sally_fate(state)) is not None:
+        return [{
+            "type": SALLY_FATE_ACTION, "side": fate.owed_by, "args": {}, "optional": True,
+            "remove_losers_options": list(fate.context["candidates"]),
+            "retreat_destinations": list(fate.context["retreat_destinations"]),
+            "fate_template": {"remove_losers": ["<lord_id>", "..."],
+                              "retreat_to": {"<lord_id>": "<locale_id>"}},
+            "note": "Choose Removal or Retreat for each losing besieger. Omit args to Retreat.",
+        }]
 
     if (reward := pending_reward(state)) is not None:
         return reward_moves(state, reward)
@@ -1253,6 +1264,8 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 sally_locale = state.lords[active_lord].location
                 assert sally_locale is not None  # Besieged Lords are on the map.
                 combat = _sally_combat_context(state, side, sally_locale)
+                sally["remove_losers_options"] = combat.defender_lords
+                sally["remove_losers_template"] = {"remove_losers": ["<lord_id>", "..."]}
                 sally["retreat_keep_order_options"] = combat.defender_lords
                 sally["retreat_keep_order_template"] = {"retreat_keep_order": ["<lord_id>", "..."]}
                 holds = _battle_holds_available(state, combat)

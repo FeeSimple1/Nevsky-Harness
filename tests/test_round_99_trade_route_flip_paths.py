@@ -45,7 +45,7 @@ def test_battle_retreat_calls_trade_route_flip():
 
 
 def test_sally_retreat_calls_trade_route_flip():
-    src = inspect.getsource(camp._h_cmd_sally)
+    src = inspect.getsource(camp._finish_successful_sally)
     assert "SMOKE-091" in src
     flip_count = src.count("_flip_trade_route_if_uncontested(state, target, l.side)")
     assert flip_count >= 1

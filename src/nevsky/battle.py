@@ -515,6 +515,7 @@ _DECISION_TYPES = (
     "flanker_target",               # ambiguous Flanker target
     "flank_absorb",                 # PLAY-28 (4.4.2): Flanking Lord vs
                                     # directly-opposed Lord to take Hits
+    "sally_loser_fate",             # losing besieger chooses Retreat or Removal
 )
 
 

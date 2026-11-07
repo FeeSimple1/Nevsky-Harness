@@ -57,7 +57,7 @@ def test_sally_withdrew_besieger_winners_roll_stood_field():
 
 
 def test_sally_won_attacker_winners_roll_stood_field():
-    src = inspect.getsource(camp._h_cmd_sally)
+    src = inspect.getsource(camp._finish_successful_sally)
     idx = src.find('aftermath["sally_outcome"] = "broken_siege"')
     assert idx > 0
     before = src[max(0, idx - 3000):idx]

@@ -26,13 +26,18 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
     if side not in ("teutonic", "russian") or state.meta.game_over:
         return []
     if state.meta.active_player != side:
+        from nevsky.campaign import pending_sally_fate
         from nevsky.rewards import pending_reward
-        if pending_reward(state) is not None:
+        if pending_sally_fate(state) is not None or pending_reward(state) is not None:
             return []
         from nevsky.held_actions import held_actions_for_side
         return held_actions_for_side(state, side, interrupts_only=True)
     moves = legal_moves(state, with_previews=False)
     for move in moves:
+        if move["type"] == "cmd_sally":
+            move["args"]["choose_loser_fate"] = True
+            move.pop("remove_losers_options", None)
+            move.pop("remove_losers_template", None)
         if "holds_available" in move:
             move["holds_available"] = [hold for hold in move["holds_available"]
                                        if hold["side"] == side]
@@ -130,6 +135,10 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
     args = action.get("args")
     if kind in ("stand_battle", "cmd_sally", "cmd_storm") and isinstance(args, dict):
         _validate_combat_owner(state, side, kind, args)
+        if kind == "cmd_sally":
+            action["args"] = {**args, "choose_loser_fate": True}
+    elif kind == "cmd_sally" and "args" not in action:
+        action["args"] = {"choose_loser_fate": True}
     return apply_action(state, action)
 
 
@@ -138,8 +147,11 @@ def safe_fallback_for_side(state, side: str) -> dict:
     repeated illegal-action retries. The LLM doesn't typically call
     this directly; the orchestrating loop calls it.
     """
+    from nevsky.campaign import SALLY_FATE_ACTION, pending_sally_fate
     from nevsky.rewards import REWARD_ACTION, pending_reward
 
+    if pending_sally_fate(state) is not None:
+        return {"type": SALLY_FATE_ACTION, "side": side, "args": {}}
     if pending_reward(state) is not None:
         return {"type": REWARD_ACTION, "side": side, "args": {}}
     phase = state.meta.phase

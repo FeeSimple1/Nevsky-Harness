@@ -51,6 +51,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from nevsky.actions import apply_action, IllegalAction  # noqa: E402
+from nevsky.campaign import pending_sally_fate  # noqa: E402
 from nevsky.legal_moves import legal_moves  # noqa: E402
 from nevsky.scenarios import determine_scenario_winner, load_scenario  # noqa: E402
 
@@ -97,8 +98,10 @@ def check_invariants(state) -> str | None:
             return "I5 game_over but actions_remaining != 0"
     # I6
     if state.combat_pending is None:
+        fate = pending_sally_fate(state)
+        resolving = set(fate.context["attackers"] + fate.context["defenders"]) if fate else set()
         for lid, l in state.lords.items():
-            if l.state == "mustered" and l.routed_units:
+            if lid not in resolving and l.state == "mustered" and l.routed_units:
                 return f"I6 stranded Routed units on {lid}: {dict(l.routed_units)}"
     # I7
     if not (0.0 <= state.calendar.teutonic_vp <= VP_CAP):

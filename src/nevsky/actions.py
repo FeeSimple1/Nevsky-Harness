@@ -166,7 +166,11 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
     if handler is None:
         raise IllegalAction("unknown_action", f"unknown action type {atype!r}")
 
+    from nevsky.campaign import SALLY_FATE_ACTION, pending_sally_fate
     from nevsky.rewards import REWARD_ACTION, pending_reward, settle_rewards
+
+    if atype != SALLY_FATE_ACTION and pending_sally_fate(state) is not None:
+        raise IllegalAction("sally_loser_fate_pending", "resolve losing besiegers before resuming play")
 
     if pending_reward(state) is not None and atype != REWARD_ACTION:
         raise IllegalAction("aftermath_reward_pending", "allocate the reward before resuming play")
