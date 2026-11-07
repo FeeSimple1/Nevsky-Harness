@@ -22,6 +22,7 @@ from nevsky.state import (
     Locale,
     Side,
     Veche,
+    pending_storm_front,
 )
 from nevsky.static_data import load_cards, load_locales, load_lords
 
@@ -699,6 +700,8 @@ def state_view_for_side(state: GameState, side: Side) -> GameState:
 
     from nevsky.visibility import combat_visible_lords
     revealed = combat_visible_lords(state)
+    if (front := pending_storm_front(state)) is not None:
+        revealed = revealed.union(front.context["participants"])
     s2 = deepcopy(state)
     if not s2.meta.optional_rules.get("hidden_mats", False):
         return s2

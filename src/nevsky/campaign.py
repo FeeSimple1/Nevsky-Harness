@@ -37,12 +37,14 @@ from nevsky.actions import (
 )
 from nevsky.rewards import apply_ransom as apply_ransom
 from nevsky.state import (
+    STORM_FRONT_ACTION,
     CombatPending,
     GameState,
     PendingDecision,
     Side,
     detach_vassal_marker,
     move_vassal_marker,
+    pending_storm_front,
     vassal_marker_box,
 )
 from nevsky.static_data import load_locales, load_lords, load_ways
@@ -4463,6 +4465,28 @@ def _h_cmd_siege(
              "siege_markers": state.locales[locale_id].siege_markers}, dice)
 
 
+def _h_choose_storm_defender_front(
+    state: GameState, side: str, args: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    pending = pending_storm_front(state)
+    if pending is None:
+        raise IllegalAction("no_storm_front", "no Storm Front choice is pending")
+    if side != pending.owed_by or side != state.meta.active_player:
+        raise IllegalAction("wrong_actor", "only the defending player chooses the Storm Front")
+    ctx = pending.context
+    selected = args.get("lord_id")
+    if set(args) != {"lord_id"} or selected not in ctx["candidates"]:
+        raise IllegalAction("bad_storm_front", "choose one of the besieged Lords for Front")
+    state.pending_decisions.remove(pending)
+    state.meta.active_player = ctx["attacker"]
+    result, dice = _h_cmd_storm(
+        state, ctx["attacker"], {**ctx["attack_args"], "defender_front": selected},
+    )
+    if (fo_lord := ctx["attack_args"].get("field_organ_lord")):
+        result["field_organ_lord"] = fo_lord
+    return result, dice
+
+
 def _h_cmd_storm(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -4521,11 +4545,6 @@ def _h_cmd_storm(
     # insertion order must not choose a different Lord to lead the attack.
     attackers = [lord_id] + [lid for lid in attackers if lid != lord_id]
 
-    # Mark all Lords at Locale MOVED_FOUGHT (4.5.2 marking).
-    for _lid, l in state.lords.items():
-        if l.location == locale_id:
-            l.moved_fought = True
-
     walls_max = sh["walls_max"]
     if state.locales[locale_id].walls_plus_one:
         walls_max += 1  # Stone Kremlin (R18): Walls +1 (4.5.2)
@@ -4541,6 +4560,14 @@ def _h_cmd_storm(
     # 4.5.2 Storm Concede (attacker only): args.concede = true/'attacker'
     # or a Round int at which the attacker Concedes the Storm.
     storm_concede_round = _parse_concede_round(args.get("concede"), who="attacker")
+    defender_front = args.get("defender_front")
+    if defender_front is not None and defender_front not in besieged:
+        raise IllegalAction("bad_storm_front", "choose one of the besieged Lords for Front")
+    choose_front = args.get("choose_defender_front", False)
+    if type(choose_front) is not bool:
+        raise IllegalAction("bad_storm_front", "choose_defender_front must be a boolean")
+    if choose_front and (defender_front is not None or storm_ctx.scripted or storm_ctx.callback):
+        raise IllegalAction("wrong_actor", "the defender's Front choice is pending player input")
     # T10 Field Organ in Storm (playable on Attack OR Defense): consume the
     # Teutonic hold and pass the target Lord (Knights+Sergeants Melee +1,
     # Round 1). field_organ_lord must be a Storm participant.
@@ -4557,6 +4584,29 @@ def _h_cmd_storm(
             raise IllegalAction("bad_hold", "Storm Field Organ requires T10")
         if cid not in state.decks.teutonic.holds:
             raise IllegalAction("not_in_holds", f"{cid} not in Teutonic holds")
+
+    if choose_front and len(besieged) > 1:
+        from nevsky.rewards import _validate_allocation
+
+        attack_args = {k: deepcopy(args[k]) for k in (
+            "lord_id", "concede", "field_organ_lord", "holds", "spoils_recipient",
+        ) if k in args}
+        if (plan := args.get("spoils_allocation")) is not None:
+            attack_args["spoils_allocation"] = _validate_allocation(plan, attackers)
+        state.pending_decisions.append(PendingDecision(
+            kind=STORM_FRONT_ACTION, owed_by=defending_side,
+            context={"locale": locale_id, "attacker": sd, "candidates": besieged,
+                     "participants": attackers + besieged, "attack_args": attack_args},
+            note=f"Choose the initial defending Front at {locale_id}.",
+        ))
+        state.meta.active_player = defending_side
+        return {"awaiting_storm_front": {"owed_by": defending_side, "locale": locale_id}}, []
+
+    # Mark all Lords at Locale MOVED_FOUGHT (4.5.2 marking).
+    for l in state.lords.values():
+        if l.location == locale_id:
+            l.moved_fought = True
+    if fo_lord:
         state.decks.teutonic.holds.remove(cid)
         state.decks.teutonic.discard.append(cid)
         storm_holds["field_organ_lord"] = fo_lord
@@ -4571,6 +4621,7 @@ def _h_cmd_storm(
         decision_ctx=storm_ctx,
         attacker_concede_round=storm_concede_round,
         holds=storm_holds or None,
+        defender_front=defender_front,
     )
 
     aftermath: dict[str, Any] = {"battle": result}
@@ -5136,6 +5187,7 @@ def _finish_successful_sally(
 HANDLERS_PHASE_3C = {
     "cmd_siege": _h_cmd_siege,
     "cmd_storm": _h_cmd_storm,
+    STORM_FRONT_ACTION: _h_choose_storm_defender_front,
     "cmd_sally": _h_cmd_sally,
     SALLY_FATE_ACTION: _h_resolve_sally_loser_fate,
 }

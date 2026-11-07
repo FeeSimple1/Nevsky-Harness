@@ -516,6 +516,7 @@ _DECISION_TYPES = (
     "flank_absorb",                 # PLAY-28 (4.4.2): Flanking Lord vs
                                     # directly-opposed Lord to take Hits
     "sally_loser_fate",             # losing besieger chooses Retreat or Removal
+    "storm_defender_front",        # defending owner chooses initial Storm Front
 )
 
 
@@ -2363,13 +2364,14 @@ def resolve_storm(
     decision_ctx: BattleDecisionContext | None = None,
     attacker_concede_round: int | None = None,
     holds: dict[str, Any] | None = None,
+    defender_front: str | None = None,
 ) -> dict[str, Any]:
     """Resolve a Storm at `locale_id` (4.5.2 2E).
 
     Storm Array (4.5.2 page 17): each side's Front row holds at most
     one Lord. The Attacker's Active Lord starts at Front; other Lords
-    start in Reserve. The Defender's first Lord (defender_lords[0])
-    starts at Front; others start in Reserve.
+    start in Reserve. The defender chooses one besieged Lord for Front.
+    Other defenders start in Reserve.
 
     Storm Reposition (4.5.2 page 17, 2E follow-up B): in each Round
     after the first, Attacker then Defender MAY switch positions
@@ -2403,17 +2405,26 @@ def resolve_storm(
     g_units: dict[str, int] = dict(garrison)
     if decision_ctx is None:
         decision_ctx = BattleDecisionContext()
-    # Storm Array: first Lord = Front, rest = Reserve.
+    # The Active attacker leads, with the other attackers in Reserve.
     atk_storm_pos: dict[str, str] = {}
     if attacker_lords:
         atk_storm_pos[attacker_lords[0]] = "storm_front"
         for lid in attacker_lords[1:]:
             atk_storm_pos[lid] = "storm_reserve"
-    def_storm_pos: dict[str, str] = {}
-    if defender_lords:
-        def_storm_pos[defender_lords[0]] = "storm_front"
-        for lid in defender_lords[1:]:
-            def_storm_pos[lid] = "storm_reserve"
+    if defender_front is not None and defender_front not in defender_lords:
+        raise ValueError("defender_front must be a besieged defender")
+    if defender_front is None and defender_lords:
+        defender_front = defender_lords[0]
+        scripted = decision_ctx.scripted
+        if len(defender_lords) > 1 and (
+            decision_ctx.callback is not None
+            or (scripted and scripted[0].get("type") == "storm_defender_front")
+        ):
+            defender_front = decision_ctx.decide(
+                "storm_defender_front", "defender", list(defender_lords), {"locale": locale_id},
+            )
+    def_storm_pos = {lid: "storm_front" if lid == defender_front else "storm_reserve"
+                     for lid in defender_lords}
     # A Storm lasts exactly `siege_markers` Rounds; if the Stronghold is
     # not Sacked within that many Rounds the attacker loses (B&S ref:
     # "Storm round count == siege markers" / "rounds_completed >= siege_markers").

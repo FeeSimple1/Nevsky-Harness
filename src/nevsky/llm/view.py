@@ -32,6 +32,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from nevsky.state import STORM_FRONT_ACTION
+
 
 def _mask_cards(cards: list) -> list[str]:
     return ["<hidden>"] * len(cards)
@@ -66,6 +68,11 @@ def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool) -> N
         by_lord = result.get("by_lord")
         action["args"] = {"by_lord": by_lord, "card_id": "<hidden>"}
         entry["result"] = {"by_lord": by_lord, "card_id": "<hidden>", "scope": "this_lord"}
+    elif kind == "cmd_storm" and result.get("awaiting_storm_front"):
+        # The attacker has declared the Storm. The committed Hold and other
+        # tactical inputs are still private at the defender's Array choice.
+        args = action["args"]
+        action["args"] = {k: args[k] for k in ("lord_id",) if k in args}
 
 
 def view_for_side(state, side: str) -> dict[str, Any]:
@@ -96,6 +103,9 @@ def view_for_side(state, side: str) -> dict[str, Any]:
     # placed (events are publicly announced and resolved). Keep as-is.
     for entry in d["history"]:
         _filter_history(entry, side, hidden_mats=hidden_mats)
+    for pending in d["pending_decisions"]:
+        if pending["kind"] == STORM_FRONT_ACTION:
+            pending["context"].pop("attack_args", None)
     return d
 
 

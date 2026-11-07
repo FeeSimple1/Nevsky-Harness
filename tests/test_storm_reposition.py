@@ -5,7 +5,7 @@ Attacker then Defender may switch their Front Lord with any Reserve
 Lord. Operator decision via BattleDecisionContext.
 
 Tests cover:
-- Initial Storm Array: first Lord = storm_front, others = storm_reserve.
+- Initial Storm Array: Active attacker and chosen defender take Front.
 - Reserve Lord doesn't strike or absorb Hits.
 - Round 2+ allows operator to swap Front and Reserve.
 - Operator can choose to "stay" (keep current Front).
@@ -17,8 +17,110 @@ from __future__ import annotations
 
 import pytest
 
+from nevsky.actions import IllegalAction, apply_action
 from nevsky.battle import BattleDecisionContext, resolve_storm
+from nevsky.legal_moves import legal_moves
+from nevsky.llm.session import LLMSession
+from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side
 from nevsky.scenarios import load_scenario
+from nevsky.state import STORM_FRONT_ACTION
+from tests.test_cross_game_combat_spoils import place, position
+
+
+def _one_round_storm():
+    state = position(seed=4)
+    state.locales["pskov"].siege_markers = 1
+    place(state, "hermann", {"knights": 3, "sergeants": 2, "men_at_arms": 2})
+    place(state, "aleksandr", {"knights": 3, "men_at_arms": 3}, inside=True)
+    place(state, "gavrilo", {"militia": 1}, inside=True)
+    place(state, "yaroslav", {"knights": 2}, "izborsk")
+    return state
+
+
+@pytest.mark.parametrize("mode", ["callback", "script", "referee"])
+def test_defender_selects_the_round_one_storm_front(mode):
+    state = _one_round_storm()
+    storm = next(move for move in legal_moves(state, with_previews=False)
+                 if move["type"] == "cmd_storm")
+    assert storm["defender_front_options"] == ["aleksandr", "gavrilo"]
+    baseline = apply_action(state.model_copy(deep=True), storm)["battle"]
+    seen = []
+
+    def choose(decision):
+        seen.append(decision)
+        return "gavrilo"
+
+    election = {
+        "callback": {"decision_callback": choose},
+        "script": {"scripted_decisions": [{"type": "storm_defender_front", "chosen": "gavrilo"}]},
+        "referee": {"defender_front": "gavrilo"},
+    }[mode]
+    result = apply_action(state, {**storm, "args": {**storm["args"], **election}})["battle"]
+    if mode == "callback":
+        assert [(d["type"], d["side"], d["options"]) for d in seen] == [
+            ("storm_defender_front", "defender", ["aleksandr", "gavrilo"]),
+        ]
+    assert result["rounds"] == baseline["rounds"] == 1
+    first = result["log"][0]
+    assert baseline["log"][0]["defender_storm_positions"]["aleksandr"] == "storm_front"
+    assert first["defender_storm_positions"] == {
+        "aleksandr": "storm_reserve", "gavrilo": "storm_front",
+    }
+    assert first["attacker_storm_positions"] == {"hermann": "storm_front"}
+    melee = next(step for step in first["steps"] if step["step"] == "melee_defender")
+    control = next(step for step in baseline["log"][0]["steps"]
+                   if step["step"] == "melee_defender")
+    assert melee["hits_after_walls"] < control["hits_after_walls"]
+
+
+def test_player_storm_hands_off_before_dice_and_survives_save_load(tmp_path):
+    state = _one_round_storm()
+    state.meta.optional_rules["hidden_mats"] = True
+    state.decks.teutonic.deck.remove("T10")
+    state.decks.teutonic.holds.append("T10")
+    storm = next(move for move in legal_actions_for_side(state, "teutonic")
+                 if move["type"] == "cmd_storm")
+    assert storm["args"]["choose_defender_front"] is True
+    before = state.model_dump_json()
+    with pytest.raises(IllegalAction, match="wrong_actor"):
+        apply_action_for_side(state, "teutonic", {
+            **storm, "args": {**storm["args"], "defender_front": "gavrilo"},
+        })
+    assert state.model_dump_json() == before
+    dice = state.meta.rng_state
+    result = apply_action_for_side(state, "teutonic", {
+        **storm, "args": {**storm["args"], "field_organ_lord": "hermann",
+                           "holds": {"field_organ": "T10"}},
+    })
+    assert result["awaiting_storm_front"] == {"owed_by": "russian", "locale": "pskov"}
+    assert state.meta.rng_state == dice and "T10" in state.decks.teutonic.holds
+    assert not legal_actions_for_side(state, "teutonic")
+    session = LLMSession(state, "russian", "crusade_on_novgorod")
+    view = session.full_state()
+    assert view["lords"]["hermann"]["forces"] == state.lords["hermann"].forces
+    assert view["lords"]["yaroslav"]["forces"] == {"_hidden": 1}
+    assert view["history"][-1]["action"]["args"] == {"lord_id": "hermann"}
+    assert "attack_args" not in view["pending_decisions"][0]["context"]
+    path = tmp_path / "storm.json"
+    session.save(path)
+    session = LLMSession.load(path)
+    moves = session.legal_actions()
+    assert {m["args"]["lord_id"] for m in moves} == {"aleksandr", "gavrilo"}
+    assert {m["type"] for m in moves} == {STORM_FRONT_ACTION}
+    before = session.state.model_dump_json()
+    for side, action, code in [
+        ("teutonic", {**moves[0], "side": "teutonic"}, "wrong_actor"),
+        ("russian", {"type": STORM_FRONT_ACTION, "args": {"lord_id": "hermann"}}, "bad_storm_front"),
+        ("russian", {"type": "fpd_resolve"}, "storm_front_pending"),
+    ]:
+        with pytest.raises(IllegalAction, match=code):
+            apply_action_for_side(session.state, side, action)
+        assert session.state.model_dump_json() == before
+    result = session.apply(next(m for m in moves if m["args"]["lord_id"] == "gavrilo"))
+    assert result["battle"]["log"][0]["defender_storm_positions"]["gavrilo"] == "storm_front"
+    assert result["field_organ_lord"] == "hermann"
+    assert "T10" in session.state.decks.teutonic.discard
+    assert session.full_state()["lords"]["hermann"]["forces"] == {"_hidden": 1}
 
 
 def _setup_two_attacker_storm(seed: int = 1) -> tuple:

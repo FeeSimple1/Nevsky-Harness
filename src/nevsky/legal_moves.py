@@ -46,7 +46,13 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
         return []
 
     from nevsky.campaign import SALLY_FATE_ACTION, pending_sally_fate
+    from nevsky.state import STORM_FRONT_ACTION, pending_storm_front
     from nevsky.rewards import pending_reward, reward_moves
+
+    if (front := pending_storm_front(state)) is not None:
+        return [{"type": STORM_FRONT_ACTION, "side": front.owed_by, "args": {"lord_id": lid},
+                 "note": f"Place {lid} in the defending Storm Front at {front.context['locale']}."}
+                for lid in front.context["candidates"]]
 
     if (fate := pending_sally_fate(state)) is not None:
         return [{
@@ -1191,6 +1197,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # overlays on Town are recognized (T17 Stonemasons); the
         # earlier _stronghold_at keyed off the base type and returned
         # None for Town, hiding the cmd_siege / cmd_storm legal moves.
+        from nevsky.campaign import _besieged_lords_at as _bla
         from nevsky.campaign import _effective_stronghold, _is_besieged as _ib
         if active.location is not None:
             sh = _effective_stronghold(state, active.location)
@@ -1205,7 +1212,6 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 # roll for Surrender" -- declining the roll is a legal
                 # choice (Siegeworks still applies). Only meaningful
                 # when the roll would occur (no Besieged Lords inside).
-                from nevsky.campaign import _besieged_lords_at as _bla
                 if _sh_owner is not None and not _bla(state, active.location, _sh_owner):
                     out.append({"type": "cmd_siege", "side": side,
                                 "args": {"lord_id": active_lord,
@@ -1226,6 +1232,10 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 _cs = {"type": "cmd_storm", "side": side,
                        "args": {"lord_id": active_lord},
                        "note": storm_note}
+                defenders = _bla(state, active.location, _sh_owner or sh["side"])
+                if len(defenders) > 1:
+                    _cs["defender_front_options"] = defenders
+                    _cs["defender_front_template"] = {"defender_front": "<lord_id>"}
                 # PLAY-38 (item #9): cmd_storm's only Tier 2 Hold channel
                 # is T10 Field Organ (playable on Attack OR Defense) via
                 # args.field_organ_lord -- surface it when the card is in

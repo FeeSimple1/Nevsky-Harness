@@ -9,6 +9,7 @@ from typing import Any
 
 from nevsky.actions import IllegalAction, apply_action
 from nevsky.legal_moves import legal_moves
+from nevsky.state import STORM_FRONT_ACTION, pending_storm_front
 
 
 def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
@@ -28,7 +29,8 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
     if state.meta.active_player != side:
         from nevsky.campaign import pending_sally_fate
         from nevsky.rewards import pending_reward
-        if pending_sally_fate(state) is not None or pending_reward(state) is not None:
+        if (pending_sally_fate(state) is not None or pending_storm_front(state) is not None
+                or pending_reward(state) is not None):
             return []
         from nevsky.held_actions import held_actions_for_side
         return held_actions_for_side(state, side, interrupts_only=True)
@@ -38,6 +40,10 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
             move["args"]["choose_loser_fate"] = True
             move.pop("remove_losers_options", None)
             move.pop("remove_losers_template", None)
+        if move["type"] == "cmd_storm" and move.pop("defender_front_options", None):
+            move.pop("defender_front_template", None)
+            move["args"]["choose_defender_front"] = True
+            move["note"] += " The defender chooses their initial Front."
         if "holds_available" in move:
             move["holds_available"] = [hold for hold in move["holds_available"]
                                        if hold["side"] == side]
@@ -110,6 +116,8 @@ def _validate_combat_owner(state, side: str, kind: str, args: dict[str, Any]) ->
             raise IllegalAction("bad_hold", f"{target_key} requires its Held card")
     if kind == "cmd_storm" and args.get("field_organ_lord") and side != "teutonic":
         raise IllegalAction("wrong_actor", "only the Teutonic player may play Field Organ")
+    if kind == "cmd_storm" and args.get("defender_front") is not None:
+        raise IllegalAction("wrong_actor", "only the defender chooses the Storm Front")
 
 
 def apply_action_for_side(state, side: str, action: dict) -> dict:
@@ -140,6 +148,8 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
             action["args"] = {**args, "choose_loser_fate": True}
         elif kind == "stand_battle":
             action["args"] = {**args, "choose_retreat_keep": True}
+        elif kind == "cmd_storm":
+            action["args"] = {**args, "choose_defender_front": True}
     return apply_action(state, action)
 
 
@@ -153,6 +163,9 @@ def safe_fallback_for_side(state, side: str) -> dict:
 
     if pending_sally_fate(state) is not None:
         return {"type": SALLY_FATE_ACTION, "side": side, "args": {}}
+    if (front := pending_storm_front(state)) is not None:
+        return {"type": STORM_FRONT_ACTION, "side": side,
+                "args": {"lord_id": front.context["candidates"][0]}}
     if pending_reward(state) is not None:
         return {"type": REWARD_ACTION, "side": side, "args": {}}
     phase = state.meta.phase

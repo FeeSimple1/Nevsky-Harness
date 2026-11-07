@@ -391,6 +391,13 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
 ### 4.5.2 Storm
 
 - **`cmd_storm`** — one Command action (D-Q010; 4.5.2 "a Command action"). `args.lord_id` (active Lord). The Attack still ends the card via 4.4.5 Recovery.
+  With multiple besieged Lords, the player interface hands off to the
+  defender before Round 1. Select `choose_storm_defender_front` with
+  `args.lord_id` naming the besieged Lord to place in Front. The remaining
+  defenders start in Reserve. The Active attacker starts in Front.
+  A referee can use `args.defender_front` or the
+  `storm_defender_front` combat callback or script. With no election,
+  the referee API defaults to the first besieged Lord for legacy replays.
   - Storm rounds run via `battle.resolve_storm`. Single front
     lane (no flanking). Garrison units (per Strongholds table) sit
     alongside defender; Garrison MaA have Archery (-2 target Armor)

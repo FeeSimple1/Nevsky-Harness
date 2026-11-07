@@ -593,3 +593,10 @@ def clear_vassal_marker(cal: "Calendar", vid: str, vstate: "VassalState") -> Non
     detach_vassal_marker(cal, vid, vstate)
     vstate.on_calendar = False
     vstate.calendar_box = None
+
+
+STORM_FRONT_ACTION = "choose_storm_defender_front"
+
+
+def pending_storm_front(state: GameState) -> PendingDecision | None:
+    return next((p for p in state.pending_decisions if p.kind == STORM_FRONT_ACTION), None)
