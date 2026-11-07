@@ -24,7 +24,9 @@ Public state is always visible:
     board edge)
 
 Optional Hidden Mats conceals opposing Mustered Lord mats, including Vassal
-status. Public Calendar markers remain visible with Advanced Vassal Service.
+status. It also screens the identities of This-Lord Capabilities in opposing
+Levy history. Public Calendar markers remain visible with Advanced Vassal
+Service.
 """
 from __future__ import annotations
 
@@ -35,7 +37,7 @@ def _mask_cards(cards: list) -> list[str]:
     return ["<hidden>"] * len(cards)
 
 
-def _filter_history(entry: dict[str, Any], side: str) -> None:
+def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool) -> None:
     """Redact private opponent actions in an already detached history copy."""
     if entry["actor"] == side or entry["actor"] == "system":
         return
@@ -53,16 +55,25 @@ def _filter_history(entry: dict[str, Any], side: str) -> None:
         entry["result"] = {
             "appended": "<hidden>", "plan_size": result.get("plan_size"),
         }
-    elif kind == "aow_implement_card" and result.get("outcome") == "held":
-        action["args"] = {"card_id": "<hidden>"}
-        entry["result"] = {"card": "<hidden>", "outcome": "held"}
+    elif kind == "aow_implement_card":
+        outcome = result.get("outcome")
+        if outcome == "held" or (hidden_mats and outcome == "tucked_under_lord"):
+            action["args"] = {"card_id": "<hidden>"}
+            entry["result"] = {"card": "<hidden>", "outcome": outcome}
+    elif hidden_mats and kind == "levy_capability" and result.get("scope") == "this_lord":
+        # Keep the public Lordship expenditure, without revealing the incoming
+        # or swapped Capability, its source, or other screened mat details.
+        by_lord = result.get("by_lord")
+        action["args"] = {"by_lord": by_lord, "card_id": "<hidden>"}
+        entry["result"] = {"by_lord": by_lord, "card_id": "<hidden>", "scope": "this_lord"}
 
 
 def view_for_side(state, side: str) -> dict[str, Any]:
     """Return a dict view of state with opponent's hidden info masked."""
     if side not in ("teutonic", "russian"):
         raise ValueError("side must be 'teutonic' or 'russian'")
-    if state.meta.optional_rules.get("hidden_mats"):
+    hidden_mats = bool(state.meta.optional_rules.get("hidden_mats"))
+    if hidden_mats:
         from nevsky.render import state_view_for_side
         state = state_view_for_side(state, side)
     other = "russian" if side == "teutonic" else "teutonic"
@@ -84,7 +95,7 @@ def view_for_side(state, side: str) -> dict[str, Any]:
     # this_levy_events / this_campaign_events: cards are public once
     # placed (events are publicly announced and resolved). Keep as-is.
     for entry in d["history"]:
-        _filter_history(entry, side)
+        _filter_history(entry, side, hidden_mats=hidden_mats)
     return d
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from nevsky.actions import apply_action
 from nevsky.llm.briefing import briefing_for_side
 from nevsky.llm.compact import detail_payload, player_view
 from nevsky.llm.session import LLMSession
+from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side
 from nevsky.llm.view import view_for_side
 from nevsky.render import state_view_for_side
 from nevsky.scenarios import load_scenario
@@ -104,6 +106,50 @@ def test_session_save_load_preserves_authoritative_mats_and_applies_visibility_a
     assert loaded.briefing() == session.briefing()
     enemy = "yaroslav" if side == "russian" else "gavrilo"
     assert loaded.full_state()["lords"][enemy]["vassals"] == {}
+
+
+@pytest.mark.parametrize("step, action_type, result_key", [
+    ("muster", "levy_capability", "card_id"),
+    ("arts_of_war", "aow_implement_card", "card"),
+])
+@pytest.mark.parametrize("card, hidden", [("T14", True), ("T14", False), ("T12", True)])
+def test_capability_history_respects_mat_screening(step, action_type, result_key, card, hidden,
+                                                  tmp_path):
+    state = load_scenario("pleskau", optional_rules={"hidden_mats": hidden})
+    state.meta.levy_step = step
+    if step == "arts_of_war":
+        state.decks.teutonic.deck.remove(card)
+        state.decks.teutonic.pending_draw = [card]
+    move = next(m for m in legal_actions_for_side(state, "teutonic")
+                if m["type"] == action_type and m["args"].get("card_id") == card
+                and m["args"].get("by_lord", m["args"].get("lord_id", "hermann")) == "hermann")
+    apply_action_for_side(state, "teutonic", move)
+    before = state.model_dump_json()
+    original = state.history[-1].model_dump()
+
+    owner = LLMSession(state, "teutonic", "pleskau").full_state()
+    assert owner["history"][-1] == original
+    opponent = LLMSession(state, "russian", "pleskau")
+    public = opponent.full_state()
+    entry = public["history"][-1]
+    if hidden and card == "T14":
+        assert public["lords"]["hermann"]["this_lord_capabilities"] == []
+        assert entry["action"]["args"]["card_id"] == "<hidden>"
+        assert entry["result"][result_key] == "<hidden>"
+        assert card not in json.dumps(entry)
+    else:
+        assert entry == original
+        if card == "T14":
+            assert card in public["lords"]["hermann"]["this_lord_capabilities"]
+        else:
+            assert card in public["decks"]["teutonic"]["capabilities_in_play"]
+    assert detail_payload(state, "russian", "history")[-1] == entry
+
+    path = tmp_path / "capability-session.json"
+    opponent.save(path)
+    restored = LLMSession.load(path)
+    assert restored.full_state()["history"][-1] == entry
+    assert restored.state.model_dump_json() == state.model_dump_json() == before
 
 
 def test_mask_is_stable_for_different_hidden_armies_and_repeated_filtering():
