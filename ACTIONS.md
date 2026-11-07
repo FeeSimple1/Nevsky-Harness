@@ -792,6 +792,20 @@ Lord uses his own capacity first and spare capacity covers the others.
 Unknown names have no effect; malformed or duplicate IDs reject atomically.
 The Battle and Sally menus expose the priority parameter and candidate IDs.
 
+For an exact split, use `args.retreat_keep` with counts by Lord ID. For
+example, `{"gavrilo": 1, "domash": 1}` keeps one on each mat. Specify the
+entire retainable total for each group addressed in the map. Unnamed Lords
+in that group keep zero. Groups omitted from the map use their default.
+Exact counts and a priority list are mutually exclusive.
+
+When there is a choice after Losses, the player API and the staged Sally
+handoff offer `allocate_aftermath_reward` with reward `retreat_provender` to
+the retreating side. The menu shows the surviving mats, route, required
+total and default for each contested group. Supply `retreat_keep` or use
+empty arguments to accept the default. From a referee or notebook Battle
+menu, set `choose_retreat_keep: true` on `stand_battle` to request this
+handoff when no allocation was preselected.
+
 Losing Relief Sally joiners return inside their Stronghold and roll all
 Routed-unit Losses as Withdrew. They do not Retreat or roll Retreat Service.
 A Lord who loses his final Force is removed with normal Spoils and Ransom.

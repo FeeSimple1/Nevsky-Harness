@@ -885,7 +885,9 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             )
             _sb = {"type": "stand_battle", "side": side, "args": {}, "note": stand_note,
                    "retreat_keep_order_options": cp.attacker_group + cp.defender_lords,
-                   "retreat_keep_order_template": {"retreat_keep_order": ["<lord_id>", "..."]}}
+                   "retreat_keep_order_template": {"retreat_keep_order": ["<lord_id>", "..."]},
+                   "retreat_keep_template": {"retreat_keep": {"<lord_id>": "<count>"}},
+                   "retreat_keep_choice": {"choose_retreat_keep": True}}
             # PLAY-38 (item #9): name the playable Tier 2 Battle Holds so
             # palette-driven agents can discover them -- assemble chosen
             # entries into args.holds = {key: card, ...} (+ any listed
@@ -1268,6 +1270,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 sally["remove_losers_template"] = {"remove_losers": ["<lord_id>", "..."]}
                 sally["retreat_keep_order_options"] = combat.defender_lords
                 sally["retreat_keep_order_template"] = {"retreat_keep_order": ["<lord_id>", "..."]}
+                sally["retreat_keep_template"] = {"retreat_keep": {"<lord_id>": "<count>"}}
                 holds = _battle_holds_available(state, combat)
                 if holds:
                     sally["holds_available"] = holds

@@ -50,6 +50,7 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
             if not move["retreat_keep_order_options"]:
                 move.pop("retreat_keep_order_options")
                 move.pop("retreat_keep_order_template", None)
+                move.pop("retreat_keep_template", None)
     # Add a strategic note if the move type has one (legal_moves
     # already adds notes for many moves). Return as-is.
     return moves
@@ -77,7 +78,7 @@ def _validate_combat_owner(state, side: str, kind: str, args: dict[str, Any]) ->
     if args.get("scripted_decisions") or args.get("decision_callback") is not None:
         raise IllegalAction("wrong_actor", "two-sided combat scripts require the referee API")
 
-    for field in ("remove_losers", "withdraw_losers", "retreat_to", "retreat_keep_order",
+    for field in ("remove_losers", "withdraw_losers", "retreat_to", "retreat_keep_order", "retreat_keep",
                   "spoils_recipient", "spoils_allocation"):
         election = args.get(field)
         if not election:
@@ -132,13 +133,13 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
         raise IllegalAction("wrong_actor",
                             f"caller is {side}; action declares side={action['side']!r}")
     kind = action.get("type")
-    args = action.get("args")
+    args = action.get("args", {})
     if kind in ("stand_battle", "cmd_sally", "cmd_storm") and isinstance(args, dict):
         _validate_combat_owner(state, side, kind, args)
         if kind == "cmd_sally":
             action["args"] = {**args, "choose_loser_fate": True}
-    elif kind == "cmd_sally" and "args" not in action:
-        action["args"] = {"choose_loser_fate": True}
+        elif kind == "stand_battle":
+            action["args"] = {**args, "choose_retreat_keep": True}
     return apply_action(state, action)
 
 

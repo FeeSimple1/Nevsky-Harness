@@ -154,8 +154,40 @@ def record_combat_spoils(
         ))
 
 
+def record_retreat_keep_choice(
+    state: GameState, retreats: list[tuple[str, str | None]], indexes: list[int],
+    captured: list[dict[str, Any]], winner: Side, recipients: list[str],
+    *, award_order: list[int] | None = None, allocation: dict[str, dict[str, int]] | None = None,
+    sally_args: dict[str, Any] | None = None,
+) -> bool:
+    """Hand off the remaining food choice before settling Ransom and Spoils."""
+    from nevsky.battle import retreat_keep_groups
+
+    if state.meta.game_over or not retreat_keep_groups(state, retreats):
+        return False
+    if sally_args is not None:
+        # Reject a malformed winner plan before persisting the handoff.
+        from copy import deepcopy
+
+        sally_args = deepcopy(sally_args)
+        if (plan := sally_args.get("spoils_allocation")) is not None:
+            sally_args["spoils_allocation"] = _validate_allocation(plan, recipients)
+    owner = state.lords[retreats[0][0]].side
+    state.pending_decisions.insert(0, PendingDecision(
+        kind=REWARD_ACTION, owed_by=owner,
+        context={"reward": "retreat_provender", "retreats": retreats, "indexes": indexes,
+                 "captured": captured, "winner": winner, "recipients": recipients,
+                 "award_order": award_order, "allocation": allocation, "sally_args": sally_args},
+    ))
+    return True
+
+
 def _reward_options(state: GameState, decision: PendingDecision) -> dict[str, Any]:
     ctx = decision.context
+    if ctx["reward"] == "retreat_provender":
+        from nevsky.battle import retreat_keep_groups
+
+        return {"reward": "retreat_provender", "groups": retreat_keep_groups(state, ctx["retreats"])}
     if ctx["reward"] == "ransom":
         recipients = _ransom_recipients(state, decision.owed_by, ctx["locale"])
         return {"reward": "ransom", "removed": ctx["victim"], "coin": ctx["coin"],
@@ -167,6 +199,8 @@ def _reward_options(state: GameState, decision: PendingDecision) -> dict[str, An
 
 
 def _needs_choice(decision: PendingDecision, options: dict[str, Any]) -> bool:
+    if options["reward"] == "retreat_provender":
+        return True
     if options["reward"] == "ransom":
         # Ransom goes to one mat, even if the player chooses a capped one.
         return len(options["recipients"]) > 1 and any(
@@ -212,10 +246,25 @@ def _resolve_reward(
     result: dict[str, Any],
 ) -> None:
     from nevsky.actions import IllegalAction
-    from nevsky.battle import award_spoils
+    from nevsky.battle import award_spoils, collect_retreat_spoils
 
     ctx = decision.context
-    if ctx["reward"] == "ransom":
+    if ctx["reward"] == "retreat_provender":
+        if set(args) - {"retreat_keep"} or (
+            "retreat_keep" in args and not isinstance(args["retreat_keep"], dict)
+        ):
+            raise IllegalAction("bad_retreat_keep", "choose retained Provender with retreat_keep")
+        captured = list(ctx["captured"])
+        for index, spoil in zip(ctx["indexes"], collect_retreat_spoils(
+            state, ctx["retreats"], keep=args.get("retreat_keep"),
+        ), strict=True):
+            captured[index] = spoil
+        if ctx["sally_args"] is not None:
+            record_sally_spoils(state, ctx["winner"], ctx["recipients"], captured, ctx["sally_args"])
+        else:
+            record_combat_spoils(state, ctx["winner"], ctx["recipients"], captured,
+                                 ctx["allocation"], award_order=ctx["award_order"])
+    elif ctx["reward"] == "ransom":
         if set(args) - {"recipient"} or (
             "recipient" in args and not isinstance(args["recipient"], str)
         ):
@@ -275,6 +324,10 @@ def allocate_aftermath_reward(
 def reward_moves(state: GameState, decision: PendingDecision) -> list[dict[str, Any]]:
     options = _reward_options(state, decision)
     base = {"type": REWARD_ACTION, "side": decision.owed_by}
+    if options["reward"] == "retreat_provender":
+        return [{**base, "args": {}, "optional": True, "reward": options,
+                 "retreat_keep_template": {"retreat_keep": {"<lord_id>": "<count>"}},
+                 "note": "Divide shared Retreat capacity among each Lord's own Provender."}]
     if options["reward"] == "ransom":
         return [{**base, "args": {"recipient": lid}, "reward": options,
                  "note": f"Give Ransom for {options['removed']} to {lid}"}

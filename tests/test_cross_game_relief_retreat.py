@@ -6,7 +6,10 @@ import pytest
 
 from nevsky import battle
 from nevsky.actions import IllegalAction, apply_action
+from nevsky.campaign import SALLY_FATE_ACTION
 from nevsky.legal_moves import legal_moves
+from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side
+from nevsky.rewards import REWARD_ACTION
 from nevsky.scenarios import load_scenario
 from nevsky.state import CombatPending, GameState
 
@@ -266,6 +269,72 @@ def test_owner_can_prioritize_allied_food_over_the_transport_holders_food():
     assert state.lords["hermann"].assets["provender"] == 2
 
 
+def _march_for_split_retreat():
+    state = position()
+    place(state, "hermann").location = "izborsk"
+    place(state, "gavrilo", provender=2)
+    place(state, "domash", cart=2, provender=2)
+    apply_action(state, {"type": "cmd_march", "side": "teutonic",
+                         "args": {"lord_id": "hermann", "to": "pskov", "way_type": "trackway"}})
+    return state
+
+
+@pytest.mark.parametrize("staged", [False, True])
+def test_conceding_owners_can_split_shared_transport_after_a_real_march(staged):
+    state = _march_for_split_retreat()
+    split = {"gavrilo": 1, "domash": 1}
+    retreats = {"gavrilo": "dubrovno", "domash": "dubrovno"}
+    if staged:
+        result = apply_action_for_side(state, "russian", {
+            "type": "stand_battle", "args": {"concede": "defender", "retreat_to": retreats},
+        })
+        assert result["awaiting_aftermath_reward"] == {
+            "owed_by": "russian", "reward": "retreat_provender",
+        }
+        assert not state.lords["hermann"].assets.get("provender")
+        state = GameState.model_validate_json(state.model_dump_json())
+        [move] = legal_actions_for_side(state, "russian")
+        assert move["type"] == REWARD_ACTION
+        assert move["reward"]["groups"] == [{
+            "destination": "dubrovno", "way_type": "trackway",
+            "on_mats": {"gavrilo": 2, "domash": 2},
+            "total_to_keep": 2, "default": {"gavrilo": 0, "domash": 2},
+        }]
+        before = state.model_dump_json()
+        for side, args, code in [
+            ("teutonic", {"retreat_keep": split}, "wrong_actor"),
+            ("russian", {"retreat_keep": {"gavrilo": 1}}, "bad_retreat_keep"),
+            ("russian", {"retreat_keep": {"gavrilo": True, "domash": 1}}, "bad_retreat_keep"),
+        ]:
+            with pytest.raises(IllegalAction, match=code):
+                apply_action_for_side(state, side, {"type": REWARD_ACTION, "args": args})
+            assert state.model_dump_json() == before
+        result = apply_action_for_side(state, "russian", {
+            "type": REWARD_ACTION, "args": {"retreat_keep": split},
+        })
+        assert state.meta.active_player == "teutonic"
+    else:
+        move = next(m for m in legal_moves(state, with_previews=False)
+                    if m["type"] == "stand_battle")
+        assert "retreat_keep" in move["retreat_keep_template"]
+        result = stand(state, retreat_to=retreats, retreat_keep=split)
+    assert all(state.lords[lid].assets["provender"] == 1 for lid in split)
+    assert state.lords["domash"].assets["cart"] == 2
+    assert state.lords["hermann"].assets["provender"] == 2
+    assert [row["transferred"] for row in result["spoils"]] == [
+        {"provender": 1}, {"provender": 1},
+    ]
+
+
+def test_retreat_keep_cannot_shift_capacity_between_destinations():
+    state = _march_for_split_retreat()
+    before = state.model_dump_json()
+    with pytest.raises(IllegalAction, match="bad_retreat_keep"):
+        stand(state, retreat_to={"gavrilo": "zhelcha_river", "domash": "dubrovno"},
+              retreat_keep={"gavrilo": 1, "domash": 1})
+    assert state.model_dump_json() == before
+
+
 @pytest.mark.parametrize("order", ["gavrilo", ["gavrilo", "gavrilo"], [1]])
 def test_malformed_keep_order_rejects_after_combat_without_state_or_rng_mutation(order):
     state = field()
@@ -334,7 +403,8 @@ def test_lord_removed_by_losses_cannot_lend_carts_to_a_surviving_co_retreater():
     )
 
 
-def test_simple_sally_winners_use_same_shared_retreat_capacity_for_losing_besiegers():
+@pytest.mark.parametrize("staged", [False, True])
+def test_simple_sally_winners_use_same_shared_retreat_capacity_for_losing_besiegers(staged):
     state = field()
     state.lords["gavrilo"].forces = {"knights": 8, "men_at_arms": 8}
     state.lords["gavrilo"].in_stronghold = True
@@ -351,6 +421,9 @@ def test_simple_sally_winners_use_same_shared_retreat_capacity_for_losing_besieg
         move for move in legal_moves(state, with_previews=False) if move["type"] == "cmd_sally"
     )
     assert set(move["retreat_keep_order_options"]) == {"hermann", "yaroslav"}
+    retreats = {"hermann": "dubrovno", "yaroslav": "dubrovno"}
+    if staged:
+        state.lords["yaroslav"].assets["provender"] = 2
     result = apply_action(
         state,
         {
@@ -359,11 +432,26 @@ def test_simple_sally_winners_use_same_shared_retreat_capacity_for_losing_besieg
             "args": {
                 "lord_id": "gavrilo",
                 "concede": "defender",
-                "retreat_to": {"hermann": "dubrovno", "yaroslav": "dubrovno"},
+                **({"choose_loser_fate": True} if staged else {"retreat_to": retreats}),
             },
         },
     )
     assert result["battle"]["loser"] == "teutonic"
-    assert state.lords["hermann"].assets["provender"] == 2
+    if staged:
+        before_food = state.lords["gavrilo"].assets["provender"]
+        result = apply_action_for_side(state, "teutonic", {
+            "type": SALLY_FATE_ACTION, "args": {"retreat_to": retreats},
+        })
+        assert result["awaiting_aftermath_reward"] == {
+            "owed_by": "teutonic", "reward": "retreat_provender",
+        }
+        result = apply_action_for_side(state, "teutonic", {"type": REWARD_ACTION, "args": {
+            "retreat_keep": {"hermann": 1, "yaroslav": 1},
+        }})
+        assert state.lords["hermann"].assets["provender"] == 1
+        assert state.lords["yaroslav"].assets["provender"] == 1
+        assert state.lords["gavrilo"].assets["provender"] == before_food + 2
+    else:
+        assert state.lords["hermann"].assets["provender"] == 2
+        assert all(not rec["transferred"] for rec in result["spoils"])
     assert state.lords["yaroslav"].assets["cart"] == 2
-    assert all(not rec["transferred"] for rec in result["spoils"])

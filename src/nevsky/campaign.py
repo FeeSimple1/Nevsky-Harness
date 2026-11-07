@@ -3643,7 +3643,7 @@ def _h_stand_battle(
         collect_spoils,
         resolve_battle,
     )
-    from nevsky.rewards import record_combat_spoils
+    from nevsky.rewards import record_combat_spoils, record_retreat_keep_choice
 
     sd = _require_side_player(state, side)
     cp = state.combat_pending
@@ -4107,14 +4107,23 @@ def _h_stand_battle(
     # 4.4.3: both sides take Losses before the winners receive Spoils.
     spoils_order = [lid for lid in winner_lords if state.lords[lid].state == "mustered"]
     award_order = [i for i, captured in enumerate(aftermath["spoils"]) if captured]
-    for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
-            state, conceded_retreats, keep_order=args.get("retreat_keep_order")), strict=True):
-        aftermath["spoils"][index] = captured
-    if aftermath["spoils"]:
-        record_combat_spoils(
-            state, winner, spoils_order, aftermath.pop("spoils"), spoils_allocation,
+    keep, keep_order = args.get("retreat_keep"), args.get("retreat_keep_order")
+    if (args.get("choose_retreat_keep") and keep is None and keep_order is None
+        and record_retreat_keep_choice(
+            state, conceded_retreats, conceded_spoil_indexes, aftermath["spoils"],
+            winner, spoils_order, allocation=spoils_allocation,
             award_order=award_order + conceded_spoil_indexes,
-        )
+        )):
+        aftermath.pop("spoils")
+    else:
+        for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
+                state, conceded_retreats, keep_order=keep_order, keep=keep), strict=True):
+            aftermath["spoils"][index] = captured
+        if aftermath["spoils"]:
+            record_combat_spoils(
+                state, winner, spoils_order, aftermath.pop("spoils"), spoils_allocation,
+                award_order=award_order + conceded_spoil_indexes,
+            )
 
     # Mark all participants MOVED_FOUGHT. PLAY-14 (Fable audit): 4.4.5
     # "Mark all Attacking and Defending Lords" -- Sallying joiners are
@@ -4791,7 +4800,8 @@ def _h_cmd_sally(
     choose_fate = args.get("choose_loser_fate", False)
     if type(choose_fate) is not bool:
         raise IllegalAction("bad_sally_fate", "choose_loser_fate must be a boolean")
-    if choose_fate and (args.get("remove_losers") or args.get("retreat_to")):
+    if choose_fate and any(args.get(k) for k in
+                           ("remove_losers", "retreat_to", "retreat_keep", "retreat_keep_order")):
         raise IllegalAction("wrong_actor", "the losing besieger chooses Removal or Retreat")
     remove_losers = _sally_removals(args.get("remove_losers"), defenders)
 
@@ -4969,7 +4979,7 @@ def _finish_successful_sally(
 ) -> None:
     """Resolve a Sally victory after the besiegers have chosen their fate."""
     from nevsky.battle import collect_spoils
-    from nevsky.rewards import record_sally_spoils
+    from nevsky.rewards import record_retreat_keep_choice, record_sally_spoils
 
     # Sallying side won. Besieging side Lords lose per 4.4 Battle
     # aftermath. Siege is lifted (remove all siege markers).
@@ -5071,15 +5081,23 @@ def _finish_successful_sally(
         if not state.lords[alid].forces:
             _rem(state, alid, load_lords()[alid], combat_locale=locale_id)
             aftermath.setdefault("winner_removed_by_losses", []).append(alid)
-    for index, captured in zip(conceded_spoil_indexes, collect_retreat_spoils(
-            state, conceded_retreats, keep_order=args.get("retreat_keep_order")), strict=True):
-        aftermath["spoils"][index] = captured
     survivors = [lid for lid in attackers if state.lords[lid].state == "mustered"]
+    spoils_args = {k: args[k] for k in ("spoils_recipient", "spoils_allocation") if k in args}
     if staged and any(lid not in survivors for lid in args.get("spoils_allocation", {})):
         # Losses invalidated the winner's earlier plan. Let the winner choose
         # again from the surviving recipients instead of blocking the handoff.
-        args = {}
-    record_sally_spoils(state, sd, survivors, aftermath.pop("spoils", []), args)
+        spoils_args = {}
+    captured = aftermath.pop("spoils", [])
+    keep, keep_order = args.get("retreat_keep"), args.get("retreat_keep_order")
+    if not ((staged or args.get("choose_retreat_keep")) and keep is None and keep_order is None
+            and record_retreat_keep_choice(
+                state, conceded_retreats, conceded_spoil_indexes, captured, sd, survivors,
+                sally_args=spoils_args,
+            )):
+        for index, spoil in zip(conceded_spoil_indexes, collect_retreat_spoils(
+                state, conceded_retreats, keep_order=keep_order, keep=keep), strict=True):
+            captured[index] = spoil
+        record_sally_spoils(state, sd, survivors, captured, spoils_args)
     # Siege lifted.
     state.locales[locale_id].siege_markers = 0
     aftermath["siege_lifted"] = True

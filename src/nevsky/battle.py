@@ -2130,10 +2130,37 @@ def _shared_provender_limits(
     return kept
 
 
+def _retreat_transport_groups(
+    state: GameState, retreats: list[tuple[str, str | None]],
+) -> dict[tuple[str, str | None, str], list[str]]:
+    groups: dict[tuple[str, str | None, str], list[str]] = {}
+    for lid, way in retreats:
+        lord = state.lords[lid]
+        if way in ("trackway", "waterway"):
+            groups.setdefault((lord.side, lord.location, way), []).append(lid)
+    return groups
+
+
+def retreat_keep_groups(
+    state: GameState, retreats: list[tuple[str, str | None]],
+) -> list[dict[str, Any]]:
+    """Describe just the groups with a choice of how much food each mat keeps."""
+    choices = []
+    for (_, destination, way), lords in _retreat_transport_groups(state, retreats).items():
+        food = {lid: state.lords[lid].assets.get("provender", 0) for lid in lords}
+        default = _shared_provender_limits(state, lords, way, None)
+        total = sum(default.values())
+        if 0 < total < sum(food.values()) and sum(n > 0 for n in food.values()) > 1:
+            choices.append({"destination": destination, "way_type": way, "on_mats": food,
+                            "total_to_keep": total, "default": default})
+    return choices
+
+
 def collect_retreat_spoils(
     state: GameState, retreats: list[tuple[str, str | None]],
     *,
     keep_order: list[str] | None = None,
+    keep: dict[str, int] | None = None,
 ) -> list[dict[str, Any]]:
     """Conceding survivors Share usable Transport on the same Retreat Way.
 
@@ -2144,6 +2171,7 @@ def collect_retreat_spoils(
     order (unnamed survivors follow in their original order). Assets stay on
     their owners' mats; only food exceeding shared capacity becomes Spoils.
     Unknown priority names have no effect, as for Avoid.
+    An exact map instead assigns each addressed group's full retainable total.
     """
     from nevsky.actions import IllegalAction
 
@@ -2153,14 +2181,27 @@ def collect_retreat_spoils(
             or len(set(keep_order)) != len(keep_order)):
         raise IllegalAction("bad_retreat_keep_order",
                             "retreat_keep_order must be a list of distinct Lord IDs")
-    groups: dict[tuple[str, str | None, str], list[str]] = {}
+    groups = _retreat_transport_groups(state, retreats)
+    eligible = {lid for lords in groups.values() for lid in lords}
+    if keep is not None and (
+        keep_order is not None or not isinstance(keep, dict)
+        or any(lid not in eligible or type(count) is not int
+               or not 0 <= count <= state.lords[lid].assets.get("provender", 0)
+               for lid, count in keep.items())
+    ):
+        raise IllegalAction("bad_retreat_keep", "retreat_keep must name surviving Retreating "
+                            "owners and valid Provender counts, without a priority list")
     limits: dict[str, int] = {}
-    for lid, way in retreats:
-        lord = state.lords[lid]
-        if way in ("trackway", "waterway"):
-            groups.setdefault((lord.side, lord.location, way), []).append(lid)
-    for (_, _, way), lords in groups.items():
-        limits.update(_shared_provender_limits(state, lords, way, keep_order))
+    for (_, destination, way), lords in groups.items():
+        defaults = _shared_provender_limits(state, lords, way, keep_order)
+        if keep is not None and any(lid in keep for lid in lords):
+            exact = {lid: keep.get(lid, 0) for lid in lords}
+            if sum(exact.values()) != sum(defaults.values()):
+                raise IllegalAction("bad_retreat_keep", f"Retreat to {destination} by {way} "
+                                    f"must retain exactly {sum(defaults.values())} Provender")
+            limits.update(exact)
+        else:
+            limits.update(defaults)
     return [collect_spoils(state, lid, "loot_and_excess", retreat_way_type=way,
                            provender_limit=limits.get(lid)) for lid, way in retreats]
 
