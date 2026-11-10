@@ -391,9 +391,10 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
 ### 4.5.2 Storm
 
 - **`cmd_storm`** — one Command action (D-Q010; 4.5.2 "a Command action"). `args.lord_id` (active Lord). The Attack still ends the card via 4.4.5 Recovery.
-  With multiple besieged Lords, the player interface hands off to the
-  defender before Round 1. Select `choose_storm_defender_front` with
-  `args.lord_id` naming the besieged Lord to place in Front. The remaining
+  When the defender can choose a Front Lord or has a Hit assignment
+  choice, the player interface hands off before Round 1. Select
+  `choose_storm_defender_front` with `args.lord_id` naming the besieged
+  Lord to place in Front, or `null` for a Garrison alone. The remaining
   defenders start in Reserve. The Active attacker starts in Front.
   A referee can use `args.defender_front` or the
   `storm_defender_front` combat callback or script. With no election,
@@ -411,6 +412,16 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
     Referees can script a `storm_attacker_absorb` choice or set
     `args.prompt_attacker_hits` to true with a `decision_callback`.
     The decision appears when two or more unit types are eligible for a Hit.
+  - The defender may supply `args.garrison_absorption_policy` for the
+    Garrison and `args.absorption_policy` for the Front Lord on
+    `choose_storm_defender_front`. Each policy ranks unit types separately
+    and defaults to weakest first. Each surviving Hit goes to the Garrison
+    while it has units, then to the Front Lord.
+    In the referee API, `cmd_storm` takes
+    `args.garrison_absorption_policy` and `args.defender_absorption_policy`.
+    Referees can script `storm_garrison_absorb` and `storm_defender_absorb`
+    or set `args.prompt_defender_hits` to true with a `decision_callback`.
+    Both decisions belong to the defender and use the live eligible unit types.
   - Max 6 Melee Hits per Lord per Round (2E). Archery unlimited.
   - Storm ends when all attackers Rout, all defenders+Garrison
     Rout, OR rounds_completed >= siege_markers (attacker loses).

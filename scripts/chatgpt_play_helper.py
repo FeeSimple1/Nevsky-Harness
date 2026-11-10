@@ -302,6 +302,8 @@ def apply(choice, side: str | None = None, *, args: dict | None = None):
         side = action["side"]
     else:
         raise TypeError("choice must be a state-bound ID, int index, or action dict")
+    if action.get("type") == "cmd_storm" and isinstance(action.get("args", {}), dict):
+        action["args"] = {**action.get("args", {}), "choose_defender_front": True}
     try:
         result = apply_action(s, action)
     except IllegalAction as e:

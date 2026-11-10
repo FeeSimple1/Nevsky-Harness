@@ -27,7 +27,7 @@ modifies them.
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, cast
 
 from nevsky.rng import roll_d6
 from nevsky.state import GameState, Side, move_vassal_marker, vassal_marker_box
@@ -316,6 +316,25 @@ def _striking_unit_count(
     return n
 
 
+def _choose_storm_hit_unit(
+    units: ForceCounts, policy: str | list[str], ctx: BattleDecisionContext,
+    decision_type: str, role: str, info: dict[str, Any], *, prompt: bool,
+) -> str | None:
+    eligible = {unit: count for unit, count in units.items() if count > 0}
+    preferred = _assign_hit_owner_pick(eligible, {}, policy=policy)
+    if preferred is None or len(eligible) < 2:
+        return preferred
+    scripted = ctx.scripted
+    if (scripted and scripted[0].get("type") == decision_type) or (
+        not scripted and prompt and ctx.callback is not None
+    ):
+        options = [preferred] + sorted(unit for unit in eligible if unit != preferred)
+        return cast(str, ctx.decide(
+            decision_type, role, options, {**info, "eligible_forces": eligible},
+        ))
+    return preferred
+
+
 def _resolve_hits(
     state: GameState, lord_id: str, hits: int, strike_kind: str,
     striker_has_armor_minus_2: bool = False,
@@ -323,8 +342,9 @@ def _resolve_hits(
     assignment_policy: "str | list[str]" = "weakest_first",
     hit_flags: list[bool] | None = None,
     in_storm: bool = False,
-    storm_attacker_choices: BattleDecisionContext | None = None,
-    prompt_attacker_hits: bool = False,
+    storm_choices: BattleDecisionContext | None = None,
+    storm_role: str = "defender",
+    prompt_storm_hits: bool = False,
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
@@ -334,8 +354,8 @@ def _resolve_hits(
       - "weakest_first" (default): owner-picks, weakest unit absorbs
         each Hit (Battle / Storm Defender / Sally).
       - "armored_first": prefer the strongest Protection.
-    With `storm_attacker_choices`, apply the mandatory Armored tier before
-    using the owner's policy or per-Hit decision (4.5.2).
+    A Storm attacker applies the mandatory Armored tier before using the
+    owner's policy or per-Hit decision (4.5.2).
 
     `hit_flags` (Q-007 round-in-favor-of-Crossbowmen, Arts of War
     Reference R1/R2 Luchniki Tips): if provided, must have len(hits)
@@ -361,30 +381,26 @@ def _resolve_hits(
             hit_flags = hit_flags[:hits]
     for hit_index in range(hits):
         eligible = units
-        if storm_attacker_choices is not None:
+        if storm_role == "attacker":
             live = {unit: count for unit, count in units.items() if count > 0}
             armored = {unit: count for unit, count in live.items()
                        if _protection_spec(unit, strike_kind, in_storm=True).startswith("armor:")}
             eligible = armored or live
-        utype = _assign_hit_owner_pick(eligible, {}, policy=assignment_policy)
-        if utype is None:
-            break
         per_hit_armor_minus_2 = (
             hit_flags[hit_index] if hit_flags is not None
             else striker_has_armor_minus_2
         )
-        if storm_attacker_choices is not None and len(eligible) > 1:
-            scripted = storm_attacker_choices.scripted
-            if (scripted and scripted[0].get("type") == "storm_attacker_absorb") or (
-                    not scripted and prompt_attacker_hits
-                    and storm_attacker_choices.callback is not None):
-                # Keep the policy choice first as the recommended option.
-                options = [utype] + sorted(unit for unit in eligible if unit != utype)
-                utype = storm_attacker_choices.decide(
-                    "storm_attacker_absorb", "attacker", options,
-                    {"lord_id": lord_id, "hit": hit_index + 1, "strike_kind": strike_kind,
-                     "armor_minus_2": per_hit_armor_minus_2, "eligible_forces": dict(eligible)},
-                )
+        if storm_choices is None:
+            utype = _assign_hit_owner_pick(eligible, {}, policy=assignment_policy)
+        else:
+            utype = _choose_storm_hit_unit(
+                eligible, assignment_policy, storm_choices, f"storm_{storm_role}_absorb",
+                storm_role, {"lord_id": lord_id, "hit": hit_index + 1, "strike_kind": strike_kind,
+                             "armor_minus_2": per_hit_armor_minus_2},
+                prompt=prompt_storm_hits,
+            )
+        if utype is None:
+            break
         absorbed_this = _absorb_hit(
             state, utype, strike_kind,
             lord_id=lord_id,
@@ -537,6 +553,8 @@ _DECISION_TYPES = (
     "sally_loser_fate",             # losing besieger chooses Retreat or Removal
     "storm_defender_front",        # defending owner chooses initial Storm Front
     "storm_attacker_absorb",       # attacking owner selects a unit type for this Hit
+    "storm_garrison_absorb",       # defending owner selects a Garrison unit type
+    "storm_defender_absorb",       # defending owner selects a Front Lord unit type
 )
 
 
@@ -2393,6 +2411,9 @@ def resolve_storm(
     defender_front: str | None = None,
     attacker_absorption_policy: str | list[str] = "armored_first",
     prompt_attacker_hits: bool = False,
+    defender_absorption_policy: str | list[str] = "weakest_first",
+    garrison_absorption_policy: str | list[str] = "weakest_first",
+    prompt_defender_hits: bool = False,
 ) -> dict[str, Any]:
     """Resolve a Storm at `locale_id` (4.5.2 2E).
 
@@ -2409,8 +2430,8 @@ def resolve_storm(
     Round.
 
     Other 2E rules already enforced:
-      - Garrison units sit with the defending Front Lord; defender
-        Hits absorbed by Garrison first (4.5.2).
+      - The defender chooses Hit absorbers within the Garrison while
+        it has units, then within the defending Front Lord (4.5.2).
       - Walls roll for defender per Hit (1..walls_max).
       - Siegeworks (siege_markers as Walls 1..siege_markers) for
         attacker.
@@ -2614,20 +2635,26 @@ def resolve_storm(
             hits = len(hit_flags)
             distribution: list[dict[str, Any]] = []
             step_state: dict = {}
-            if target_is_defender and g_units:
-                for utype in ("men_at_arms", "knights"):
-                    while hit_flags and g_units.get(utype, 0) > 0:
-                        is_crossbow = hit_flags.pop(0)
-                        absorbed = _absorb_hit(
-                            state, utype, kind,
-                            striker_has_armor_minus_2=is_crossbow,
-                            in_storm=True,
-                        )
-                        if not absorbed:
-                            g_units[utype] -= 1
-                        distribution.append({
-                            "target": "garrison", "unit": utype, "absorbed": absorbed,
-                        })
+            if target_is_defender:
+                while hit_flags:
+                    utype = _choose_storm_hit_unit(
+                        g_units, garrison_absorption_policy, decision_ctx,
+                        "storm_garrison_absorb", "defender",
+                        {"locale": locale_id, "hit": len(distribution) + 1, "strike_kind": kind,
+                         "armor_minus_2": hit_flags[0]},
+                        prompt=prompt_defender_hits,
+                    )
+                    if utype is None:
+                        break
+                    absorbed = _absorb_hit(
+                        state, utype, kind, striker_has_armor_minus_2=hit_flags.pop(0),
+                        in_storm=True,
+                    )
+                    if not absorbed:
+                        g_units[utype] -= 1
+                    distribution.append({
+                        "target": "garrison", "unit": utype, "absorbed": absorbed,
+                    })
             for tlid in target_lords:
                 if not hit_flags:
                     break
@@ -2635,11 +2662,13 @@ def resolve_storm(
                     state, tlid, len(hit_flags), kind,
                     hit_flags=hit_flags,
                     step_state=step_state,
-                    assignment_policy=("weakest_first" if target_is_defender
+                    assignment_policy=(defender_absorption_policy if target_is_defender
                                        else attacker_absorption_policy),
                     in_storm=True,
-                    storm_attacker_choices=None if target_is_defender else decision_ctx,
-                    prompt_attacker_hits=prompt_attacker_hits,
+                    storm_choices=decision_ctx,
+                    storm_role="defender" if target_is_defender else "attacker",
+                    prompt_storm_hits=(prompt_defender_hits if target_is_defender
+                                       else prompt_attacker_hits),
                 )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 # A Storm has only one Front Lord per side. Excess Hits

@@ -3,7 +3,7 @@
 import pytest
 
 from nevsky.actions import IllegalAction, apply_action
-from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side
+from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side, safe_fallback_for_side
 from nevsky.state import STORM_FRONT_ACTION, GameState
 from tests.test_cross_game_relief_retreat import place, position
 
@@ -28,9 +28,12 @@ def _attacker_hits(result):
 
 def test_player_can_rank_men_at_arms_first_within_the_armored_tier():
     state = _storm_state()
-    default = apply_action_for_side(state.model_copy(deep=True), "teutonic", _command())
+    control = state.model_copy(deep=True)
+    apply_action_for_side(control, "teutonic", _command())
+    default = apply_action_for_side(control, "russian", safe_fallback_for_side(control, "russian"))
     priority = ["militia", "men_at_arms", "knights"]
-    elected = apply_action_for_side(state, "teutonic", _command(absorption_policy=priority))
+    apply_action_for_side(state, "teutonic", _command(absorption_policy=priority))
+    elected = apply_action_for_side(state, "russian", safe_fallback_for_side(state, "russian"))
     assert _attacker_hits(default)[0]["unit"] == "knights"
     assert _attacker_hits(elected)[0]["unit"] == "men_at_arms"
     assert elected["battle"]["absorption_policies"] == {"attacker": priority}

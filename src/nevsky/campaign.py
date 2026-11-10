@@ -4465,22 +4465,44 @@ def _h_cmd_siege(
              "siege_markers": state.locales[locale_id].siege_markers}, dice)
 
 
+def _storm_defense_policy_options(
+    state: GameState, defenders: list[str], garrison: dict[str, int],
+) -> dict[str, list[str]]:
+    """List the unit types for meaningful defender priority choices."""
+    options = {}
+    garrison_types = sorted(unit for unit, count in garrison.items() if count > 0)
+    if len(garrison_types) > 1:
+        options["garrison_absorption_policy"] = garrison_types
+    lord_types = [{unit for unit, count in state.lords[lid].forces.items() if count > 0}
+                  for lid in defenders]
+    if any(len(types) > 1 for types in lord_types):
+        options["absorption_policy"] = sorted({unit for types in lord_types for unit in types})
+    return options
+
+
 def _h_choose_storm_defender_front(
     state: GameState, side: str, args: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     pending = pending_storm_front(state)
     if pending is None:
-        raise IllegalAction("no_storm_front", "no Storm Front choice is pending")
+        raise IllegalAction("no_storm_front", "no Storm defense choice is pending")
     if side != pending.owed_by or side != state.meta.active_player:
-        raise IllegalAction("wrong_actor", "only the defending player chooses the Storm Front")
+        raise IllegalAction("wrong_actor", "only the defender chooses the Storm defense")
     ctx = pending.context
-    selected = args.get("lord_id")
-    if set(args) != {"lord_id"} or selected not in ctx["candidates"]:
-        raise IllegalAction("bad_storm_front", "choose one of the besieged Lords for Front")
+    fronts = ctx["candidates"] or [None]
+    selected = args.get("lord_id", fronts[0] if len(fronts) == 1 else None)
+    if set(args) - {"lord_id", "absorption_policy", "garrison_absorption_policy"}:
+        raise IllegalAction("bad_storm_front", "choose only the defending Front and Hit priorities")
+    if selected not in fronts:
+        raise IllegalAction("bad_storm_front", "choose a besieged Front Lord or null for Garrison only")
     state.pending_decisions.remove(pending)
     state.meta.active_player = ctx["attacker"]
     result, dice = _h_cmd_storm(
-        state, ctx["attacker"], {**ctx["attack_args"], "defender_front": selected},
+        state, ctx["attacker"], {
+            **ctx["attack_args"], "defender_front": selected,
+            "defender_absorption_policy": args.get("absorption_policy"),
+            "garrison_absorption_policy": args.get("garrison_absorption_policy"),
+        },
     )
     if (fo_lord := ctx["attack_args"].get("field_organ_lord")):
         result["field_organ_lord"] = fo_lord
@@ -4546,6 +4568,7 @@ def _h_cmd_storm(
     attackers = [lord_id] + [lid for lid in attackers if lid != lord_id]
 
     walls_max = sh["walls_max"]
+    garrison = dict(sh["garrison"])
     if state.locales[locale_id].walls_plus_one:
         walls_max += 1  # Stone Kremlin (R18): Walls +1 (4.5.2)
     # Follow-up B (Q-007 candidate): operator decisions for Storm
@@ -4562,12 +4585,14 @@ def _h_cmd_storm(
         "armored_first" if priority is None else _validate_absorption_policy(priority)
     )
     prompt_attacker_hits = args.get("prompt_attacker_hits", False)
-    if type(prompt_attacker_hits) is not bool or (
-            prompt_attacker_hits and not callable(storm_ctx.callback)):
-        raise IllegalAction(
-            "bad_storm_hit_choice",
-            "prompt_attacker_hits must be boolean and requires a referee callback when true",
-        )
+    prompt_defender_hits = args.get("prompt_defender_hits", False)
+    for name, prompt in (("prompt_attacker_hits", prompt_attacker_hits),
+                         ("prompt_defender_hits", prompt_defender_hits)):
+        if type(prompt) is not bool or (prompt and not callable(storm_ctx.callback)):
+            raise IllegalAction(
+                "bad_storm_hit_choice",
+                f"{name} must be boolean and requires a referee callback when true",
+            )
     # 4.5.2 Storm Concede (attacker only): args.concede = true/'attacker'
     # or a Round int at which the attacker Concedes the Storm.
     storm_concede_round = _parse_concede_round(args.get("concede"), who="attacker")
@@ -4577,8 +4602,15 @@ def _h_cmd_storm(
     choose_front = args.get("choose_defender_front", False)
     if type(choose_front) is not bool:
         raise IllegalAction("bad_storm_front", "choose_defender_front must be a boolean")
-    if choose_front and (defender_front is not None or storm_ctx.scripted or storm_ctx.callback):
-        raise IllegalAction("wrong_actor", "the defender's Front choice is pending player input")
+    defender_priority = args.get("defender_absorption_policy")
+    garrison_priority = args.get("garrison_absorption_policy")
+    if choose_front and (
+        defender_front is not None or defender_priority is not None
+        or garrison_priority is not None or storm_ctx.scripted or storm_ctx.callback is not None
+    ):
+        raise IllegalAction("wrong_actor", "the defender owns the Front and Hit priorities")
+    defender_policy = _validate_absorption_policy(defender_priority)
+    garrison_policy = _validate_absorption_policy(garrison_priority)
     # T10 Field Organ in Storm (playable on Attack OR Defense): consume the
     # Teutonic hold and pass the target Lord (Knights+Sergeants Melee +1,
     # Round 1). field_organ_lord must be a Storm participant.
@@ -4596,7 +4628,9 @@ def _h_cmd_storm(
         if cid not in state.decks.teutonic.holds:
             raise IllegalAction("not_in_holds", f"{cid} not in Teutonic holds")
 
-    if choose_front and len(besieged) > 1:
+    if choose_front and (len(besieged) > 1 or _storm_defense_policy_options(
+        state, besieged, garrison,
+    )):
         from nevsky.rewards import _validate_allocation
 
         attack_args = {k: deepcopy(args[k]) for k in (
@@ -4610,7 +4644,7 @@ def _h_cmd_storm(
             kind=STORM_FRONT_ACTION, owed_by=defending_side,
             context={"locale": locale_id, "attacker": sd, "candidates": besieged,
                      "participants": attackers + besieged, "attack_args": attack_args},
-            note=f"Choose the initial defending Front at {locale_id}.",
+            note=f"Choose the defending Front and Hit priorities at {locale_id}.",
         ))
         state.meta.active_player = defending_side
         return {"awaiting_storm_front": {"owed_by": defending_side, "locale": locale_id}}, []
@@ -4630,16 +4664,24 @@ def _h_cmd_storm(
         locale_id=locale_id,
         walls_max=walls_max,
         siege_markers=state.locales[locale_id].siege_markers,
-        garrison=dict(sh["garrison"]),
+        garrison=garrison,
         decision_ctx=storm_ctx,
         attacker_concede_round=storm_concede_round,
         holds=storm_holds or None,
         defender_front=defender_front,
         attacker_absorption_policy=absorption_policy,
         prompt_attacker_hits=prompt_attacker_hits,
+        defender_absorption_policy=defender_policy,
+        garrison_absorption_policy=garrison_policy,
+        prompt_defender_hits=prompt_defender_hits,
     )
-    if priority is not None:
-        result["absorption_policies"] = {"attacker": absorption_policy}
+    policies = {role: policy for role, supplied, policy in (
+        ("attacker", priority, absorption_policy),
+        ("defender", defender_priority, defender_policy),
+        ("garrison", garrison_priority, garrison_policy),
+    ) if supplied is not None}
+    if policies:
+        result["absorption_policies"] = policies
 
     aftermath: dict[str, Any] = {"battle": result}
     if result["winner"] == "attacker":

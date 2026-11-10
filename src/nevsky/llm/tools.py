@@ -40,10 +40,11 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
             move["args"]["choose_loser_fate"] = True
             move.pop("remove_losers_options", None)
             move.pop("remove_losers_template", None)
-        if move["type"] == "cmd_storm" and move.pop("defender_front_options", None):
+        if move["type"] == "cmd_storm":
+            move.pop("defender_front_options", None)
             move.pop("defender_front_template", None)
             move["args"]["choose_defender_front"] = True
-            move["note"] += " The defender chooses their initial Front."
+            move["note"] += " The defender chooses any Front and Hit priorities."
         if "holds_available" in move:
             move["holds_available"] = [hold for hold in move["holds_available"]
                                        if hold["side"] == side]
@@ -116,8 +117,10 @@ def _validate_combat_owner(state, side: str, kind: str, args: dict[str, Any]) ->
             raise IllegalAction("bad_hold", f"{target_key} requires its Held card")
     if kind == "cmd_storm" and args.get("field_organ_lord") and side != "teutonic":
         raise IllegalAction("wrong_actor", "only the Teutonic player may play Field Organ")
-    if kind == "cmd_storm" and args.get("defender_front") is not None:
-        raise IllegalAction("wrong_actor", "only the defender chooses the Storm Front")
+    if kind == "cmd_storm" and any(args.get(field) is not None for field in (
+        "defender_front", "defender_absorption_policy", "garrison_absorption_policy",
+    )):
+        raise IllegalAction("wrong_actor", "only the defender chooses the Front and Hit priorities")
 
 
 def apply_action_for_side(state, side: str, action: dict) -> dict:
@@ -165,7 +168,7 @@ def safe_fallback_for_side(state, side: str) -> dict:
         return {"type": SALLY_FATE_ACTION, "side": side, "args": {}}
     if (front := pending_storm_front(state)) is not None:
         return {"type": STORM_FRONT_ACTION, "side": side,
-                "args": {"lord_id": front.context["candidates"][0]}}
+                "args": {"lord_id": next(iter(front.context["candidates"]), None)}}
     if pending_reward(state) is not None:
         return {"type": REWARD_ACTION, "side": side, "args": {}}
     phase = state.meta.phase

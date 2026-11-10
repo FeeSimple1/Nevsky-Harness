@@ -174,7 +174,7 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
         raise IllegalAction("sally_loser_fate_pending", "resolve losing besiegers before resuming play")
 
     if atype != STORM_FRONT_ACTION and pending_storm_front(state) is not None:
-        raise IllegalAction("storm_front_pending", "choose the defending Storm Front before play")
+        raise IllegalAction("storm_front_pending", "resolve the Storm defense before play")
 
     if pending_reward(state) is not None and atype != REWARD_ACTION:
         raise IllegalAction("aftermath_reward_pending", "allocate the reward before resuming play")

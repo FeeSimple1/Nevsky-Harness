@@ -50,9 +50,24 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
     from nevsky.rewards import pending_reward, reward_moves
 
     if (front := pending_storm_front(state)) is not None:
-        return [{"type": STORM_FRONT_ACTION, "side": front.owed_by, "args": {"lord_id": lid},
-                 "note": f"Place {lid} in the defending Storm Front at {front.context['locale']}."}
-                for lid in front.context["candidates"]]
+        from nevsky.campaign import _effective_stronghold, _storm_defense_policy_options
+
+        locale = front.context["locale"]
+        defenders = front.context["candidates"]
+        sh = _effective_stronghold(state, locale) or {}
+        options = _storm_defense_policy_options(state, defenders, sh.get("garrison", {}))
+        moves = []
+        for lid in defenders or [None]:
+            note = (f"Place {lid} in the defending Storm Front at {locale}."
+                    if lid is not None else f"Defend {locale} with the Garrison alone.")
+            move: dict[str, Any] = {"type": STORM_FRONT_ACTION, "side": front.owed_by,
+                                    "args": {"lord_id": lid}, "note": note}
+            if options:
+                move["args_template"] = {key: ["<unit_type>", "..."] for key in options}
+                move["absorption_policy_options"] = options
+                move["note"] += " Set optional Hit priorities. Garrison takes Hits first."
+            moves.append(move)
+        return moves
 
     if (fate := pending_sally_fate(state)) is not None:
         return [{

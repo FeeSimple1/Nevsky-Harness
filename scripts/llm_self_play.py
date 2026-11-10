@@ -233,6 +233,8 @@ def cmd_actions(args):
         print(f"  [{i}] {atype:<25} args={argspart}{tmpl}")
         if note:
             print(f"       note: {note}")
+        if policies := a.get("absorption_policy_options"):
+            print(f"       optional Hit priorities (JSON apply): {json.dumps(policies)}")
     if rejected:
         # Surface the root enumerator bug rather than silently hiding it.
         print(f"--- filtered {len(rejected)} over-enumerated candidate(s) "
@@ -273,6 +275,8 @@ def cmd_apply(args):
     action = {k: v for k, v in chosen.items()
               if k in ("type", "side", "args")}
     side = action["side"]  # A raw-JSON Hold may interrupt the other side.
+    if action.get("type") == "cmd_storm" and isinstance(action.get("args", {}), dict):
+        action["args"] = {**action.get("args", {}), "choose_defender_front": True}
     try:
         result = apply_action(state, action)
     except IllegalAction as e:
