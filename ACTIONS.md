@@ -405,6 +405,12 @@ besiegers. `withdraw` (4.3.4) sets `in_stronghold=True`.
   - Defender protected by Walls (rolled per Hit, d6 <= walls_max
     absorbs). Attacker protected by Siegeworks (siege_markers as
     Walls range 1..siege_markers).
+  - The attacker may set `args.absorption_policy` to a priority list such
+    as `["men_at_arms", "knights"]`. Each Hit goes to an Armored unit while
+    one is available. The default prefers the strongest Protection.
+    Referees can script a `storm_attacker_absorb` choice or set
+    `args.prompt_attacker_hits` to true with a `decision_callback`.
+    The decision appears when two or more unit types are eligible for a Hit.
   - Max 6 Melee Hits per Lord per Round (2E). Archery unlimited.
   - Storm ends when all attackers Rout, all defenders+Garrison
     Rout, OR rounds_completed >= siege_markers (attacker loses).

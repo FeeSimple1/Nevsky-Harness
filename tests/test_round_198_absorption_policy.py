@@ -9,9 +9,9 @@ each side declare a per-combat absorption policy:
   - custom list: explicit unit-type sacrifice priority.
 
 Attacker declares on cmd_march (stored in combat_pending); defender
-on stand_battle; sallying side on cmd_sally. Storm absorption stays
-rule-mandated (Storm Attacker = armored-first). Logged in the battle
-result under "absorption_policies".
+on stand_battle; sallying side on cmd_sally. The Storm attacker may
+rank unit types within the mandatory Armored-first rule. Policies are
+logged in the battle result under "absorption_policies".
 """
 from __future__ import annotations
 import inspect

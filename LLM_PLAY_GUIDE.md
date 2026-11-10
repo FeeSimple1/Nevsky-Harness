@@ -303,10 +303,10 @@ locales in a quiet Campaign.
     - a custom list of unit types (highest sacrifice priority first),
       e.g. `["militia","light_horse","sergeants"]` — unit types you
       don't name fall back to weakest-first after the named ones.
-  Storm absorption stays rule-mandated (Storm Attacker always absorbs
-  armored-first per 4.5.2), so the arg has no effect in a Storm. The
-  chosen policy is recorded in the battle result under
-  `absorption_policies` for the post-mortem.
+  On `cmd_storm`, the attacker can use the same argument to rank eligible
+  unit types. Armored units take Hits first under 4.5.2. Omitting the policy
+  prefers the strongest Protection. A supplied policy is recorded under
+  `absorption_policies` in the battle result.
 
 ### Combat aftermath decisions (PLAY-7..25 audit additions, 2026-07)
 - **Winners roll Losses too (4.4.4).** Routed units are no longer free

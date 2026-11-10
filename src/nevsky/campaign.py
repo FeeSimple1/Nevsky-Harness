@@ -2682,7 +2682,7 @@ def _validate_absorption_policy(value: Any) -> "str | list[str]":
             )
         return value
     if isinstance(value, (list, tuple)):
-        bad = [u for u in value if u not in _VALID_UNIT_TYPES]
+        bad = [u for u in value if not isinstance(u, str) or u not in _VALID_UNIT_TYPES]
         if bad:
             raise IllegalAction(
                 "bad_absorption_policy",
@@ -4557,6 +4557,17 @@ def _h_cmd_storm(
         scripted=list(args.get("scripted_decisions") or []),
         callback=args.get("decision_callback"),
     )
+    priority = args.get("absorption_policy")
+    absorption_policy = (
+        "armored_first" if priority is None else _validate_absorption_policy(priority)
+    )
+    prompt_attacker_hits = args.get("prompt_attacker_hits", False)
+    if type(prompt_attacker_hits) is not bool or (
+            prompt_attacker_hits and not callable(storm_ctx.callback)):
+        raise IllegalAction(
+            "bad_storm_hit_choice",
+            "prompt_attacker_hits must be boolean and requires a referee callback when true",
+        )
     # 4.5.2 Storm Concede (attacker only): args.concede = true/'attacker'
     # or a Round int at which the attacker Concedes the Storm.
     storm_concede_round = _parse_concede_round(args.get("concede"), who="attacker")
@@ -4591,6 +4602,8 @@ def _h_cmd_storm(
         attack_args = {k: deepcopy(args[k]) for k in (
             "lord_id", "concede", "field_organ_lord", "holds", "spoils_recipient",
         ) if k in args}
+        if priority is not None:
+            attack_args["absorption_policy"] = absorption_policy
         if (plan := args.get("spoils_allocation")) is not None:
             attack_args["spoils_allocation"] = _validate_allocation(plan, attackers)
         state.pending_decisions.append(PendingDecision(
@@ -4622,7 +4635,11 @@ def _h_cmd_storm(
         attacker_concede_round=storm_concede_round,
         holds=storm_holds or None,
         defender_front=defender_front,
+        attacker_absorption_policy=absorption_policy,
+        prompt_attacker_hits=prompt_attacker_hits,
     )
+    if priority is not None:
+        result["absorption_policies"] = {"attacker": absorption_policy}
 
     aftermath: dict[str, Any] = {"battle": result}
     if result["winner"] == "attacker":

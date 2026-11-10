@@ -1231,7 +1231,8 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 )
                 _cs = {"type": "cmd_storm", "side": side,
                        "args": {"lord_id": active_lord},
-                       "note": storm_note}
+                       "note": storm_note + " Optional absorption_policy ranks eligible units.",
+                       "absorption_policy_template": {"absorption_policy": ["<unit_type>", "..."]}}
                 defenders = _bla(state, active.location, _sh_owner or sh["side"])
                 if len(defenders) > 1:
                     _cs["defender_front_options"] = defenders

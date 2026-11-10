@@ -234,10 +234,8 @@ def _assign_hit_owner_pick(
             > unarmored > evade > armor). The owner is "shielding" their
             stronger units behind weaker ones (4.4.2).
       - "armored_first" (Storm Attacker, 4.5.2 2E rule):
-            "The Attacking side must absorb Hits with any Armored units
-            before doing so with other units." Reverses the order so
-            Armored absorb first; otherwise weakest-first within each
-            class.
+            prefers stronger Protection first. The Storm resolver
+            separately enforces the mandatory Armored tier.
 
     Returns the unit type or None if the Lord has no eligible units.
     """
@@ -326,6 +324,8 @@ def _resolve_hits(
     assignment_policy: "str | list[str]" = "weakest_first",
     hit_flags: list[bool] | None = None,
     in_storm: bool = False,
+    storm_attacker_choices: BattleDecisionContext | None = None,
+    prompt_attacker_hits: bool = False,
 ) -> dict[str, Any]:
     """Apply `hits` Hits to `lord_id`'s units, rolling Protection and
     Routing units that fail. Mutates state.lords[lord_id].forces in
@@ -334,8 +334,9 @@ def _resolve_hits(
     `assignment_policy`:
       - "weakest_first" (default): owner-picks, weakest unit absorbs
         each Hit (Battle / Storm Defender / Sally).
-      - "armored_first" (4.5.2 2E AUDIT-003): Storm Attacker absorbs
-        Hits with any Armored units before non-Armored.
+      - "armored_first": prefer the strongest Protection.
+    With `storm_attacker_choices`, apply the mandatory Armored tier before
+    using the owner's policy or per-Hit decision (4.5.2).
 
     `hit_flags` (Q-007 round-in-favor-of-Crossbowmen, Arts of War
     Reference R1/R2 Luchniki Tips): if provided, must have len(hits)
@@ -360,13 +361,31 @@ def _resolve_hits(
         elif len(hit_flags) > hits:
             hit_flags = hit_flags[:hits]
     for hit_index in range(hits):
-        utype = _assign_hit_owner_pick(units, {}, policy=assignment_policy)
+        eligible = units
+        if storm_attacker_choices is not None:
+            live = {unit: count for unit, count in units.items() if count > 0}
+            armored = {unit: count for unit, count in live.items()
+                       if _protection_spec(unit, strike_kind, in_storm=True).startswith("armor:")}
+            eligible = armored or live
+        utype = _assign_hit_owner_pick(eligible, {}, policy=assignment_policy)
         if utype is None:
             break
         per_hit_armor_minus_2 = (
             hit_flags[hit_index] if hit_flags is not None
             else striker_has_armor_minus_2
         )
+        if storm_attacker_choices is not None and len(eligible) > 1:
+            scripted = storm_attacker_choices.scripted
+            if (scripted and scripted[0].get("type") == "storm_attacker_absorb") or (
+                    not scripted and prompt_attacker_hits
+                    and storm_attacker_choices.callback is not None):
+                # Keep the policy choice first as the recommended option.
+                options = [utype] + sorted(unit for unit in eligible if unit != utype)
+                utype = storm_attacker_choices.decide(
+                    "storm_attacker_absorb", "attacker", options,
+                    {"lord_id": lord_id, "hit": hit_index + 1, "strike_kind": strike_kind,
+                     "armor_minus_2": per_hit_armor_minus_2, "eligible_forces": dict(eligible)},
+                )
         absorbed_this = _absorb_hit(
             state, utype, strike_kind,
             lord_id=lord_id,
@@ -517,6 +536,7 @@ _DECISION_TYPES = (
                                     # directly-opposed Lord to take Hits
     "sally_loser_fate",             # losing besieger chooses Retreat or Removal
     "storm_defender_front",        # defending owner chooses initial Storm Front
+    "storm_attacker_absorb",       # attacking owner selects a unit type for this Hit
 )
 
 
@@ -2370,6 +2390,8 @@ def resolve_storm(
     attacker_concede_round: int | None = None,
     holds: dict[str, Any] | None = None,
     defender_front: str | None = None,
+    attacker_absorption_policy: str | list[str] = "armored_first",
+    prompt_attacker_hits: bool = False,
 ) -> dict[str, Any]:
     """Resolve a Storm at `locale_id` (4.5.2 2E).
 
@@ -2393,6 +2415,7 @@ def resolve_storm(
         attacker.
       - Per-Lord Melee Hits cap of 6 (AUDIT-001).
       - Storm Attacker absorbs Hits with Armored units first (AUDIT-003).
+        The owner's priority or a per-Hit decision ranks eligible units.
       - Storm ends on full Rout, on attacker Concede, or when
         rounds_completed >= siege_markers (attacker loses).
 
@@ -2612,8 +2635,10 @@ def resolve_storm(
                     hit_flags=hit_flags,
                     step_state=step_state,
                     assignment_policy=("weakest_first" if target_is_defender
-                                       else "armored_first"),
+                                       else attacker_absorption_policy),
                     in_storm=True,
+                    storm_attacker_choices=None if target_is_defender else decision_ctx,
+                    prompt_attacker_hits=prompt_attacker_hits,
                 )
                 distribution.append({"target": "lord", "lord": tlid, **tres})
                 # A Storm has only one Front Lord per side. Excess Hits
