@@ -1494,6 +1494,7 @@ def resolve_battle(
             ambush_disable_for = None
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
         # (round up). conceder is "attacker" or "defender" or None.
+        bridge_remaining = 2 * rounds
         for label, kind, striker_lords, _target_lords in steps:
             step_state: dict = {}  # AUDIT-002: Warrior Monks per-step reroll budget
             striker_role = ("attacker" if striker_lords is attacker_lords
@@ -1540,6 +1541,7 @@ def resolve_battle(
                     continue
                 this_cb_raw = 0.0
                 this_norm_raw = 0.0
+                bridge_units_used = 0
                 # Q-008 Marsh: side-level Horse-Strike block, both
                 # Archery and Melee. All Horse units (Knights, Light
                 # Horse, Asiatic Horse) blocked; absorption unaffected.
@@ -1576,26 +1578,25 @@ def resolve_battle(
                         this_cb_raw *= 2
                         this_norm_raw *= 2
                 else:
-                    # Melee step: all hits are "normal" (no -2-Armor effect).
-                    # Q-008 ordering: determine the striking-unit subset
-                    # FIRST (Bridge cap applies on the Lord identified by
-                    # bridge_target_lord), then compute base strike from
-                    # that subset, then add Field Organ bonus per striking
-                    # Knight (in melee_horse) / Sergeant (in melee_foot).
-                    units = state.lords[lid].forces
-                    if bridge_target_lord == lid and rounds <= 8:
-                        cap = 2 * rounds
-                        total_units = sum(units.values())
-                        if total_units > cap:
-                            striking_units = _capped_unit_subset(units, cap)
-                        else:
-                            striking_units = dict(units)
-                    else:
-                        striking_units = dict(units)
+                    striking_units = state.lords[lid].forces
+                    if bridge_target_lord == lid:
+                        # Bridge has one allowance for the whole Round. Keep
+                        # the usual unit priority for Horse selection, then
+                        # use the remaining slots for Foot when they Strike.
+                        specs = load_forces()
+                        melee_kind = kind.removeprefix("melee_")
+                        candidates = {
+                            unit: count for unit, count in striking_units.items()
+                            if specs.get(unit, {}).get("melee_battle", 0) > 0
+                            and (melee_kind == "horse" or specs[unit]["melee_kind"] == "foot")
+                        }
+                        striking_units = _capped_unit_subset(candidates, bridge_remaining)
+                        bridge_units_used = sum(
+                            count for unit, count in striking_units.items()
+                            if specs[unit]["melee_kind"] == melee_kind
+                        )
                     this_norm_raw += _hits_for_strike(striking_units, kind)
-                    # Q-008 Field Organ: +1 Hit per actually-striking
-                    # Knight (melee_horse) or Sergeant (melee_foot)
-                    # for the targeted Lord, Round 1 only.
+                    # Q-008 Field Organ: +1 Hit per striking Knight or Sergeant.
                     if field_organ_lord == lid and rounds == 1 and kind == "melee_horse":
                         # PLAY-41 (T10 Field Organ, Playbook golden
                         # test): "Round 1, his Knights AND Sergeants
@@ -1647,6 +1648,7 @@ def resolve_battle(
                 )
                 if target_lid is None:
                     continue
+                bridge_remaining -= bridge_units_used
                 # PLAY-28 (4.4.2): "A Player with a Flanking Lord where no
                 # enemies are Flanking the target selects either the
                 # Flanking or directly opposed Lord to take Hits." When this
