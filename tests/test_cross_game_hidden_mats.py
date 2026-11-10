@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from nevsky.actions import apply_action
 from nevsky.llm.briefing import briefing_for_side
 from nevsky.llm.compact import detail_payload, player_view
 from nevsky.llm.session import LLMSession
@@ -67,29 +66,59 @@ def test_session_and_compact_views_apply_the_same_mat_rule_without_mutation(side
 
 
 @pytest.mark.parametrize("advanced", [False, True])
-def test_real_partisans_muster_stays_private_while_public_calendar_markers_survive(advanced):
+@pytest.mark.parametrize("hidden", [False, True])
+def test_vassal_and_transport_history_respects_mat_screening(advanced, hidden, tmp_path):
     state = load_scenario(
-        "pleskau", optional_rules={"hidden_mats": True, "advanced_vassal_service": advanced}
+        "pleskau", optional_rules={"hidden_mats": hidden, "advanced_vassal_service": advanced}
     )
+    for side in ("teutonic", "russian"):
+        apply_action_for_side(state, side, {"type": "confirm_all_setup_transports"})
     state.meta.levy_step = "muster"
     state.calendar.boxes[1].service_markers.remove("yaroslav")
     state.calendar.boxes[3].service_markers.append("yaroslav")
     vid = "yaroslav_mstislavich_partisans"
-    apply_action(
-        state,
-        {
-            "type": "muster_vassal",
-            "side": "teutonic",
-            "args": {"by_lord": "yaroslav", "vassal_id": vid},
-        },
-    )
+    for kind, args in (
+        ("muster_vassal", {"by_lord": "yaroslav", "vassal_id": vid}),
+        ("levy_transport", {"by_lord": "hermann", "transport_type": "boat"}),
+    ):
+        move = next(m for m in legal_actions_for_side(state, "teutonic")
+                    if m["type"] == kind and m["args"] == args)
+        apply_action_for_side(state, "teutonic", move)
+
+    before = state.model_dump_json()
+    original = [entry.model_dump() for entry in state.history[-2:]]
     owner = LLMSession(state, "teutonic", "pleskau").full_state()
     assert owner["lords"]["yaroslav"]["forces"]["militia"] == 2
     assert owner["lords"]["yaroslav"]["vassals"][vid]["mustered"]
-    opponent = LLMSession(state, "russian", "pleskau").full_state()
-    assert opponent["lords"]["yaroslav"]["forces"] == {"_hidden": 1}
-    assert opponent["lords"]["yaroslav"]["vassals"] == {}
-    assert (vid in opponent["calendar"]["boxes"][1]["vassal_service_markers"]) == advanced
+    assert owner["history"][-2:] == original
+    assert original[0]["result"]["added_forces"] == {"militia": 2}
+    assert original[1]["result"]["new_count"] == owner["lords"]["hermann"]["assets"]["boat"]
+
+    opponent = LLMSession(state, "russian", "pleskau")
+    view = opponent.full_state()
+    vassal, transport = view["history"][-2:]
+    if hidden:
+        assert view["lords"]["yaroslav"]["forces"] == {"_hidden": 1}
+        assert view["lords"]["yaroslav"]["vassals"] == {}
+        assert view["lords"]["hermann"]["assets"] == {}
+        assert vassal["action"]["type"] == "muster_vassal"
+        assert vassal["action"]["args"] == vassal["result"] == {
+            "by_lord": "yaroslav", "vassal_id": "<hidden>",
+        }
+        assert transport["action"]["type"] == "levy_transport"
+        assert transport["action"]["args"] == transport["result"] == {
+            "by_lord": "hermann", "transport_type": "<hidden>",
+        }
+    else:
+        assert view["history"][-2:] == original
+    assert (vid in view["calendar"]["boxes"][1]["vassal_service_markers"]) == advanced
+    assert detail_payload(state, "russian", "history")[-2:] == [vassal, transport]
+
+    path = tmp_path / "levy-session.json"
+    opponent.save(path)
+    restored = LLMSession.load(path)
+    assert restored.full_state() == view
+    assert restored.state.model_dump_json() == state.model_dump_json() == before
 
 
 @pytest.mark.parametrize("side", ["teutonic", "russian"])

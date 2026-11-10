@@ -24,9 +24,9 @@ Public state is always visible:
     board edge)
 
 Optional Hidden Mats conceals opposing Mustered Lord mats, including Vassal
-status. It also screens the identities of This-Lord Capabilities in opposing
-Levy history. Public Calendar markers remain visible with Advanced Vassal
-Service.
+status. It also screens This-Lord Capability identities and Vassal and
+Transport details in opposing Levy history. Public Calendar markers remain
+visible with Advanced Vassal Service.
 """
 from __future__ import annotations
 
@@ -68,6 +68,13 @@ def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool) -> N
         by_lord = result.get("by_lord")
         action["args"] = {"by_lord": by_lord, "card_id": "<hidden>"}
         entry["result"] = {"by_lord": by_lord, "card_id": "<hidden>", "scope": "this_lord"}
+    elif hidden_mats and kind in {"muster_vassal", "levy_transport"}:
+        # Lordship expenditure is public. Any public Vassal Service marker
+        # is visible separately on the Calendar.
+        private_key = "vassal_id" if kind == "muster_vassal" else "transport_type"
+        by_lord = result.get("by_lord") or action.get("args", {}).get("by_lord")
+        action["args"] = {"by_lord": by_lord, private_key: "<hidden>"}
+        entry["result"] = action["args"].copy()
     elif kind == "cmd_storm" and result.get("awaiting_storm_front"):
         # The attacker has declared the Storm. The committed Hold and other
         # tactical inputs are still private at the defender's Array choice.
