@@ -4,7 +4,9 @@ import pytest
 
 from nevsky.actions import apply_action
 from nevsky.state import GameState
+from nevsky.static_data import load_lords
 from tests.test_cross_game_relief_retreat import place, position
+from tests.test_round7_combat_limits import _place_with_vassals
 
 
 def _bridge_battle(seed, knights, men_at_arms, *, concede_round=1, marsh=False):
@@ -60,3 +62,41 @@ def test_foot_can_use_remaining_bridge_slots(knights, marsh, horse_hits, foot_hi
     first, = _bridge_battle(4, knights, 3, marsh=marsh)
     assert _raw(first, "melee_horse_attacker") == horse_hits
     assert _raw(first, "melee_foot_attacker") == foot_hits
+
+
+@pytest.mark.parametrize("named_target", ["gavrilo", "aleksandr"])
+def test_bridge_stays_with_initial_center_after_reposition(named_target):
+    state = position(seed=26, box=9)
+    for lord_id, locale in (("andreas", "ostrov"), ("hermann", "ostrov"), ("aleksandr", "pskov")):
+        vassals = load_lords()[lord_id]["vassals"]
+        lord = _place_with_vassals(state, lord_id, *(
+            v["vassal_id"] for v in vassals if v.get("special") is None
+        ))
+        lord.location = locale
+    place(state, "gavrilo", {"militia": 1})
+    state.decks.teutonic.deck.remove("T4")
+    state.decks.teutonic.holds.append("T4")
+    state.campaign_turn.active_card = state.campaign_turn.active_lord = "andreas"
+    apply_action(state, {"type": "cmd_march", "side": "teutonic", "args": {
+        "lord_id": "andreas", "to": "pskov", "way_type": "waterway", "group": ["hermann"],
+    }})
+
+    stand = {"type": "stand_battle", "side": "russian", "args": {
+        "concede": "attacker", "concede_round": 2,
+        "absorption_policy": ["knights", "men_at_arms"],
+        "scripted_decisions": [
+            {"type": "initial_placement_attacker", "chosen": "left"},
+            {"type": "initial_placement_defender", "chosen": "gavrilo"},
+        ],
+    }}
+    control = apply_action(state.model_copy(deep=True), stand)["battle"]
+    stand["args"]["holds"] = {"bridge": "T4", "bridge_target_lord": named_target}
+    log = apply_action(state, stand)["battle"]["log"]
+
+    first, second = (entry for entry in log if "round" in entry)
+    assert first == control["log"][0]
+    assert second["defender_positions"] == {"gavrilo": "routed", "aleksandr": "center"}
+    assert second == control["log"][1]
+    redirects = [entry["front_center"] for entry in log
+                 if entry.get("event") == "bridge_target_redirected"]
+    assert redirects == ([] if named_target == "gavrilo" else ["gavrilo"])

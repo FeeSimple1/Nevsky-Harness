@@ -739,11 +739,11 @@ discard. Effects:
 - hill: defender's default-archery doubled Rounds 1-2.
 - field_organ: Round 1, target Lord's Knights + Sergeants Melee +1 each.
 - raven_rock: Russian defender Walls 1-2 vs Melee Round 1.
-- bridge: the targeted side's FRONT-CENTER Lord Melee-Strikes with at
-  most 2*Round units (battle.py `bridge_target_lord`; the cap follows
-  the actual front-center Lord after Array, PLAY-16). Non-Winter only
-  -- a Winter play is rejected at consumption (`season_blocked`).
-  Pass the target via `args.holds.bridge_target_lord`.
+- `bridge` attaches to the targeted side's starting Front-center Lord
+  after Array and stays with that Lord through Reposition. It limits his
+  Melee Strikes to two units in Round 1, four in Round 2, and so on. Pass
+  the target via `args.holds.bridge_target_lord`. Winter play is rejected
+  (`season_blocked`).
 - ambush: Round 1, the CARD-NAMED side's enemy flanks are uninvolved
   -- T6 suppresses the Russian left/right, R6 the Teutonic left/right,
   whatever the combat roles (PLAY-15); the owner's flank Lords Flank

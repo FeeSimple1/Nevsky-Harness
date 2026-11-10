@@ -445,12 +445,11 @@ def _bare_slot_index(slot: str) -> int:
 def _apply_row_spillover(
     state: GameState,
     target_slot: str,
-    leftover: int,
+    hit_flags: list[bool],
     strike_kind: str,
     enemy_positions: dict[str, str],
     *,
     rounds: int,
-    kind: str,
     raven_rock_walls: bool,
     attacker_side: Side,
     attacker_absorption_policy: "str | list[str]",
@@ -461,16 +460,16 @@ def _apply_row_spillover(
     apply remaining Hits accordingly ... When an entire row Routs, ignore
     remaining Hits against that row."
 
-    `leftover` Hits from a just-Routed target at `target_slot` follow the
-    new Flanking situation to the surviving Lords in the SAME row, closest
-    (by slot distance) first, cascading if a survivor also Routs. Returns
-    per-Lord distribution entries (empty when the whole row has Routed).
+    The remaining `hit_flags` keep their Crossbow status as they follow
+    the new Flanking situation from `target_slot` to surviving Lords in
+    the same row. Resolve the closest survivor first, cascading if that
+    Lord also Routs. Returns per-Lord distribution entries.
     The *choice* of which survivor absorbs when equidistant is left
     deterministic here (closest, then left-to-right); the operator-choice
     variant is tracked separately (open item #3, 4.4.2 Flanking choice).
     """
     fam = _row_family(target_slot)
-    if fam is None or leftover <= 0:
+    if fam is None or not hit_flags:
         return []
     survivors = [
         lid for lid, p in enemy_positions.items()
@@ -483,32 +482,26 @@ def _apply_row_spillover(
         _bare_slot_index(enemy_positions[lid]),
     ))
     out: list[dict[str, Any]] = []
-    remaining = leftover
     for lid in survivors:
-        if remaining <= 0:
-            break
-        hits = remaining
         # Raven's Rock: Russian defender Walls 1-2 vs Melee Round 1 (R4),
         # a target-side protection -- re-apply to spillover Hits too.
-        if (raven_rock_walls and rounds == 1 and kind != "archery"
+        if (raven_rock_walls and rounds == 1 and strike_kind != "archery"
                 and state.lords[lid].side == "russian"):
-            absorbed_walls = 0
-            for _ in range(hits):
-                if roll_d6(state) <= 2:
-                    absorbed_walls += 1
-            if absorbed_walls > 0:
+            before_walls = len(hit_flags)
+            hit_flags = [flag for flag in hit_flags if roll_d6(state) > 2]
+            absorbed_walls = before_walls - len(hit_flags)
+            if absorbed_walls:
                 out.append({"lord": lid, "target": "ravens_rock_walls",
                             "absorbed": absorbed_walls, "spillover": True})
-                hits -= absorbed_walls
-        if hits <= 0:
-            continue
+        if not hit_flags:
+            break
         policy = (attacker_absorption_policy
                   if state.lords[lid].side == attacker_side
                   else defender_absorption_policy)
-        tres = _resolve_hits(state, lid, hits, strike_kind,
+        tres = _resolve_hits(state, lid, len(hit_flags), strike_kind, hit_flags=hit_flags,
                              step_state=round_state, assignment_policy=policy)
         out.append({"lord": lid, "spillover": True, **tres})
-        remaining = hits - tres["applied"]
+        hit_flags = hit_flags[tres["applied"]:]
     return out
 
 
@@ -1318,6 +1311,7 @@ def resolve_battle(
         _init_battle_array using decision_ctx.
     """
     from nevsky.capabilities import any_capability
+    from nevsky.scenarios import _season_for_box
 
     log: list[dict[str, Any]] = []
     defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
@@ -1363,6 +1357,37 @@ def resolve_battle(
     bounded_simulation = max_rounds is not None
     if max_rounds is None:
         max_rounds = _BATTLE_ROUND_SAFETY_CAP
+
+    H = holds or {}
+    # Bridge (T4/R1) attaches to the starting Front-center Lord. Resolve
+    # the target after Array and keep that Lord through later Repositions.
+    bridge_target_lord = H.get("bridge_target_lord")
+    legacy_bridge = H.get("bridge")
+    if bridge_target_lord is None and legacy_bridge in state.lords:
+        bridge_target_lord = legacy_bridge
+    if bridge_target_lord and _season_for_box(state.meta.box) in ("early_winter", "late_winter"):
+        bridge_target_lord = None
+    if bridge_target_lord and max_rounds > 0:
+        if legacy_bridge == "T4":
+            bridge_side = "russian"
+        elif legacy_bridge == "R1":
+            bridge_side = "teutonic"
+        elif bridge_target_lord in state.lords:
+            bridge_side = state.lords[bridge_target_lord].side
+        else:
+            bridge_side = None
+        if bridge_side is not None:
+            bridge_positions = atk_pos if bridge_side == attacker_side else def_pos
+            center = next((lid for lid, slot in bridge_positions.items() if slot == "center"), None)
+            if center is not None and center != bridge_target_lord:
+                log.append({
+                    "event": "bridge_target_redirected",
+                    "named": bridge_target_lord,
+                    "front_center": center,
+                    "note": "T4/R1 applies to the starting Front-center Lord.",
+                })
+                bridge_target_lord = center
+
     rounds = 0
     while rounds < max_rounds:
         rounds += 1
@@ -1429,7 +1454,6 @@ def resolve_battle(
         #   "field_organ": lord_id (recipient of Round-1 Knights+Sergeants Melee +1)
         #   "raven_rock":  truthy -> Russian defender Walls 1-2 vs Melee Round 1
         # Card-id strings (e.g., "T5") are accepted and translated.
-        H = holds or {}
         def _norm_marsh(v):
             if v in ("attacker", "defender", None):
                 return v
@@ -1462,57 +1486,6 @@ def resolve_battle(
         else:
             field_organ_lord = None
         raven_rock_walls = bool(H.get("raven_rock", False))
-        # Q-008 Bridge: front-center Lord of the targeted side capped to
-        # 2*round_number Melee strike units. holds["bridge"] = lord_id
-        # of the targeted Lord (front-center), or None.
-        # SMOKE-081 (Round 85): same dual-key pattern as field_organ.
-        _br_lord = H.get("bridge_target_lord")
-        _br_legacy = H.get("bridge")
-        if _br_lord is not None:
-            bridge_target_lord = _br_lord
-        elif _br_legacy is not None and _br_legacy in state.lords:
-            bridge_target_lord = _br_legacy
-        else:
-            bridge_target_lord = None
-        # Winter check: per the card, Bridge applies non-Winter only.
-        # (PLAY-16: a Winter play is now REJECTED at consumption in
-        # _consume_battle_holds; this reset stays as a defensive gate
-        # for direct resolve_battle callers.)
-        from nevsky.scenarios import _season_for_box
-        if bridge_target_lord and _season_for_box(state.meta.box) in (
-                "early_winter", "late_winter"):
-            bridge_target_lord = None
-        # PLAY-16 (Fable audit): T4/R1 -- "May play on FRONT CENTER
-        # [enemy] Lord". The target is not a free choice: the card
-        # sits on whoever holds the targeted side's front-center slot
-        # once Arrayed. Pre-fix the cap fired on any named Lord (e.g.
-        # a left-slot Lord). Redirect to the actual front-center Lord
-        # of the targeted side (consumption already validated side +
-        # combat presence).
-        if bridge_target_lord:
-            if _br_legacy == "T4":
-                _br_side = "russian"
-            elif _br_legacy == "R1":
-                _br_side = "teutonic"
-            elif bridge_target_lord in state.lords:
-                _br_side = state.lords[bridge_target_lord].side
-            else:
-                _br_side = None
-            if _br_side is not None:
-                _br_posmap = atk_pos if _br_side == attacker_side else def_pos
-                _br_center = next(
-                    (l for l, pos in _br_posmap.items() if pos == "center"),
-                    None)
-                if _br_center is not None and _br_center != bridge_target_lord:
-                    log.append({
-                        "event": "bridge_target_redirected",
-                        "named": bridge_target_lord,
-                        "front_center": _br_center,
-                        "note": "T4/R1 applies to the front-center Lord "
-                                "(card text); named target was not at "
-                                "center",
-                    })
-                    bridge_target_lord = _br_center
         # Q-008 Ambush: Round 1 disables left/right Lords on the
         # targeted side from striking and from being targeted (they're
         # "uninvolved"). holds["ambush"] = "attacker"|"defender" or
@@ -1744,10 +1717,10 @@ def resolve_battle(
                 continue
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
-            # PLAY-27 (4.4.2): (routed_target_slot, remaining_hits) queued
+            # PLAY-27 (4.4.2): (routed_target_slot, remaining Hit flags) queued
             # as targets Rout with Hits to spare; resolved after this
             # step's per-target application (new Flanking situation).
-            row_spillover: list[tuple[str, int]] = []
+            row_spillover: list[tuple[str, list[bool]]] = []
             # Q-006: Track Hits that came from Sally-row strikers per
             # target so Siegeworks-vs-Sally walls can be rolled
             # separately (4.4.1 2E "Siegeworks ... protect against
@@ -1829,12 +1802,7 @@ def resolve_battle(
                     continue
                 if tlid not in state.lords or not state.lords[tlid].forces:
                     continue
-                # Q-007: build ordered hit_flags so the first cb_hits
-                # carry -2 Armor, the rest don't. Use the post-walls/
-                # walls-absorbed-adjusted hits count; if walls absorbed
-                # some hits, reduce cb_hits proportionally (crossbow
-                # Hits aren't preferentially absorbed, so floor-divide
-                # against original total).
+                # Q-007: Crossbow Hits go first, followed by ordinary Hits.
                 eff_cb_hits = min(cb_hits, hits)
                 eff_norm_hits = hits - eff_cb_hits
                 hit_flags_list = [True] * eff_cb_hits + [False] * eff_norm_hits
@@ -1855,20 +1823,18 @@ def resolve_battle(
                 # PLAY-27 (4.4.2): if this target Routed (no Forces left)
                 # with Hits still unapplied, those Hits follow the new
                 # Flanking situation to the rest of the row.
-                _leftover = hits - tres["applied"]
-                if (_leftover > 0 and tlid in state.lords
-                        and not state.lords[tlid].forces):
-                    _tslot = enemy_positions.get(tlid)
-                    if _tslot is not None:
-                        row_spillover.append((_tslot, _leftover))
+                if tres["applied"] < hits and not state.lords[tlid].forces:
+                    target_slot = enemy_positions.get(tlid)
+                    if target_slot is not None:
+                        row_spillover.append((target_slot, hit_flags_list[tres["applied"]:]))
             # PLAY-27 (4.4.2): carry remaining Hits from Routed targets to
             # surviving Lords in the same row (ignored only if the whole
             # row Routed). Processed after the main application so it sees
             # the final survivor set for this step.
-            for _tslot, _leftover in row_spillover:
+            for target_slot, remaining_flags in row_spillover:
                 spill = _apply_row_spillover(
-                    state, _tslot, _leftover, strike_kind, enemy_positions,
-                    rounds=rounds, kind=kind, raven_rock_walls=raven_rock_walls,
+                    state, target_slot, remaining_flags, strike_kind, enemy_positions,
+                    rounds=rounds, raven_rock_walls=raven_rock_walls,
                     attacker_side=attacker_side,
                     attacker_absorption_policy=attacker_absorption_policy,
                     defender_absorption_policy=defender_absorption_policy,
