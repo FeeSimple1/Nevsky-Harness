@@ -15,8 +15,8 @@ protection / spoils paths:
   - Streltsy (R3/R13) / Balistarii (T4/T5/T6): MaA Archery 0.5/unit
     with target Armor -2.
   - Halbbrueder (T9/T10): Sergeants and MaA Armor +1.
-  - Warrior Monks (T7/T15): once-per-step reroll of failed Knights
-    Armor.
+  - Warrior Monks (T7/T15): one Knights' Armor reroll for Archery and
+    one for all Melee in each Round.
   - Trebuchets (T14) / Stonemasons (T17): handled at Storm/Sally
     invocation and Castle-construction handlers.
 
@@ -153,10 +153,9 @@ def _absorb_hit(
     Phase 4a capability mods (when lord_id is provided):
       - Halbbrueder (T9/T10): owner Lord's Sergeants and MaA gain
         Armor +1 for Rout rolls (4.4.2).
-      - Warrior Monks (T7/T15): owner Lord may reroll 1 failed
-        Knights Armor roll per Strike step (AUDIT-002 fix:
-        per-step budget enforced via step_state["wm_reroll_used",
-        lord_id, strike_kind]).
+      - Warrior Monks (T7/T15): the Lord may reroll one failed Knights'
+        Armor roll for each Strike kind (Archery or Melee) per Round.
+        The caller shares step_state across the Round.
       - Striker Crossbowmen / Garrison MaA: target Armor -2.
 
     Optional rule "no_horseback_archery" (Rules of Play 6.0): when
@@ -201,8 +200,8 @@ def _absorb_hit(
     absorbed = _roll(spec)
     if absorbed:
         return True
-    # Warrior Monks (T7/T15): once per Knights Armor failure per
-    # Strike step (per Lord). Budget tracked via step_state.
+    # A failed Knights' Armor roll spends this Lord's reroll for the
+    # current Strike kind in the Round, including all Melee steps.
     if (
         utype == "knights"
         and lord_id is not None
@@ -440,6 +439,7 @@ def _apply_row_spillover(
     attacker_side: Side,
     attacker_absorption_policy: "str | list[str]",
     defender_absorption_policy: "str | list[str]",
+    round_state: dict | None = None,
 ) -> list[dict[str, Any]]:
     """4.4.2: "Whenever a Lord Routs to create a new Flanking situation,
     apply remaining Hits accordingly ... When an entire row Routs, ignore
@@ -490,7 +490,7 @@ def _apply_row_spillover(
                   if state.lords[lid].side == attacker_side
                   else defender_absorption_policy)
         tres = _resolve_hits(state, lid, hits, strike_kind,
-                             assignment_policy=policy)
+                             step_state=round_state, assignment_policy=policy)
         out.append({"lord": lid, "spillover": True, **tres})
         remaining = hits - tres["applied"]
     return out
@@ -1517,8 +1517,8 @@ def resolve_battle(
         # 4.4.2 Pursuit: if the conceder strikes, halve their Hits
         # (round up). conceder is "attacker" or "defender" or None.
         bridge_remaining = 2 * rounds
+        round_state: dict = {}  # Warrior Monks shares its Melee allowance across steps.
         for label, kind, striker_lords, _target_lords in steps:
-            step_state: dict = {}  # AUDIT-002: Warrior Monks per-step reroll budget
             striker_role = ("attacker" if striker_lords is attacker_lords
                              else "defender")
             # Q-005: per-Lord positions for this step.
@@ -1830,7 +1830,7 @@ def resolve_battle(
                 tres = _resolve_hits(
                     state, tlid, hits, strike_kind,
                     hit_flags=hit_flags_list,
-                    step_state=step_state,
+                    step_state=round_state,
                     assignment_policy=_absorb_policy,
                 )
                 distribution.append({"lord": tlid, **tres})
@@ -1854,6 +1854,7 @@ def resolve_battle(
                     attacker_side=attacker_side,
                     attacker_absorption_policy=attacker_absorption_policy,
                     defender_absorption_policy=defender_absorption_policy,
+                    round_state=round_state,
                 )
                 distribution.extend(spill)
             if distribution or per_striker_log:
@@ -2583,16 +2584,16 @@ def resolve_storm(
                             or any_capability(state, lid, "Balistarii")):
                         cb_raw += 0.5 * units.get("men_at_arms", 0)
             else:
-                # The Garrison combines with the defending Front Lord;
-                # their combined Melee is subject to the six-Hit cap.
-                melee_raw = (0.0 if target_is_defender
-                             else _storm_hits_for_units(g_units, "melee"))
+                # 4.5.2 limits each Lord to six Melee Hits. The Garrison
+                # adds its own Hits to the defending Lord's contribution.
+                if not target_is_defender:
+                    normal_raw = _storm_hits_for_units(g_units, "melee")
                 for lid in striker_lords:
                     units = state.lords[lid].forces
-                    melee_raw += _storm_hits_for_units(units, "melee")
+                    lord_melee = _storm_hits_for_units(units, "melee")
                     if field_organ_lord == lid and rounds == 1:
-                        melee_raw += units.get("knights", 0) + units.get("sergeants", 0)
-                normal_raw = min(6.0, melee_raw)
+                        lord_melee += units.get("knights", 0) + units.get("sergeants", 0)
+                    normal_raw += min(6.0, lord_melee)
             total_hits = _round_up(cb_raw + normal_raw)
             cb_hits = min(_round_up(cb_raw), total_hits)
             hit_flags = [True] * cb_hits + [False] * (total_hits - cb_hits)
