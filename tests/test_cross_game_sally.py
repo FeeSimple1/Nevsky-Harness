@@ -217,7 +217,7 @@ def test_illegal_sally_hold_is_rejected_without_mutation(card, key, target, erro
 
 
 def test_conceding_besieger_who_dies_in_losses_yields_spoils_and_ransom():
-    state = sally_state(seed=1)
+    state = sally_state(seed=8)
     state.lords["hermann"].forces = {"knights": 1, "militia": 1}
     state.lords["hermann"].assets = {"coin": 1, "cart": 1, "ship": 1}
     state.lords["gavrilo"].assets = {"provender": 2}
@@ -260,7 +260,7 @@ def test_fully_routed_besieger_without_retreat_is_still_removed():
 
 
 def test_surviving_conceding_besieger_retains_non_spoils_assets():
-    state = sally_state(seed=8)
+    state = sally_state(seed=3)
     state.lords["hermann"].forces = {"knights": 1, "militia": 1}
     state.lords["hermann"].assets = {"coin": 1, "cart": 1, "ship": 1}
     result = sally(state, concede="defender", concede_round=2)

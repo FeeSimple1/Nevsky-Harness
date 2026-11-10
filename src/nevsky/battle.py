@@ -1279,6 +1279,8 @@ def resolve_battle(
         (lord_id -> slot). If None, the Array is initialized via
         _init_battle_array using decision_ctx.
     """
+    from nevsky.capabilities import any_capability
+
     log: list[dict[str, Any]] = []
     defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
     if decision_ctx is None:
@@ -1306,17 +1308,18 @@ def resolve_battle(
     sally_lord_ids = set(sallying_lords or []) | {
         lid for lid, pos in atk_pos.items() if pos.startswith("sally_")
     }
-    # Trebuchets (T14): a Sallying side with an Unrouted Trebuchets Lord
-    # reduces the besiegers' Siegeworks-as-Walls by 1 (4.5.3, same as it
-    # reduces defender Walls in a Storm). The Sallying side are the
-    # attacker_lords in a (Relief) Sally.
-    _eff_siegeworks_for_sally = siegeworks_for_sally
-    from nevsky.capabilities import any_capability as _any_cap_treb
-    if siegeworks_for_sally > 0 and any(
-        _any_cap_treb(state, lid, "Trebuchets") and state.lords[lid].forces
-        for lid in attacker_lords if lid in state.lords
-    ):
-        _eff_siegeworks_for_sally = max(0, siegeworks_for_sally - 1)
+    # T14 Tips: any friendly bearer at the Sally Locale can reduce
+    # Siegeworks, including a Lord who stays inside the Stronghold.
+    trebuchet_bearers: list[str] = []
+    if siegeworks_for_sally > 0:
+        sally_locale = next((state.lords[lid].location for lid in attacker_lords
+                             if lid in state.lords and state.lords[lid].location is not None), None)
+        if sally_locale is not None:
+            trebuchet_bearers = [
+                lid for lid, lord in state.lords.items()
+                if lord.state == "mustered" and lord.side == attacker_side
+                and lord.location == sally_locale and any_capability(state, lid, "Trebuchets")
+            ]
     # An explicit bound is useful for inspecting a partial simulation. It
     # does not turn an unfinished Battle into a defender victory (4.4.2).
     bounded_simulation = max_rounds is not None
@@ -1380,7 +1383,6 @@ def resolve_battle(
             ("melee_foot_defender", "melee_foot", defender_lords, attacker_lords),
             ("melee_foot_attacker", "melee_foot", attacker_lords, defender_lords),
         ]
-        from nevsky.capabilities import any_capability
         defender_side: Side = "russian" if attacker_side == "teutonic" else "teutonic"
         # Tier 2 hold-event modifiers (Phase 4d). The keys map a card
         # to its semantic effect; values are normalized strings:
@@ -1713,23 +1715,24 @@ def resolve_battle(
             # separately (4.4.1 2E "Siegeworks ... protect against
             # Strikes by Sallying Attackers only (round separately)").
             per_target_sally_hits: dict[str, float] = {}
-            for entry in per_striker_log:
-                # SMOKE-050 (Round 61): in a simple Sally, the besieged
-                # Lords ARE all the attackers — their strikes count as
-                # Sallying Attacker strikes for Siegeworks-as-Walls
-                # absorption (4.5.3 "Defenders/Besiegers receive
-                # Siegeworks as Walls"). Without this, the Walls
-                # protection only fires on Relief Sally where the
-                # sallying Lords are positioned at sally_* slots.
-                is_sally_strike = (
-                    entry["striker_slot"] in _SALLY_SLOTS or simple_sally
-                    or entry["striker"] in sally_lord_ids
-                )
-                if is_sally_strike:
-                    tlid = entry["target"]
-                    per_target_sally_hits[tlid] = (
-                        per_target_sally_hits.get(tlid, 0.0) + entry["raw"]
+            if striker_role == "attacker" and siegeworks_for_sally > 0:
+                for entry in per_striker_log:
+                    is_sally_strike = (
+                        simple_sally or entry["striker_slot"] in _SALLY_SLOTS
+                        or entry["striker"] in sally_lord_ids
                     )
+                    if is_sally_strike:
+                        tlid = entry["target"]
+                        per_target_sally_hits[tlid] = (
+                            per_target_sally_hits.get(tlid, 0.0) + entry["raw"]
+                        )
+            effective_siegeworks = siegeworks_for_sally
+            # A bearer who Routed in an earlier Strike no longer supplies T14.
+            if per_target_sally_hits and any(
+                any(count > 0 for count in state.lords[lid].forces.values())
+                for lid in trebuchet_bearers
+            ):
+                effective_siegeworks -= 1
             for tlid in per_target_hits:
                 hits = per_target_hits[tlid]
                 cb_hits = per_target_cb_hits[tlid]
@@ -1739,12 +1742,12 @@ def resolve_battle(
                 # siegeworks_for_sally > 0, roll Walls separately on
                 # those Hits. Walls range = 1..siegeworks_for_sally.
                 sally_raw = per_target_sally_hits.get(tlid, 0.0)
-                if sally_raw > 0 and _eff_siegeworks_for_sally > 0:
+                if sally_raw > 0 and effective_siegeworks > 0:
                     sally_hits = _round_up(sally_raw)
                     sally_absorbed = 0
                     for _ in range(sally_hits):
                         r = roll_d6(state)
-                        if r <= _eff_siegeworks_for_sally:
+                        if r <= effective_siegeworks:
                             sally_absorbed += 1
                     if sally_absorbed > 0:
                         distribution.append({

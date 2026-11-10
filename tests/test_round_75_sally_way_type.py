@@ -45,7 +45,7 @@ def test_sally_aftermath_checks_conceded_flag() -> None:
 
 
 def test_sally_aftermath_uses_loot_and_excess_for_conceded() -> None:
-    state = sally_state(seed=8)
+    state = sally_state(seed=3)
     lord = state.lords["hermann"]
     lord.forces = {"knights": 1, "militia": 1}
     lord.assets = {"coin": 1, "cart": 1, "ship": 1, "provender": 2, "loot": 1}
@@ -58,7 +58,7 @@ def test_sally_aftermath_uses_loot_and_excess_for_conceded() -> None:
 
 
 def test_sally_aftermath_passes_retreat_way_type_to_transfer_spoils() -> None:
-    state = sally_state(seed=8)
+    state = sally_state(seed=3)
     lord = state.lords["hermann"]
     lord.forces = {"knights": 1, "militia": 1}
     lord.assets = {"coin": 1, "cart": 4, "boat": 1, "ship": 1, "provender": 2, "loot": 1}
