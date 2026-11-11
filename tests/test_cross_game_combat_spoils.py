@@ -38,7 +38,8 @@ def place(state, lid, forces, locale="pskov", *, inside=False, **assets):
     lord.assets = assets
 
 
-@pytest.mark.parametrize("seed, removed", [(1, True), (4, False)])
+# Current combat rolls: seed 4 loses the Militia in Losses; seed 1 recovers it.
+@pytest.mark.parametrize("seed, removed", [(4, True), (1, False)])
 def test_failed_sally_captures_assets_only_from_a_removed_withdrawer(seed, removed):
     state = position(seed, "gavrilo", "russian")
     state.locales["pskov"].siege_markers = 2
@@ -57,16 +58,19 @@ def test_failed_sally_captures_assets_only_from_a_removed_withdrawer(seed, remov
         assert result["removed_after_sally"] == ["gavrilo"]
         assert result["spoils"][0]["distributed"] == {"hermann": assets}
         assert state.lords["gavrilo"].state == "removed"
+        assert state.lords["gavrilo"].forces == {}
         assert state.lords["hermann"].assets == assets
     else:
         assert "spoils" not in result
         assert state.lords["gavrilo"].in_stronghold
+        assert state.lords["gavrilo"].forces == {"militia": 1}
         assert state.lords["gavrilo"].assets == {**assets, "ship": 1}
         assert state.lords["hermann"].assets == {}
 
 
 def test_failed_sally_spoils_skip_a_besieger_removed_by_losses():
-    state = position(27, "gavrilo", "russian")
+    # Both Gavrilo and the preferred recipient Hermann are lost on this seed.
+    state = position(5, "gavrilo", "russian")
     state.locales["pskov"].siege_markers = 1
     place(state, "gavrilo", {"knights": 2, "men_at_arms": 2}, inside=True, coin=3, ship=1)
     place(state, "hermann", {"militia": 1})
@@ -79,6 +83,8 @@ def test_failed_sally_spoils_skip_a_besieger_removed_by_losses():
 
     assert result["removed_after_sally"] == ["gavrilo"]
     assert result["winner_removed_by_losses"] == ["hermann"]
+    assert state.lords["gavrilo"].state == state.lords["hermann"].state == "removed"
+    assert state.lords["yaroslav"].state == "mustered"
     assert result["spoils"][0]["distributed"] == {"yaroslav": {"coin": 3}}
     assert state.lords["yaroslav"].assets == {"coin": 3}
 

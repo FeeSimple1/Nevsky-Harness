@@ -71,7 +71,8 @@ def test_levy_disband_ransom_requires_siege(besieged, service_box):
 
 
 def failed_sally_position():
-    state = position(1, "gavrilo", "russian")
+    # Gavrilo is removed in Losses, opening the Ransom and captured-Spoils windows.
+    state = position(4, "gavrilo", "russian")
     state.locales["pskov"].siege_markers = 2
     place(state, "gavrilo", {"militia": 1}, inside=True, loot=2)
     place(state, "hermann", {"knights": 2, "men_at_arms": 3}, coin=8)
