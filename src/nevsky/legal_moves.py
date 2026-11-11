@@ -70,13 +70,18 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
         return moves
 
     if (fate := pending_sally_fate(state)) is not None:
+        candidates = fate.context["candidates"]
+        pairs = [[lid, state.lords[lid].has_lower_lord] for lid in candidates
+                 if state.lords[lid].has_lower_lord in candidates]
         return [{
             "type": SALLY_FATE_ACTION, "side": fate.owed_by, "args": {}, "optional": True,
-            "remove_losers_options": list(fate.context["candidates"]),
+            "remove_losers_options": list(candidates),
             "retreat_destinations": list(fate.context["retreat_destinations"]),
             "fate_template": {"remove_losers": ["<lord_id>", "..."],
                               "retreat_to": {"<lord_id>": "<locale_id>"}},
-            "note": "Choose Removal or Retreat for each losing besieger. Omit args to Retreat.",
+            **({"retreat_pairs": pairs} if pairs else {}),
+            "note": ("Choose Removal or Retreat for each losing besieger. Omit args to Retreat."
+                     + (" Surviving Lieutenant pairs Retreat together." if pairs else "")),
         }]
 
     if (reward := pending_reward(state)) is not None:
@@ -960,6 +965,18 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             # which the old set-based loop dropped). Using the shared
             # _legal_retreat_dests here guarantees enumerator/handler parity.
             from nevsky.campaign import _legal_retreat_dests as _lrd
+            partial_groups = []
+            for lid in cp.defender_lords:
+                lord = state.lords[lid]
+                if lord.lieutenant_of:
+                    continue
+                group = [lid]
+                if lord.has_lower_lord:
+                    if lord.has_lower_lord not in cp.defender_lords:
+                        continue
+                    group.append(lord.has_lower_lord)
+                if len(group) < len(cp.defender_lords):
+                    partial_groups.append(group)
             for _dest, _wt in _lrd(state, cp.to_locale, side,
                                    exclude=(cp.from_locale, cp.way_type)):
                 note = (
@@ -978,17 +995,13 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     "avoid_keep_template": {"avoid_keep": {"<lord_id>": "<count>"}},
                     "avoid_keep_order_template": {"avoid_keep_order": ["<lord_id>", "..."]},
                 })
-                # PLAY-26 (4.3.4): "some or all ... to one or more adjacent
-                # Locales". Per-Lord Avoid so the Inactive side can split the
-                # response (Avoid some, Withdraw/Stand the rest).
-                if len(cp.defender_lords) > 1:
-                    for _lid in cp.defender_lords:
-                        out.append({
-                            "type": "avoid_battle", "side": side,
-                            "args": {"to": _dest, "way_type": _wt, "lords": [_lid]},
-                            "note": f"Avoid Battle: only {_lid} -> {_dest} via "
-                                    f"{_wt} (4.3.4 partial; others still respond)",
-                        })
+                for group in partial_groups:
+                    out.append({
+                        "type": "avoid_battle", "side": side,
+                        "args": {"to": _dest, "way_type": _wt, "lords": group},
+                        "note": f"Avoid Battle: {' + '.join(group)} -> {_dest} via "
+                                f"{_wt} (4.3.4 partial; others still respond)",
+                    })
             # Withdraw: convert Battle into Siege.
             withdraw_note = (
                 "Withdraw all defender Lords into Stronghold at "
@@ -1012,17 +1025,14 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             if _cwi(state, cp.to_locale, side, _inside + len(cp.defender_lords)):
                 out.append({"type": "withdraw", "side": side, "args": {},
                             "note": withdraw_note})
-            # PLAY-26 (4.3.4): per-Lord Withdraw ("some or all ... up to
-            # Siege Capacity") so the Inactive side can split 1-in / 1-out
-            # even at a Capacity-1 Stronghold. Only when >1 defender (else
-            # the all-defenders form above suffices).
-            if (len(cp.defender_lords) > 1
-                    and _cwi(state, cp.to_locale, side, _inside + 1)):
-                for _lid in cp.defender_lords:
+            # A partial Withdrawal can leave other Lords to respond, with
+            # both cylinders of any chosen Lieutenant pair using capacity.
+            for group in partial_groups:
+                if _cwi(state, cp.to_locale, side, _inside + len(group)):
                     out.append({
                         "type": "withdraw", "side": side,
-                        "args": {"lords": [_lid]},
-                        "note": f"Withdraw only {_lid} into {cp.to_locale} "
+                        "args": {"lords": group},
+                        "note": f"Withdraw {' + '.join(group)} into {cp.to_locale} "
                                 f"(4.3.4 partial; others still respond)",
                     })
             return out

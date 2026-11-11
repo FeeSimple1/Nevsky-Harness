@@ -1205,6 +1205,23 @@ def _sail_load(state: GameState, group: list[str]) -> tuple[int, int, int]:
     return horses, provender, loot
 
 
+def _require_whole_lieutenant_pairs(
+    state: GameState, group: list[str] | set[str], *, removed: set[str] | None = None,
+) -> None:
+    """A moving Lord must bring either stack partner who remains in play (4.1.3)."""
+    accounted_for = set(group) | (removed or set())
+    for lid in group:
+        lord = state.lords.get(lid)
+        if lord is None:
+            continue
+        if lord.has_lower_lord and lord.has_lower_lord not in accounted_for:
+            raise IllegalAction("lower_lord_required",
+                                f"Lieutenant {lid} must move with Lower Lord {lord.has_lower_lord} (4.1.3)")
+        if lord.lieutenant_of and lord.lieutenant_of not in accounted_for:
+            raise IllegalAction("lieutenant_required",
+                                f"Lower Lord {lid} must move with Lieutenant {lord.lieutenant_of} (4.1.3)")
+
+
 def _h_cmd_sail(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1248,17 +1265,8 @@ def _h_cmd_sail(
     season = _season_of_box(state.meta.box)
     if season in ("early_winter", "late_winter"):
         raise IllegalAction("winter", "Sail forbidden in Winter (4.7.3)")
-    # SMOKE-034 (Round 53/54): Lieutenant + Lower Lord pair must Sail
-    # together (4.1.3 "March, Retreat, etc." extended to Sail per
-    # 4.7.3's "Groups move together as per March"). Reject Sail that
-    # omits the Lower Lord.
+    _require_whole_lieutenant_pairs(state, group)
     lord_obj = state.lords[lord_id]
-    if lord_obj.has_lower_lord is not None and lord_obj.has_lower_lord not in group:
-        raise IllegalAction(
-            "lower_lord_required",
-            f"Active Lieutenant {lord_id} must Sail with Lower Lord "
-            f"{lord_obj.has_lower_lord} (4.1.3 / 4.7.3)",
-        )
     # SMOKE-042 (Round 54): 4.7.3 Sail group rules mirror 4.3.1 March:
     # only Marshals (or Lieutenant + Lower Lord pair) can take a
     # group. Solo Sails (group=[self]) remain unrestricted.
@@ -1273,18 +1281,6 @@ def _h_cmd_sail(
                 "non_marshal_group",
                 f"{lord_id} is not a Marshal; only the Lieutenant + Lower Lord pair "
                 f"or a Marshal-led group may Sail together (4.7.3 / 4.3.1 / 4.1.3)",
-            )
-    # PLAY-22 (Fable audit): mirror of the March-group check -- a
-    # non-active Lieutenant Sailing in a Marshal group must bring the
-    # Lower Lord (4.1.3 "March, Retreat, etc." extended to Sail).
-    for _gid in group:
-        _gl = state.lords.get(_gid)
-        if (_gl is not None and _gl.has_lower_lord is not None
-                and _gl.has_lower_lord not in group):
-            raise IllegalAction(
-                "lower_lord_required",
-                f"Lieutenant {_gid} in the Sail group must move with "
-                f"Lower Lord {_gl.has_lower_lord} (4.1.3 / 4.7.3)",
             )
     # Destination must be free of Unbesieged enemy Lords.
     # SMOKE-019 (Round 33): use _is_besieged on the specific Lord,
@@ -2501,6 +2497,26 @@ def _legal_retreat_dests(
     return out
 
 
+def _paired_retreat_destinations(
+    state: GameState, retreaters: list[str], requested: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply either partner's elected destination to both retreating Lords (4.1.3)."""
+    destinations = dict(requested)
+    eligible = set(retreaters)
+    for lid in retreaters:
+        lower = state.lords[lid].has_lower_lord
+        if lower not in eligible:
+            continue
+        if lid in destinations:
+            if lower in destinations and destinations[lower] != destinations[lid]:
+                raise IllegalAction("split_stack",
+                                    f"{lid} and {lower} must Retreat to the same Locale (4.1.3)")
+            destinations[lower] = destinations[lid]
+        elif lower in destinations:
+            destinations[lid] = destinations[lower]
+    return destinations
+
+
 def _flip_trade_route_if_uncontested(
     state: GameState, locale_id: str, entering_side: Side,
 ) -> dict[str, Any] | None:
@@ -2756,20 +2772,7 @@ def _h_cmd_march(
     src = lord.location
     if src is None:
         raise IllegalAction("no_location", "Lord has no location")
-    # SMOKE-034 (Round 46): an active Lieutenant (Lord with a Lower
-    # Lord stacked on them via 4.1.3) MUST move together with the Lower
-    # Lord -- "move together in March, Retreat, etc., as if Lieutenant
-    # were Marshal" (Sequence of Play 4.1.3). Reject any March group
-    # that omits the Lower Lord. Likewise reject a Lower Lord
-    # appearing as active here (its card resolves as Pass via
-    # _h_command_reveal), but if a caller bypasses reveal we still
-    # guard the group.
-    if lord.has_lower_lord is not None and lord.has_lower_lord not in group:
-        raise IllegalAction(
-            "lower_lord_required",
-            f"Active Lieutenant {lord_id} must move with Lower Lord "
-            f"{lord.has_lower_lord} (4.1.3)",
-        )
+    _require_whole_lieutenant_pairs(state, group)
     # SMOKE-041 (Round 53): 4.3.1 "Marshal may take a group March."
     # Non-Marshal non-Lieutenant active Lords cannot bring additional
     # Lords. A Lieutenant may bring their Lower Lord (and only the
@@ -2789,21 +2792,6 @@ def _h_cmd_march(
                 f"{lord_id} is not a Marshal; only the Lieutenant + Lower Lord pair "
                 f"or a Marshal-led group may March together (4.3.1 / 4.1.3)",
             )
-    # PLAY-22 (Fable audit): 4.3.1 -- "The Lord beneath a Marching
-    # Lieutenant (4.1.3) must move with the Lieutenant." The active-Lord
-    # guard above misses a NON-active Lieutenant inside a Marshal-led
-    # group: the group could March off leaving the Lower Lord behind,
-    # with the (still-linked) pair now split across Locales.
-    for _gid in group:
-        _gl = state.lords.get(_gid)
-        if (_gl is not None and _gl.has_lower_lord is not None
-                and _gl.has_lower_lord not in group):
-            raise IllegalAction(
-                "lower_lord_required",
-                f"Lieutenant {_gid} in the March group must move with "
-                f"Lower Lord {_gl.has_lower_lord} (4.3.1 / 4.1.3)",
-            )
-
     # Way check.
     # SMOKE-067 (Round 72): when the src<->dest pair has parallel Ways
     # (e.g. dorpat<->odenpah has both trackway and waterway), the agent
@@ -3088,6 +3076,7 @@ def _h_avoid_battle(
         bad = [x for x in avoiders if x not in cp.defender_lords]
         if bad:
             raise IllegalAction("bad_lords", f"{bad} not among outside defenders {cp.defender_lords}")
+    _require_whole_lieutenant_pairs(state, avoiders)
     src = cp.to_locale  # defender currently at to_locale
     # SMOKE-068 (Round 73): for parallel-Ways pairs (dorpat<->odenpah
     # has both trackway and waterway), the defender may pick which Way
@@ -3507,9 +3496,13 @@ def _h_withdraw(
     else:
         if not isinstance(withdrawers, list) or not withdrawers:
             raise IllegalAction("bad_arg", "args.lords must be a non-empty list")
+        if (not all(isinstance(lid, str) for lid in withdrawers)
+                or len(set(withdrawers)) != len(withdrawers)):
+            raise IllegalAction("bad_lords", "args.lords must list distinct Lord IDs")
         bad = [x for x in withdrawers if x not in cp.defender_lords]
         if bad:
             raise IllegalAction("bad_lords", f"{bad} not among outside defenders {cp.defender_lords}")
+    _require_whole_lieutenant_pairs(state, withdrawers)
     total_inside = len(cp.withdrawn_lords) + len(withdrawers)
     if total_inside > capacity:
         raise IllegalAction("over_capacity",
@@ -3816,6 +3809,20 @@ def _h_stand_battle(
         if state.locales[cp.to_locale].siege_markers > 1:
             state.locales[cp.to_locale].siege_markers = 1
             aftermath["sally_raid_siege_to_1"] = True
+    _rl = args.get("remove_losers")
+    if _rl is not None and (not isinstance(_rl, list)
+                            or any(not isinstance(lid, str) for lid in _rl)):
+        raise IllegalAction("bad_remove_losers", "remove_losers must be a list of lord_ids")
+    remove_losers_set = set(_rl or [])
+    _bad_rm = sorted(remove_losers_set - set(loser_lords))
+    if _bad_rm:
+        raise IllegalAction("bad_remove_losers",
+                            f"remove_losers names non-losing Lords: {_bad_rm}")
+    # A Routed Lord can still recover. Only chosen removal or an empty
+    # mat can release his partner before movement and capacity checks.
+    _cands = [lid for lid in loser_lords if lid in state.lords
+              and lid not in remove_losers_set
+              and (state.lords[lid].forces or state.lords[lid].routed_units)]
     # 4.4.3: a losing DEFENDER may Withdraw into that side's Stronghold at
     # the Battle Locale (if it has one) instead of Retreating -- keeping
     # all Assets and becoming Besieged inside. The owning player selects
@@ -3838,9 +3845,6 @@ def _h_stand_battle(
             _cap = int(_eff_sh.get("capacity", 1))
             # PLAY-12: a fully-Routed Lord may Withdraw too (his
             # routed pile then rolls 4.4.4 Losses at "withdrew").
-            _cands = [lid for lid in loser_lords
-                      if lid in state.lords
-                      and (state.lords[lid].forces or state.lords[lid].routed_units)]
             if _wl is True:
                 _chosen = list(_cands)
             elif isinstance(_wl, list):
@@ -3857,6 +3861,7 @@ def _h_stand_battle(
                     f"{cp.to_locale} Stronghold capacity {_cap}; {inside} already inside, "
                     f"{len(_chosen)} more Lords cannot all Withdraw")
             withdraw_into_sh = set(_chosen)
+            _require_whole_lieutenant_pairs(state, _chosen, removed=set(loser_lords) - set(_cands))
         elif isinstance(_wl, list) and _wl:
             raise IllegalAction("no_withdraw_stronghold",
                                 f"no Friendly Stronghold at {cp.to_locale} to Withdraw into (4.4.3)")
@@ -3869,15 +3874,6 @@ def _h_stand_battle(
     # all, or one whose owner chooses removal (args.remove_losers), is
     # removed outright. 4.4.3 also orders LOSSES before SPOILS, so
     # "Removed (by Losses)" Lords transfer all Assets except Ships.
-    _rl = args.get("remove_losers")
-    if _rl is not None and not isinstance(_rl, list):
-        raise IllegalAction("bad_remove_losers",
-                            "remove_losers must be a list of lord_ids")
-    remove_losers_set = set(_rl or [])
-    _bad_rm = [x for x in remove_losers_set if x not in loser_lords]
-    if _bad_rm:
-        raise IllegalAction("bad_remove_losers",
-                            f"remove_losers names non-losing Lords: {_bad_rm}")
     # PLAY-29 (4.4.3): "Retreat to a SINGLE adjacent Locale ... The owning
     # player chooses." args.retreat_to = {lord_id: locale_id} names a
     # chosen Retreat destination per losing Lord (Defenders only; Marching
@@ -3891,6 +3887,10 @@ def _h_stand_battle(
     if _bad_rt:
         raise IllegalAction("bad_retreat_to",
                             f"retreat_to names non-losing Lords: {_bad_rt}")
+    if result["loser"] == cp.defender_side:
+        _retreat_to = _paired_retreat_destinations(
+            state, [lid for lid in _cands if lid not in withdraw_into_sh], _retreat_to,
+        )
     conceded_retreats: list[tuple[str, str | None]] = []
     conceded_spoil_indexes: list[int] = []
     for lid in list(loser_lords):
@@ -5112,6 +5112,11 @@ def _finish_successful_sally(
     from nevsky.actions import _remove_lord_permanently as _rem
     from nevsky.battle import apply_retreat_service_shift, collect_retreat_spoils
     from nevsky.static_data import load_lords
+    retreaters = [lid for lid in defenders if lid in state.lords
+                 and lid not in remove_losers
+                 and (state.lords[lid].forces or state.lords[lid].routed_units)]
+    requested = args.get("retreat_to") or {}
+    retreat_to = _paired_retreat_destinations(state, retreaters, requested if isinstance(requested, dict) else {})
     conceded_retreats = []
     conceded_spoil_indexes = []
     for lid in list(defenders):
@@ -5138,9 +5143,8 @@ def _finish_successful_sally(
             target = None
             retreat_way_type_actual: str | None = None
             _sdests = _legal_retreat_dests(state, locale_id, l.side)
-            _rt_map = args.get("retreat_to") or {}
-            if isinstance(_rt_map, dict) and lid in _rt_map:
-                _want = _rt_map[lid]
+            if lid in retreat_to:
+                _want = retreat_to[lid]
                 _match = [(d, wt) for d, wt in _sdests if d == _want]
                 if not _match:
                     raise IllegalAction(

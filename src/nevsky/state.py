@@ -28,9 +28,9 @@ inventory of state. New fields:
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Side = Literal["teutonic", "russian"]
 ForceType = Literal[
@@ -527,6 +527,26 @@ class GameState(BaseModel):
     combat_pending: CombatPending | None = None
     pending_decisions: list[PendingDecision] = Field(default_factory=list)
     history: list[HistoryEntry] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _restore_lieutenant_pairs(self) -> Self:
+        """Release invalid links in older saves while keeping the board position."""
+        pairs = set()
+        for lid, upper in self.lords.items():
+            lower_id = upper.has_lower_lord
+            lower = self.lords.get(lower_id) if lower_id is not None else None
+            if (lower is not None and lower_id != lid and lower.lieutenant_of == lid
+                    and upper.lieutenant_of is None and lower.has_lower_lord is None
+                    and upper.state == lower.state == "mustered" and upper.side == lower.side
+                    and upper.location is not None and upper.location == lower.location
+                    and upper.in_stronghold == lower.in_stronghold):
+                pairs.add((lid, lower_id))
+        for lid, lord in self.lords.items():
+            if lord.has_lower_lord is not None and (lid, lord.has_lower_lord) not in pairs:
+                lord.has_lower_lord = None
+            if lord.lieutenant_of is not None and (lord.lieutenant_of, lid) not in pairs:
+                lord.lieutenant_of = None
+        return self
 
 
 # ---------------------------------------------------------------------------
