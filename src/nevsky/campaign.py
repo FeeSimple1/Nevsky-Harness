@@ -47,7 +47,7 @@ from nevsky.state import (
     pending_storm_front,
     vassal_marker_box,
 )
-from nevsky.static_data import load_locales, load_lords, load_ways
+from nevsky.static_data import load_locales, load_lords, load_ways, neighbors
 
 # ---------------------------------------------------------------------------
 # 4.1 Plan
@@ -1086,6 +1086,14 @@ def _h_cmd_forage(
 # ---------------------------------------------------------------------------
 
 
+def _ravage_action_cost(state: GameState, side: Side, target: str) -> int:
+    """4.7.2: check enemy adjacency to the Locale being Ravaged."""
+    for locale, _ in neighbors(target):
+        if _unbesieged_enemy_lord_at(state, locale, side):
+            return 2
+    return 1
+
+
 def _h_cmd_ravage(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1124,24 +1132,7 @@ def _h_cmd_ravage(
     if loc.russian_ravaged or loc.teutonic_ravaged:
         raise IllegalAction("already_ravaged", "Locale already Ravaged (4.7.2)")
 
-    # Adjacent unbesieged enemy Lord -> 2 actions.
-    cost = 1
-    ways = load_ways()
-    adjacent = set()
-    for w in ways:
-        if w["a"] == lord.location:
-            adjacent.add(w["b"])
-        elif w["b"] == lord.location:
-            adjacent.add(w["a"])
-    for ol_id, ol in state.lords.items():
-        if ol.state == "mustered" and ol.side != sd and ol.location in adjacent:
-            # SMOKE-019 (Round 33): "Unbesieged enemy Lord" must use the
-            # Lord-level _is_besieged check, not locale.siege_markers.
-            # An enemy at a sieged Locale who is OUTSIDE the Stronghold
-            # (e.g., a besieger) is Unbesieged and triggers +1 action.
-            if not _is_besieged(state, ol_id):
-                cost = 2
-                break
+    cost = _ravage_action_cost(state, sd, lord.location)
     if state.campaign_turn.actions_remaining < cost:
         raise IllegalAction(
             "insufficient_actions",
@@ -5527,7 +5518,8 @@ def _h_cmd_raiders_ravage(
       Asiatic Horse; via any Way (incl. waterway); multiple uses per
       card; never gets Loot.
 
-    Action cost: 1 action.
+    Costs two actions when an Unbesieged enemy Lord is adjacent to the
+    target Locale, one otherwise (4.7.2).
 
     args:
       lord_id   Active Lord
@@ -5591,8 +5583,13 @@ def _h_cmd_raiders_ravage(
     if any(l.state == "mustered" and l.location == target and l.side != sd for l in state.lords.values()):
         raise IllegalAction("enemy_at_target", "enemy Lord at target")
 
-    if state.campaign_turn.actions_remaining < 1:
-        raise IllegalAction("insufficient_actions", "Raiders Ravage costs 1 action")
+    cost = _ravage_action_cost(state, sd, target)
+    if state.campaign_turn.actions_remaining < cost:
+        raise IllegalAction(
+            "insufficient_actions",
+            f"Raiders Ravage requires {cost} action{'s' if cost > 1 else ''} "
+            f"({state.campaign_turn.actions_remaining} remaining)",
+        )
 
     # Place ravaged marker.
     if sd == "teutonic":
@@ -5614,8 +5611,11 @@ def _h_cmd_raiders_ravage(
     # R216 (Q-009): stationary Command -- does NOT set Moved/Fought,
     # so it does not trigger Feed (4.8.1). Moved/Fought is only
     # March/Avoid/Battle/Siege/Storm/Sail (SoP glossary; Misc Rules L451).
-    _consume_actions(state, 1)
-    return ({"lord_id": lord_id, "target": target, "loot_added": has_t2 and static["type"] != "region"}, [])
+    _consume_actions(state, cost)
+    return ({
+        "lord_id": lord_id, "target": target, "actions_used": cost,
+        "loot_added": has_t2 and static["type"] != "region",
+    }, [])
 
 
 def effective_ship_count(state: GameState, lord_id: str) -> int:

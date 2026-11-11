@@ -1433,6 +1433,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         # filter the enumerator surfaces guaranteed-illegal options
         # (e.g. ravage at own Seat), which trips LLM agents and is a
         # known over-enumeration pattern (see SMOKE-118/120).
+        from nevsky.campaign import _ravage_action_cost
         ravage_ok = False
         if active.location is not None:
             try:
@@ -1449,29 +1450,8 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                         and not _loc_state_rv.russian_ravaged
                         and not _loc_state_rv.teutonic_ravaged
                     ):
-                        ravage_ok = True
-                        # SMOKE-150 (R209): Ravage costs 2 actions if an
-                        # Unbesieged enemy Lord is adjacent to the target
-                        # (4.7.2 2E); _h_cmd_ravage raises
-                        # insufficient_actions otherwise. Suppress when the
-                        # active Lord can't afford the cost.
-                        from nevsky.static_data import load_ways as _lw_rv
-                        from nevsky.campaign import _is_besieged as _ib_rv
-                        _adj_rv = set()
-                        for _w in _lw_rv():
-                            if _w["a"] == active.location:
-                                _adj_rv.add(_w["b"])
-                            elif _w["b"] == active.location:
-                                _adj_rv.add(_w["a"])
-                        _rv_cost = 1
-                        for _ol, _olst in state.lords.items():
-                            if (_olst.state == "mustered" and _olst.side != side
-                                    and _olst.location in _adj_rv
-                                    and not _ib_rv(state, _ol)):
-                                _rv_cost = 2
-                                break
-                        if state.campaign_turn.actions_remaining < _rv_cost:
-                            ravage_ok = False
+                        ravage_ok = state.campaign_turn.actions_remaining >= _ravage_action_cost(
+                            state, side, active.location)
             except (ImportError, KeyError, AttributeError, FileNotFoundError):
                 # On static-data load failure, conservatively suppress
                 # the option rather than offer a likely-illegal one.
@@ -1502,10 +1482,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                                 "note": "Smerdi (R4): Muster 1 Serf (1 action)"})
             except (ImportError, KeyError, AttributeError, FileNotFoundError):
                 pass
-        # R204: T2/R12/R14 Raiders -- 1-action Ravage of an adjacent enemy
-        # Locale via an eligible Way with the right Horse. Mirror
-        # _h_cmd_raiders_ravage; emit one move per legal target. Was never
-        # enumerated.
+        # T2/R12/R14 Raiders uses the ordinary Ravage cost at its target.
         if active.location is not None:
             try:
                 from nevsky.capabilities import has_lord_capability as _hlc_rr
@@ -1543,9 +1520,13 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                             if any(l.state == "mustered" and l.location == _dest_rr
                                    and l.side != side for l in state.lords.values()):
                                 continue
+                            cost = _ravage_action_cost(state, side, _dest_rr)
+                            if cost > state.campaign_turn.actions_remaining:
+                                continue
+                            cost_label = "1 action" if cost == 1 else "2 actions"
                             out.append({"type": "cmd_raiders_ravage", "side": side,
                                         "args": {"lord_id": active_lord, "to": _dest_rr},
-                                        "note": f"Raiders: Ravage {_dest_rr} (1 action)"})
+                                        "note": f"Raiders: Ravage {_dest_rr} ({cost_label})"})
             except (ImportError, KeyError, AttributeError, FileNotFoundError):
                 pass
         from nevsky.campaign import _local_supply_moves

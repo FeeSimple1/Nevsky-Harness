@@ -514,12 +514,12 @@ are reset at `command_reveal` so per-card capability budgets work.
   costs 0 actions when the Marching group includes any Lord with
   Converts AND any Lord with Light Horse. Implementation: cmd_march
   detects this and overrides `cost = 0`.
-- **Raiders** (T2 / R12 / R14, this-lord): new action
-  `cmd_raiders_ravage` (1 action). Adjacent target Locale; standard
-  Ravage eligibility (enemy territory, not Conquered, not Friendly,
-  not already Ravaged). T2 (Teutonic): Trackway only, once per card,
-  +Loot if non-Region. R12/R14 (Russian): any Way, multiple per card,
-  no Loot.
+- **Raiders** (T2 / R12 / R14, this-lord) enables `cmd_raiders_ravage` at
+  an adjacent Locale free of enemy Lords. Standard Ravage eligibility
+  applies. It costs two actions if an Unbesieged enemy Lord is adjacent to
+  the target, and one otherwise. T2 works once per card via a Trackway and
+  adds Loot at a non-Region. R12/R14 works via any Way, can be used
+  multiple times per card, and awards only Provender.
 - **Ransom** (T16 / R7, side-wide): `apply_ransom(state, removed_lord,
   killer_side, locale_id)` is called in Battle and Storm Aftermath
   paths when an enemy Lord is permanently removed; if the killer side
