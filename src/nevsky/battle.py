@@ -172,11 +172,11 @@ def _absorb_hit(
     from nevsky.capabilities import any_capability
 
     spec = _protection_spec(utype, strike_kind, in_storm=in_storm)
-    # Optional rule: No Horseback Archery — Asiatic Horse becomes
-    # effectively Unarmored (succeed only on roll 1).
+    # The variant replaces Evade with Unarmored Protection. Crossbows
+    # penalize Armor only, so the roll-of-1 save still applies.
     if (utype == "asiatic_horse"
             and state.meta.optional_rules.get("no_horseback_archery", False)):
-        spec = "armor:1-1"
+        spec = "unarmored"
     if spec == "none":
         return False
     if (

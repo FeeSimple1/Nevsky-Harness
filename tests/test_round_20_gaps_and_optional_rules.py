@@ -12,6 +12,7 @@ from nevsky.render import (
     render_summary,
 )
 from nevsky.scenarios import load_scenario, set_optional_rule
+from nevsky.static_data import load_lords
 
 
 def _setup_pleskau():
@@ -258,3 +259,59 @@ def test_no_horseback_archery_makes_asiatic_horse_more_fragile():
         f"default D-win {prev_default['defender_winrate']:.2%} "
         f"vs NHA D-win {prev_nha['defender_winrate']:.2%}"
     )
+
+
+@pytest.mark.parametrize("storm", [False, True], ids=["battle", "storm"])
+def test_no_horseback_archery_still_saves_on_one_against_crossbows(storm):
+    s = load_scenario("crusade_on_novgorod", seed=1,
+                      optional_rules={"no_horseback_archery": True})
+    s.meta.box = 9
+    s.meta.phase = "campaign"
+    s.meta.campaign_step = "command"
+    side, active = ("russian", "aleksandr") if storm else ("teutonic", "andreas")
+    s.meta.active_player = side
+    s.campaign_turn.active_card = s.campaign_turn.active_lord = active
+    s.campaign_turn.actions_remaining = load_lords()[active]["ratings"]["command"]
+    for box in s.calendar.boxes:
+        box.has_levy_campaign_marker = box.box == 9
+        box.levy_campaign_face = "campaign" if box.box == 9 else None
+
+    def place(lord_id, locale, forces):
+        lord = s.lords[lord_id]
+        lord.state, lord.location, lord.in_stronghold = "mustered", locale, False
+        lord.forces = forces
+        for box in s.calendar.boxes:
+            if lord_id in box.cylinders:
+                box.cylinders.remove(lord_id)
+        s.calendar.boxes[11].service_markers.append(lord_id)
+
+    def give_capability(deck, lord_id, card):
+        deck.deck.remove(card)
+        deck.capabilities_in_play.append(card)
+        s.lords[lord_id].this_lord_capabilities.append(card)
+
+    give_capability(s.decks.russian, "aleksandr", "R10")  # Steppe Warriors
+    s.lords["aleksandr"].vassals["aleksandr_mongols_1"].mustered = True
+    if storm:
+        place("aleksandr", "dorpat", {"asiatic_horse": 1})
+        s.lords["hermann"].location = "wenden"
+        s.locales["dorpat"].siege_markers = 1
+        result = apply_action(s, {"type": "cmd_storm", "side": side, "args": {"lord_id": active}})
+        crossbow_step = "archery_defender"  # Dorpat's garrison Crossbows
+    else:
+        place("aleksandr", "pskov", {"asiatic_horse": 1, "knights": 1})
+        s.lords["gavrilo"].location = "novgorod"
+        place("andreas", "ostrov", {"men_at_arms": 2})
+        give_capability(s.decks.teutonic, "andreas", "T4")  # Balistarii
+        apply_action(s, {"type": "cmd_march", "side": side, "args": {
+            "lord_id": active, "to": "pskov", "way_type": "waterway"}})
+        result = apply_action(s, {"type": "stand_battle", "side": "russian",
+                                  "args": {"concede": "defender"}})
+        crossbow_step = "archery_attacker"
+
+    # In both positions the seeded second die is 1, rolled against one Crossbow Hit.
+    strike = next(step for step in result["battle"]["log"][0]["steps"]
+                  if step["step"] == crossbow_step)
+    hit = strike["distribution"][0]
+    assert hit["lord"] == "aleksandr" and hit["hits"] == 1
+    assert hit["routed"] == [{"unit": "asiatic_horse", "absorbed": True}]
