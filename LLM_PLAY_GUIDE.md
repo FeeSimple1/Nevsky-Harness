@@ -90,6 +90,15 @@ same fields. A referee can use the engine's `nevsky.actions.apply_action`
 to enter authorized choices for both sides, including a besieger's
 Concede during Sally.
 
+For a Battle or Sally, set `args.strike_order` to prioritize enemy Lord IDs
+as Strike-group targets in your own steps. For example,
+`{"1:melee_foot": ["hermann", "andreas"]}` directs Round 1 Foot groups
+aimed at Hermann before those aimed at Andreas. The step keys are `archery`,
+`melee_horse` and `melee_foot`. Submit on `cmd_march` as the approaching
+player, `stand_battle` as the defender, or `cmd_sally` as the Sallying player.
+Only groups present in that step use the priorities. Others resolve in the
+default target ID order.
+
 ### Reference lookups (on demand)
 - `lookup_card(card_id)` — printed text + structured metadata for a
   card. Use when you need to explain or recall a card.

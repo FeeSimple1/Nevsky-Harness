@@ -144,6 +144,11 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
             moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))
+        for move in moves:
+            if move["type"] in ("cmd_march", "stand_battle", "cmd_sally"):
+                move["strike_order_template"] = {
+                    "strike_order": {"<round>:<archery|melee_horse|melee_foot>": ["<enemy_lord_id>", "..."]},
+                }
     from nevsky.held_actions import held_actions_for_side
     moves.extend(held_actions_for_side(state, side))
     return moves

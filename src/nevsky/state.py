@@ -284,6 +284,8 @@ class CombatPending(BaseModel):
     # cmd_march (captured here); the defender on stand_battle / sally.
     attacker_absorption_policy: "str | list[str]" = "weakest_first"
     defender_absorption_policy: "str | list[str]" = "weakest_first"
+    # The approaching owner may commit priorities for its own Strike steps.
+    attacker_strike_order: dict[str, list[str]] = Field(default_factory=dict)
 
     # Q-005 (4.4.1 2E): per-Lord position in the Battle Array.
     # Maps lord_id -> "left" | "center" | "right" | "reserve".

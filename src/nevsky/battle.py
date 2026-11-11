@@ -548,6 +548,7 @@ _DECISION_TYPES = (
                                     # Reserves; otherwise every slot fills)
     "center_fill",                  # which left/right Lord slides to center
     "flanker_target",               # ambiguous Flanker target
+    "strike_order",                 # which Lord or combined group strikes next
     "flank_absorb",                 # PLAY-28 (4.4.2): Flanking Lord vs
                                     # directly-opposed Lord to take Hits
     "sally_loser_fate",             # losing besieger chooses Retreat or Removal
@@ -576,10 +577,13 @@ class BattleDecisionContext:
         scripted: list[dict[str, Any]] | None = None,
         callback: "Any | None" = None,
         fallback: str = "leftmost",
+        *,
+        strike_orders: dict[str, dict[str, list[str]]] | None = None,
     ) -> None:
         self.scripted: list[dict[str, Any]] = list(scripted or [])
         self.callback = callback
         self.fallback = fallback
+        self.strike_orders = strike_orders or {}
         self.log: list[dict[str, Any]] = []
 
     def decide(
@@ -643,6 +647,31 @@ class BattleDecisionContext:
         }
         self.log.append(entry)
         return chosen
+
+    def order_strikes(self, side: str, round_no: int, step: str, kind: str,
+                      groups: dict[str, list[str]]) -> list[str]:
+        """Choose the order of existing groups without consuming older scripts."""
+        remaining = sorted(groups)
+        order: list[str] = []
+        priorities = self.strike_orders.get(side, {}).get(f"{round_no}:{kind}", [])
+        while len(remaining) > 1:
+            head = self.scripted[0] if self.scripted else None
+            info = {"round": round_no, "step": step,
+                    "strikers": {target: groups[target] for target in remaining}}
+            if ((head is not None and head.get("type") == "strike_order"
+                 and head.get("side", side) == side)
+                    or (head is None and self.callback is not None)):
+                target = self.decide("strike_order", side, remaining.copy(), info)
+            elif priorities:
+                target = next((lid for lid in priorities if lid in remaining), remaining[0])
+                self.log.append({"type": "strike_order", "side": side, "chosen": target,
+                                 "options": remaining.copy(), "info": info,
+                                 "rationale": "player_order"})
+            else:
+                break
+            order.append(target)
+            remaining.remove(target)
+        return order + remaining
 
 
 _SALLY_SLOTS = ("sally_left", "sally_center", "sally_right")
@@ -1710,8 +1739,13 @@ def resolve_battle(
                 for lid in trebuchet_bearers
             ):
                 effective_siegeworks -= 1
-            # Keep seeded Protection rolls in the existing target order.
-            for tlid, groups in sorted(per_target_raw.items()):
+            group_sources: dict[str, list[str]] = {lid: [] for lid in per_target_raw}
+            for strike in per_striker_log:
+                group_sources[strike["target"]].append(strike["striker"])
+            target_order = decision_ctx.order_strikes(
+                striker_role, rounds, label, kind, group_sources)
+            for tlid in target_order:
+                groups = per_target_raw[tlid]
                 hit_flags = _rounded_hit_flags(*groups.get(False, (0.0, 0.0)))
                 sally_flags = _rounded_hit_flags(*groups.get(True, (0.0, 0.0)))
                 if sally_flags and effective_siegeworks > 0:

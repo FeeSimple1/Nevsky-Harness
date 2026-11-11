@@ -46,6 +46,8 @@ def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool) -> N
     action = entry["action"]
     result = entry["result"]
     kind = action.get("type")
+    if kind in ("cmd_march", "stand_battle", "cmd_sally"):
+        action.get("args", {}).pop("strike_order", None)
     if kind == "aow_draw":
         action["args"] = {}
         entry["result"] = {
@@ -110,6 +112,9 @@ def view_for_side(state, side: str) -> dict[str, Any]:
     # placed (events are publicly announced and resolved). Keep as-is.
     for entry in d["history"]:
         _filter_history(entry, side, hidden_mats=hidden_mats)
+    combat = d["combat_pending"]
+    if combat is not None and combat["attacker_side"] != side:
+        combat.pop("attacker_strike_order", None)
     for pending in d["pending_decisions"]:
         if pending["kind"] == STORM_FRONT_ACTION:
             pending["context"].pop("attack_args", None)

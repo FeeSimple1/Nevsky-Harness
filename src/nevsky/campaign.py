@@ -2696,6 +2696,26 @@ def _validate_absorption_policy(value: Any) -> "str | list[str]":
     )
 
 
+def _validate_strike_order(state: GameState, side: Side, value: Any) -> dict[str, list[str]]:
+    """Validate a player's per-step target priorities before resolving Battle."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise IllegalAction("bad_strike_order", "strike_order must map round:step to target lists")
+    steps = {"archery", "melee_horse", "melee_foot"}
+    orders = {}
+    for key, targets in value.items():
+        round_key, _, step = key.partition(":") if isinstance(key, str) else ("", "", "")
+        if not round_key.isascii() or not round_key.isdecimal() or round_key[0] == "0" or step not in steps:
+            raise IllegalAction("bad_strike_order", "use a positive round and archery, melee_horse or melee_foot")
+        if (not isinstance(targets, list) or any(
+                not isinstance(lid, str) or lid not in state.lords or state.lords[lid].side == side
+                for lid in targets) or len(set(targets)) != len(targets)):
+            raise IllegalAction("bad_strike_order", "each order must list distinct enemy Lord IDs")
+        orders[key] = list(targets)
+    return orders
+
+
 def _usable_transport_count_for_way_local(state: GameState, lord_id: str,
                                            way_type: str | None) -> int:
     """PLAY-40 helper: per-Lord usable Transport on this Way (1.7.4),
@@ -2919,6 +2939,7 @@ def _h_cmd_march(
             attacker_group=list(group),
             attacker_absorption_policy=_validate_absorption_policy(
                 args.get("absorption_policy")),
+            attacker_strike_order=_validate_strike_order(state, sd, args.get("strike_order")),
             from_locale=src,
             to_locale=dest,
             way_type=way_type,
@@ -3689,6 +3710,8 @@ def _h_stand_battle(
     decision_ctx = BattleDecisionContext(
         scripted=list(scripted),
         callback=args.get("decision_callback"),
+        strike_orders={"attacker": cp.attacker_strike_order,
+                       "defender": _validate_strike_order(state, sd, args.get("strike_order"))},
     )
     active_attacker = (
         cp.attacker_group[0] if cp.attacker_group else None
@@ -4926,6 +4949,7 @@ def _h_cmd_sally(
     decision_ctx = BattleDecisionContext(
         scripted=list(args.get("scripted_decisions") or []),
         callback=args.get("decision_callback"),
+        strike_orders={"attacker": _validate_strike_order(state, sd, args.get("strike_order"))},
     )
 
     # Mark all Lords at Locale MOVED_FOUGHT.
