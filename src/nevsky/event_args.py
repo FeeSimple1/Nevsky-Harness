@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from nevsky.events import _dietrich_targets
 from nevsky.static_data import load_locales, load_ways  # noqa: F401 (used in functions)
 
 
@@ -225,13 +226,10 @@ def _populate_event_args(state, cid, args):
         else:
             new.setdefault("target", "andreas")
     elif cid == "R17":
-        for tgt in ("andreas", "rudolf"):
-            if cyl_on_cal(tgt):
-                new.setdefault("target", tgt)
-                break
-        else:
-            new.setdefault("target", "service:andreas")
-        new.setdefault("direction", "left")
+        targets = _dietrich_targets(state)
+        if targets:
+            new.setdefault("target", targets[0])
+            new.setdefault("direction", "left")
     return new
 
 
@@ -267,7 +265,7 @@ def _expand_event_variants(state, move):
                 for boxes in (2, 1, 0):  # R202: "up to 2" includes shift 0
                     variant({"target": tgt, "direction": d, "boxes": boxes})
     elif cid in ("R17",):
-        for tgt in ("andreas", "rudolf", "service:andreas", "service:rudolf"):
+        for tgt in _dietrich_targets(state):
             for d in ("left", "right"):
                 variant({"target": tgt, "direction": d})
     elif cid in ("R9",):

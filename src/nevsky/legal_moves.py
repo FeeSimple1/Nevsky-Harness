@@ -235,11 +235,13 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     "note": f"implements Event {cid_pending} (3.1.3)",
                 })
             if not applicable:
+                note = f"reveal-and-discard {cid_pending} — no legal target (3.1.4 Greed)"
+                if cid_pending == "R17":
+                    note = "Dietrich blocks Muster of or by Andreas and Rudolf; no marker to shift"
                 out.append({
                     "type": "aow_implement_card", "side": side,
                     "args": {"card_id": cid_pending},
-                    "note": f"reveal-and-discard {cid_pending} "
-                            f"— no legal target (3.1.4 Greed)",
+                    "note": note,
                 })
         else:
             # First-Levy side_wide Capability: implement needs no

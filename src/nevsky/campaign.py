@@ -26,6 +26,7 @@ from typing import Any
 from nevsky.actions import (
     IllegalAction,
     _disband_at_limit,
+    _disband_return_box,
     _find_levy_marker_box,
     _find_service_marker_box,
     _is_friendly_locale,
@@ -646,8 +647,7 @@ def _fpd_finalize(
             _remove_lord_permanently(state, lord_id, static[lord_id])
             permanently_removed.append(lord_id)
         elif sm_box == levy_box:
-            srating = int(static[lord_id]["ratings"]["service"])
-            new_box = sm_box + 1 + srating  # 4.8.2 + 3.3.2 (2E): count from NEXT box
+            new_box = _disband_return_box(state, lord_id, levy_box)
             _disband_at_limit(state, lord_id, new_box)
             disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
 
@@ -1748,10 +1748,7 @@ def _disband_empty_lord(state: GameState, lord_id: str) -> bool:
     if (lord.state != "mustered" or any(lord.forces.values())
             or any(lord.routed_units.values())):
         return False
-    service = int(load_lords()[lord_id]["ratings"]["service"])
-    # 3.3.2 counts from the current Levy, or the next Levy during Campaign.
-    new_box = state.meta.box + (state.meta.phase == "campaign") + service
-    _disband_at_limit(state, lord_id, new_box)
+    _disband_at_limit(state, lord_id, _disband_return_box(state, lord_id, state.meta.box))
     return True
 
 

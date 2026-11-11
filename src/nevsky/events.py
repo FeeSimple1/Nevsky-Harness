@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nevsky.actions import IllegalAction
+from nevsky.actions import IllegalAction, _find_cylinder_box, _find_service_marker_box
 from nevsky.state import GameState
 from nevsky.static_data import load_locales, load_lords
 
@@ -733,6 +733,17 @@ def _ev_valdemar(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     return {"event": "R11", "shift": new, "blocked_this_levy": ["knud_and_abel"]}
 
 
+_DIETRICH_LORDS = ("andreas", "rudolf")
+
+
+def _dietrich_targets(state: GameState) -> list[str]:
+    """R17 markers available to shift, in default preference order."""
+    cylinders = [lid for lid in _DIETRICH_LORDS if _find_cylinder_box(state, lid) is not None]
+    service = [f"service:{lid}" for lid in _DIETRICH_LORDS
+               if _find_service_marker_box(state, lid) is not None]
+    return cylinders + service
+
+
 def _ev_dietrich_r17(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     """R17 Dietrich von Grueningen leads Order to Kurland (this-levy block).
     Shift Andreas OR Rudolf OR Service of either 1 box; this Levy no Muster of or by them.
@@ -741,41 +752,22 @@ def _ev_dietrich_r17(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     cylinder/Service on Calendar, the shift is skipped but the
     this-Levy block still applies.
     """
-    cal = state.calendar
-    def cyl(lid):
-        return (lid in cal.off_left or lid in cal.off_right
-                or any(lid in cb.cylinders for cb in cal.boxes))
-    def svc(lid):
-        return (lid in cal.off_left_service or lid in cal.off_right_service
-                or any(lid in cb.service_markers for cb in cal.boxes))
-    any_on_calendar = (cyl("andreas") or cyl("rudolf")
-                       or svc("andreas") or svc("rudolf"))
-    target = args.get("target", "andreas")
+    eligible = _dietrich_targets(state)
+    target = args.get("target", eligible[0] if eligible else "andreas")
     direction = args.get("direction", "left")
     if target not in ("andreas", "rudolf", "service:andreas", "service:rudolf"):
         raise IllegalAction("missing_arg", "args.target required for R17")
     new = None
-    if any_on_calendar:
-        if target.startswith("service:"):
-            lid = target.split(":", 1)[1]
-            if svc(lid):
-                new = _shift_service(state, lid, 1, direction)
-            elif svc("andreas"):
-                new = _shift_service(state, "andreas", 1, direction)
-            elif svc("rudolf"):
-                new = _shift_service(state, "rudolf", 1, direction)
-        else:
-            lid = target
-            if cyl(lid):
-                new = _shift_cylinder(state, lid, 1, direction)
-            elif cyl("andreas"):
-                new = _shift_cylinder(state, "andreas", 1, direction)
-            elif cyl("rudolf"):
-                new = _shift_cylinder(state, "rudolf", 1, direction)
-    for blocked in ("andreas", "rudolf"):
+    if eligible:
+        if target not in eligible:
+            raise IllegalAction("ineligible_target", f"{target} has no marker to shift for R17")
+        kind, _, lid = target.rpartition(":")
+        shift = _shift_service if kind == "service" else _shift_cylinder
+        new = shift(state, lid, 1, direction)
+    for blocked in _DIETRICH_LORDS:
         if blocked not in state.meta.block_lords_this_levy_t:
             state.meta.block_lords_this_levy_t.append(blocked)
-    return {"event": "R17", "shift": new, "blocked_this_levy": ["andreas", "rudolf"]}
+    return {"event": "R17", "shift": new, "blocked_this_levy": list(_DIETRICH_LORDS)}
 
 
 # ---------------------------------------------------------------------------
@@ -1227,26 +1219,10 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
         for k, v in grant.items():
             recip.assets[k] = min(8, recip.assets.get(k, 0) + int(v))  # type: ignore[index]
 
-    # SMOKE-053 (Round 62): Disband (NOT permanent remove) Heinrich.
-    # Per AoW Reference T13 Tip: "play the Event to immediately
-    # Disband him regardless of Service or situation; other Disband
-    # rules apply." Permanent removal requires Battle/Storm losses,
-    # not the Curia event. Use _disband_at_limit with cylinder placed
-    # at his current Service-marker box (or current Levy box) +
-    # service_rating, mirroring 3.3.2 at-limit Disband.
-    from nevsky.actions import _disband_at_limit, _find_service_marker_box, _find_levy_marker_box
-    sl = load_lords()["heinrich"]
-    srating = int(sl["ratings"]["service"])
-    # Choose the base box: prefer current Service marker box, else
-    # fall back to the current Levy box (Heinrich must be on map per
-    # the earlier check, so Service marker should be on Calendar).
-    sm_box = _find_service_marker_box(state, "heinrich")
-    if sm_box is None:
-        try:
-            sm_box = _find_levy_marker_box(state)
-        except Exception:
-            sm_box = 1
-    new_box = sm_box + srating
+    # T13 Disbands Heinrich regardless of Service; apply the 3.3.2 return date.
+    from nevsky.actions import _disband_at_limit, _disband_return_box
+
+    new_box = _disband_return_box(state, "heinrich", state.meta.box)
     _disband_at_limit(state, "heinrich", new_box)
     return {"event": "T13", "heinrich_disbanded": True,
             "heinrich_new_box": min(new_box, 17),

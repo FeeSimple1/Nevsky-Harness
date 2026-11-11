@@ -1350,9 +1350,7 @@ def _h_disband_resolve(
             _remove_lord_permanently(state, lord_id, static[lord_id])
             permanently_removed.append(lord_id)
         elif sm_box == levy_box:
-            # 3.3.2 at-limit Disband, cylinder counts from CURRENT box during Levy
-            srating = int(static[lord_id]["ratings"]["service"])
-            new_box = sm_box + srating  # current_box + service rating (during Levy)
+            new_box = _disband_return_box(state, lord_id, levy_box)
             _disband_at_limit(state, lord_id, new_box)
             disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
 
@@ -1780,7 +1778,7 @@ def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]
                 # If the Lord has no Forces left, Disband him (1.6).
                 if not lord.forces:
                     _disband_at_limit(state, lord_id,
-                                      _find_service_marker_box(state, lord_id) or levy_box)
+                                      _disband_return_box(state, lord_id, levy_box))
                     lord_disbanded.append(lord_id)
             elif box == levy_box:
                 # At Service limit: move to mat face-down (Unready) and
@@ -1803,7 +1801,7 @@ def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]
                                         "from_box": box, "returned_forces": returned})
                 if not lord.forces:
                     _disband_at_limit(state, lord_id,
-                                      _find_service_marker_box(state, lord_id) or levy_box)
+                                      _disband_return_box(state, lord_id, levy_box))
                     lord_disbanded.append(lord_id)
             # else box > levy_box: no change.
 
@@ -1812,6 +1810,14 @@ def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]
         "to_mat_unready": to_mat_unready,
         "lord_disbanded_due_to_no_forces": lord_disbanded,
     }
+
+
+def _disband_return_box(state: GameState, lord_id: str, current_box: int) -> int:
+    """3.3.2: count Service from this box in Levy, the next box in Campaign."""
+    from nevsky.static_data import load_lords
+
+    service = int(load_lords()[lord_id]["ratings"]["service"])
+    return current_box + (state.meta.phase == "campaign") + service
 
 
 def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int) -> None:
