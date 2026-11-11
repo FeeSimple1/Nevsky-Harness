@@ -11,7 +11,9 @@ ALL attacker strikes count as Sally strikes for the Walls roll.
 """
 
 import nevsky.actions  # noqa
-from nevsky.scenarios import load_scenario
+from nevsky import battle
+from tests.test_cross_game_relief_retreat import place
+from tests.test_sally_hit_groups import _capability, _position
 
 
 def test_simple_sally_passes_siegeworks_and_flag():
@@ -24,16 +26,23 @@ def test_simple_sally_passes_siegeworks_and_flag():
     assert "simple_sally=True" in src
 
 
-def test_resolve_battle_accepts_simple_sally_param():
-    """Source-inspection regression: resolve_battle has the simple_sally
-    parameter and its Walls-vs-Sally logic uses it."""
-    import inspect
-    from nevsky import battle
-    sig = inspect.signature(battle.resolve_battle)
-    assert "simple_sally" in sig.parameters
-    src = inspect.getsource(battle.resolve_battle)
-    assert "simple_sally" in src
-    assert "is_sally_strike" in src
+def test_simple_sally_flag_applies_siegeworks_to_the_front_center_striker():
+    state = _position(2, "gavrilo")
+    place(state, "gavrilo", {"militia": 1})
+    place(state, "hermann", {"knights": 1})
+    _capability(state, "gavrilo", "R1")
+
+    def archery_distribution(simple_sally):
+        result = battle.resolve_battle(
+            state.model_copy(deep=True), "russian", ["gavrilo"], ["hermann"],
+            concede="defender", siegeworks_for_sally=1, simple_sally=simple_sally)
+        return next(step["distribution"] for step in result["log"][0]["steps"]
+                    if step["step"] == "archery_attacker")
+
+    assert archery_distribution(True) == [
+        {"lord": "hermann", "target": "siegeworks_vs_sally", "absorbed": 1}]
+    ordinary, = archery_distribution(False)
+    assert ordinary["routed"] == [{"unit": "knights", "absorbed": True}]
 
 
 def test_sally_aftermath_reports_siegeworks_walls():

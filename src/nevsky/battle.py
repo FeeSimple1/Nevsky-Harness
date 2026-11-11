@@ -115,6 +115,13 @@ def _round_up(x: float) -> int:
     return math.ceil(x)
 
 
+def _rounded_hit_flags(crossbow_raw: float, ordinary_raw: float) -> list[bool]:
+    """Q-007: round the total once and give Crossbows the rounded share."""
+    hits = _round_up(crossbow_raw + ordinary_raw)
+    crossbows = _round_up(crossbow_raw)
+    return [True] * crossbows + [False] * (hits - crossbows)
+
+
 # ---------------------------------------------------------------------------
 # Protection rolls
 # ---------------------------------------------------------------------------
@@ -1529,13 +1536,9 @@ def resolve_battle(
             # directly opposite (same slot) or — if Flanking — the
             # closest enemy Lord in the row.
             #
-            # Q-007 ('round in favor of Crossbowmen', Arts of War
-            # Reference R1/R2 Luchniki Tips): Crossbow Hits (Streltsy/
-            # Balistarii MaA archery) are tracked separately so the
-            # final Hit count gives Crossbowmen the ceiling-rounded
-            # share. For non-archery steps, all contribution is normal.
-            per_target_cb_raw: dict[str, float] = {}
-            per_target_norm_raw: dict[str, float] = {}
+            # Per target, keep (Crossbow, ordinary) raw Hits for each
+            # origin. Sallying Attackers round separately (4.4.1).
+            per_target_raw: dict[str, dict[bool, tuple[float, float]]] = {}
             per_striker_log: list[dict[str, Any]] = []
             for lid in striker_lords:
                 if lid not in state.lords:
@@ -1688,32 +1691,18 @@ def resolve_battle(
                         )
                         if _chosen in _absorb_opts:
                             target_lid = _chosen
-                per_target_cb_raw[target_lid] = per_target_cb_raw.get(target_lid, 0.0) + this_cb_raw
-                per_target_norm_raw[target_lid] = per_target_norm_raw.get(target_lid, 0.0) + this_norm_raw
+                from_sally = striker_role == "attacker" and (
+                    simple_sally or pos in _SALLY_SLOTS or lid in sally_lord_ids)
+                groups = per_target_raw.setdefault(target_lid, {})
+                cb_raw, ordinary_raw = groups.get(from_sally, (0.0, 0.0))
+                groups[from_sally] = (cb_raw + this_cb_raw, ordinary_raw + this_norm_raw)
                 per_striker_log.append({
                     "striker": lid, "striker_slot": striker_positions[lid],
                     "target": target_lid, "target_slot": enemy_positions.get(target_lid),
                     "raw_cb": this_cb_raw, "raw_norm": this_norm_raw,
                     "raw": this_cb_raw + this_norm_raw,
                 })
-            # Combine cb + norm raws. Q-007 (Arts of War Reference R1/R2
-            # Luchniki Tips, "round in favor of Crossbowmen"):
-            #   total_hits   = ceil(crossbow_raw + normal_raw)
-            #   crossbow_hits = ceil(crossbow_raw)        # round in favor
-            #   normal_hits  = total_hits - crossbow_hits
-            per_target_hits: dict[str, int] = {}
-            per_target_cb_hits: dict[str, int] = {}
-            # Targets consume seeded dice below; hash-randomized set order
-            # must not change casualties when a saved game is reloaded.
-            for tlid in sorted(per_target_cb_raw.keys() | per_target_norm_raw.keys()):
-                cb_raw = per_target_cb_raw.get(tlid, 0.0)
-                norm_raw = per_target_norm_raw.get(tlid, 0.0)
-                total = _round_up(cb_raw + norm_raw)
-                cb_hits = _round_up(cb_raw)
-                cb_hits = min(cb_hits, total)
-                per_target_hits[tlid] = total
-                per_target_cb_hits[tlid] = cb_hits
-            if not per_target_hits:
+            if not per_target_raw:
                 continue
             strike_kind = "archery" if kind == "archery" else "melee"
             distribution: list[dict[str, Any]] = []
@@ -1721,58 +1710,34 @@ def resolve_battle(
             # as targets Rout with Hits to spare; resolved after this
             # step's per-target application (new Flanking situation).
             row_spillover: list[tuple[str, list[bool]]] = []
-            # Q-006: Track Hits that came from Sally-row strikers per
-            # target so Siegeworks-vs-Sally walls can be rolled
-            # separately (4.4.1 2E "Siegeworks ... protect against
-            # Strikes by Sallying Attackers only (round separately)").
-            per_target_sally_hits: dict[str, float] = {}
-            if striker_role == "attacker" and siegeworks_for_sally > 0:
-                for entry in per_striker_log:
-                    is_sally_strike = (
-                        simple_sally or entry["striker_slot"] in _SALLY_SLOTS
-                        or entry["striker"] in sally_lord_ids
-                    )
-                    if is_sally_strike:
-                        tlid = entry["target"]
-                        per_target_sally_hits[tlid] = (
-                            per_target_sally_hits.get(tlid, 0.0) + entry["raw"]
-                        )
             effective_siegeworks = siegeworks_for_sally
             # A bearer who Routed in an earlier Strike no longer supplies T14.
-            if per_target_sally_hits and any(
+            if any(
                 any(count > 0 for count in state.lords[lid].forces.values())
                 for lid in trebuchet_bearers
             ):
                 effective_siegeworks -= 1
-            for tlid in per_target_hits:
-                hits = per_target_hits[tlid]
-                cb_hits = per_target_cb_hits[tlid]
-                raw = float(hits)  # for Sally walls reduction below
-                # Q-006 Siegeworks-vs-Sally walls: if any Hits incoming
-                # to this target came from a Sally striker AND
-                # siegeworks_for_sally > 0, roll Walls separately on
-                # those Hits. Walls range = 1..siegeworks_for_sally.
-                sally_raw = per_target_sally_hits.get(tlid, 0.0)
-                if sally_raw > 0 and effective_siegeworks > 0:
-                    sally_hits = _round_up(sally_raw)
-                    sally_absorbed = 0
-                    for _ in range(sally_hits):
-                        r = roll_d6(state)
-                        if r <= effective_siegeworks:
-                            sally_absorbed += 1
+            # Keep seeded Protection rolls in the existing target order.
+            for tlid, groups in sorted(per_target_raw.items()):
+                hit_flags = _rounded_hit_flags(*groups.get(False, (0.0, 0.0)))
+                sally_flags = _rounded_hit_flags(*groups.get(True, (0.0, 0.0)))
+                if sally_flags and effective_siegeworks > 0:
+                    before_walls = len(sally_flags)
+                    sally_flags = [flag for flag in sally_flags
+                                   if roll_d6(state) > effective_siegeworks]
+                    sally_absorbed = before_walls - len(sally_flags)
                     if sally_absorbed > 0:
                         distribution.append({
                             "lord": tlid,
                             "target": "siegeworks_vs_sally",
                             "absorbed": sally_absorbed,
                         })
-                        # Reduce the target's effective Hits by absorbed.
-                        raw = max(0.0, raw - sally_absorbed)
-                        hits = _round_up(raw)
+                if sally_flags:
+                    hit_flags.extend(sally_flags)
+                    hit_flags.sort(reverse=True)  # Q-007: Crossbows before ordinary Hits.
                 # Raven's Rock: Russian defender gets Walls 1-2 vs Melee
                 # Round 1 (R4). Per-Hit roll, applied to each Hit
                 # incoming to the target.
-                walls_absorbed = 0
                 # SMOKE-105 (Round 145): per AoW Reference R4 Tip,
                 # "The Russians may play Raven's Rock in field Battle
                 # on either Attack or Defense." Pre-fix the harness
@@ -1788,24 +1753,18 @@ def resolve_battle(
                 if (raven_rock_walls and rounds == 1 and kind != "archery"
                         and tlid in state.lords
                         and state.lords[tlid].side == "russian"):
-                    for _ in range(hits):
-                        r = roll_d6(state)
-                        if r <= 2:
-                            walls_absorbed += 1
+                    before_walls = len(hit_flags)
+                    hit_flags = [flag for flag in hit_flags if roll_d6(state) > 2]
+                    walls_absorbed = before_walls - len(hit_flags)
                     if walls_absorbed > 0:
                         distribution.append({
                             "lord": tlid, "target": "ravens_rock_walls",
                             "absorbed": walls_absorbed,
                         })
-                        hits -= walls_absorbed
-                if hits <= 0:
+                if not hit_flags:
                     continue
                 if tlid not in state.lords or not state.lords[tlid].forces:
                     continue
-                # Q-007: Crossbow Hits go first, followed by ordinary Hits.
-                eff_cb_hits = min(cb_hits, hits)
-                eff_norm_hits = hits - eff_cb_hits
-                hit_flags_list = [True] * eff_cb_hits + [False] * eff_norm_hits
                 # R198: the absorbing owner's chosen policy. tlid is
                 # the Lord taking Hits; pick the policy for HIS side.
                 _absorb_policy = (
@@ -1814,8 +1773,8 @@ def resolve_battle(
                     else defender_absorption_policy
                 )
                 tres = _resolve_hits(
-                    state, tlid, hits, strike_kind,
-                    hit_flags=hit_flags_list,
+                    state, tlid, len(hit_flags), strike_kind,
+                    hit_flags=hit_flags,
                     step_state=round_state,
                     assignment_policy=_absorb_policy,
                 )
@@ -1823,10 +1782,10 @@ def resolve_battle(
                 # PLAY-27 (4.4.2): if this target Routed (no Forces left)
                 # with Hits still unapplied, those Hits follow the new
                 # Flanking situation to the rest of the row.
-                if tres["applied"] < hits and not state.lords[tlid].forces:
+                if tres["applied"] < len(hit_flags) and not state.lords[tlid].forces:
                     target_slot = enemy_positions.get(tlid)
                     if target_slot is not None:
-                        row_spillover.append((target_slot, hit_flags_list[tres["applied"]:]))
+                        row_spillover.append((target_slot, hit_flags[tres["applied"]:]))
             # PLAY-27 (4.4.2): carry remaining Hits from Routed targets to
             # surviving Lords in the same row (ignored only if the whole
             # row Routed). Processed after the main application so it sees
@@ -2581,9 +2540,7 @@ def resolve_storm(
                     if field_organ_lord == lid and rounds == 1:
                         lord_melee += units.get("knights", 0) + units.get("sergeants", 0)
                     normal_raw += min(6.0, lord_melee)
-            total_hits = _round_up(cb_raw + normal_raw)
-            cb_hits = min(_round_up(cb_raw), total_hits)
-            hit_flags = [True] * cb_hits + [False] * (total_hits - cb_hits)
+            hit_flags = _rounded_hit_flags(cb_raw, normal_raw)
 
             # Trebuchets apply only while their Lord is Unrouted, including
             # changes from an earlier Strike in this Round (T14 Tips).
