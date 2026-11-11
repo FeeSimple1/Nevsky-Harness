@@ -1522,6 +1522,20 @@ def resolve_battle(
             # Q-005: per-Lord positions for this step.
             striker_positions = atk_pos if striker_role == "attacker" else def_pos
             enemy_positions = def_pos if striker_role == "attacker" else atk_pos
+            # Ambush's uninvolved Lords are absent from all Strike geometry,
+            # including Flanking absorption and remaining Hits after a Rout.
+            # Keep their actual Array slots for Reposition in later Rounds.
+            if rounds == 1 and ambush_disable_for is not None:
+                if ambush_disable_for == striker_role:
+                    striker_positions = {
+                        lid: slot for lid, slot in striker_positions.items()
+                        if slot not in ("left", "right")
+                    }
+                else:
+                    enemy_positions = {
+                        lid: slot for lid, slot in enemy_positions.items()
+                        if slot not in ("left", "right")
+                    }
             side_label = striker_role
             # Marsh: Rounds 1-2, opposite-side Horse units of the side
             # FACING the marsh-player don't Strike.
@@ -1549,11 +1563,6 @@ def resolve_battle(
                 # Rearguard rows DO strike (Q-006).
                 pos = striker_positions.get(lid)
                 if pos in ("reserve", "sally_reserve", "routed", None):
-                    continue
-                # Q-008 Ambush: Round 1 disables left/right Lords on
-                # the targeted side from striking entirely.
-                if (ambush_disable_for == striker_role and rounds == 1
-                        and pos in ("left", "right")):
                     continue
                 this_cb_raw = 0.0
                 this_norm_raw = 0.0
@@ -1642,24 +1651,8 @@ def resolve_battle(
                     this_cb_raw = this_cb_raw / 2.0
                     this_norm_raw = this_norm_raw / 2.0
                 # Find target via positions.
-                # Q-008 Ambush (T6/R6 card text): in Round 1 the enemy's
-                # left/right front Lords are "uninvolved" -- they cannot
-                # absorb Hits nor Rout. The ambushing side's Lords at
-                # left/right therefore FLANK the enemy's center Lord
-                # rather than losing their Strike. Exclude the uninvolved
-                # enemy left/right from the target set so _strike_target
-                # routes onto an involved Lord (the center / a Flank
-                # target) instead of dropping the contribution.
-                target_enemy_positions = enemy_positions
-                if (ambush_disable_for is not None
-                        and ambush_disable_for != striker_role
-                        and rounds == 1):
-                    target_enemy_positions = {
-                        _l: _p for _l, _p in enemy_positions.items()
-                        if _p not in ("left", "right")
-                    }
                 target_lid = _strike_target(
-                    striker_positions[lid], target_enemy_positions, decision_ctx,
+                    striker_positions[lid], enemy_positions, decision_ctx,
                     side_label, state,
                 )
                 if target_lid is None:

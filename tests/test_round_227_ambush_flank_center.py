@@ -13,8 +13,12 @@ Hits onto the enemy center Lord rather than contributing nothing.
 """
 from __future__ import annotations
 
+from nevsky.actions import apply_action
 from nevsky.battle import BattleDecisionContext, resolve_battle
 from nevsky.scenarios import load_scenario
+from nevsky.state import GameState
+from tests.test_cross_game_relief_retreat import place, position, stand
+from tests.test_round7_combat_limits import _place_with_vassals
 
 
 def _three_v_three():
@@ -60,3 +64,63 @@ def test_ambush_side_flank_lords_strike_enemy_center():
     )
     # All flank Lords converge on the single enemy center Lord.
     assert len(flank_targets) == 1, flank_targets
+
+
+def _march_into_ambush(seed, *, spillover):
+    state = position(seed=seed, box=9)
+    andreas = _place_with_vassals(state, "andreas", "andreas_teutonic_vassals")
+    andreas.location = "ostrov"
+    andreas.forces = {"men_at_arms": 3} if spillover else {"knights": 1}
+    place(state, "hermann", {"militia": 1} if spillover else {"men_at_arms": 1}).location = "ostrov"
+    gavrilo = place(state, "gavrilo", {"militia": 1 if spillover else 2})
+    place(state, "aleksandr", {"knights": 1})
+    if spillover:
+        state.decks.teutonic.deck.remove("T4")
+        andreas.this_lord_capabilities = ["T4"]
+        state.decks.teutonic.capabilities_in_play.append("T4")
+    else:
+        state.decks.russian.deck.remove("R1")
+        gavrilo.this_lord_capabilities = ["R1"]
+        state.decks.russian.capabilities_in_play.append("R1")
+    state.decks.teutonic.deck.remove("T6")
+    state.decks.teutonic.holds.append("T6")
+    state.campaign_turn.active_card = state.campaign_turn.active_lord = "andreas"
+    apply_action(state, {"type": "cmd_march", "side": "teutonic", "args": {
+        "lord_id": "andreas", "to": "pskov", "way_type": "waterway", "group": ["hermann"],
+    }})
+    return state.model_dump_json()
+
+
+def _stand_in_ambush(checkpoint, *, ambush, extra_decisions=()):
+    return stand(
+        GameState.model_validate_json(checkpoint),
+        holds={"ambush": "T6"} if ambush else {},
+        scripted_decisions=[
+            {"type": "initial_placement_attacker", "chosen": "left"},
+            {"type": "initial_placement_defender", "chosen": "gavrilo"},
+            *extra_decisions,
+        ],
+    )["battle"]
+
+
+def test_ambush_protects_uninvolved_lord_from_spillover():
+    checkpoint = _march_into_ambush(seed=5, spillover=True)
+    ordinary = _stand_in_ambush(checkpoint, ambush=False)
+    ambush = _stand_in_ambush(checkpoint, ambush=True)
+    ordinary_hits = ordinary["log"][0]["steps"][0]["distribution"]
+    ambush_hits = ambush["log"][0]["steps"][0]["distribution"]
+    assert ordinary_hits[1]["lord"] == "aleksandr" and ordinary_hits[1]["spillover"]
+    assert ambush_hits == ordinary_hits[:1]
+    assert ambush_hits[0]["lord"] == "gavrilo" and ambush_hits[0]["applied"] == 1
+
+
+def test_ambush_allows_legal_flanking_absorption():
+    checkpoint = _march_into_ambush(seed=1, spillover=False)
+    ordinary = _stand_in_ambush(checkpoint, ambush=False)
+    ambush = _stand_in_ambush(checkpoint, ambush=True, extra_decisions=[
+        {"type": "flank_absorb", "chosen": "hermann"},
+    ])
+    assert not any(decision["type"] == "flank_absorb" for decision in ordinary["decisions"])
+    choice = next(decision for decision in ambush["decisions"] if decision["type"] == "flank_absorb")
+    assert choice["options"] == ["andreas", "hermann"] and choice["chosen"] == "hermann"
+    assert ambush["log"][0]["steps"][0]["distribution"][0]["lord"] == "hermann"
