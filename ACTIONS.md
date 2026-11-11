@@ -204,6 +204,9 @@ Besieged Lords cannot Muster.
   Seaport; non-Winter; destination Seaport free of Unbesieged enemy
   Lords. `args.group` co-Sails together; sailing to an Unbesieged
   enemy Stronghold places a Siege marker.
+  Ship capacity includes Shared co-located Ships and remotely Shared Cogs.
+  Use optional `args.lodya_conversions` in the same format as Supply.
+  Sharing and conversions leave the donor's counters on the donor's mat.
 
 ### 4.6 Supply
 

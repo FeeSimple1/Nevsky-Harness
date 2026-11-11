@@ -5,7 +5,7 @@
   - 2 Ships per Russian horse unit
   - 1 Ship per Provender
   - 2 Ships per Loot
-Ships pool across the group; T18 Cogs doubles each Ship's capacity.
+Ships pool through Sharing. T18 Cogs doubles each Ship's capacity.
 """
 
 import pytest
@@ -21,6 +21,10 @@ def _setup_sail(st, lid, src="reval"):
     L.in_stronghold = False
     L.assets["provender"] = 0
     L.assets["loot"] = 0
+    # Isolate the selected Lord's load tests from pre-existing Shared Ships.
+    for ally in st.lords.values():
+        if ally is not L and ally.side == L.side and ally.location == src:
+            ally.assets.pop("ship", None)
     st.locales[src].siege_markers = 0
     st.meta.box = 8  # summer
     st.meta.phase = "campaign"

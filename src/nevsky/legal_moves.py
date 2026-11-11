@@ -31,7 +31,7 @@ from nevsky.actions import (
     _season_of_box,
 )
 from nevsky.state import GameState, Side
-from nevsky.static_data import load_cards, load_lords
+from nevsky.static_data import load_cards, load_locales, load_lords
 
 
 def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[str, Any]]:
@@ -1534,77 +1534,48 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
         out.append({"type": "cmd_supply", "side": side,
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport, route_transports?}]"},
                     "note": "Supply along declared Routes (4.6, 1 action)"})
-        # R223 (GPT-5.5 Crusade self-play, turn 82): Sail was emitted as a
-        # single TEMPLATE move (args_template, no concrete args). An
-        # index-driven LLM driver can't fill the template, so apply()
-        # raised missing_arg(IllegalAction). Concretize: emit one
-        # executable Sail per legal destination Seaport (group defaults to
-        # the solo active Lord). Ship-budget and group-composition
-        # shortfalls depend on optional discard choices, so leave those to
-        # the validated palette to filter; mirror only the handler's hard
-        # gates here (pristine, Unbesieged, not Winter, source is a
-        # Seaport, destination free of Unbesieged enemy Lords).
         from nevsky.campaign import (
-            _is_besieged as _ib_sail,
-            effective_ship_count as _esc_sail,
+            _lodya_ship_options, _sail_load, _supply_transport_pool, _unbesieged_enemy_lord_at,
         )
-        if (pristine
-                and active.location is not None
-                and not _ib_sail(state, active_lord)
-                and _season_of_box(state.meta.box)
-                    not in ("early_winter", "late_winter")):
-            try:
-                from nevsky.static_data import load_locales as _ll_sail
-                _locs_sail = _ll_sail()
-                if _locs_sail.get(active.location, {}).get("seaport") is True:
-                    # Mirror the handler's 4.7.3 Ship budget for the solo
-                    # group (default group=[active_lord]) so we never offer
-                    # a guaranteed-illegal Sail (R223 root fix; the
-                    # roundtrip sweep otherwise flags insufficient_ships).
-                    #   horse: 1 Ship/T-horse, 2 Ship/R-horse
-                    #   provender: 1 Ship each ; loot: 2 Ship each
-                    # Discard (1.7.2) can drop cargo down to the horse need.
-                    _horse_types = ("knights", "sergeants",
-                                    "light_horse", "asiatic_horse")
-                    _hu = sum(int(active.forces.get(u, 0)) for u in _horse_types)
-                    _factor = 1 if side == "teutonic" else 2
-                    _horse_need = _hu * _factor
-                    _prov = int(active.assets.get("provender", 0))
-                    _loot = int(active.assets.get("loot", 0))
-                    _ships = _esc_sail(state, active_lord)
-                    _plain_need = _horse_need + _prov + _loot * 2
-                    if _ships >= _plain_need:
-                        _sail_extra = {}
-                        _sail_tag = ""
-                    elif _ships >= _horse_need:
-                        # cargo doesn't fit but discarding it does
-                        _sail_extra = {"discard_excess_provender": True,
-                                       "discard_excess_loot": True}
-                        _sail_tag = " (discards excess Provender/Loot)"
-                    else:
-                        _sail_extra = None  # horse units alone exceed Ships
-                    if _sail_extra is not None:
-                        for _dest_sail, _ld_sail in _locs_sail.items():
-                            if _dest_sail == active.location:
-                                continue
-                            if _ld_sail.get("seaport") is not True:
-                                continue
-                            # destination must be free of Unbesieged enemy Lords
-                            if any(ol.state == "mustered" and ol.side != side
-                                   and ol.location == _dest_sail
-                                   and not _ib_sail(state, ol_id)
-                                   for ol_id, ol in state.lords.items()):
-                                continue
-                            _sa = {"lord_id": active_lord,
-                                   "destination": _dest_sail,
-                                   "group": [active_lord]}
-                            _sa.update(_sail_extra)
+        if (pristine and active.location is not None and not _ib(state, active_lord)
+                and _season_of_box(state.meta.box) not in ("early_winter", "late_winter")):
+            sailing_group = [active_lord]
+            if active.has_lower_lord:
+                sailing_group.append(active.has_lower_lord)
+            ports = load_locales()
+            if (ports.get(active.location, {}).get("seaport") is True
+                    and all(lid in state.lords and state.lords[lid].location == active.location
+                            and state.lords[lid].side == side for lid in sailing_group)):
+                horses, provender, loot = _sail_load(state, sailing_group)
+                horse_need = horses * (1 if side == "teutonic" else 2)
+                full_need = horse_need + provender + 2 * loot
+                for conversion in [{}, *_lodya_ship_options(state, active_lord)]:
+                    ships = _supply_transport_pool(state, active_lord, conversion)["ship"]
+                    if ships < horse_need:
+                        continue
+                    sail_args: dict[str, Any] = {"lord_id": active_lord, "group": sailing_group}
+                    notes = []
+                    if conversion:
+                        sail_args["lodya_conversions"] = conversion
+                        notes.append("Lodya")
+                    excess = full_need - ships
+                    if excess > 0:
+                        if conversion:
+                            drop_loot = min(loot, (excess + 1) // 2)
+                            sail_args["discard_excess_loot"] = drop_loot
+                            sail_args["discard_excess_provender"] = max(0, excess - 2 * drop_loot)
+                        else:
+                            sail_args.update(discard_excess_provender=True, discard_excess_loot=True)
+                        notes.append("discards Provender/Loot")
+                    note_suffix = f" ({', '.join(notes)})" if notes else ""
+                    for dest, locale in ports.items():
+                        if (dest != active.location and locale.get("seaport") is True
+                                and not _unbesieged_enemy_lord_at(state, dest, side)):
                             out.append({"type": "cmd_sail", "side": side,
-                                        "args": _sa,
-                                        "note": f"Sail {active.location}->{_dest_sail}"
-                                                f" (entire card){_sail_tag}"})
-            except (ImportError, KeyError, AttributeError, FileNotFoundError):
-                pass
+                                        "args": {**sail_args, "destination": dest},
+                                        "note": f"Sail {active.location}->{dest} (entire card){note_suffix}"})
+                    if excess <= 0:
+                        break
         out.append({"type": "end_card", "side": side, "args": {},
                     "note": "voluntarily end this Command card"})
         # SMOKE-157 (R221, found by GPT-5.5 self-play): a Besieged active

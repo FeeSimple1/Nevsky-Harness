@@ -1196,6 +1196,15 @@ def _h_cmd_pass(
 # ---------------------------------------------------------------------------
 
 
+def _sail_load(state: GameState, group: list[str]) -> tuple[int, int, int]:
+    """Horse, Provender and Loot in the Sailing group (4.7.3)."""
+    horses = sum(state.lords[lid].forces.get(unit, 0)
+                 for lid in group for unit in ("knights", "sergeants", "light_horse", "asiatic_horse"))
+    provender = sum(state.lords[lid].assets.get("provender", 0) for lid in group)
+    loot = sum(state.lords[lid].assets.get("loot", 0) for lid in group)
+    return horses, provender, loot
+
+
 def _h_cmd_sail(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1204,18 +1213,15 @@ def _h_cmd_sail(
     args:
       lord_id          Active Lord
       destination      Seaport locale_id
-      group            list[lord_id] of co-Sailing Lords (default: just lord_id).
-                       Each member must be co-located with `lord_id` and on
-                       the same side (Marshal group). Lieutenant pairing is
-                       a Plan-phase mechanic (Q-003) and does not constrain
-                       Sail group membership beyond co-location.
-      ships_used       int: total Ships across the Sailing group (validation)
+      group            Co-Sailing Lords, including mandatory Lower Lords.
+      lodya_conversions   Optional per-Lord temporary Boat/Ship conversions,
+                          using the same format as Supply.
 
     Constraints:
       - Active Lord is Unbesieged at a Seaport.
       - Season is NOT Winter.
       - Destination Seaport free of Unbesieged enemy Lords.
-      - Lord's group has enough Ships per ship_requirements.
+      - Enough Ships for the group's load, including Sharing.
       - If destination has Unbesieged enemy Stronghold: place a Siege marker.
     """
     sd = _require_side_player(state, side)
@@ -1300,13 +1306,8 @@ def _h_cmd_sail(
     # SMOKE-046 (Round 58): 4.7.3 Sail Ship requirements:
     # 1 Ship / Teutonic horse unit, 2 Ships / Russian horse unit,
     # 1 Ship / Provender, 2 Ships / Loot. Compute group totals and
-    # compare to group's effective Ship count (T18 Cogs doubles each
-    # Ship). Sleds, Carts, Boats are not Ship-loadable for Sail.
-    horse_unit_types = ("knights", "sergeants", "light_horse", "asiatic_horse")
-    horse_units = sum(
-        int(state.lords[gid].forces.get(u, 0))
-        for gid in group for u in horse_unit_types
-    )
+    # compare to effective Ship capacity, including Sharing (1.5.2).
+    horse_units, provender_total, loot_total = _sail_load(state, group)
     # SMOKE-100 (Round 120): per rule 1.7.2 Greed, Lords MAY discard
     # Loot and Provender when Sailing (4.7.3 listed alongside March/
     # Avoid Battle/Retreat). The harness previously rejected with
@@ -1316,7 +1317,7 @@ def _h_cmd_sail(
     #   args.discard_excess_loot=True/<int>
     # True discards EVERYTHING; integer N discards up to N.
     horse_ship_factor = 1 if sd == "teutonic" else 2
-    ships_available = sum(effective_ship_count(state, gid) for gid in group)
+    ships_available = _supply_transport_pool(state, lord_id, args.get("lodya_conversions"))["ship"]
     horse_ship_need = horse_units * horse_ship_factor
     discard_prov_req = args.get("discard_excess_provender")
     discard_loot_req = args.get("discard_excess_loot")
@@ -1330,8 +1331,7 @@ def _h_cmd_sail(
         # from each own mat). The 1.7.2 rule is per-Lord; we apply
         # discard greedily across the group, recording per-Lord delta.
         if discard_loot_req:
-            cap_loot = (sum(int(state.lords[gid].assets.get("loot", 0)) for gid in group)
-                        if discard_loot_req is True else int(discard_loot_req))
+            cap_loot = loot_total if discard_loot_req is True else int(discard_loot_req)
             for gid in group:
                 if cap_loot <= 0:
                     break
@@ -1344,8 +1344,7 @@ def _h_cmd_sail(
                     discarded_loot += take
                     cap_loot -= take
         if discard_prov_req:
-            cap_prov = (sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
-                        if discard_prov_req is True else int(discard_prov_req))
+            cap_prov = provender_total if discard_prov_req is True else int(discard_prov_req)
             for gid in group:
                 if cap_prov <= 0:
                     break
@@ -1357,14 +1356,14 @@ def _h_cmd_sail(
                         del state.lords[gid].assets["provender"]
                     discarded_prov += take
                     cap_prov -= take
-    provender_total = sum(int(state.lords[gid].assets.get("provender", 0)) for gid in group)
-    loot_total = sum(int(state.lords[gid].assets.get("loot", 0)) for gid in group)
+    provender_total -= discarded_prov
+    loot_total -= discarded_loot
     ships_needed = horse_ship_need + provender_total + loot_total * 2
     if ships_needed > ships_available:
         raise IllegalAction(
             "insufficient_ships",
             f"Sail needs {ships_needed} Ships (horse={horse_units}x{horse_ship_factor}, "
-            f"prov={provender_total}, loot={loot_total}x2); group has "
+            f"prov={provender_total}, loot={loot_total}x2); "
             f"{ships_available} effective Ships (4.7.3). Pass "
             f"args.discard_excess_provender / args.discard_excess_loot "
             f"to drop assets first per 1.7.2.",
@@ -1452,7 +1451,7 @@ def _supply_seat_counts(state: GameState, lord_id: str) -> dict[str, int]:
 def _supply_transport_pool(
     state: GameState, lord_id: str, lodya_conversions: dict[str, Any] | None = None,
 ) -> dict[str, int]:
-    """1.5.2 / T18: local Transport, doubled Cogs Ships also shared anywhere."""
+    """Transport for Supply or Sail, including local Sharing and remote Cogs."""
     from nevsky.capabilities import has_lord_capability
 
     active = state.lords[lord_id]
@@ -1535,10 +1534,16 @@ def _allocate_supply_transport(
             if initial[i] != unused[i]}
 
 
+def _lodya_ship_options(state: GameState, lord_id: str) -> list[dict[str, Any]]:
+    lord = state.lords[lord_id]
+    return [{donor_id: {"boats_as_ships": n}}
+            for donor_id, donor in state.lords.items()
+            if donor.state == "mustered" and donor.side == lord.side and donor.location == lord.location
+            for n in range(1, lodya_comparison_ships(state, donor_id) + 1)]
+
+
 def _local_supply_moves(state: GameState, side: Side, lord_id: str) -> list[dict[str, Any]]:
     """Concrete local Supply choices; other Routes remain caller-declared."""
-    from nevsky.capabilities import has_lord_capability
-
     lord = state.lords[lord_id]
     loc_id = lord.location
     if loc_id is None or _is_besieged(state, lord_id):
@@ -1558,11 +1563,7 @@ def _local_supply_moves(state: GameState, side: Side, lord_id: str) -> list[dict
                         or (side == "teutonic" and load_locales()[loc_id].get("seaport"))))
     conversions: list[dict[str, Any]] = [{}]
     if ship_source:
-        for donor_id, donor in state.lords.items():
-            if (donor.state == "mustered" and donor.side == side and donor.location == loc_id
-                    and has_lord_capability(state, donor_id, "Lodya")):
-                conversions.extend({donor_id: {"boats_as_ships": n}}
-                                   for n in range(1, min(2, donor.assets.get("boat", 0)) + 1))
+        conversions.extend(_lodya_ship_options(state, lord_id))
     moves = []
     for conversion in conversions:
         ships = min(2, _supply_transport_pool(state, lord_id, conversion)["ship"]) if ship_source else 0
@@ -5619,14 +5620,7 @@ def _h_cmd_raiders_ravage(
 
 
 def effective_ship_count(state: GameState, lord_id: str) -> int:
-    """T18 Cogs / R16 Lodya: effective Ship count for this Lord.
-
-    - Cogs: each Ship counts as 2.
-    - Lodya: this Lord may temporarily count up to 2 of his Boats as
-      Ships; for the harness we expose this via a separate
-      lodya_ships_from_boats(), called by the agent when needed.
-    Returns the count after Cogs multiplier (no Lodya conversion).
-    """
+    """Count a Lord's Ships with T18 Cogs doubling, before any Lodya conversion."""
     from nevsky.capabilities import has_lord_capability
 
     base = state.lords[lord_id].assets.get("ship", 0)
