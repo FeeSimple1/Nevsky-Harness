@@ -3321,7 +3321,11 @@ def _complete_avoid(
     # Besieging a Stronghold) or a Battle/Storm ends the card. Pre-fix the
     # handler unconditionally zeroed actions_remaining and entered 4.8.
     state.meta.active_player = cp.attacker_side
-    if placed_siege or state.campaign_turn.actions_remaining <= 0:
+    started_siege = cp.approach_started_siege
+    if started_siege is None:
+        # Older saves can already have the marker from a partial Withdrawal.
+        started_siege = bool(cp.withdrawn_lords)
+    if placed_siege or started_siege or state.campaign_turn.actions_remaining <= 0:
         state.campaign_turn.actions_remaining = 0
         _enter_feed_pay_disband(state)
     return {**result, "placed_siege": placed_siege}
@@ -3513,6 +3517,9 @@ def _h_withdraw(
     loc2 = state.locales[cp.to_locale]
     if loc2.siege_markers == 0:
         loc2.siege_markers = 1
+        cp.approach_started_siege = True
+    elif cp.approach_started_siege is None and not cp.withdrawn_lords:
+        cp.approach_started_siege = False
     # 4.3.4 NOTE: "Withdrawal alone does not mark Lords as Moved/Fought."
     # Lords go inside the Stronghold (Besieged) but are not marked
     # Moved/Fought by the act of Withdrawing.

@@ -322,6 +322,9 @@ class CombatPending(BaseModel):
     # several calls. `withdrawn_lords` accumulates who has gone inside so
     # the Siege-Capacity cap is enforced across those calls.
     withdrawn_lords: list[str] = Field(default_factory=list)
+    # Whether a partial Withdrawal placed the first Siege marker. None
+    # before any Withdrawal or in saves from before this was recorded.
+    approach_started_siege: bool | None = None
 
 
 class VassalState(BaseModel):

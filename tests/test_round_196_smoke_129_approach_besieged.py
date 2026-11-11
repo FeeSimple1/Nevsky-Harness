@@ -58,6 +58,9 @@ def test_smoke_129_no_approach_against_besieged_enemy():
     )
     # Rudolf actually moved.
     assert s.lords["rudolf"].location == "izborsk"
+    assert s.locales["izborsk"].siege_markers == 1
+    assert not res["placed_siege"] and not s.campaign_turn.in_feed_pay_disband
+    assert s.campaign_turn.actions_remaining == 1
 
 
 def test_smoke_129_approach_still_fires_on_open_enemy():
