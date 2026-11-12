@@ -34,6 +34,7 @@ from nevsky.actions import (
     _require_active,
     _require_side_player,
     _season_of_box,
+    _shift_lord_service,
     _side_deck,
 )
 from nevsky.rewards import apply_ransom as apply_ransom
@@ -44,9 +45,7 @@ from nevsky.state import (
     PendingDecision,
     Side,
     detach_vassal_marker,
-    move_vassal_marker,
     pending_storm_front,
-    vassal_marker_box,
 )
 from nevsky.static_data import load_locales, load_lords, load_ways, neighbors
 
@@ -862,30 +861,8 @@ def _h_fpd_resolve(
             continue
         remaining = st["remaining"]
         unfed = remaining > 0
-        if unfed:
-            # Shift Service marker 1 box LEFT (4.8.1 unfed penalty).
-            # If at box 1, the marker goes off_left_service. Note: a
-            # service marker in off_left_service triggers 3.3.1 permanent
-            # removal in the next Disband check.
-            sm_box = _find_service_marker_box(state, lord_id)
-            if sm_box is not None and sm_box >= 1 and sm_box <= 16:
-                state.calendar.boxes[sm_box - 1].service_markers.remove(lord_id)
-                if sm_box == 1:
-                    state.calendar.off_left_service.append(lord_id)
-                else:
-                    state.calendar.boxes[sm_box - 2].service_markers.append(lord_id)
-                # SMOKE-144 (R206): 3.4.2 advanced rule -- any shift of a
-                # Lord's Service cascades to his on-Calendar Vassal markers
-                # (same direction, same boxes). _shift_service_right does
-                # this for rightward Pay shifts; the Unfed leftward shift
-                # (4.8.1) omitted it. Only active when advanced_vassal_service
-                # is enabled (off by default).
-                if state.meta.optional_rules.get("advanced_vassal_service", False):
-                    for vid, vstate in state.lords[lord_id].vassals.items():
-                        cur = vassal_marker_box(state.calendar, vid, vstate)
-                        if cur is None:
-                            continue
-                        move_vassal_marker(state.calendar, vid, vstate, cur - 1)
+        if unfed and _find_service_marker_box(state, lord_id) is not None:
+            _shift_lord_service(state, lord_id, -1)  # 4.8.1
         feed_results.append({
             "lord_id": lord_id,
             "units": n_units,
