@@ -26,6 +26,8 @@ Public state is always visible:
 Optional Hidden Mats conceals opposing Mustered Lord mats, including Vassal
 status. It also screens This-Lord Capability identities and Vassal and
 Transport details in opposing Levy history, including setup Transport choices.
+Feed history keeps food costs and consequences visible and screens exact
+opposing force totals.
 Public Calendar markers remain visible with Advanced Vassal Service.
 """
 from __future__ import annotations
@@ -39,13 +41,18 @@ def _mask_cards(cards: list) -> list[str]:
     return ["<hidden>"] * len(cards)
 
 
-def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool) -> None:
-    """Redact private opponent actions in an already detached history copy."""
-    if entry["actor"] == side or entry["actor"] == "system":
-        return
+def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool,
+                    owned_lords: set[str]) -> None:
+    """Redact private details in an already detached history copy."""
     action = entry["action"]
     result = entry["result"]
     kind = action.get("type")
+    if hidden_mats and kind == "fpd_resolve":
+        for row in result.get("feed", []):
+            if row.get("lord_id") not in owned_lords:
+                row.pop("units", None)
+    if entry["actor"] == side or entry["actor"] == "system":
+        return
     if hidden_mats:
         result.pop("_auto_confirmed_setup_transports", None)
     if kind in ("cmd_march", "stand_battle", "cmd_sally"):
@@ -120,8 +127,9 @@ def view_for_side(state, side: str) -> dict[str, Any]:
                 "set_setup_transport", "confirm_setup_transport", "confirm_all_setup_transports",
             )
         ]
+    owned_lords = {lid for lid, lord in d["lords"].items() if lord["side"] == side}
     for entry in d["history"]:
-        _filter_history(entry, side, hidden_mats=hidden_mats)
+        _filter_history(entry, side, hidden_mats=hidden_mats, owned_lords=owned_lords)
     combat = d["combat_pending"]
     if combat is not None and combat["attacker_side"] != side:
         combat.pop("attacker_strike_order", None)
