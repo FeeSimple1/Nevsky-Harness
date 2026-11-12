@@ -2708,6 +2708,28 @@ def _usable_transport_count_for_way_local(state: GameState, lord_id: str,
     return _usable_transport_count_for_way(state, lord_id, way_type)
 
 
+def _relief_sally_candidates(state: GameState, side: Side, locale_id: str) -> list[str]:
+    """4.4.1: Besieged Lords at the Approached Locale may join their relievers."""
+    return [
+        lid for lid, lord in state.lords.items()
+        if lord.side == side and lord.location == locale_id and _is_besieged(state, lid)
+    ]
+
+
+def _select_relief_sally_lords(
+    state: GameState, candidates: list[str], selection: Any,
+) -> list[str]:
+    if selection is None:
+        return candidates
+    if not isinstance(selection, list) or any(not isinstance(lid, str) for lid in selection):
+        raise IllegalAction("bad_sally_join", "sally_join must be a list of Lord IDs")
+    ineligible = [lid for lid in selection if lid not in candidates]
+    if ineligible:
+        raise IllegalAction("bad_sally_join", f"sally_join names non-eligible Lords: {ineligible}")
+    _require_whole_lieutenant_pairs(state, selection)
+    return [lid for lid in candidates if lid in selection]
+
+
 def _h_cmd_march(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -2718,6 +2740,8 @@ def _h_cmd_march(
       to         Destination locale_id (must be adjacent via a Way)
       group      Optional list[lord_id] of co-Marching Lords
                  (basic group March via Marshal -- 4.3.1)
+      sally_join Optional list of eligible besieged Lords to join an Attack
+                 (4.4.1). Omit to join with all, or pass [] to decline.
 
     On Approach: if destination contains enemy Lord(s), set
     combat_pending and pause; defender must respond with avoid_battle /
@@ -2798,6 +2822,13 @@ def _h_cmd_march(
         if _is_besieged(state, gid):
             raise IllegalAction("besieged", f"{gid} is Besieged; cannot March")
 
+    # Only enemy Lords outside a Stronghold trigger an Approach (4.3.4).
+    enemies = [lid for lid in _enemies_at(state, dest, sd) if not state.lords[lid].in_stronghold]
+    sally_join = args.get("sally_join")
+    if sally_join is not None:
+        candidates = _relief_sally_candidates(state, sd, dest) if enemies else []
+        sally_join = _select_relief_sally_lords(state, candidates, sally_join)
+
     # 4.3.2 SHARED TRANSPORT: Lords moving together Share Transport;
     # the GROUP's combined Provender vs combined usable Transport governs
     # both the excess-discard gate and Laden status (not per-Lord). The
@@ -2862,19 +2893,6 @@ def _h_cmd_march(
             f"March costs {cost} action(s); {state.campaign_turn.actions_remaining} remain",
         )
 
-    # SMOKE-129 (Round 196): Approach (4.3.4) triggers only on enemy
-    # Lords NOT in a Stronghold at the destination. A besieged-inside
-    # enemy (in_stronghold=True) is not in the open and not a valid
-    # Approach target; the arriving Lord simply joins the siege.
-    # Pre-fix, marching Rudolf into Izborsk where Gavrilo was already
-    # Withdrawn-inside fired a second Approach with Gavrilo as
-    # defender, letting Russia "Withdraw" a Lord who was already
-    # besieged — visible in the Round 195 Pleskau playthrough at
-    # Turn 2 Rudolf's reveal.
-    enemies = [
-        lid for lid in _enemies_at(state, dest, sd)
-        if not state.lords[lid].in_stronghold
-    ]
     # 4.4.2: the attacker may Concede the Battle this March triggers,
     # at Round 1 (true / 'attacker') or a later Round (int). Captured on
     # combat_pending and applied when the Battle resolves.
@@ -2902,8 +2920,7 @@ def _h_cmd_march(
             pending_response_by=defender_side,
             laden=laden,
             attacker_concede_round=attacker_concede_round,
-            sally_join=(list(args["sally_join"])
-                        if isinstance(args.get("sally_join"), list) else None),
+            sally_join=sally_join,
         )
         # SMOKE-111 (Round 173): switch active_player to the defender
         # side so legal_moves enumerates their response options
@@ -3643,6 +3660,12 @@ def _h_stand_battle(
     if cp.pending_response_by != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
 
+    candidates = [
+        lid for lid in _relief_sally_candidates(state, cp.attacker_side, cp.to_locale)
+        if lid not in cp.attacker_group
+    ]
+    sallying_lords = _select_relief_sally_lords(state, candidates, cp.sally_join)
+
     # 4.4.2 Concede the Field: either side may Concede at the start of
     # ANY Round. Merge the attacker's pre-declared Concede (cmd_march ->
     # combat_pending), the defender's args.concede (+ optional
@@ -3682,29 +3705,6 @@ def _h_stand_battle(
     active_attacker = (
         cp.attacker_group[0] if cp.attacker_group else None
     )
-    # Q-006 Relief Sally detection (4.4.1 2E): if the marching attacker
-    # side has Besieged Lords at cp.to_locale, those Lords may join the
-    # Attack as Sallying Lords without spending Command actions.
-    sallying_lords = [
-        lid for lid, l in state.lords.items()
-        if l.state == "mustered"
-        and l.location == cp.to_locale
-        and l.side == cp.attacker_side
-        and l.in_stronghold
-        and state.locales[cp.to_locale].siege_markers > 0
-        and lid not in cp.attacker_group
-    ]
-    # PLAY-14 (Fable audit): 4.4.1 RELIEF SALLY -- "any Besieged Lords
-    # MAY join any Attack". Joining is optional, chosen by the
-    # Approaching side on cmd_march (cp.sally_join). None = all join
-    # (previous behavior, still legal); a list restricts the joiners.
-    if cp.sally_join is not None:
-        _bad_join = [x for x in cp.sally_join if x not in sallying_lords]
-        if _bad_join:
-            raise IllegalAction(
-                "bad_sally_join",
-                f"sally_join names non-eligible Lords: {_bad_join}")
-        sallying_lords = [lid for lid in sallying_lords if lid in cp.sally_join]
     siegeworks_for_sally = (
         state.locales[cp.to_locale].siege_markers if sallying_lords else 0
     )
