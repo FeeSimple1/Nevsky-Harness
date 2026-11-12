@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from nevsky.llm.action_browser import ActionBrowser, SelectionError
 from nevsky.llm.briefing import briefing_for_side
 from nevsky.llm.compact import detail_payload, player_view
 from nevsky.llm.session import LLMSession
@@ -15,6 +16,80 @@ from nevsky.llm.tools import apply_action_for_side, legal_actions_for_side
 from nevsky.llm.view import view_for_side
 from nevsky.render import state_view_for_side
 from nevsky.scenarios import load_scenario
+
+
+@pytest.mark.parametrize("hidden", [False, True])
+def test_setup_transport_choice_is_private_in_all_opponent_views(hidden, tmp_path):
+    opponent_views = []
+    for value in ("boat", "sled"):
+        state = load_scenario("pleskau", seed=14, optional_rules={"hidden_mats": hidden})
+        owner = LLMSession(state, "teutonic", "pleskau")
+        opponent = LLMSession(state, "russian", "pleskau")
+        browser = ActionBrowser()
+        old_version, _, rows = browser.catalog(state, "teutonic", legal_actions_for_side)
+        args = {"lord_id": "hermann", "slot_index": 0, "value": value}
+        row = next(row for row in rows if row["action"]["type"] == "set_setup_transport"
+                   and row["action"]["args"] == args)
+        action = browser.resolve(state, "teutonic", legal_actions_for_side, row["id"])
+        result = owner.apply(action)
+        assert result == {"lord_id": "hermann", "slot_index": 0, "old": "cart", "new": value}
+        before_reads = state.model_dump_json()
+        version = browser.sync(state)
+        assert version != old_version
+        with pytest.raises(SelectionError):
+            browser.resolve(state, "teutonic", legal_actions_for_side, row["id"])
+
+        owner_view = owner.full_state()
+        entry = state.history[-1].model_dump()
+        assert owner_view["lords"]["hermann"]["assets"][value] == 1
+        assert owner_view["history"][-1] == entry
+        public = opponent.full_state()
+        compact = player_view(state, "russian")
+        assert public["history"] == compact["history"] == detail_payload(state, "russian", "history")
+        assert public["lords"]["hermann"] == compact["lords"]["hermann"]
+        if hidden:
+            assert public["lords"]["hermann"]["assets"] == {}
+            assert entry not in public["history"]
+        else:
+            assert public["lords"]["hermann"]["assets"][value] == 1
+            assert public["history"][-1] == entry
+        assert state.model_dump_json() == before_reads
+        assert browser.sync(state) == version
+
+        path = tmp_path / f"{value}.json"
+        owner.save(path)
+        restored = LLMSession.load(path)
+        assert restored.state.model_dump_json() == before_reads
+        assert restored.full_state() == owner_view
+        assert restored.legal_actions() == owner.legal_actions()
+        assert LLMSession(restored.state, "russian", "pleskau").full_state() == public
+        opponent_views.append(public)
+
+    assert (opponent_views[0] == opponent_views[1]) == hidden
+
+
+@pytest.mark.parametrize("hidden", [False, True])
+@pytest.mark.parametrize("kind,args", [
+    ("confirm_setup_transport", {"lord_id": "hermann", "slot_index": 0}),
+    ("confirm_all_setup_transports", {}),
+    ("aow_shuffle", {}),
+])
+def test_setup_transport_confirmations_follow_the_mat_rule(hidden, kind, args):
+    state = load_scenario("pleskau", seed=14, optional_rules={"hidden_mats": hidden})
+    result = apply_action_for_side(state, "teutonic", {"type": kind, "args": args})
+    entry = state.history[-1].model_dump()
+    assert view_for_side(state, "teutonic")["history"][-1] == entry
+    opponent = player_view(state, "russian")["history"]
+    if kind == "aow_shuffle":
+        # The public shuffle result survives automatic setup confirmation.
+        assert result["_auto_confirmed_setup_transports"]
+        expected = {"deck_size": result["deck_size"]} if hidden else result
+        assert opponent[-1]["action"]["type"] == kind
+        assert opponent[-1]["result"] == expected
+    elif hidden:
+        assert all(row["action"]["type"] != kind for row in opponent)
+    else:
+        assert opponent[-1] == entry
 
 
 @pytest.mark.parametrize("side", ["teutonic", "russian"])
@@ -145,6 +220,7 @@ def test_session_save_load_preserves_authoritative_mats_and_applies_visibility_a
 def test_capability_history_respects_mat_screening(step, action_type, result_key, card, hidden,
                                                   tmp_path):
     state = load_scenario("pleskau", optional_rules={"hidden_mats": hidden})
+    apply_action_for_side(state, "teutonic", {"type": "confirm_all_setup_transports"})
     state.meta.levy_step = step
     if step == "arts_of_war":
         state.decks.teutonic.deck.remove(card)
