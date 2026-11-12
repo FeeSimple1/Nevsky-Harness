@@ -1088,51 +1088,42 @@ def _is_besieged(state: GameState, lord_id: str) -> bool:
     return state.locales[lord.location].siege_markers > 0
 
 
-def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
-    """Shift a Lord's Service marker `boxes` boxes to the right.
-
-    Returns the resulting box index (1..16). Past 16 lands in
-    calendar.off_right (rule 2.2.3). The Service marker is identified
-    on the Calendar by the lord_id string in `service_markers` lists.
-    """
+def _shift_lord_service(state: GameState, lord_id: str, boxes: int) -> int:
+    """Shift Service by signed boxes, using 0 and 17 for the Calendar edges."""
     cal = state.calendar
-    # Find current Service-marker box; off_right_service covers past-right.
-    cur_box: int | None = None
-    if lord_id in cal.off_right_service:
-        cur_box = 17
-    else:
-        for cb in cal.boxes:
-            if lord_id in cb.service_markers:
-                cur_box = cb.box
-                cal.boxes[cb.box - 1].service_markers.remove(lord_id)
-                break
+    cur_box = _find_service_marker_box(state, lord_id)
     if cur_box is None:
         raise IllegalAction(
             "no_service_marker",
             f"{lord_id} has no Service marker on Calendar",
         )
-    if cur_box == 17:
-        cal.off_right_service.remove(lord_id)
-    new_box = cur_box + boxes
-    if new_box > 16:
-        cal.off_right_service.append(lord_id)
-        result_box = 17
-    else:
-        cal.boxes[new_box - 1].service_markers.append(lord_id)
-        result_box = new_box
 
-    # Advanced Vassal Service (3.4.2): shift all this Lord's on-Calendar
-    # Vassal markers the same number of boxes in the same direction.
-    if state.meta.optional_rules.get("advanced_vassal_service", False):
-        if lord_id in state.lords:
-            for vid, vstate in state.lords[lord_id].vassals.items():
-                cur = vassal_marker_box(cal, vid, vstate)
-                if cur is None:
-                    continue
-                # 2.2.3: shift the marker the same amount; off-edge lands
-                # in the off_left_vassal / off_right_vassal roster.
+    def markers_at(box: int) -> list[str]:
+        if box == 0:
+            return cal.off_left_service
+        if box == 17:
+            return cal.off_right_service
+        return cal.boxes[box - 1].service_markers
+
+    result_box = max(0, min(17, cur_box + boxes))
+    if result_box != cur_box:
+        markers_at(cur_box).remove(lord_id)
+        markers_at(result_box).append(lord_id)
+
+    # 3.4.2: Vassals shift the requested amount even when the Lord's
+    # own marker cannot move further. Each marker has its own Calendar edge.
+    lord = state.lords.get(lord_id)
+    if lord is not None and state.meta.optional_rules.get("advanced_vassal_service", False):
+        for vid, vstate in lord.vassals.items():
+            cur = vassal_marker_box(cal, vid, vstate)
+            if cur is not None:
                 move_vassal_marker(cal, vid, vstate, cur + boxes)
     return result_box
+
+
+def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
+    """Shift the Lord's Service to the right for Pay (3.2)."""
+    return _shift_lord_service(state, lord_id, boxes)
 
 
 def _h_pay_with_coin(

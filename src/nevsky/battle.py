@@ -30,7 +30,7 @@ import math
 from typing import Any, cast
 
 from nevsky.rng import roll_d6
-from nevsky.state import GameState, Side, move_vassal_marker, vassal_marker_box
+from nevsky.state import GameState, Side
 from nevsky.static_data import load_forces, load_ways
 from nevsky.visibility import reveal_combat_mats
 
@@ -1906,62 +1906,15 @@ _SERVICE_SHIFT_TABLE = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
 
 
 def apply_retreat_service_shift(state: GameState, lord_id: str) -> int:
-    """4.4.3 Service: roll 1d6 per Retreating Lord; shift Service marker
-    LEFT by the table value. Returns the shift amount.
+    """Roll and apply the Retreat Service penalty (4.4.3)."""
+    from nevsky.actions import _find_service_marker_box, _shift_lord_service
 
-    SMOKE-070 (Round 74): when the shift would carry the marker past
-    box 1, the marker lands on off_left_service (one box off the
-    Calendar), matching SMOKE-062's _shift_service semantics. Off-left
-    Service markers trigger 3.3.1 permanent removal at the next
-    Disband. Previously the function clamped at box 1, silently
-    denying the legal off-Calendar landing.
-    """
     roll = roll_d6(state)
     boxes = _SERVICE_SHIFT_TABLE[roll]
-    cal = state.calendar
-    cur = None
-    for cb in cal.boxes:
-        if lord_id in cb.service_markers:
-            cur = cb.box
-            cb.service_markers.remove(lord_id)
-            break
-    # SMOKE-057 (Round 65): Service markers off the right edge live in
-    # `off_right_service`, NOT `off_right` (which is the cylinder list).
-    # Previously this branch consulted the wrong list, so a Lord with
-    # Service marker past box 16 silently skipped the shift.
-    if cur is None and lord_id in cal.off_right_service:
-        cal.off_right_service.remove(lord_id)
-        cur = 17
-    # SMOKE-070 (Round 74): also handle marker already at off_left_service.
-    if cur is None and lord_id in cal.off_left_service:
-        cal.off_left_service.remove(lord_id)
-        cur = 0
-    if cur is None:
+    if _find_service_marker_box(state, lord_id) is None:
         return 0
-    new_box = cur - boxes
-    if new_box < 1:
-        # Land on off_left_service (one box off Calendar; further
-        # shifts are absorbed there).
-        cal.off_left_service.append(lord_id)
-    elif cur == 17 and new_box >= 17:
-        cal.off_right_service.append(lord_id)
-    else:
-        cal.boxes[new_box - 1].service_markers.append(lord_id)
-
-    # SMOKE-103 (Round 139): Advanced Vassal Service rule (3.4.2)
-    # — per Battle and Storm reference service_shift_on_retreat:
-    # "shift each Vassal's marker the same number, ONLY under
-    # advanced Vassal Service rule." The Pay-step shift
-    # (`_shift_service_right` in actions.py) already had this
-    # cascade; Retreat-shift was missing it. Same audit pattern as
-    # SMOKE-098/099/101 (mirror-gap between sibling shift paths).
-    if state.meta.optional_rules.get("advanced_vassal_service", False):
-        if lord_id in state.lords:
-            for vid, vstate in state.lords[lord_id].vassals.items():
-                cur = vassal_marker_box(cal, vid, vstate)
-                if cur is None:
-                    continue
-                move_vassal_marker(cal, vid, vstate, cur - boxes)
+    # SMOKE-103: the shared shift also applies advanced_vassal_service.
+    _shift_lord_service(state, lord_id, -boxes)
     return boxes
 
 
