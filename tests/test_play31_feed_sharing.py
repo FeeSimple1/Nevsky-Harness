@@ -14,7 +14,9 @@ from __future__ import annotations
 import pytest
 
 from nevsky.actions import IllegalAction, apply_action
+from nevsky.legal_moves import legal_moves
 from nevsky.scenarios import load_scenario
+from nevsky.state import GameState
 
 
 def _fpd_ready(s, side="teutonic"):
@@ -95,6 +97,41 @@ def test_feed_loot_first_choice():
     res_loot = apply_action(s, {"type": "fpd_resolve", "side": "teutonic",
                                 "args": {"feed_loot_first": True}})
     assert _feed(res_loot, "andreas")["consumed"]["loot"] == 2
+
+
+@pytest.mark.parametrize("choice", [False, True, ["hermann"]])
+def test_feed_uses_the_sharing_lords_resource_choice(choice):
+    s = load_scenario("watland", seed=1)
+    _big(s, "andreas", "riga", {})
+    s.lords["andreas"].forces = {"serfs": 6}
+    _big(s, "hermann", "riga", {"provender": 1, "loot": 1})
+    s.lords["hermann"].moved_fought = False
+    for lid, lord in s.lords.items():
+        if lord.side == "teutonic" and lid not in ("andreas", "hermann"):
+            lord.moved_fought = False
+            lord.location = None
+    _fpd_ready(s)
+    restored = GameState.model_validate_json(s.model_dump_json())
+    action = {"type": "fpd_resolve", "side": "teutonic"}
+    assert any(m.get("args") == {"feed_loot_first": ["hermann"]}
+               for m in legal_moves(restored) if m["type"] == action["type"])
+    result = apply_action(restored, {**action, "args": {"feed_loot_first": choice}})
+    consumed = {"provender": int(not choice), "loot": int(bool(choice))}
+    assert _feed(result, "andreas")["consumed"] == consumed
+    assert _feed(result, "andreas")["unfed"] is False
+    retained = "provender" if choice else "loot"
+    assert restored.lords["hermann"].assets == {retained: 1}
+
+
+def test_feed_rejects_an_opponents_resource_choice_without_mutation():
+    s = load_scenario("watland", seed=1)
+    _fpd_ready(s)
+    before = s.model_dump_json()
+    with pytest.raises(IllegalAction) as exc:
+        apply_action(s, {"type": "fpd_resolve", "side": "teutonic",
+                         "args": {"feed_loot_first": ["aleksandr"]}})
+    assert exc.value.code == "bad_feed_choice"
+    assert s.model_dump_json() == before
 
 
 def test_hillforts_skip_choice_and_validation():
