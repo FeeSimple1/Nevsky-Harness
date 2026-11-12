@@ -331,6 +331,7 @@ def _h_command_reveal(
         raise IllegalAction("wrong_phase", "command_reveal requires campaign phase")
     if state.meta.campaign_step != "command":
         raise IllegalAction("wrong_step", "command_reveal requires campaign_step=command")
+    _require_approach_resolved(state)
     if state.campaign_turn.in_feed_pay_disband:
         raise IllegalAction("in_feed_pay_disband", "complete 4.8 before next reveal")
     if state.campaign_turn.actions_remaining > 0:
@@ -596,6 +597,7 @@ def _h_end_card(
         raise IllegalAction("wrong_phase", "end_card requires campaign phase")
     if state.meta.campaign_step != "command":
         raise IllegalAction("wrong_step", "end_card requires campaign_step=command")
+    _require_approach_resolved(state)
     if state.campaign_turn.in_feed_pay_disband:
         raise IllegalAction("in_feed_pay_disband", "already in 4.8")
     _require_active(state, sd)
@@ -894,10 +896,16 @@ def _h_fpd_resolve(
 # ---------------------------------------------------------------------------
 
 
+def _require_approach_resolved(state: GameState) -> None:
+    if state.combat_pending is not None:
+        raise IllegalAction("approach_pending", "resolve the Approach before continuing (4.3.4)")
+
+
 def _require_active_lord_command(state: GameState, side: Side, lord_id: str) -> None:
-    """The Lord performing this command must be the campaign_turn.active_lord."""
+    """Commands require the active Lord and a completed previous Command."""
     if state.meta.campaign_step != "command":
         raise IllegalAction("wrong_step", "command actions require campaign_step=command")
+    _require_approach_resolved(state)
     if state.campaign_turn.in_feed_pay_disband:
         raise IllegalAction("in_feed_pay_disband", "Feed/Pay/Disband sub-step running; no Lord actions")
     if state.campaign_turn.active_lord != lord_id:

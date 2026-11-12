@@ -136,6 +136,11 @@ def test_attacker_cannot_stand_for_the_defender_during_ambush():
 
     assert error.value.code == "wrong_actor"
     assert state.model_dump_json() == saved
+    for kind in ("cmd_forage", "end_card"):
+        with pytest.raises(IllegalAction) as late:
+            apply_action_for_side(state, "teutonic", {"type": kind})
+        assert late.value.code == "approach_pending"
+        assert state.model_dump_json() == saved
     assert apply_action_for_side(state, "teutonic", {"type": "play_ambush_block"})["ambush_blocked"]
     result = apply_action_for_side(state, "russian", action)
     assert result["battle"]["conceded"] == "defender"
