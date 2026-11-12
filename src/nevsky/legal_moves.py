@@ -1145,6 +1145,7 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                 _group_excess_provender as _grp_excess_mr,
                 _group_is_laden as _grp_laden_mr,
                 _march_action_cost,
+                _relief_sally_candidates,
             )
             from nevsky.campaign import (
                 _is_currently_marshal as _icm, _is_besieged as _ib_mr,
@@ -1168,6 +1169,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     lid for lid, lord in state.lords.items()
                     if lord.side != side and lord.state == "mustered"
                     and lord.location == dest and not lord.in_stronghold
+                ]
+                sally_options = _relief_sally_candidates(state, side, dest) if enemy_at_dest else []
+                sally_pairs = [
+                    [lid, partner] for lid in sally_options
+                    if (partner := state.lords[lid].has_lower_lord) in sally_options
                 ]
                 # A solo Lord's unaffordable cost must not hide a legal
                 # Marshal group that can Share Transport or use Converts.
@@ -1208,14 +1214,20 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                             note += " | Enemy Stronghold: places Siege and ends the Command card (4.3)"
                         if enemy_at_dest:
                             note += f" | Approach: enemy Lords {enemy_at_dest} respond (4.3.4)"
-                        out.append({"type": "cmd_march", "side": side,
-                                    "args": chosen_args, "note": note})
+                        move = {"type": "cmd_march", "side": side,
+                                "args": chosen_args, "note": note}
+                        if sally_options:
+                            move["sally_join_options"] = sally_options
+                            move["sally_join_pairs"] = sally_pairs
+                            move["note"] += (" | Relief Sally (4.4.1). Omit sally_join for all, use [] for "
+                                             "none, or choose eligible Lords with linked pairs together.")
+                        out.append(move)
                         if enemy_at_dest:
                             out.append({
-                                "type": "cmd_march", "side": side,
+                                **move,
                                 "args": {**chosen_args, "concede": True},
-                                "note": note + " | CONCEDE the Field: attacker loses; "
-                                        "enemy Pursues (4.4.2)",
+                                "note": move["note"] + " | CONCEDE the Field: attacker loses; "
+                                                      "enemy Pursues (4.4.2)",
                             })
         except (ImportError, KeyError, AttributeError, FileNotFoundError) as e:
             # Static-data load failure or shape mismatch: fall back to the
