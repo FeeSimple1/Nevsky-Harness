@@ -2822,7 +2822,9 @@ def _h_cmd_march(
         if _is_besieged(state, gid):
             raise IllegalAction("besieged", f"{gid} is Besieged; cannot March")
 
-    # Only enemy Lords outside a Stronghold trigger an Approach (4.3.4).
+    # SMOKE-129 (Round 196): Approach (4.3.4) triggers only on enemy
+    # Lords outside a Stronghold. If Gavrilo has already Withdrawn inside
+    # Izborsk, Rudolf's March joins the Siege without a second Approach.
     enemies = [lid for lid in _enemies_at(state, dest, sd) if not state.lords[lid].in_stronghold]
     sally_join = args.get("sally_join")
     if sally_join is not None:
