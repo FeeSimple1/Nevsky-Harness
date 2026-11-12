@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from nevsky.actions import apply_action
 from nevsky.llm.action_browser import ActionBrowser, SelectionError
 from nevsky.llm.briefing import briefing_for_side
 from nevsky.llm.compact import detail_payload, player_view
@@ -287,6 +288,61 @@ def test_notebook_focused_details_use_the_shared_filter(side, topic, capsys):
     mat = result["data"]["lords"][enemy] if topic == "state" else result["data"]["state"]
     assert mat["forces"] == {"_hidden": 1} and mat["vassals"] == {}
     assert helper.full_state(side)["lords"][enemy] == mat
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("hidden", [False, True])
+def test_feed_history_screens_exact_opposing_force_totals(hidden, tmp_path, capsys):
+    path = Path(__file__).resolve().parents[1] / "scripts/chatgpt_play_helper.py"
+    spec = importlib.util.spec_from_file_location("hidden_mats_feed_helper", path)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    before_views, after_views = [], []
+    for units, vassal in [(5, "gavrilo_pskov_1"), (6, "gavrilo_pskov_2")]:
+        state = load_scenario("pleskau", seed=14, optional_rules={"hidden_mats": hidden})
+        apply_action(state, {"type": "system_setup_complete", "side": "system"})
+        state.meta.levy_step = "muster"
+        state.meta.active_player = "russian"
+        apply_action_for_side(state, "russian", {
+            "type": "muster_vassal", "args": {"by_lord": "gavrilo", "vassal_id": vassal},
+        })
+        state.meta.phase = "campaign"
+        state.meta.campaign_step = "command"
+        state.meta.first_levy_done = True
+        state.campaign_turn.in_feed_pay_disband = True
+        state.campaign_turn.fpd_completed_t = True
+        state.lords["gavrilo"].moved_fought = True
+        before_views.append(player_view(state, "teutonic"))
+
+        browser = ActionBrowser()
+        _, _, rows = browser.catalog(state, "russian", legal_actions_for_side)
+        feed = next(row for row in rows if row["action"]["type"] == "fpd_resolve")
+        action = browser.resolve(state, "russian", legal_actions_for_side, feed["id"])
+        owner_result = apply_action_for_side(state, "russian", action)
+        public_row = {"lord_id": "gavrilo", "cost": 1,
+                      "consumed": {"provender": 1, "loot": 0}, "unfed": False}
+        assert owner_result["feed"] == [{**public_row, "units": units}]
+        before_reads = state.model_dump_json()
+        view = player_view(state, "teutonic")
+        history = detail_payload(state, "teutonic", "history")
+        expected = public_row if hidden else {**public_row, "units": units}
+        assert history == view["history"]
+        assert history[-1]["result"]["feed"] == [expected]
+        helper._S["state"] = state
+        assert helper.result(side="teutonic", full=True)["result"] == history[-1]["result"]
+        assert player_view(state, "russian")["history"][-1]["result"] == owner_result
+
+        save = tmp_path / f"feed-{units}.json"
+        LLMSession(state, "teutonic", "pleskau").save(save)
+        restored = LLMSession.load(save)
+        assert restored.full_state()["history"] == history
+        assert restored.state.model_dump_json() == before_reads == state.model_dump_json()
+        after_views.append(view)
+    if hidden:
+        assert before_views[0] == before_views[1]
+        assert after_views[0] == after_views[1]
+    else:
+        assert after_views[0] != after_views[1]
     capsys.readouterr()
 
 
