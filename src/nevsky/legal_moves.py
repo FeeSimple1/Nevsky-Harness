@@ -1107,6 +1107,17 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             if state.campaign_turn.fpd_pay_window_side == side:
                 out.extend(_pay_moves(state, side))
             out.append({"type": "fpd_resolve", "side": side, "args": {}})
+            if state.campaign_turn.fpd_pay_window_side != side:
+                feed_locales = {lord.location for lord in state.lords.values()
+                                if lord.side == side and lord.state == "mustered"
+                                and lord.moved_fought and lord.location is not None}
+                for lid, lord in state.lords.items():
+                    if (lord.side == side and lord.state == "mustered"
+                            and lord.location in feed_locales
+                            and lord.assets.get("loot", 0) and lord.assets.get("provender", 0)):
+                        out.append({"type": "fpd_resolve", "side": side,
+                                    "args": {"feed_loot_first": [lid]},
+                                    "note": f"Spend Loot first from {lid} for Feed and Sharing"})
             return out
         if state.campaign_turn.actions_remaining == 0:
             # waiting to reveal

@@ -766,17 +766,21 @@ def _h_fpd_resolve(
             raise IllegalAction(
                 "bad_hillforts_skip",
                 f"{hillforts_skip} not eligible for Hillforts skip; eligible: {_elig}")
-    # feed_loot_first: prefer spending own Loot before Provender (4.8.1 lets
-    # the player choose; default Provender-first -- Provender only Feeds,
-    # while Loot can also Pay at Friendly Locales). bool = all Lords, or a
-    # list of lord_ids.
-    _lf = args.get("feed_loot_first")
-    if _lf is True:
+    # The spending Lord's preference applies to own Feed and to Sharing.
+    # The default saves Loot for Pay at Friendly Locales.
+    preference = args.get("feed_loot_first", False)
+    if preference is True:
         _loot_first = None  # sentinel: all
-    elif isinstance(_lf, list):
-        _loot_first = set(_lf)
-    else:
+    elif preference is False or preference is None:
         _loot_first = set()
+    elif isinstance(preference, list) and all(
+        isinstance(lid, str) and lid in state.lords and state.lords[lid].side == sd
+        for lid in preference
+    ):
+        _loot_first = set(preference)
+    else:
+        raise IllegalAction("bad_feed_choice",
+                            "feed_loot_first must be a boolean or a list of your own Lord IDs")
 
     def _asset_order(lid: str) -> tuple[str, str]:
         if _loot_first is None or lid in _loot_first:
@@ -851,7 +855,7 @@ def _h_fpd_resolve(
                 break
             donor = state.lords[donor_id]
             st["remaining"] = _spend(
-                donor, ("provender", "loot"), st["remaining"], st["consumed"])
+                donor, _asset_order(donor_id), st["remaining"], st["consumed"])
 
     # UNFED penalty + feed_results, now that all Feeding/sharing is done.
     for lord_id, lord, n_units, cost in feeders:
