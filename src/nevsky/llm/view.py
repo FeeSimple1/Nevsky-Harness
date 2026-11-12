@@ -25,8 +25,8 @@ Public state is always visible:
 
 Optional Hidden Mats conceals opposing Mustered Lord mats, including Vassal
 status. It also screens This-Lord Capability identities and Vassal and
-Transport details in opposing Levy history. Public Calendar markers remain
-visible with Advanced Vassal Service.
+Transport details in opposing Levy history, including setup Transport choices.
+Public Calendar markers remain visible with Advanced Vassal Service.
 """
 from __future__ import annotations
 
@@ -46,6 +46,8 @@ def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool) -> N
     action = entry["action"]
     result = entry["result"]
     kind = action.get("type")
+    if hidden_mats:
+        result.pop("_auto_confirmed_setup_transports", None)
     if kind in ("cmd_march", "stand_battle", "cmd_sally"):
         action.get("args", {}).pop("strike_order", None)
     if kind == "aow_draw":
@@ -110,6 +112,14 @@ def view_for_side(state, side: str) -> dict[str, Any]:
     other_deck["plan"] = _mask_cards(other_deck["plan"])
     # this_levy_events / this_campaign_events: cards are public once
     # placed (events are publicly announced and resolved). Keep as-is.
+    if hidden_mats:
+        # A confirmation would disclose that the opponent accepted the default.
+        d["history"] = [
+            entry for entry in d["history"]
+            if entry["actor"] in (side, "system") or entry["action"].get("type") not in (
+                "set_setup_transport", "confirm_setup_transport", "confirm_all_setup_transports",
+            )
+        ]
     for entry in d["history"]:
         _filter_history(entry, side, hidden_mats=hidden_mats)
     combat = d["combat_pending"]
