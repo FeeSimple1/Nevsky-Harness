@@ -559,21 +559,11 @@ def _muster_moves(
                      else state.meta.block_lords_this_levy_r)
             if by_lid in block:
                 continue
-            # SMOKE-123 (Round 190): T13 William of Modena requires
-            # Heinrich on map (per AoW Reference Event Tip). The
-            # handler hardcodes this check in actions.py; the
-            # SMOKE-118 capability_eligibility filter doesn't catch
-            # it because T13's eligibility data permits any Lord
-            # to Levy it -- the runtime condition is separate.
-            if cid == "T13" and side == "teutonic":
-                h = state.lords.get("heinrich")
-                if h is None or h.state != "mustered" or h.location is None:
-                    continue
-                # SMOKE-149 (R209): R15 Death of the Pope blocks Levy of
-                # T13 William of Modena for the rest of this Levy
-                # (handler raises capability_blocked). Mirror it here.
-                if state.meta.special_rules.get("block_william_of_modena_this_levy"):
-                    continue
+            # SMOKE-123: T13 follows unused-card availability and the R15
+            # block for this Levy.
+            # Held Events are already excluded by the unused-pile check above.
+            if cid == "T13" and state.meta.special_rules.get("block_william_of_modena_this_levy"):
+                continue
             if _swap_discard_needed:
                 out.append({
                     "type": "levy_capability", "side": side,
@@ -631,7 +621,7 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 cand_2a = [
                     lid for lid, l in state.lords.items()
                     if l.side == "teutonic" and _is_ready(state, lid, _find_levy_marker_box(state))
-                    and pawn_loc in _seats(state, lid)
+                    and pawn_loc in _free_seats_for(state, lid)
                     and lid not in state.meta.block_lords_this_levy_t
                 ]
                 for tgt in cand_2a:
@@ -664,6 +654,7 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     lid for lid, l in state.lords.items()
                     if l.side == "teutonic" and l.state == "mustered"
                     and l.location == pawn_loc
+                    and lid not in state.meta.block_lords_this_levy_t
                     and _is_friendly_locale(state, l.location, "teutonic")
                 ]
                 for tgt in cand_2c:

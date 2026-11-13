@@ -1898,11 +1898,8 @@ def _discard_side_capability(state: GameState, side: str, cid: str
     elif cid == "R10" and side == "russian":
         disbanded = _disband_special_vassals(state, "russian", "steppe_warriors")
     elif cid == "T13" and side == "teutonic":
-        if state.legate.william_of_modena_in_play:
-            state.legate.william_of_modena_in_play = False
-            state.legate.location = "card"
-            state.legate.locale_id = None
-            legate_removed = True
+        legate_removed = state.legate.william_of_modena_in_play
+        state.legate.reset_pawn(in_play=False)
     return {"card": cid, "disbanded_vassals": disbanded,
             "legate_removed": legate_removed, "was_in_play": was_in_play}
 

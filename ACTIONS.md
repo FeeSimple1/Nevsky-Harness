@@ -110,12 +110,17 @@ Besieged Lords cannot Muster.
   2-card cap a third Levy is a SWAP: pass
   `args.discard_capability=<card_id>` naming the card to shed
   (3.4.4 "must immediately discard any excess", PLAY-24).
+  Any eligible Teutonic Lord can Levy an unused William of Modena (T13),
+  subject to Death of the Pope (R15). Acquiring it places the Legate pawn
+  on the card. While T13 is Held as Heinrich Sees the Curia, it is unavailable
+  to Levy. Heinrich must be on map to play the Hold.
 
 ## 3.5 Call to Arms
 
 - **`legate_arrives`** — `args.bishopric` ∈
   {`riga`, `dorpat`, `leal`, `reval`}. Requires William of Modena
-  Capability in play and pawn on the William of Modena card.
+  Capability in play and pawn on the card at the start of Call to Arms.
+  After arrival, the player may take one Move or Use action.
 - **`legate_move`** — `args.locale_id`. Option 1: move pawn to a
   Friendly Locale. Pawn stays on map; uses up the once-per-segment
   Legate option.
@@ -570,7 +575,7 @@ are reset at `command_reveal` so per-card capability budgets work.
   Levy -> Campaign transition.
 - `Meta.lordship_bonus`: dict[lord_id, int] of currently active
   Lordship +2 bonuses from Hold events. Used by `_spend_lordship` to
-  raise the budget. Cleared on Levy -> Campaign transition.
+  raise the budget for the current Muster or Call to Arms segment.
 
 ### Immediate event resolvers (called by `aow_implement_card`)
 
@@ -610,8 +615,9 @@ Heinrich Sees the Curia) return a deferred placeholder for now.
   - T17 Dietrich von Grueningen: Andreas or Rudolf.
   - R8 Prince of Polotsk: any Russian Lord (shift 1 / +2 Lordship).
   - R13 Pelgui: Vladislav or Karelians.
-  Card consumed; the Lordship bonus persists in
-  `meta.lordship_bonus` until Levy ends.
+  Playing the Hold discards it immediately. A bonus used in ordinary
+  Muster expires before Call to Arms. A Hold saved for a granted extra
+  Muster applies there.
 
 ### Block enforcement
 

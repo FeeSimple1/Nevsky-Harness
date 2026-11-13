@@ -337,6 +337,12 @@ def _side_deck(state: GameState, side: Side):
     return state.decks.teutonic if side == "teutonic" else state.decks.russian
 
 
+def _acquire_side_capability(state: GameState, side: Side, card_id: str) -> None:
+    _side_deck(state, side).capabilities_in_play.append(card_id)
+    if card_id == "T13" and side == "teutonic":
+        state.legate.reset_pawn(in_play=True)
+
+
 def _other(side: Side) -> Side:
     return "russian" if side == "teutonic" else "teutonic"
 
@@ -356,6 +362,12 @@ def _require_no_aow_choice(state: GameState) -> None:
     if _pending_aow_choice(state) is not None:
         raise IllegalAction("pending_event_choice",
                             "resolve the pending Arts of War Event choice first")
+
+
+def _reset_lordship(state: GameState) -> None:
+    state.meta.lordship_bonus.clear()
+    for lord in state.lords.values():
+        lord.lordship_used = 0
 
 
 def _h_advance_step(
@@ -448,9 +460,7 @@ def _h_advance_step(
             state.meta.disband_resolved_r = False
         if next_step == "muster":
             state.meta.muster_lord_order = []
-            # Reset per-Lord Lordship counters at start of Muster (3.4).
-            for lord in state.lords.values():
-                lord.lordship_used = 0
+            _reset_lordship(state)
             # SMOKE-044 (Round 56): transition disbanded -> ready for
             # Lords whose cylinder is on the Calendar at or before the
             # Levy marker. Without this transition, a Lord Disbanded at
@@ -483,6 +493,9 @@ def _h_advance_step(
             _t11_summer_auto_muster(state)
         if next_step == "call_to_arms":
             state.meta.muster_lord_order = []
+            # Lordship Holds apply to one Muster segment. A Legate or Veche
+            # grant starts with the printed rating unless a Hold is played here.
+            _reset_lordship(state)
             # Reset call-to-arms once-per-segment flags (3.5.1, 3.5.2).
             state.legate.acted_this_call_to_arms = False
             state.veche.acted_this_call_to_arms = False
@@ -526,12 +539,7 @@ def _h_advance_step(
             # Phase 4c: clear per-Levy block lists and Lordship bonuses.
             state.meta.block_lords_this_levy_t = []
             state.meta.block_lords_this_levy_r = []
-            state.meta.lordship_bonus = {}
-            # Completed Muster expenditure expires with the Levy's budget.
-            # Otherwise spending a legal +2 bonus leaves a stale over-budget
-            # counter after the bonus is cleared on entering Campaign.
-            for lord in state.lords.values():
-                lord.lordship_used = 0
+            _reset_lordship(state)
             state.meta.special_rules.pop("block_william_of_modena_this_levy", None)
             # 4.0 capability discard (in excess of own Mustered Lord count).
             # SMOKE-031: route each discard through _discard_side_capability
@@ -936,7 +944,7 @@ def _h_aow_implement_card(
             return ({"card": cid, "outcome": "tucked_under_lord", "lord_id": lord_id}, [])
         else:  # side_wide
             deck.pending_draw = deck.pending_draw[1:]
-            deck.capabilities_in_play.append(cid)
+            _acquire_side_capability(state, sd, cid)
             return ({"card": cid, "outcome": "side_capability_in_play"}, [])
 
     # Subsequent Levy: implement as event (top half).
@@ -2637,28 +2645,6 @@ def _h_levy_capability(
             "T13 William of Modena Levy blocked this Levy by R15 Death of the Pope",
         )
 
-    # SMOKE-072 (Round 75): per AoW Reference T13 Event Tip,
-    # "If Heinrich is not on map, drawing the Event card will delay
-    # Levy of the William of Modena Capability until discarded or
-    # Heinrich Musters." Block T13 (William of Modena) Levy whenever
-    # Heinrich is not Mustered on the map (state != "mustered" or
-    # location is None). The block lifts naturally when Heinrich
-    # Musters or when T13 is discarded.
-    if (
-        cid == "T13"
-        and sd == "teutonic"
-        and (
-            "heinrich" not in state.lords
-            or state.lords["heinrich"].state != "mustered"
-            or state.lords["heinrich"].location is None
-        )
-    ):
-        raise IllegalAction(
-            "heinrich_off_map",
-            "T13 William of Modena Levy delayed: Heinrich is not on map "
-            "(AoW Reference T13 Event Tip)",
-        )
-
     _spend_lordship(state, by_id)
 
     if card["capability_scope"] == "this_lord":
@@ -2731,11 +2717,11 @@ def _h_levy_capability(
             [],
         )
     # side_wide
-    deck.capabilities_in_play.append(cid)
     if from_loc == "deck":
         deck.deck.remove(cid)
     else:
         deck.discard.remove(cid)
+    _acquire_side_capability(state, sd, cid)
     return ({"by_lord": by_id, "card_id": cid, "scope": "side_wide", "from": from_loc}, [])
 
 
@@ -2767,11 +2753,8 @@ def _h_legate_arrives(
         raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
     if state.legate.location != "card":
         raise IllegalAction("legate_already_on_map", "Legate is already on the map (3.5.1)")
-    # SMOKE-090 (Round 96): per rule 3.5.1, the Teutonic player may
-    # use the Legate ONCE per Call to Arms. Placing (Arrives) is one
-    # of the four mutually-exclusive options (Option 1 Place/Move,
-    # Option 2a/2b/2c USE). Without consuming the once-per-CtA slot,
-    # the Teuton could Arrive AND then USE in the same CtA.
+    # 3.5.1 ARRIVES precedes ACTIVE. Arrival allows one subsequent Move
+    # or Use, but the pawn cannot arrive again after returning to the card.
     if state.legate.acted_this_call_to_arms:
         raise IllegalAction(
             "already_acted",
@@ -2782,7 +2765,6 @@ def _h_legate_arrives(
         raise IllegalAction("bad_bishopric", f"bishopric must be one of {sorted(_BISHOPRICS)}")
     state.legate.location = "locale"
     state.legate.locale_id = bishopric
-    state.legate.acted_this_call_to_arms = True
     return ({"placed_at": bishopric}, [])
 
 
@@ -2834,10 +2816,10 @@ def _h_legate_use(
 
     if not state.legate.william_of_modena_in_play:
         raise IllegalAction("no_william", "William of Modena (T13) not in play (3.5.1)")
-    if state.legate.location != "locale":
-        raise IllegalAction("legate_off_map", "Legate must be on map to USE (3.5.1)")
     if state.legate.acted_this_call_to_arms:
         raise IllegalAction("already_acted", "Legate has already acted this Call to Arms (3.5.1)")
+    if state.legate.location != "locale":
+        raise IllegalAction("legate_off_map", "Legate must be on map to USE (3.5.1)")
 
     sub = args.get("sub_option")
     target_id = args.get("target_lord")
@@ -3475,6 +3457,9 @@ def _h_aow_lordship_plus_2(
             f"{cid} belongs to {card_meta['side']}; {sd} cannot play it",
         )
     if mode == "lordship":
+        _require_active(state, sd)
+        if state.meta.levy_step == "call_to_arms":
+            _require_muster_or_legate_2c_extra(state, lord_id)
         result = apply_lordship_plus_2(state, cid, lord_id)
     elif mode == "shift":
         direction = args.get("direction", "left")
