@@ -3450,6 +3450,8 @@ def _h_withdraw(
     cp = state.combat_pending
     if cp is None:
         raise IllegalAction("no_combat", "no pending combat")
+    if sd != cp.defender_side:
+        raise IllegalAction("wrong_actor", "only the defender may Withdraw")
     if cp.pending_response_by != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
     static = load_locales()

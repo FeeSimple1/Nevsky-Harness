@@ -60,3 +60,47 @@ def test_forage_before_approach_remains_a_command():
     assert result["approach"] and result["cost"] == 2
     assert state.campaign_turn.actions_remaining == 0
     assert not state.campaign_turn.in_feed_pay_disband
+
+
+@pytest.mark.parametrize("block", [False, True])
+def test_saved_ambush_does_not_let_attacker_withdraw_defender(block, tmp_path):
+    state = plan_position()
+    state.lords["hermann"].location = "odenpah"
+    state.lords["gavrilo"].location = "dorpat"
+    state.locales["dorpat"].siege_markers = 1
+    state.decks.teutonic.deck.remove("T6")
+    state.decks.teutonic.holds.append("T6")
+    plan(state)
+    act(state, "cmd_march", "teutonic", to="dorpat", way_type="trackway")
+    avoid = act(state, "avoid_battle", "russian", to="gdov", way_type="waterway")
+    assert avoid["ambush_interrupt"]
+
+    path = tmp_path / "ambush.json"
+    LLMSession(state, "teutonic", "pleskau").save(path)
+    session = LLMSession.load(path)
+    state = session.state
+    saved = state.model_dump_json()
+    assert {move["type"] for move in session.legal_actions()} == {
+        "play_ambush_block", "decline_ambush_block",
+    }
+    with pytest.raises(IllegalAction, match="wrong_actor"):
+        apply_action_for_side(state, "teutonic", {"type": "withdraw"})
+    assert state.model_dump_json() == saved
+    with pytest.raises(IllegalAction, match="wrong_actor"):
+        session.apply({"type": "withdraw"})
+    assert state.model_dump_json() == saved
+    assert not session.history
+
+    if block:
+        assert session.apply({"type": "play_ambush_block"})["ambush_blocked"]
+        assert "T6" in state.decks.teutonic.discard
+        assert state.combat_pending.pending_response_by == "russian"
+        assert state.lords["gavrilo"].location == "dorpat"
+        with pytest.raises(IllegalAction, match="not_friendly"):
+            session.apply({"type": "withdraw"}, who="human")
+    else:
+        session.apply({"type": "decline_ambush_block"})
+        assert "T6" in state.decks.teutonic.holds
+        assert state.combat_pending is None
+        assert state.lords["gavrilo"].location == "gdov"
+        assert state.locales["dorpat"].siege_markers == 0
