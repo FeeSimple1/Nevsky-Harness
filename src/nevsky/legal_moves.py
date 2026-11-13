@@ -979,8 +979,10 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     group.append(lord.has_lower_lord)
                 if len(group) < len(cp.defender_lords):
                     partial_groups.append(group)
-            for _dest, _wt in _lrd(state, cp.to_locale, side,
-                                   exclude=(cp.from_locale, cp.way_type)):
+            avoid_routes = [] if cp.avoid_blocked_by_ambush else _lrd(
+                state, cp.to_locale, side, exclude=(cp.from_locale, cp.way_type),
+            )
+            for _dest, _wt in avoid_routes:
                 note = (
                     f"Avoid Battle to {_dest} via {_wt} (4.3.4). Defender "
                     f"Lord(s) move; no Battle this Approach. No Service "
@@ -1570,7 +1572,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     "args_template": {"lord_id": "<id>", "sources": "[{locale_id, route, transport, route_transports?}]"},
                     "note": "Supply along declared Routes (4.6, 1 action)"})
         from nevsky.campaign import (
-            _lodya_ship_options, _sail_load, _supply_transport_pool, _unbesieged_enemy_lord_at,
+            _lodya_ship_options,
+            _sail_discard_choices,
+            _sail_load,
+            _supply_transport_pool,
+            _unbesieged_enemy_lord_at,
         )
         if (pristine and active.location is not None and not _ib(state, active_lord)
                 and _season_of_box(state.meta.box) not in ("early_winter", "late_winter")):
@@ -1581,6 +1587,11 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
             if (ports.get(active.location, {}).get("seaport") is True
                     and all(lid in state.lords and state.lords[lid].location == active.location
                             and state.lords[lid].side == side for lid in sailing_group)):
+                destinations = [
+                    dest for dest, locale in ports.items()
+                    if (dest != active.location and locale.get("seaport") is True
+                        and not _unbesieged_enemy_lord_at(state, dest, side))
+                ]
                 horses, provender, loot = _sail_load(state, sailing_group)
                 horse_need = horses * (1 if side == "teutonic" else 2)
                 full_need = horse_need + provender + 2 * loot
@@ -1588,27 +1599,27 @@ def _campaign_moves(state: GameState, side: Side, *, with_previews: bool = True)
                     ships = _supply_transport_pool(state, active_lord, conversion)["ship"]
                     if ships < horse_need:
                         continue
-                    sail_args: dict[str, Any] = {"lord_id": active_lord, "group": sailing_group}
-                    notes = []
+                    base_args: dict[str, Any] = {"lord_id": active_lord, "group": sailing_group}
                     if conversion:
-                        sail_args["lodya_conversions"] = conversion
-                        notes.append("Lodya")
+                        base_args["lodya_conversions"] = conversion
                     excess = full_need - ships
-                    if excess > 0:
-                        if conversion:
-                            drop_loot = min(loot, (excess + 1) // 2)
+                    for drop_prov, drop_loot in _sail_discard_choices(excess, provender, loot):
+                        notes = ["Lodya"] if conversion else []
+                        sail_args = dict(base_args)
+                        if drop_prov:
+                            sail_args["discard_excess_provender"] = drop_prov
+                            notes.append(f"discard {drop_prov} Provender")
+                        if drop_loot:
                             sail_args["discard_excess_loot"] = drop_loot
-                            sail_args["discard_excess_provender"] = max(0, excess - 2 * drop_loot)
-                        else:
-                            sail_args.update(discard_excess_provender=True, discard_excess_loot=True)
-                        notes.append("discards Provender/Loot")
-                    note_suffix = f" ({', '.join(notes)})" if notes else ""
-                    for dest, locale in ports.items():
-                        if (dest != active.location and locale.get("seaport") is True
-                                and not _unbesieged_enemy_lord_at(state, dest, side)):
+                            notes.append(f"discard {drop_loot} Loot")
+                        if len(sailing_group) > 1 and (drop_prov or drop_loot):
+                            notes.append("choose discarding Lords with discard_by_lord")
+                        note_suffix = f" ({', '.join(notes)})" if notes else ""
+                        for dest in destinations:
                             out.append({"type": "cmd_sail", "side": side,
                                         "args": {**sail_args, "destination": dest},
-                                        "note": f"Sail {active.location}->{dest} (entire card){note_suffix}"})
+                                        "note": f"Sail {active.location}->{dest} "
+                                                f"(entire card){note_suffix}"})
                     if excess <= 0:
                         break
         out.append({"type": "end_card", "side": side, "args": {},
