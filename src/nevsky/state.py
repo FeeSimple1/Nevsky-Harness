@@ -116,6 +116,7 @@ class Meta(BaseModel):
     end_campaign_completed_r: bool = False
     block_lords_this_levy_t: list[str] = Field(default_factory=list)
     block_lords_this_levy_r: list[str] = Field(default_factory=list)
+    # Hold bonuses apply only within the current Muster or Call to Arms step.
     lordship_bonus: dict[str, int] = Field(default_factory=dict)
     # 3.4: a Lord must finish ordinary Muster before the next begins.
     # Appending a different Lord closes the previous one's remaining actions.
@@ -492,6 +493,12 @@ class Legate(BaseModel):
     # handlers can accept call_to_arms-step calls from that one Lord.
     extra_muster_target_lord: str | None = None
 
+    def reset_pawn(self, *, in_play: bool) -> None:
+        """Update the pawn when William of Modena enters or leaves play."""
+        self.william_of_modena_in_play = in_play
+        self.location = "card"
+        self.locale_id = None
+
 
 class PendingDecision(BaseModel):
     """A sub-decision the harness is waiting on."""
@@ -532,6 +539,56 @@ class GameState(BaseModel):
     combat_pending: CombatPending | None = None
     pending_decisions: list[PendingDecision] = Field(default_factory=list)
     history: list[HistoryEntry] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _restore_legate_capability(self) -> Self:
+        """Older saves may have acquired T13 without placing its pawn."""
+        in_play = "T13" in self.decks.teutonic.capabilities_in_play
+        if self.legate.william_of_modena_in_play != in_play:
+            self.legate.reset_pawn(in_play=in_play)
+        if (in_play and self.meta.phase == "levy" and self.meta.levy_step == "call_to_arms"
+                and self.meta.active_player == "teutonic" and self.legate.location == "locale"
+                and self.legate.acted_this_call_to_arms):
+            # Older saves treated ARRIVES as the one ACTIVE choice.
+            for entry in reversed(self.history):
+                kind = entry.action.get("type")
+                if kind in ("advance_step", "legate_move", "legate_use", "legate_skip"):
+                    break
+                if kind == "legate_arrives" and entry.actor == "teutonic":
+                    self.legate.acted_this_call_to_arms = False
+                    break
+        return self
+
+    @model_validator(mode="after")
+    def _restore_call_to_arms_lordship(self) -> Self:
+        """Remove ordinary-Muster budgets that older saves carried into 3.5."""
+        if self.meta.phase != "levy" or self.meta.levy_step != "call_to_arms":
+            return self
+        extra_musters = {self.legate.extra_muster_target_lord, self.veche.extra_muster_target_lord}
+        for lid, lord in self.lords.items():
+            if lid not in extra_musters:
+                lord.lordship_used = 0
+
+        if not self.meta.lordship_bonus:
+            return self
+        played: dict[str, int] = {}
+        for entry in reversed(self.history):
+            kind = entry.action.get("type")
+            if (kind == "advance_step" and entry.actor == "russian"
+                    and entry.result.get("new_step") == "call_to_arms"):
+                # The Russian advance into 3.5 closes ordinary Muster.
+                # Keep any bonuses actually played since that transition.
+                self.meta.lordship_bonus = {
+                    lid: min(bonus, played[lid])
+                    for lid, bonus in self.meta.lordship_bonus.items() if lid in played
+                }
+                break
+            if kind == "aow_lordship_plus_2":
+                effect = entry.result.get("result", {})
+                lid = effect.get("lord_id")
+                if effect.get("bonus") == 2 and lid in self.meta.lordship_bonus:
+                    played[lid] = played.get(lid, 0) + 2
+        return self
 
     @model_validator(mode="after")
     def _restore_ambush_block(self) -> Self:

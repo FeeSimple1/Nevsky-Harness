@@ -611,14 +611,9 @@ def _ev_death_of_pope(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     Discard William of Modena from capabilities_in_play; remove Legate pawn;
     block Modena re-Levy this Levy.
     """
-    discarded = False
-    if "T13" in state.decks.teutonic.capabilities_in_play:
-        state.decks.teutonic.capabilities_in_play.remove("T13")
-        state.decks.teutonic.discard.append("T13")
-        discarded = True
-    state.legate.william_of_modena_in_play = False
-    state.legate.location = "card"
-    state.legate.locale_id = None
+    from nevsky.campaign import _discard_side_capability
+
+    discarded = _discard_side_capability(state, "teutonic", "T13")["was_in_play"]
     # Block this-Levy re-Levy: tracked via meta.special_rules flag.
     state.meta.special_rules["block_william_of_modena_this_levy"] = True
     return {"event": "R15", "modena_discarded": discarded}
@@ -776,9 +771,7 @@ _LORDSHIP_PLUS_2_TARGETS = {
 
 
 def apply_lordship_plus_2(state: GameState, card_id: str, lord_id: str) -> dict[str, Any]:
-    """Apply Lordship +2 from a Hold event card to `lord_id`. Used during
-    Muster (3.4) or Call to Arms (3.5). Adds 2 to meta.lordship_bonus[lord_id].
-    """
+    """Add 2 to the Lord's budget for the current Muster or Call to Arms."""
     if card_id not in _LORDSHIP_PLUS_2_TARGETS:
         raise IllegalAction("bad_card", f"{card_id} is not a Lordship +2 hold")
     spec = _LORDSHIP_PLUS_2_TARGETS[card_id]

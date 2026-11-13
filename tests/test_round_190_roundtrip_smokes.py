@@ -5,9 +5,8 @@ CROSS_PROJECT_LESSONS.md): probe every legal_moves output through
 apply_action on a snapshot and assert no IllegalAction. Pre-fix
 sweep returned 456 findings across 30 sessions; post-fix 0.
 
-SMOKE-123  levy_capability T13 William of Modena requires Heinrich
-           on map (hardcoded gate in actions.py that SMOKE-118's
-           capability_eligibility filter doesn't cover).
+SMOKE-123  levy_capability T13 William of Modena uses the unused
+           pile, independent of Heinrich's location.
 SMOKE-124  aow_implement_card first-Levy this_lord scope needs
            args.lord_id; enumerator emitted card-only.
 SMOKE-125  cmd_tax requires own Seat (4.7.4).
@@ -40,9 +39,8 @@ def _setup_command_exec(s, side, active_lord, actions_remaining=2):
 # ----- SMOKE-123 -----------------------------------------------------------
 
 
-def test_smoke_123_t13_filtered_when_heinrich_off_map():
-    """T13 must NOT appear in levy_capability moves when Heinrich
-    isn't mustered on map. Pleskau removes Heinrich from play."""
+def test_smoke_123_unused_t13_offered_with_heinrich_removed():
+    """Pleskau removes Heinrich from play. Unused T13 remains eligible."""
     s = load_scenario("pleskau", seed=1)
     s.meta.phase = "levy"
     s.meta.levy_step = "muster"
@@ -51,47 +49,29 @@ def test_smoke_123_t13_filtered_when_heinrich_off_map():
     t13_moves = [m for m in moves
                  if m.get("type") == "levy_capability"
                  and m["args"].get("card_id") == "T13"]
-    assert t13_moves == [], (
-        f"legal_moves offered T13 William of Modena Levy but Heinrich "
-        f"is in removed_from_play: {t13_moves[:3]}"
-    )
+    assert s.lords["heinrich"].state == "removed"
+    assert t13_moves
+    for move in t13_moves:
+        result = apply_action(s.model_copy(deep=True), move)
+        assert result["card_id"] == "T13"
 
 
-def test_smoke_123_t13_offered_when_heinrich_mustered():
-    """Positive control: when Heinrich is manually mustered on map,
-    the SMOKE-123 gate must NOT suppress T13 levy moves. (Whether
-    T13 actually appears depends on deck contents; the point is
-    that the heinrich-gate alone doesn't block it.)"""
+def test_smoke_123_held_t13_filtered_with_heinrich_mustered():
+    """Mustered Heinrich may use the Hold. T13 must first leave Holds to Levy."""
     s = load_scenario("watland", seed=1)
-    assert "heinrich" in s.lords
-    # Manually muster Heinrich so the SMOKE-123 gate is satisfied.
     s.lords["heinrich"].state = "mustered"
     s.lords["heinrich"].location = "riga"
     s.meta.phase = "levy"
     s.meta.levy_step = "muster"
     s.meta.active_player = "teutonic"
-    # Source-level check: with Heinrich mustered, the SMOKE-123
-    # `cid == "T13" and side == "teutonic"` branch's `continue`
-    # is NOT taken. The only way to verify cheaply is to ensure
-    # T13 is in deck and that the by_with_budget set is non-empty,
-    # then confirm at least one T13 levy_capability move surfaces.
-    if "T13" not in s.decks.teutonic.deck and "T13" not in s.decks.teutonic.discard:
-        # T13 not in this scenario's deck — gate-only-not-suppressing
-        # invariant is vacuously satisfied.
-        return
+    s.decks.teutonic.deck.remove("T13")
+    s.decks.teutonic.holds.append("T13")
     moves = legal_moves(s, with_previews=False)
     t13_moves = [m for m in moves
                  if m.get("type") == "levy_capability"
                  and m["args"].get("card_id") == "T13"]
-    # If no Teutonic Lord has lordship budget, the levy enumerator
-    # may emit zero moves total — that's a different reason for
-    # zero T13 moves. Only assert when something else is emitting.
-    any_levy = [m for m in moves if m.get("type") == "levy_capability"]
-    if any_levy:
-        assert t13_moves, (
-            "T13 suppressed despite Heinrich mustered — SMOKE-123 gate "
-            "incorrectly fired (other levy_capability moves exist)"
-        )
+    assert not t13_moves
+    assert any(m["type"] == "aow_play_hold" and m["args"]["card_id"] == "T13" for m in moves)
 
 
 # ----- SMOKE-124 -----------------------------------------------------------
