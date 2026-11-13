@@ -10,6 +10,7 @@ from nevsky.llm.briefing import briefing_for_side
 from nevsky.llm.session import LLMSession
 from nevsky.state import GameState
 from tests.test_round12_lieutenant_movement import PAIR, act, next_russian_card, plan, plan_position
+from tests.test_token_efficient_helper import attach, helper
 
 
 def _hold_ambush(state, attacker):
@@ -101,3 +102,22 @@ def test_ambush_block_survives_partial_withdrawal_by_a_linked_pair():
     assert act(restored, "withdraw", lords=[third])["withdrew_lords"] == [third]
     assert restored.combat_pending is None
     assert all(restored.lords[lid].in_stronghold for lid in (*PAIR, third))
+
+
+def test_ambush_and_withdraw_can_be_selected_by_id(capsys):
+    state = plan_position()
+    state.lords["hermann"].location = "dubrovno"
+    _hold_ambush(state, "teutonic")
+    plan(state)
+    act(state, "cmd_march", "teutonic", to="pskov", way_type="trackway")
+    nv = helper()
+    attach(nv, state)
+    [avoid] = nv.actions("avoid_battle", params={"to": "izborsk"})["items"]
+    nv.apply(avoid["id"])
+    [ambush] = nv.actions("play_ambush_block")["items"]
+    nv.apply(ambush["id"])
+    assert nv.actions("avoid_battle")["matched"] == 0
+    [withdraw] = nv.actions("withdraw")["items"]
+    nv.apply(withdraw["id"])
+    assert state.combat_pending is None
+    assert state.lords["gavrilo"].in_stronghold

@@ -478,18 +478,21 @@ def test_unknown_id_and_negative_id_do_not_apply():
 
 
 def test_complete_return_of_prince_via_ids_and_periodic_save_resume(tmp_path):
-    """860 recorded actions; both sides, eight turns, templates and interrupts.
+    """A complete recorded game with both sides, templates and save reloads.
 
     Setup uses the existing start contract. No raw-action escape hatch or
     fallback is used for any subsequent selection. Loaded IDs are discarded.
     """
     from nevsky.llm.action_browser import _literal
     from nevsky.scenarios import determine_scenario_winner
-    source = ROOT / "reports/return_prince_20261028/maritime"
+    # The maritime report records a repeated Avoid after R6 blocked it.
+    # Replay the legal logistics transcript and test Ambush interrupts separately.
+    source = ROOT / "reports/return_prince_20261028/logistics"
+    summary = json.loads((source / "summary.json").read_text())
     transcript = json.loads((source / "transcript.json").read_text())
     nv = helper()
     with contextlib.redirect_stdout(io.StringIO()):
-        nv.start("return_of_the_prince", seed=20261030, confirm_transports=True)
+        nv.start("return_of_the_prince", seed=summary["seed"], confirm_transports=True)
         expected = nv._S["state"].model_copy(deep=True)
         for index, record in enumerate(transcript[2:]):
             intended = record["action"]
@@ -514,6 +517,6 @@ def test_complete_return_of_prince_via_ids_and_periodic_save_resume(tmp_path):
                 path = tmp_path / "resume.json"
                 nv.save(str(path))
                 nv.load(str(path))
-        assert determine_scenario_winner(nv._S["state"]) == json.loads((source / "summary.json").read_text())["winner"]
+        assert determine_scenario_winner(nv._S["state"]) == summary["winner"]
         assert nv._S["state"].meta.game_over
-        assert len(nv._S["history"]) == len(transcript) - 2 == 858
+        assert len(nv._S["history"]) == len(transcript) - 2 == 820
