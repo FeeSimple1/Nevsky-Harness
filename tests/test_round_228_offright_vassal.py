@@ -11,7 +11,7 @@ position is read via vassal_marker_box (1..16 / 17 / 0).
 """
 from __future__ import annotations
 
-from nevsky.actions import _disband_at_limit, _shift_service_right
+from nevsky.actions import _disband_at_limit, _shift_lord_service
 from nevsky.scenarios import load_scenario
 from nevsky.state import (
     clear_vassal_marker,
@@ -79,17 +79,17 @@ def test_clear_and_detach_remove_from_roster():
     assert vstate.calendar_box is None
 
 
-def test_shift_service_right_carries_vassal_off_right_into_roster():
+def test_free_service_shift_carries_vassal_off_right_into_roster():
     st = load_scenario("pleskau", seed=1)
     st.meta.optional_rules["advanced_vassal_service"] = True
     cal = st.calendar
-    # Lord service marker on the track so _shift_service_right can act.
+    # Lord service marker on the track so a free shift can act.
     cal.boxes[13].service_markers.append("hermann")  # box 14
     vid = next(iter(st.lords["hermann"].vassals))
     vstate = st.lords["hermann"].vassals[vid]
     _place_vassal(st, "hermann", vid, 14)
 
-    _shift_service_right(st, "hermann", 5)            # 14 + 5 = 19 -> off-right
+    _shift_lord_service(st, "hermann", 5)            # 14 + 5 = 19 -> off-right
     assert vid in cal.off_right_vassal
     assert vstate.calendar_box is None                # constraint (1..16) intact
     assert vstate.on_calendar is True

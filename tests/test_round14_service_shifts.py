@@ -187,6 +187,12 @@ def test_unfed_service_reenters_from_off_right(service, food, after, fate):
         feed = _act(position, "fpd_resolve")
         assert feed["feed"][0]["unfed"] != food
         assert _find_service_marker_box(position, "hermann") == after
+        if after == 17:
+            # Every Teutonic Service marker is off-right, so there is no Pay pause.
+            assert "pay_window" not in feed
+            assert position.campaign_turn.fpd_completed_t
+            return feed
+        assert feed["pay_window"]
         return _act(position, "fpd_resolve")
 
     _replay(state, feed_then_disband)

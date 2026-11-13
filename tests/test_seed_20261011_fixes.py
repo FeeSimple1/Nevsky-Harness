@@ -294,27 +294,41 @@ def test_mindaugas_refreshes_marker_and_respects_half_points_and_cap(cid, starti
     assert getattr(state.locales[action['args']['locale']], side + '_ravaged')
 
 
-def test_complete_1743_action_ordered_crusade_replay():
+def test_complete_ordered_crusade_replay():
     payload = json.loads((DATA / 'ordered_replay.json').read_text())
     # The Vassal audit restored Gavrilo's second starting Transport. His
     # box-2 march now costs one fewer Command, so the historical 1,742-action
     # trace needs an explicit end_card after Hermann avoids to Lettgallia.
     assert len(payload['actions']) == 1743
     state = load_scenario(payload['scenario'], seed=payload['seed'])
+    assert not state.meta.optional_rules.get('advanced_vassal_service')
+    finished_fpd_side = None
     save_checks = 0
-    for number, action in enumerate(payload['actions'], 1):
-        final_cleanup = (state.meta.box == 16 and action['type'] == 'end_campaign_resolve')
+    applied = 0
+    for action in payload['actions']:
+        kind, side = action['type'], action['side']
+        # The archived game predates the Pay limit. Skip payments to
+        # off-right Lords and confirmations of windows that no longer open.
+        if (kind in ('pay_with_coin', 'pay_with_loot')
+                and action['args']['target_lord'] in state.calendar.off_right_service):
+            continue
+        if kind == 'fpd_resolve' and side == finished_fpd_side:
+            finished_fpd_side = None
+            continue
+        final_cleanup = state.meta.box == 16 and kind == 'end_campaign_resolve'
         before_mats = mats(state) if final_cleanup else None
         result = apply_action(state, action)
+        applied += 1
+        finished_fpd_side = side if kind == 'fpd_resolve' and 'disbanded' in result else None
         if final_cleanup:
             assert not result['wastage']
             assert mats(state) == before_mats
-        if number % 20 == 0:
+        if applied % 20 == 0:
             serialized = state.model_dump_json()
             state = GameState.model_validate_json(serialized)
             assert state.model_dump_json() == serialized
             save_checks += 1
-    assert save_checks == 87
+    assert applied == 1673 and save_checks == 83
     assert state.meta.game_over and state.meta.box == payload['expected_box']
     assert determine_scenario_winner(state) == payload['expected_winner']
     for side in ('teutonic', 'russian'):

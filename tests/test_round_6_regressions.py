@@ -86,7 +86,7 @@ def test_pay_pushes_service_off_right() -> None:
     s.meta.levy_step = "pay"
     s.meta.active_player = "teutonic"
     res = apply_action(s, {"type": "pay_with_coin", "side": "teutonic",
-                            "args": {"from": f"lord:{teu}", "target_lord": teu, "units": 2}})
+                            "args": {"from": f"lord:{teu}", "target_lord": teu, "units": 1}})
     assert teu in s.calendar.off_right_service
     assert res["new_box"] == 17
 

@@ -70,6 +70,12 @@ Campaign actions.
   Loot may only be spent at a Friendly Locale (3.2.2). Sieges
   excluded.
 
+Each paid unit must advance the target Lord's Service or an affected
+Vassal Service marker. Pay templates list each target's remaining payable
+steps in `candidates.service_steps`. Choose `units` up to that limit
+and the payer's available Coin or Loot. The limit also applies during
+Campaign Pay (4.8.2).
+
 ## 3.3 Disband
 
 - **`disband_resolve`** — process all Lords on the active side whose

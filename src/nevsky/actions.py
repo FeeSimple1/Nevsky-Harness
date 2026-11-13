@@ -53,6 +53,7 @@ System actions:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 from pydantic import BaseModel
@@ -63,6 +64,7 @@ from nevsky.state import (
     GameState,
     HistoryEntry,
     Side,
+    VassalState,
     detach_vassal_marker,
     move_vassal_marker,
     vassal_marker_box,
@@ -1088,6 +1090,31 @@ def _is_besieged(state: GameState, lord_id: str) -> bool:
     return state.locales[lord.location].siege_markers > 0
 
 
+def _vassal_service_markers(
+    state: GameState, lord_id: str,
+) -> Iterator[tuple[str, VassalState, int]]:
+    lord = state.lords.get(lord_id)
+    if lord is None or not state.meta.optional_rules.get("advanced_vassal_service"):
+        return
+    for vid, vassal in lord.vassals.items():
+        box = vassal_marker_box(state.calendar, vid, vassal)
+        if box is not None:
+            yield vid, vassal, box
+
+
+def _payable_service_steps(state: GameState, lord_id: str) -> int | None:
+    """Rightward steps that move at least one marker, or None without Lord Service."""
+    lord_box = _find_service_marker_box(state, lord_id)
+    if lord_box is None:
+        return None
+    # A paid step shifts every affected marker together (3.2, 3.4.2).
+    leftmost_vassal = min(
+        (box for _, _, box in _vassal_service_markers(state, lord_id)),
+        default=lord_box,
+    )
+    return 17 - min(lord_box, leftmost_vassal)
+
+
 def _shift_lord_service(state: GameState, lord_id: str, boxes: int) -> int:
     """Shift Service by signed boxes, using 0 and 17 for the Calendar edges."""
     cal = state.calendar
@@ -1112,17 +1139,19 @@ def _shift_lord_service(state: GameState, lord_id: str, boxes: int) -> int:
 
     # 3.4.2: Vassals shift the requested amount even when the Lord's
     # own marker cannot move further. Each marker has its own Calendar edge.
-    lord = state.lords.get(lord_id)
-    if lord is not None and state.meta.optional_rules.get("advanced_vassal_service", False):
-        for vid, vstate in lord.vassals.items():
-            cur = vassal_marker_box(cal, vid, vstate)
-            if cur is not None:
-                move_vassal_marker(cal, vid, vstate, cur + boxes)
+    for vid, vassal, box in _vassal_service_markers(state, lord_id):
+        move_vassal_marker(cal, vid, vassal, box + boxes)
     return result_box
 
 
 def _shift_service_right(state: GameState, lord_id: str, boxes: int) -> int:
     """Shift the Lord's Service to the right for Pay (3.2)."""
+    payable = _payable_service_steps(state, lord_id)
+    if payable is not None and boxes > payable:
+        raise IllegalAction(
+            "pay_exceeds_service_limit",
+            f"{lord_id} can receive at most {payable} units of Pay (3.2); requested {boxes}",
+        )
     return _shift_lord_service(state, lord_id, boxes)
 
 
@@ -1175,8 +1204,8 @@ def _h_pay_with_coin(
                 "veche_cannot_reach_besieged",
                 f"{target_id} is Besieged; Veche Coin cannot reach (3.2.1)",
             )
-        state.veche.coin -= units
         new_box = _shift_service_right(state, target_id, units)
+        state.veche.coin -= units
         return (
             {"source": "veche", "target_lord": target_id, "units": units, "new_box": new_box},
             [],
@@ -1217,10 +1246,10 @@ def _h_pay_with_coin(
                     "Lord-Coin can only Pay own Service or co-located Lord's Service (3.2.1)",
                 )
 
+    new_box = _shift_service_right(state, target_id, units)
     payer.assets["coin"] = payer.assets.get("coin", 0) - units
     if payer.assets["coin"] == 0:
         del payer.assets["coin"]
-    new_box = _shift_service_right(state, target_id, units)
     return (
         {
             "source": f"lord:{payer_id}",
@@ -1276,10 +1305,10 @@ def _h_pay_with_loot(
             "Loot can Pay own Service or co-located Lord's Service only (3.2.2)",
         )
 
+    new_box = _shift_service_right(state, target_id, units)
     payer.assets["loot"] = payer.assets.get("loot", 0) - units
     if payer.assets["loot"] == 0:
         del payer.assets["loot"]
-    new_box = _shift_service_right(state, target_id, units)
     return ({"from_lord": payer_id, "target_lord": target_id, "units": units, "new_box": new_box}, [])
 
 

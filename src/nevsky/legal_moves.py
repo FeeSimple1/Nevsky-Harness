@@ -28,6 +28,7 @@ from nevsky.actions import (
     _is_ready,
     _lordship_budget,
     _may_continue_muster,
+    _payable_service_steps,
     _season_of_box,
 )
 from nevsky.state import GameState, Side
@@ -274,18 +275,12 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     return out
 
 
-def _legal_pay_targets(state: GameState, side: Side, payer_id: str,
-                       own_lords: list[str]) -> list[str]:
-    """PLAY-4 (Fable playtest): targets a given payer can legally Pay
-    per 3.2.1/3.2.2 — own Service, or a co-located Lord's Service; a
-    Besieged target additionally requires the payer to be Besieged WITH
-    him (mirrors _h_pay_with_coin's checks). Pre-fix the candidates
-    block advertised every own Lord as a target for every payer, and
-    agents had to re-derive collocation themselves (or eat
-    pay_target_not_collocated rejections)."""
+def _legal_pay_targets(state: GameState, payer_id: str,
+                       shiftable_lords: list[str]) -> list[str]:
+    """Shiftable own or co-located Service the payer can reach (3.2.1/3.2.2)."""
     payer = state.lords[payer_id]
-    targets = [payer_id]
-    for lid in own_lords:
+    targets = [payer_id] if payer_id in shiftable_lords else []
+    for lid in shiftable_lords:
         if lid == payer_id:
             continue
         lord = state.lords[lid]
@@ -303,6 +298,10 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         lid for lid, lord in state.lords.items()
         if lord.side == side and lord.state == "mustered"
     ]
+    service_steps = {
+        lid: steps for lid in own_lords if (steps := _payable_service_steps(state, lid))
+    }
+    shiftable_lords = list(service_steps)
     coin_payers = [lid for lid in own_lords if state.lords[lid].assets.get("coin", 0) > 0]
     loot_payers = [
         lid for lid in own_lords
@@ -310,11 +309,11 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
         and state.lords[lid].location is not None
         and _is_friendly_locale(state, state.lords[lid].location, side)  # type: ignore[arg-type]
     ]
-    if coin_payers:
-        coin_targets_by_payer = {
-            pid: _legal_pay_targets(state, side, pid, own_lords)
-            for pid in coin_payers
-        }
+    coin_targets_by_payer = {
+        pid: targets for pid in coin_payers
+        if (targets := _legal_pay_targets(state, pid, shiftable_lords))
+    }
+    if coin_targets_by_payer:
         coin_union: list[str] = sorted(
             {t for ts in coin_targets_by_payer.values() for t in ts})
         out.append({
@@ -326,28 +325,32 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 "units": "<int>=1",
             },
             "candidates": {
-                "payers": coin_payers,
+                "payers": list(coin_targets_by_payer),
                 "targets": coin_union,
                 "targets_by_payer": coin_targets_by_payer,
+                "service_steps": {lid: service_steps[lid] for lid in coin_union},
             },
         })
-    if side == "russian" and state.veche.coin > 0:
+    veche_targets = (
+        [lid for lid in shiftable_lords if not _is_besieged(state, lid)]
+        if side == "russian" and state.veche.coin > 0 else []
+    )
+    if veche_targets:
         out.append({
             "type": "pay_with_coin",
             "side": side,
             "args_template": {"from": "veche", "target_lord": "<id>", "units": "<int>=1"},
             "candidates": {
                 "payers": ["veche"],
-                "targets": [
-                    lid for lid in own_lords if not _is_besieged(state, lid)
-                ],
+                "targets": veche_targets,
+                "service_steps": {lid: service_steps[lid] for lid in veche_targets},
             },
         })
-    if loot_payers:
-        loot_targets_by_payer = {
-            pid: _legal_pay_targets(state, side, pid, own_lords)
-            for pid in loot_payers
-        }
+    loot_targets_by_payer = {
+        pid: targets for pid in loot_payers
+        if (targets := _legal_pay_targets(state, pid, shiftable_lords))
+    }
+    if loot_targets_by_payer:
         loot_union: list[str] = sorted(
             {t for ts in loot_targets_by_payer.values() for t in ts})
         out.append({
@@ -359,9 +362,10 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 "units": "<int>=1",
             },
             "candidates": {
-                "payers": loot_payers,
+                "payers": list(loot_targets_by_payer),
                 "targets": loot_union,
                 "targets_by_payer": loot_targets_by_payer,
+                "service_steps": {lid: service_steps[lid] for lid in loot_union},
             },
         })
     return out
