@@ -207,6 +207,15 @@ Besieged Lords cannot Muster.
   Ship capacity includes Shared co-located Ships and remotely Shared Cogs.
   Use optional `args.lodya_conversions` in the same format as Supply.
   Sharing and conversions leave the donor's counters on the donor's mat.
+  Greed (1.7.2) permits only the cargo discards needed to fit the Sail.
+  Menu choices give exact `discard_excess_provender` and
+  `discard_excess_loot` counts. Each discarded Loot frees two Ships, so
+  discarding a single Loot can free one more Ship than needed.
+  Aggregate counts discard from the Sailing group in order. To choose the
+  mats, pass `args.discard_by_lord = {lord_id: {provender: count, loot: count}}`
+  on its own or with matching menu totals. Legacy `true` delegates the
+  necessary amount for that Asset, preferring Loot when both flags are
+  `true`. Omit all discard fields to carry the full load.
 
 ### 4.6 Supply
 
@@ -752,6 +761,9 @@ discard. Effects:
   whatever the combat roles (PLAY-15); the owner's flank Lords Flank
   the enemy center. The card's other mode (block Avoid Battle) runs
   through `play_ambush_block` / `decline_ambush_block` (SMOKE-115).
+  Playing it cancels the declared Avoid and its discards and bars further
+  Avoid responses to that Approach. Defenders can Stand or make any
+  otherwise legal Withdrawal. Declining resolves the declared Avoid.
 
 ### Tier 3 hold events (via aow_play_hold)
 

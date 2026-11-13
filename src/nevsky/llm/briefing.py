@@ -110,12 +110,15 @@ def briefing_for_side(state, side: str) -> str:
                 if cp.avoid_spoils:
                     lines.append(f"{cp.pending_response_by} must allocate Avoid Spoils "
                                  f"{cp.avoid_spoils} with allocate_avoid_spoils.")
+                elif cp.ambush_block_pending:
+                    lines.append("AMBUSH BLOCK INTERRUPT: attacker has T6/R6 Ambush in holds. "
+                                 "Use play_ambush_block or decline_ambush_block.")
+                elif cp.avoid_blocked_by_ambush:
+                    lines.append(f"Ambush blocked Avoid Battle. {cp.defender_side} may Stand "
+                                 "or Withdraw into a Friendly Stronghold if eligible.")
                 else:
                     lines.append(f"Response owed by: **{cp.pending_response_by}** "
                                  "(options: avoid_battle / withdraw / stand_battle).")
-                if cp.ambush_block_pending:
-                    lines.append("AMBUSH BLOCK INTERRUPT: attacker has T6/R6 Ambush in holds; "
-                                 "play_ambush_block or decline_ambush_block.")
     else:
         lines.append(f"Phase: {state.meta.phase}")
 

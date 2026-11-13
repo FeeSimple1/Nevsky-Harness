@@ -1194,6 +1194,93 @@ def _sail_load(state: GameState, group: list[str]) -> tuple[int, int, int]:
     return horses, provender, loot
 
 
+def _sail_discard_choices(excess: int, provender: int, loot: int) -> list[tuple[int, int]]:
+    """All cargo reductions that free enough Ships and need every discard.
+
+    Discarding a Loot can free one more Ship than needed if no Provender
+    is also discarded. Each tuple gives (Provender, Loot).
+    """
+    if excess <= 0:
+        return [(0, 0)]
+    choices = []
+    for drop_loot in range(min(loot, (excess + 1) // 2), -1, -1):
+        drop_prov = max(0, excess - 2 * drop_loot)
+        if drop_prov <= provender:
+            choices.append((drop_prov, drop_loot))
+    return choices
+
+
+def _sail_discards(
+    state: GameState, group: list[str], args: dict[str, Any],
+    *, ships: int, horse_need: int, provender: int, loot: int,
+) -> dict[str, dict[str, int]]:
+    """Resolve Sail cargo reductions without changing any Lord mats."""
+    excess = horse_need + provender + 2 * loot - ships
+    choices = _sail_discard_choices(excess, provender, loot)
+    available = {"provender": provender, "loot": loot}
+    requested = {}
+    for asset, count in available.items():
+        field = f"discard_excess_{asset}"
+        if field in args:
+            amount = args[field]
+            if not isinstance(amount, bool) and (type(amount) is not int
+                                                or not 0 <= amount <= count):
+                raise IllegalAction("bad_sail_discard", f"invalid {asset} discard count")
+            requested[asset] = amount
+    discards: dict[str, dict[str, int]] = {}
+
+    if "discard_by_lord" in args:
+        raw = args["discard_by_lord"]
+        if not isinstance(raw, dict):
+            raise IllegalAction("bad_sail_discard", "discard_by_lord must be a cargo map")
+        totals = {"provender": 0, "loot": 0}
+        for lid, cargo in raw.items():
+            if lid not in group or not isinstance(cargo, dict):
+                raise IllegalAction("bad_sail_discard", "discard only from Sailing Lords' mats")
+            for asset, count in cargo.items():
+                if (asset not in totals or type(count) is not int
+                        or not 0 <= count <= state.lords[lid].assets.get(asset, 0)):
+                    raise IllegalAction("bad_sail_discard", f"invalid {asset} discard for {lid}")
+                if count:
+                    totals[asset] += count
+                    discards.setdefault(lid, {})[asset] = count
+        if any(amount is not True and amount != totals[asset]
+               for asset, amount in requested.items()):
+            raise IllegalAction("bad_sail_discard", "per-Lord discards must match declared totals")
+        drop_prov, drop_loot = totals["provender"], totals["loot"]
+    else:
+        # True delegates the amount for that Asset. Exact counts constrain
+        # the choice, with Loot first when both flags delegate.
+        req_prov, req_loot = requested.get("provender", 0), requested.get("loot", 0)
+        drop_prov, drop_loot = next(
+            ((prov_count, loot_count) for prov_count, loot_count in choices
+             if (req_prov is True or prov_count == req_prov)
+             and (req_loot is True or loot_count == req_loot)),
+            (provender if req_prov is True else int(req_prov),
+             loot if req_loot is True else int(req_loot)),
+        )
+
+    ships_needed = horse_need + provender - drop_prov + 2 * (loot - drop_loot)
+    if ships_needed > ships:
+        raise IllegalAction(
+            "insufficient_ships",
+            f"Sail needs {ships_needed} Ships after discards; {ships} are available (4.7.3). "
+            "Use discard_excess_provender, discard_excess_loot or discard_by_lord (1.7.2).",
+        )
+    if (drop_prov, drop_loot) not in choices:
+        raise IllegalAction("unnecessary_discard",
+                            "Discard only the cargo needed to make this Sail (1.7.2)")
+    if "discard_by_lord" not in args:
+        # Aggregate amounts use group order. Use discard_by_lord to choose mats.
+        for asset, remaining in (("provender", drop_prov), ("loot", drop_loot)):
+            for lid in group:
+                take = min(remaining, state.lords[lid].assets.get(asset, 0))
+                if take:
+                    discards.setdefault(lid, {})[asset] = take
+                    remaining -= take
+    return discards
+
+
 def _require_whole_lieutenant_pairs(
     state: GameState, group: list[str] | set[str], *, removed: set[str] | None = None,
 ) -> None:
@@ -1222,6 +1309,7 @@ def _h_cmd_sail(
       group            Co-Sailing Lords, including mandatory Lower Lords.
       lodya_conversions   Optional per-Lord temporary Boat/Ship conversions,
                           using the same format as Supply.
+      discard_by_lord    Optional {lord_id: {provender: count, loot: count}}.
 
     Constraints:
       - Active Lord is Unbesieged at a Seaport.
@@ -1293,66 +1381,20 @@ def _h_cmd_sail(
     # 1 Ship / Provender, 2 Ships / Loot. Compute group totals and
     # compare to effective Ship capacity, including Sharing (1.5.2).
     horse_units, provender_total, loot_total = _sail_load(state, group)
-    # SMOKE-100 (Round 120): per rule 1.7.2 Greed, Lords MAY discard
-    # Loot and Provender when Sailing (4.7.3 listed alongside March/
-    # Avoid Battle/Retreat). The harness previously rejected with
-    # insufficient_ships even when voluntary discard could fit the
-    # group within budget. Accept optional discard flags:
-    #   args.discard_excess_provender=True/<int>
-    #   args.discard_excess_loot=True/<int>
-    # True discards EVERYTHING; integer N discards up to N.
+    # SMOKE-100: Greed permits only necessary cargo discards (1.7.2).
+    # discard_excess_provender / discard_excess_loot accept exact counts
+    # or True to let the handler choose a necessary amount of that Asset.
     horse_ship_factor = 1 if sd == "teutonic" else 2
     ships_available = _supply_transport_pool(state, lord_id, args.get("lodya_conversions"))["ship"]
     horse_ship_need = horse_units * horse_ship_factor
-    discard_prov_req = args.get("discard_excess_provender")
-    discard_loot_req = args.get("discard_excess_loot")
-    discarded_prov = 0
-    discarded_loot = 0
-    if discard_prov_req or discard_loot_req:
-        # Greedily discard to fit budget — Loot first (2 Ships saved
-        # per discard), then Provender. Honor explicit per-arg caps
-        # when given as int; True means up to all available.
-        # Distribute discards across group members (Lord may discard
-        # from each own mat). The 1.7.2 rule is per-Lord; we apply
-        # discard greedily across the group, recording per-Lord delta.
-        if discard_loot_req:
-            cap_loot = loot_total if discard_loot_req is True else int(discard_loot_req)
-            for gid in group:
-                if cap_loot <= 0:
-                    break
-                have = int(state.lords[gid].assets.get("loot", 0))
-                take = min(have, cap_loot)
-                if take > 0:
-                    state.lords[gid].assets["loot"] = have - take
-                    if state.lords[gid].assets["loot"] == 0:
-                        del state.lords[gid].assets["loot"]
-                    discarded_loot += take
-                    cap_loot -= take
-        if discard_prov_req:
-            cap_prov = provender_total if discard_prov_req is True else int(discard_prov_req)
-            for gid in group:
-                if cap_prov <= 0:
-                    break
-                have = int(state.lords[gid].assets.get("provender", 0))
-                take = min(have, cap_prov)
-                if take > 0:
-                    state.lords[gid].assets["provender"] = have - take
-                    if state.lords[gid].assets["provender"] == 0:
-                        del state.lords[gid].assets["provender"]
-                    discarded_prov += take
-                    cap_prov -= take
-    provender_total -= discarded_prov
-    loot_total -= discarded_loot
-    ships_needed = horse_ship_need + provender_total + loot_total * 2
-    if ships_needed > ships_available:
-        raise IllegalAction(
-            "insufficient_ships",
-            f"Sail needs {ships_needed} Ships (horse={horse_units}x{horse_ship_factor}, "
-            f"prov={provender_total}, loot={loot_total}x2); "
-            f"{ships_available} effective Ships (4.7.3). Pass "
-            f"args.discard_excess_provender / args.discard_excess_loot "
-            f"to drop assets first per 1.7.2.",
-        )
+    discards = _sail_discards(state, group, args, ships=ships_available,
+                             horse_need=horse_ship_need, provender=provender_total, loot=loot_total)
+    for gid, cargo in discards.items():
+        for asset, count in cargo.items():
+            assets = state.lords[gid].assets
+            assets[asset] -= count
+            if not assets[asset]:
+                del assets[asset]
 
     # Move group (location + moved_fought already validated above).
     for gid in group:
@@ -3061,6 +3103,8 @@ def _h_avoid_battle(
         raise IllegalAction("no_combat", "no pending combat")
     if cp.pending_response_by != sd or cp.defender_side != sd:
         raise IllegalAction("wrong_actor", f"response owed by {cp.pending_response_by}")
+    if cp.avoid_blocked_by_ambush:
+        raise IllegalAction("ambush_blocked", "Ambush blocks Avoid Battle during this Approach")
     dest = args.get("to")
     if not isinstance(dest, str):
         raise IllegalAction("missing_arg", "args.to required")
@@ -3370,10 +3414,9 @@ def _h_play_ambush_block(
     # Move the card from holds to discard.
     deck.holds.remove(ambush_cid)
     deck.discard.append(ambush_cid)
-    # Reset combat_pending state: avoid is blocked; baton returns to defender
-    # for stand_battle / withdraw choice. NO Asset discard happens (the
-    # avoid is fully blocked).
+    # Keep the block for the rest of this Approach, including partial Withdrawals.
     cp.ambush_block_pending = False
+    cp.avoid_blocked_by_ambush = True
     cp.pending_avoid_args = {}
     cp.pending_response_by = cp.defender_side
     state.meta.active_player = cp.defender_side

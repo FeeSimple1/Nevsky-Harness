@@ -302,6 +302,8 @@ class CombatPending(BaseModel):
     # attacker calls play_ambush_block or decline_ambush_block.
     ambush_block_pending: bool = False
     pending_avoid_args: dict[str, Any] = Field(default_factory=dict)
+    # A played Ambush bars further Avoid responses in this Approach.
+    avoid_blocked_by_ambush: bool = False
 
     # 4.3.4: discarded Assets awaiting the Approaching owner's allocation.
     avoid_spoils: dict[str, int] = Field(default_factory=dict)
@@ -530,6 +532,29 @@ class GameState(BaseModel):
     combat_pending: CombatPending | None = None
     pending_decisions: list[PendingDecision] = Field(default_factory=list)
     history: list[HistoryEntry] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _restore_ambush_block(self) -> Self:
+        """Recover a played Ambush in an older save of the same Approach."""
+        pending = self.combat_pending
+        if pending is None or "avoid_blocked_by_ambush" in pending.model_fields_set:
+            return self
+        blocked = False
+        for entry in reversed(self.history):
+            kind = entry.action.get("type")
+            if kind == "cmd_march":
+                if (blocked and entry.result.get("approach")
+                        and entry.actor == pending.attacker_side
+                        and entry.result.get("from") == pending.from_locale
+                        and entry.result.get("to") == pending.to_locale):
+                    pending.avoid_blocked_by_ambush = True
+                break
+            if kind in ("command_reveal", "stand_battle"):
+                break
+            if (kind == "play_ambush_block" and entry.actor == pending.attacker_side
+                    and entry.result.get("ambush_blocked")):
+                blocked = True
+        return self
 
     @model_validator(mode="after")
     def _restore_lieutenant_pairs(self) -> Self:
