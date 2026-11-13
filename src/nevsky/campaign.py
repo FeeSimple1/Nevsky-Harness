@@ -608,24 +608,6 @@ def _h_end_card(
     return ({"ended": True}, [])
 
 
-def _fpd_can_pay(state: GameState, sd: str) -> bool:
-    """True if side sd has any payable resource to shift Service right
-    (3.2 mechanics): Coin on a Mustered Lord, Loot on a Mustered Lord at a
-    Friendly Locale, or (Russian) Veche Coin. Mirrors legal_moves._pay_moves
-    so the Pay window only opens when a Pay option will actually be offered."""
-    for lord in state.lords.values():
-        if lord.side != sd or lord.state != "mustered":
-            continue
-        if lord.assets.get("coin", 0) > 0:
-            return True
-        if (lord.assets.get("loot", 0) > 0 and lord.location is not None
-                and _is_friendly_locale(state, lord.location, sd)):
-            return True
-    if sd == "russian" and state.veche.coin > 0:
-        return True
-    return False
-
-
 def _fpd_finalize(
     state: GameState, sd: str, feed_results: list[dict[str, Any]]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -726,7 +708,7 @@ def _h_fpd_resolve(
     Provender/Loot first, then surplus shared with co-located own-side
     Lords. Unfed: shift Service marker 1 box LEFT.
     4.8.2 Pay: same mechanics as 3.2. After Feed, if the side has any
-    payable resource, this handler pauses with a Pay window (PLAY-32:
+    legal payment, this handler pauses with a Pay window (PLAY-32:
     the window opens after EVERY Command card, per 4.8.2 "may receive
     Pay") so the player may queue pay_with_coin / pay_with_loot; a
     second fpd_resolve then runs the Disband check. args.decline_pay
@@ -881,15 +863,15 @@ def _h_fpd_resolve(
     # Feed -> Pay -> Disband (SoP 4.8.2 `pay: same_as levy.pay`). 4.8.2:
     # "Next, any Teutonic then Russian Lords may receive Pay as per Levy
     # (3.2)." The window therefore opens after EVERY Command card whenever
-    # the side has a payable resource -- not only when a Disband is
+    # the side has a legal payment -- not only when a Disband is
     # pending (that narrower gate was a harness artifact, fixed PLAY-32).
     # Pay is optional ("may"): args.decline_pay=True skips the window and
     # completes Feed -> Disband in one call. Otherwise the second
     # fpd_resolve for this side (with the window open) runs _fpd_finalize
     # via the early branch above.
-    if (state.campaign_turn.fpd_pay_window_side != sd
-            and not args.get("decline_pay")
-            and _fpd_can_pay(state, sd)):
+    from nevsky.legal_moves import _pay_moves
+
+    if not args.get("decline_pay") and _pay_moves(state, sd):
         state.campaign_turn.fpd_pay_window_side = sd
         return ({"side": sd, "feed": feed_results, "pay_window": True}, [])
     return _fpd_finalize(state, sd, feed_results)

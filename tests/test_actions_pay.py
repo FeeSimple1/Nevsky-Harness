@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from nevsky.actions import IllegalAction, apply_action
+from nevsky.actions import IllegalAction, _find_service_marker_box, apply_action
+from nevsky.llm.session import LLMSession
 from nevsky.scenarios import load_scenario
-from nevsky.state import GameState
+from nevsky.state import GameState, vassal_marker_box
 
 
 def _to_pay_step(s: GameState) -> None:
@@ -151,3 +152,121 @@ def test_pay_lord_coin_different_locale_rejected() -> None:
             "args": {"from": f"lord:{payer}", "target_lord": target, "units": 1},
         })
     assert exc.value.code == "pay_target_not_collocated"
+
+
+def _peipus_pay(advanced: bool = False) -> LLMSession:
+    session = LLMSession.start_new("peipus", llm_side="russian", seed=1, confirm_transports=True)
+    if advanced:
+        session.state.meta.optional_rules["advanced_vassal_service"] = True
+    for who, menu in (("human", session.legal_actions_for_human), ("llm", session.legal_actions)):
+        session.apply({"type": "aow_draw"}, who=who)
+        for _ in range(2):
+            session.apply(next(m for m in menu() if m["type"] == "aow_implement_card"), who=who)
+        session.apply({"type": "advance_step"}, who=who)
+    session.apply({"type": "advance_step"}, who="human")
+    assert session.state.meta.levy_step == "pay"
+    assert session.state.meta.active_player == "russian"
+    return session
+
+
+def _veche_pay(units=1, target="aleksandr"):
+    return {
+        "type": "pay_with_coin",
+        "args": {"from": "veche", "target_lord": target, "units": units},
+    }
+
+
+def _pay_candidates(session, payer):
+    return next(m["candidates"] for m in session.legal_actions()
+                if m["type"] in ("pay_with_coin", "pay_with_loot")
+                and payer in m["candidates"]["payers"])
+
+
+def _assert_pay_rejected(session, action, code="pay_exceeds_service_limit"):
+    before = session.state.model_dump_json()
+    history_length = len(session.history)
+    with pytest.raises(IllegalAction) as exc:
+        session.apply(action)
+    assert exc.value.code == code
+    assert session.state.model_dump_json() == before
+    assert len(session.history) == history_length
+
+
+def test_veche_pay_stops_at_calendar_edge():
+    session = _peipus_pay()
+    state = session.state
+    assert _find_service_marker_box(state, "aleksandr") == 16
+    assert state.veche.coin == 3
+    _assert_pay_rejected(session, _veche_pay(4), "insufficient_funds")
+    _assert_pay_rejected(session, _veche_pay(2))
+    assert _pay_candidates(session, "veche")["service_steps"]["aleksandr"] == 1
+
+    assert session.apply(_veche_pay())["new_box"] == 17
+    assert state.veche.coin == 2
+    assert "aleksandr" not in _pay_candidates(session, "veche")["targets"]
+    _assert_pay_rejected(session, _veche_pay())
+    assert session.apply(_veche_pay(2, "karelians"))["new_box"] == 16
+    assert state.veche.coin == 0
+
+
+@pytest.mark.parametrize("resource", ["coin", "loot"])
+def test_off_right_lord_can_pay_for_colocated_service(resource):
+    session = _peipus_pay()
+    assert session.apply(_veche_pay(target="domash"))["new_box"] == 17
+    payer = session.state.lords["domash"]
+    payer.assets[resource] = 2
+    kind, source = (
+        ("pay_with_coin", {"from": "lord:domash"})
+        if resource == "coin" else ("pay_with_loot", {"from_lord": "domash"})
+    )
+    action = {"type": kind, "args": {**source, "target_lord": "aleksandr", "units": 2}}
+    targets = _pay_candidates(session, "domash")["targets_by_payer"]["domash"]
+    assert "aleksandr" in targets and "domash" not in targets
+    _assert_pay_rejected(session, action)
+
+    action["args"]["units"] = 1
+    assert session.apply(action)["new_box"] == 17
+    assert payer.assets[resource] == 1
+    assert "aleksandr" not in _pay_candidates(session, "domash")["targets"]
+    _assert_pay_rejected(session, action)
+
+
+def test_campaign_pay_for_off_right_lord_advances_vassals_after_reload(tmp_path):
+    session = _peipus_pay(advanced=True)
+    session.apply(_veche_pay())
+    for who in ("llm", "human", "llm", "human"):
+        session.apply({"type": "advance_step"}, who=who)
+    assert session.state.meta.levy_step == "muster"
+    vassals = ("aleksandr_rostov", "aleksandr_yaroslavl")
+    for vid in vassals:
+        session.apply({"type": "muster_vassal", "args": {"by_lord": "aleksandr", "vassal_id": vid}})
+    for who in ("llm", "human", "llm"):
+        session.apply({"type": "advance_step"}, who=who)
+    for who in ("human", "llm"):
+        for _ in range(4):
+            session.apply({"type": "plan_add_card", "args": {"card": "pass"}}, who=who)
+        session.apply({"type": "finalize_plan"}, who=who)
+    session.apply({"type": "command_reveal"}, who="human")
+    session.apply({"type": "fpd_resolve", "args": {"decline_pay": True}}, who="human")
+    assert session.apply({"type": "fpd_resolve"})["pay_window"]
+
+    path = tmp_path / "campaign_pay.json"
+    session.save(path)
+    restored = LLMSession.load(path)
+    for position in (session, restored):
+        state = position.state
+        aleksandr = state.lords["aleksandr"]
+        assert _find_service_marker_box(state, "aleksandr") == 17
+        assert state.veche.coin == 2
+        for vid in vassals:
+            assert vassal_marker_box(state.calendar, vid, aleksandr.vassals[vid]) == 16
+        _assert_pay_rejected(position, _veche_pay(2))
+        assert _pay_candidates(position, "veche")["service_steps"]["aleksandr"] == 1
+        assert position.apply(_veche_pay())["new_box"] == 17
+        assert state.veche.coin == 1
+        for vid in vassals:
+            assert vassal_marker_box(state.calendar, vid, aleksandr.vassals[vid]) == 17
+        assert "aleksandr" not in _pay_candidates(position, "veche")["targets"]
+        _assert_pay_rejected(position, _veche_pay())
+    assert restored.state.model_dump() == session.state.model_dump()
+    assert restored.history == session.history

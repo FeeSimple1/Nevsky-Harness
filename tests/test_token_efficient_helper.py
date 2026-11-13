@@ -485,8 +485,8 @@ def test_complete_return_of_prince_via_ids_and_periodic_save_resume(tmp_path):
     """
     from nevsky.llm.action_browser import _literal
     from nevsky.scenarios import determine_scenario_winner
-    # The maritime report records a repeated Avoid after R6 blocked it.
-    # Replay the legal logistics transcript and test Ambush interrupts separately.
+    # The maritime transcript repeats an Avoid blocked by R6. The logistics
+    # transcript predates the 3.2 check for Pay at the Calendar edge.
     source = ROOT / "reports/return_prince_20261028/logistics"
     summary = json.loads((source / "summary.json").read_text())
     transcript = json.loads((source / "transcript.json").read_text())
@@ -494,10 +494,20 @@ def test_complete_return_of_prince_via_ids_and_periodic_save_resume(tmp_path):
     with contextlib.redirect_stdout(io.StringIO()):
         nv.start("return_of_the_prince", seed=summary["seed"], confirm_transports=True)
         expected = nv._S["state"].model_copy(deep=True)
+        assert not expected.meta.optional_rules.get("advanced_vassal_service")
+        finished_fpd_side = None
         for index, record in enumerate(transcript[2:]):
             intended = record["action"]
+            kind = intended["type"]
             side = intended["side"]
-            rows = all_pages(nv, category=intended["type"], side=side, page_size=100)
+            if (kind in ("pay_with_coin", "pay_with_loot")
+                    and intended["args"]["target_lord"] in expected.calendar.off_right_service):
+                continue
+            if kind == "fpd_resolve" and side == finished_fpd_side:
+                assert "disbanded" in record["result"]
+                finished_fpd_side = None
+                continue
+            rows = all_pages(nv, category=kind, side=side, page_size=100)
             def fits(row, intended=intended):
                 a = row["action"]
                 bound = a.get("args")
@@ -511,12 +521,14 @@ def test_complete_return_of_prince_via_ids_and_periodic_save_resume(tmp_path):
             assert candidates, (index, intended)
             selected = candidates[0]
             nv.apply(selected["id"], side=side, args=intended["args"])
-            apply_action(expected, deepcopy(intended))
+            result = apply_action(expected, deepcopy(intended))
             assert nv._S["state"].model_dump() == expected.model_dump()
+            if kind == "fpd_resolve" and record["result"].get("pay_window") and "disbanded" in result:
+                finished_fpd_side = side
             if index % 100 == 0:
                 path = tmp_path / "resume.json"
                 nv.save(str(path))
                 nv.load(str(path))
         assert determine_scenario_winner(nv._S["state"]) == summary["winner"]
         assert nv._S["state"].meta.game_over
-        assert len(nv._S["history"]) == len(transcript) - 2 == 820
+        assert len(nv._S["history"]) == 746

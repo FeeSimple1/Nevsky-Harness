@@ -33,7 +33,7 @@ def test_off_right_service_distinct_from_off_right_cylinder() -> None:
     s.meta.levy_step = "pay"
     s.meta.active_player = "teutonic"
     apply_action(s, {"type": "pay_with_coin", "side": "teutonic",
-                     "args": {"from": f"lord:{teu}", "target_lord": teu, "units": 3}})
+                     "args": {"from": f"lord:{teu}", "target_lord": teu, "units": 1}})
     assert teu in s.calendar.off_right_service
     # Cylinder list separate.
     assert teu not in s.calendar.off_right
