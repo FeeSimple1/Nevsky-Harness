@@ -3,8 +3,8 @@ R17, T18 — events that try to shift a Lord's cylinder/Service should
 no-op when no valid target exists. Same family as SMOKE-112/113/114
 (T14/R18, R10, R9).
 
-For R11 and R17, the this-Levy block list side-effect still applies
-even when the shift portion no-ops (the block is a separate effect).
+T11 still grants Crusade without a shift. For R11 and R17, the
+this-Levy block still applies when their shift is unavailable.
 
 Found via the 300-session strategic-agent sweep (R187) which left 15
 sessions stuck across these four event resolvers.
@@ -32,15 +32,16 @@ def _strip_lord_from_calendar(s, lid):
 # ---------- T11 Pope Gregory --------------------------------------------
 
 
-def test_smoke_121_t11_no_op_when_no_teuton_cylinder():
+def test_smoke_121_t11_grants_crusade_when_no_teuton_cylinder():
     s = load_scenario("watland", seed=1)
     # Strip all Teutonic Lord cylinders from Calendar
     for lid, l in list(s.lords.items()):
         if l.side == "teutonic":
             _strip_lord_from_calendar(s, lid)
     res = resolve_immediate_event(s, "T11", {"target": "andreas"})
-    assert res.get("no_op") is True
-    assert res.get("reason") == "no_teutonic_cylinder_on_calendar"
+    assert res["shifted"] is None
+    assert res["reason"] == "no_teutonic_cylinder_on_calendar"
+    assert s.decks.teutonic.capabilities_in_play.count("T11") == 1
 
 
 def test_smoke_121_t11_still_resolves_when_target_exists():
