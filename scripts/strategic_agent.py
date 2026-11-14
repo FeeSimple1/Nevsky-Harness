@@ -284,7 +284,7 @@ def _instantiate_templated(s, move):
 
 def _populate_event_args(state, cid, args):
     """Same as scripts/self_play.py — supply default event args."""
-    if cid in ("R9", "T18"):
+    if cid in ("R9", "T11", "T18"):
         from nevsky.event_args import _populate_event_args as populate_event_args
         return populate_event_args(state, cid, args)
     new = dict(args)
@@ -332,13 +332,6 @@ def _populate_event_args(state, cid, args):
         new.setdefault("direction", "left")
     elif cid == "T2":
         new.setdefault("target", "veche")
-    elif cid == "T11":
-        for lid, l in state.lords.items():
-            if l.side == "teutonic" and cyl_on_cal(lid):
-                new.setdefault("target", lid)
-                break
-        else:
-            new.setdefault("target", "andreas")
     elif cid == "T14":
         for lid, loc in state.locales.items():
             if loc.russian_ravaged:

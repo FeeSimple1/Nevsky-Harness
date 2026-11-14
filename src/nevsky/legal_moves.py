@@ -234,7 +234,7 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             if not applicable:
                 note = f"reveal-and-discard {cid_pending} — no legal target (3.1.4 Greed)"
                 if cid_pending == "T11":
-                    note = "Pope Gregory adds Crusade; no Teutonic cylinder to shift"
+                    note = "Pope Gregory adds Crusade with no Teutonic cylinder to shift"
                 elif cid_pending == "R17":
                     note = "Dietrich blocks Muster of or by Andreas and Rudolf; no marker to shift"
                 out.append({
