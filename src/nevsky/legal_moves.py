@@ -218,8 +218,8 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
             # implements that actually resolve (one per legal
             # target/direction/magnitude). The advance-block stays
             # satisfiable with a concrete legal move. If NONE resolve
-            # (no legal target), offer the bare implement, which the
-            # handler reveal-and-discards with no effect.
+            # (no legal target), offer the bare implement to resolve
+            # any remaining effects or reveal and discard the card.
             from nevsky.event_args import applicable_event_implements
             try:
                 applicable = applicable_event_implements(state, side, cid_pending)
@@ -233,7 +233,9 @@ def _aow_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 })
             if not applicable:
                 note = f"reveal-and-discard {cid_pending} — no legal target (3.1.4 Greed)"
-                if cid_pending == "R17":
+                if cid_pending == "T11":
+                    note = "Pope Gregory adds Crusade with no Teutonic cylinder to shift"
+                elif cid_pending == "R17":
                     note = "Dietrich blocks Muster of or by Andreas and Rudolf; no marker to shift"
                 out.append({
                     "type": "aow_implement_card", "side": side,

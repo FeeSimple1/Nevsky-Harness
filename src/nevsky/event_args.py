@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nevsky.events import _dietrich_targets
+from nevsky.events import _dietrich_targets, _pope_gregory_targets
 from nevsky.static_data import load_locales, load_ways  # noqa: F401 (used in functions)
 
 
@@ -94,13 +94,9 @@ def _populate_event_args(state, cid, args):
     elif cid == "T2":
         new.setdefault("target", "veche")
     elif cid == "T11":
-        # Pick a Teutonic Lord with cylinder on Calendar
-        for lid, l in state.lords.items():
-            if l.side == "teutonic" and cyl_on_cal(lid):
-                new.setdefault("target", lid)
-                break
-        else:
-            new.setdefault("target", "andreas")
+        targets = _pope_gregory_targets(state)
+        if targets:
+            new.setdefault("target", targets[0])
     elif cid == "T14":
         # Find a Russian-ravaged locale in Livonia/Estonia
         static = load_locales()
@@ -256,9 +252,8 @@ def _expand_event_variants(state, move):
             for direction in ("left", "right"):
                 variant({"target": tgt, "direction": direction})
     elif cid == "T11":
-        for lid, l in state.lords.items():
-            if l.side == "teutonic":
-                variant({"target": lid})
+        for lid in _pope_gregory_targets(state):
+            variant({"target": lid})
     elif cid in ("R10",):
         for tgt in ("andreas", "service:andreas"):
             for d in ("left", "right"):

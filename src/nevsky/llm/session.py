@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import random
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -139,12 +140,12 @@ class LLMSession:
         self.history.append({
             "who": who,
             "side": side,
-            "action": {**action, "side": side},
+            "action": deepcopy({**action, "side": side}),
             "reasoning": reasoning,
             "phase": self.state.meta.phase,
             "step": (self.state.meta.levy_step if self.state.meta.phase == "levy"
                      else self.state.meta.campaign_step),
-            "result_summary": _summarize_result(result),
+            "result_summary": deepcopy(_summarize_result(result)),
         })
         return result
 

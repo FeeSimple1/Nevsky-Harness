@@ -169,10 +169,23 @@ def test_heinrich_curia_rejects_invalid_grants_and_adds_mixed_assets(tmp_path):
     grants = {"andreas": {"coin": 3, "provender": 1}, "knud_and_abel": {"cart": 2, "boat": 2}}
     result = _apply(session, "aow_play_hold", card_id="T13", recipients=recipients, assets=grants)
     assert result["result"]["distributed"] == grants
+    # Callers can clear their nested input buffers after a successful action.
+    for grant in grants.values():
+        grant.clear()
+    grants.clear()
+    recipients.clear()
+    recorded = session.state.history[-1]
+    expected_assets = {
+        "andreas": {"coin": 3, "provender": 1},
+        "knud_and_abel": {"cart": 2, "boat": 2},
+    }
+    assert recorded.action["args"]["assets"] == expected_assets
+    assert recorded.result["result"]["recipients"] == ["andreas", "knud_and_abel"]
+    assert session.history[-1]["action"]["args"] == recorded.action["args"]
     for lord, before in ((knud, knud_before), (andreas, andreas_before)):
         assert lord.assets == {
             **before, **{asset: before.get(asset, 0) + count
-                         for asset, count in grants[lord.lord_id].items()},
+                         for asset, count in expected_assets[lord.lord_id].items()},
         }
     assert session.state.lords["heinrich"].state == "disbanded"
     assert "T13" not in session.state.decks.teutonic.holds

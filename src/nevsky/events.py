@@ -16,9 +16,8 @@ handlers below.
 All 36 AoW events are wired: 16 immediate resolvers, 3 hold
 resolvers, 5 Lordship-shift holds, 10 battle Holds consumed via
 _consume_battle_holds, and Famine (T16/R7) via campaign supply.
-The `deferred: True` return in the dispatchers below is a defensive
-fallback only -- no live card reaches it. Do not re-open it as an
-unimplemented path.
+The immediate Event dispatcher's `deferred: True` return is a fallback
+for unknown card IDs.
 
 Each resolver mutates state in place and returns a result dict or
 raises IllegalAction on missing/invalid args. Resolvers do NOT
@@ -37,6 +36,7 @@ from typing import Any
 
 from nevsky.actions import (
     IllegalAction,
+    _acquire_side_capability,
     _find_cylinder_box,
     _find_service_marker_box,
     _shift_lord_service,
@@ -200,41 +200,31 @@ def _ev_torzhok(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
     raise IllegalAction("missing_arg", "args.target must be 'domash' or 'veche'")
 
 
-def _ev_pope_gregory(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
-    """T11 Pope Gregory issues indulgences (immediate, side-wide capability + event).
-    Shift 1 Teuton cylinder 1 box LEFT and add Crusade card to capabilities_in_play.
-
-    SMOKE-121 (Round 187): if no Teutonic Lord cylinder is on the
-    Calendar, the event no-ops (same family as SMOKE-112/113/114/120).
-    SMOKE-117 (Round 182): per card text, the SAME card moves into
-    capabilities_in_play as Crusade. The aow_implement_card immediate-
-    event flow normally appends to discard after the resolver; if T11
-    also adds itself to capabilities_in_play, the card ends up in BOTH
-    lists (deck-uniqueness violation). Return places_in_capabilities=
-    True so aow_implement_card can skip the discard append.
-    """
-    # SMOKE-121 pre-flight: any Teuton cylinder on Calendar?
-    cal = state.calendar
-    teu_cyl_on_cal = [
-        lid for lid, l in state.lords.items()
-        if l.side == "teutonic" and (
-            lid in cal.off_left or lid in cal.off_right
-            or any(lid in cb.cylinders for cb in cal.boxes)
-        )
+def _pope_gregory_targets(state: GameState) -> list[str]:
+    return [
+        lid for lid, lord in state.lords.items()
+        if lord.side == "teutonic" and _find_cylinder_box(state, lid) is not None
     ]
-    if not teu_cyl_on_cal:
-        return {"event": "T11", "no_op": True,
-                "reason": "no_teutonic_cylinder_on_calendar"}
-    target = args.get("target")
-    if not isinstance(target, str) or target not in state.lords or state.lords[target].side != "teutonic":
-        raise IllegalAction("missing_arg", "args.target Teutonic lord_id required for T11")
-    new = _shift_cylinder(state, target, 1, "left")
+
+
+def _ev_pope_gregory(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
+    """T11 shifts an available Teutonic cylinder left and grants Crusade."""
+    result: dict[str, Any] = {"event": "T11", "shifted": None, "new_box": None}
+    if _pope_gregory_targets(state):
+        target = args.get("target")
+        if (not isinstance(target, str) or target not in state.lords
+                or state.lords[target].side != "teutonic"):
+            raise IllegalAction("missing_arg", "args.target Teutonic lord_id required for T11")
+        result.update(shifted=target, new_box=_shift_cylinder(state, target, 1, "left"))
+    else:
+        result["reason"] = "no_teutonic_cylinder_on_calendar"
+
+    # SMOKE-117: the Event and Capability share one physical card.
     already_in_play = "T11" in state.decks.teutonic.capabilities_in_play
     if not already_in_play:
-        state.decks.teutonic.capabilities_in_play.append("T11")
-    return {"event": "T11", "shifted": target, "new_box": new,
-            "crusade_added": not already_in_play,
-            "places_in_capabilities": True}
+        _acquire_side_capability(state, "teutonic", "T11")
+    result.update(crusade_added=not already_in_play, places_in_capabilities=True)
+    return result
 
 
 def _ev_khan_baty(state: GameState, args: dict[str, Any]) -> dict[str, Any]:
@@ -848,16 +838,16 @@ def resolve_immediate_event(state: GameState, card_id: str, args: dict[str, Any]
 
 
 def resolve_hold_event(state: GameState, card_id: str, args: dict[str, Any]) -> dict[str, Any]:
-    """Dispatch a hold event resolver. Covers R3 Pogost (and the Tier
-    3 hold events T3 Vodian Treachery / T13 Heinrich Curia, which
-    have their own handler entries). The `deferred: True` return is a
-    defensive fallback for unknown card ids only; every live hold
-    card has a resolver or a dedicated path."""
+    """Resolve a direct Hold Event (R3, T3, or T13)."""
     fn = _HOLD_RESOLVERS.get(card_id)
-    if fn is None:
-        return {"event": card_id, "deferred": True,
-                "note": "no resolver wired; play the card text manually"}
-    return fn(state, args)
+    if fn is not None:
+        result = fn(state, args)
+        if not result.get("deferred"):
+            return result
+    raise IllegalAction(
+        "wrong_hold_context",
+        f"Use {card_id}'s card-specific action at its printed timing",
+    )
 
 
 # ---------------------------------------------------------------------------

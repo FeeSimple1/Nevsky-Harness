@@ -51,6 +51,7 @@ System actions:
 from __future__ import annotations
 
 from collections.abc import Iterator
+from copy import deepcopy
 from typing import Any
 
 from pydantic import BaseModel
@@ -242,9 +243,9 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             HistoryEntry(
                 sequence=state.meta.sequence,
                 actor=side,  # Literal-typed in HistoryEntry
-                action={"type": atype, "side": side, "args": args},
+                action={"type": atype, "side": side, "args": deepcopy(args)},
                 dice=dice,
-                result=result,
+                result=deepcopy(result),
             )
         )
     except Exception:
@@ -3432,10 +3433,9 @@ def _auto_confirm_setup_transport_choices(state: GameState, side: Side) -> list[
 def _h_aow_play_hold(
     state: "GameState", side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Play a Hold event from the side's `holds` list. The event's
-    effect resolves immediately; the card is discarded (per "discard the
-    moment used"). args.card_id required, plus event-specific args.
-    Phase 4c covers a subset; uncovered holds get a deferred placeholder.
+    """Resolve a direct Hold event and discard it once used.
+
+    Supply args.card_id and any choices required by the Event.
     """
     from nevsky.events import resolve_hold_event
     sd = _require_side_player(state, side)
