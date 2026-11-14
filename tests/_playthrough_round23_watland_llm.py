@@ -141,7 +141,6 @@ def levy_phase(s, turn):
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
     # call_to_arms
     step(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
-    step(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     step(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     # Russian Veche choices: shift Andrey left if option A available; else skip.
     moves = legal_moves(s, with_previews=False)
@@ -160,7 +159,6 @@ def levy_phase(s, turn):
             step(s, veche_a_aleks[0])
         else:
             step(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}}, expect_illegal=True)
-    step(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
 
 

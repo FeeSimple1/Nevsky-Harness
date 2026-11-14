@@ -78,9 +78,9 @@ def _next_expected_action(state: GameState) -> str:
             return f"{side}: muster_lord (or advance_step if no Muster needed)"
         if step == "call_to_arms":
             if side == "teutonic":
-                return f"{side}: legate_arrives | legate_move | legate_use | legate_skip, then aow_discard_this_levy, then advance_step"
-            else:
-                return f"{side}: veche_action, then aow_discard_this_levy, then advance_step"
+                return (f"{side}: legate_arrives | legate_move | legate_use | legate_skip, "
+                        "then advance_step")
+            return f"{side}: veche_action, then advance_step"
         return f"{side}: advance_step"
     if m.phase == "campaign":
         step = m.campaign_step

@@ -82,7 +82,6 @@ def main() -> int:
         print(f"  No T Lord at riga; skipping Legate 2c")
         step(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
 
-    apply_action(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
 
     # ===== Russian CtA: Veche options =====
@@ -102,7 +101,6 @@ def main() -> int:
     else:
         print(f"  After Decline: vp={s.veche.vp_markers}, slid={res.get('slid')}")
 
-    apply_action(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
 
     print(f"\n=== After CtA: phase={s.meta.phase}, campaign_step={s.meta.campaign_step}")

@@ -51,7 +51,6 @@ _ACTION_PRIORITY = {
     "legate_arrives": 60,
     "legate_use": 50,
     "veche_action": 60,
-    "aow_discard_this_levy": 70,
     "plan_add_card": 60,
     "cmd_march": 40,
     "cmd_tax": 35,

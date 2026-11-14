@@ -314,7 +314,6 @@ def run_game():
             "aow_draw": 100,
             "aow_shuffle": 100,
             "disband_resolve": 100,
-            "aow_discard_this_levy": -1,
             "legate_skip": -1,
         }
         if typ in progress:

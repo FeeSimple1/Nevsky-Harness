@@ -186,10 +186,8 @@ def _walk_to_plan(s):
     apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
     # call_to_arms
     apply_action(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
-    apply_action(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
-    apply_action(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
 
 

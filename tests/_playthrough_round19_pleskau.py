@@ -84,7 +84,6 @@ def levy_phase(s, turn=1):
     # call_to_arms
     print(f"\n--- LEVY turn {turn} call_to_arms ---")
     step(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
-    step(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     step(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     # Russian Veche: option B if Domash Ready and we have VP marker.
     if s.lords["domash"].state == "ready" and s.veche.vp_markers > 0:
@@ -93,7 +92,6 @@ def levy_phase(s, turn=1):
                  "args": {"option": "B", "target_lord": "domash", "seat": "novgorod"}})
     else:
         step(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
-    step(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
 
 

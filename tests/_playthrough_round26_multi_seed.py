@@ -168,13 +168,11 @@ def levy_phase(s):
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
     # call_to_arms
     step(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
-    step(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     step(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     moves = legal_moves(s, with_previews=False)
     veche = next((m for m in moves if m["type"] == "veche_action"), None)
     if veche: step(s, veche)
     else: step(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}}, expect_illegal=True)
-    step(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
     while s.meta.campaign_step == "capability_discard":
         move = next(m for m in legal_moves(s, with_previews=False)

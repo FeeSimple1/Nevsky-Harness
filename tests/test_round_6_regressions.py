@@ -402,10 +402,8 @@ def test_full_16_turn_crusade_run_no_invariant_violation() -> None:
                 apply_action(s, {"type": "advance_step", "side": sd2, "args": {}})
         # CtA skip
         apply_action(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
-        apply_action(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
         apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
         apply_action(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
-        apply_action(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
         apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
 
     def fast_camp():

@@ -113,10 +113,8 @@ def main() -> int:
 
     print("\n[Levy 1] Call to Arms (skip)")
     step(s, {"type": "legate_skip", "side": "teutonic", "args": {}})
-    step(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     step(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     step(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
-    step(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
 
     show(s, "Entering Campaign 1")

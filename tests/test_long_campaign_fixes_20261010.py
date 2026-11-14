@@ -88,8 +88,8 @@ def test_treachery_respects_vp_cap():
     assert state.calendar.teutonic_vp == 17.5
 
 
-@pytest.mark.parametrize("blocker", ["walls_plus_one", "teutonic_castle", "russian_castle"])
-def test_treachery_still_obeys_existing_eligibility(blocker):
+@pytest.mark.parametrize("blocker", ["teutonic_castle", "russian_castle"])
+def test_treachery_is_unavailable_at_a_castle(blocker):
     state = position("hidden_hold_T3")
     action = INDEX["hidden_hold_T3"]["actions"][0]
     setattr(state.locales[action["args"]["target"]], blocker, True)

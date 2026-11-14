@@ -37,7 +37,6 @@ Levy actions and the transition to Campaign:
     legate_move           Option 1: move pawn to a Friendly Locale
     legate_use            Option 2: USE the Legate (sub-options 2a/2b/2c)
     veche_action          Russian Veche option A/B/C/D
-    aow_discard_this_levy 3.5.3 -- both sides discard "This Levy" events
 
   Step transitions:
     advance_step          finish current side's segment of current step;
@@ -696,18 +695,11 @@ def _h_advance_step(
             # Flags should not persist into subsequent Levies.
             state.legate.extra_muster_target_lord = None
             state.veche.extra_muster_target_lord = None
-            # SMOKE-039 (Round 51): auto-fire 3.5.3 ("both sides discard
-            # This-Levy events") on the call_to_arms -> done transition.
-            # The explicit aow_discard_this_levy action stays available
-            # for tests/agents that prefer to call it manually; calling
-            # it before advance_step leaves the list empty, so this
-            # post-call_to_arms sweep is idempotent. Without this auto-
-            # fire, agents that skip the action leak events into the
-            # next Levy / Campaign decks (3.5.3 is mandatory per rules).
-            for _sd_deck in (state.decks.teutonic, state.decks.russian):
-                if _sd_deck.this_levy_events:
-                    _sd_deck.discard.extend(_sd_deck.this_levy_events)
-                    _sd_deck.this_levy_events = []
+            # 3.5.3: both sides discard This-Levy Events here so their
+            # Capabilities stay unavailable through Legate and Veche Muster.
+            for deck in (state.decks.teutonic, state.decks.russian):
+                deck.discard.extend(deck.this_levy_events)
+                deck.this_levy_events.clear()
             # Levy complete. Resolve any 4.0 discards before Plan.
             state.meta.phase = "campaign"
             state.meta.campaign_step = "capability_discard"
@@ -1142,21 +1134,6 @@ def _h_aow_implement_card(
                  "effect": result}, [])
     deck.discard.append(cid)
     return ({"card": cid, "outcome": "immediate_event_discarded", "effect": result}, [])
-
-
-def _h_aow_discard_this_levy(
-    state: GameState, side: str, args: dict[str, Any]
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """3.5.3 -- discard all This-Levy events for the actor's side."""
-    sd = _require_side_player(state, side)
-    _require_levy_phase(state)
-    _require_levy_step(state, "call_to_arms")
-
-    deck = _side_deck(state, sd)
-    discarded = list(deck.this_levy_events)
-    deck.discard.extend(discarded)
-    deck.this_levy_events = []
-    return ({"discarded": discarded}, [])
 
 
 # ---------------------------------------------------------------------------
@@ -3543,7 +3520,6 @@ _HANDLERS: dict[str, Any] = {
     "aow_shuffle": _h_aow_shuffle,
     "aow_draw": _h_aow_draw,
     "aow_implement_card": _h_aow_implement_card,
-    "aow_discard_this_levy": _h_aow_discard_this_levy,
     # 3.2
     "pay_with_coin": _h_pay_with_coin,
     "pay_with_loot": _h_pay_with_loot,
