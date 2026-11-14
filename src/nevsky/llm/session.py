@@ -142,7 +142,8 @@ class LLMSession:
             "action": {**action, "side": side},
             "reasoning": reasoning,
             "phase": self.state.meta.phase,
-            "step": self.state.meta.levy_step or self.state.meta.campaign_step,
+            "step": (self.state.meta.levy_step if self.state.meta.phase == "levy"
+                     else self.state.meta.campaign_step),
             "result_summary": _summarize_result(result),
         })
         return result

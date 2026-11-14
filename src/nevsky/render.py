@@ -374,9 +374,15 @@ def _render_lord(state: GameState, lord_id: str) -> str:
             sv = static_v.get(vid, {})
             forces_str = _describe_counts(sv.get("forces", {}))
             sp = f" [special: {sv.get('special')}]" if sv.get("special") else ""
+            service_status = ""
+            if vstate.removed:
+                service_status = ", permanently removed"
+            elif vstate.unready_through_levy is not None:
+                service_status = f", unready through Levy {vstate.unready_through_levy}"
             lines.append(
                 f"    {vid} ({sv.get('name', vid)}): forces={forces_str}, "
-                f"service={sv.get('service')}, ready={vstate.ready}, mustered={vstate.mustered}{sp}"
+                f"service={sv.get('service')}, ready={vstate.ready}, "
+                f"mustered={vstate.mustered}{service_status}{sp}"
             )
     return "\n".join(lines)
 

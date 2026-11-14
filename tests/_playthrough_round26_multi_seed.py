@@ -78,7 +78,7 @@ def check_invariants(s, label):
     ):
         issues.append(f"bad levy_step={s.meta.levy_step}")
     if s.meta.phase == "campaign" and s.meta.campaign_step not in (
-        "plan", "command", "end_campaign", "done"
+        "capability_discard", "plan", "command", "end_campaign", "done"
     ):
         issues.append(f"bad campaign_step={s.meta.campaign_step}")
     # Calendar markers: each Lord cylinder should appear at most once
@@ -176,6 +176,10 @@ def levy_phase(s):
     else: step(s, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}}, expect_illegal=True)
     step(s, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     step(s, {"type": "advance_step", "side": "russian", "args": {}})
+    while s.meta.campaign_step == "capability_discard":
+        move = next(m for m in legal_moves(s, with_previews=False)
+                    if m["type"] == "discard_excess_capability")
+        step(s, move)
 
 
 def make_plan(s):

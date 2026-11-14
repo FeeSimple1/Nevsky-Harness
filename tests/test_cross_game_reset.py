@@ -268,6 +268,32 @@ def test_capability_limit_recounts_lords_after_special_vassal_disband(named):
     apply_action(state, {"type": "advance_step", "side": "teutonic", "args": {}})
     args = {"rule_4_0_discards": {"teutonic": ["T11", "T1", "T12"]}} if named else {}
     apply_action(state, {"type": "advance_step", "side": "russian", "args": args})
+    if not named:
+        apply_action(state, {"type": "discard_excess_capability", "side": "teutonic",
+                             "args": {"card_id": "T11"}})
     assert lord.state == "disbanded"
     assert state.decks.teutonic.capabilities_in_play == []
     assert state.meta.game_over and state.meta.winner == "russian"
+
+
+def test_crusade_discard_can_leave_another_choice_after_losing_a_lord():
+    state = end_campaign()
+    for lord in state.lords.values():
+        if lord.side == "teutonic":
+            lord.state = "ready"
+            lord.location = None
+    andreas = place(state, "andreas", {"knights": 3})
+    andreas.vassals["andreas_summer_crusaders_1"].mustered = True
+    place(state, "hermann", {"knights": 1})
+    for cid in ("T1", "T12", "T11"):
+        card_in(state, cid, "capabilities_in_play")
+    state.meta.phase = "levy"
+    state.meta.levy_step = "call_to_arms"
+    for side in ("teutonic", "russian"):
+        apply_action(state, {"type": "advance_step", "side": side, "args": {}})
+    for card, expected_step in (("T11", "capability_discard"), ("T1", "plan")):
+        apply_action(state, {"type": "discard_excess_capability", "side": "teutonic",
+                             "args": {"card_id": card}})
+        assert state.meta.campaign_step == expected_step
+    assert andreas.state == "disbanded"
+    assert state.decks.teutonic.capabilities_in_play == ["T12"]

@@ -10,10 +10,7 @@ returns a result dict describing the outcome. Illegal actions raise
 `IllegalAction`; rejected actions leave the state, RNG, and history
 unchanged, including when a handler rejects after partial execution.
 
-Phase 2 covers all Levy-phase actions (3.1 Arts of War through 3.5
-Call to Arms). Phase 3 will add Campaign actions (March, Battle, etc.).
-
-Action types implemented in Phase 2:
+Levy actions and the transition to Campaign:
 
   Arts of War (3.1):
     aow_shuffle           shuffle own AoW deck
@@ -45,6 +42,7 @@ Action types implemented in Phase 2:
   Step transitions:
     advance_step          finish current side's segment of current step;
                           when both sides done, advance to next levy_step
+    discard_excess_capability  choose a side-wide Capability to discard (4.0)
 
 System actions:
     system_setup_complete clear scenario-setup PendingDecisions (Phase 1
@@ -63,8 +61,10 @@ from nevsky.state import (
     ForceType,
     GameState,
     HistoryEntry,
+    Lord,
     Side,
     VassalState,
+    clear_vassal_marker,
     detach_vassal_marker,
     move_vassal_marker,
     vassal_marker_box,
@@ -195,6 +195,10 @@ def apply_action(state: GameState, action: dict[str, Any]) -> dict[str, Any]:
             + (state.meta.victory_reason or "terminal")
             + "); no further actions are accepted.",
         )
+
+    if (state.meta.phase == "campaign" and state.meta.campaign_step == "capability_discard"
+            and atype not in ("discard_excess_capability", REWARD_ACTION)):
+        raise IllegalAction("capability_discard_pending", "choose an excess Capability to discard")
 
     if (state.combat_pending is not None and state.combat_pending.avoid_spoils
             and atype != "allocate_avoid_spoils"):
@@ -337,10 +341,117 @@ def _side_deck(state: GameState, side: Side):
     return state.decks.teutonic if side == "teutonic" else state.decks.russian
 
 
-def _acquire_side_capability(state: GameState, side: Side, card_id: str) -> None:
+_SPECIAL_VASSAL_CARDS = {"summer_crusaders": "T11", "steppe_warriors": "R10"}
+
+
+def _vassal_can_ready(state: GameState, side: Side, vdata: dict, vassal: VassalState) -> bool:
+    card = _SPECIAL_VASSAL_CARDS.get(vdata.get("special"))
+    return (not vassal.removed and vassal.unready_through_levy is None
+            and (card is None or card in _side_deck(state, side).capabilities_in_play))
+
+
+def _crusade_available_this_levy(state: GameState, vassal: VassalState) -> bool:
+    return (_season_of_box(state.meta.box) == "summer"
+            and vassal.last_crusade_levy != state.meta.box)
+
+
+def _ready_special_vassals(state: GameState, side: Side, card_id: str) -> None:
+    from nevsky.static_data import load_lords
+
+    static = load_lords()
+    for lord_id, lord in state.lords.items():
+        if lord.side != side or lord.state != "mustered":
+            continue
+        for vdata in static[lord_id]["vassals"]:
+            if _SPECIAL_VASSAL_CARDS.get(vdata.get("special")) == card_id:
+                vassal = lord.vassals.get(vdata["vassal_id"])
+                if vassal is not None:
+                    vassal.ready = _vassal_can_ready(state, side, vdata, vassal)
+
+
+def _acquire_side_capability(state: GameState, side: Side, card_id: str) -> list[dict[str, Any]]:
     _side_deck(state, side).capabilities_in_play.append(card_id)
-    if card_id == "T13" and side == "teutonic":
+    if card_id == "T13":
         state.legate.reset_pawn(in_play=True)
+    if card_id in _SPECIAL_VASSAL_CARDS.values():
+        _ready_special_vassals(state, side, card_id)
+    if card_id == "T11" and state.meta.levy_step in ("muster", "call_to_arms"):
+        return _t11_summer_auto_muster(state)
+    return []
+
+
+def _finish_vassal_muster(state: GameState, side: Side) -> None:
+    from nevsky.static_data import load_lords
+
+    if not state.meta.optional_rules.get("advanced_vassal_service"):
+        return
+    static = load_lords()
+    for lord_id, lord in state.lords.items():
+        if lord.side != side:
+            continue
+        for vdata in static[lord_id]["vassals"]:
+            vassal = lord.vassals.get(vdata["vassal_id"])
+            if (vassal is not None and vassal.unready_through_levy is not None
+                    and vassal.unready_through_levy <= state.meta.box):
+                vassal.unready_through_levy = None
+                vassal.ready = _vassal_can_ready(state, side, vdata, vassal)
+
+
+def _restore_legacy_vassals(state: GameState, legacy: set[tuple[str, str]]) -> None:
+    from nevsky.campaign import _disband_empty_lord
+    from nevsky.static_data import load_lords
+
+    removed: set[tuple[str, str]] = set()
+    unready_through: dict[tuple[str, str], int] = {}
+    for entry in state.history:
+        expiry = entry.result.get("vassal_advanced", {})
+        for record in expiry.get("removed", []):
+            removed.add((record["lord_id"], record["vassal_id"]))
+        for record in expiry.get("to_mat_unready", []):
+            key = record["lord_id"], record["vassal_id"]
+            unready_through[key] = record["from_box"] + (entry.action.get("type") == "fpd_resolve")
+
+    static = load_lords()
+    crusade_lords: list[str] = []
+    muster_open = (state.meta.phase == "levy" and (
+        state.meta.levy_step == "muster" or (
+            state.meta.levy_step == "call_to_arms" and not state.meta.levy_step_completed_t)))
+    for lid, lord in state.lords.items():
+        muster_finished = (state.meta.phase == "campaign" or (
+            state.meta.levy_step == "call_to_arms" and lord.side == "teutonic"
+            and state.meta.levy_step_completed_t))
+        forces_returned = False
+        for vdata in static[lid]["vassals"]:
+            vid = vdata["vassal_id"]
+            key = lid, vid
+            if key not in legacy:
+                continue
+            vassal = lord.vassals[vid]
+            through = unready_through.get(key, 0)
+            if key not in removed and (through > state.meta.box
+                    or (through == state.meta.box and not muster_finished)):
+                vassal.unready_through_levy = through
+            if key in removed or vassal.unready_through_levy is not None:
+                if vassal.mustered and lord.state == "mustered":
+                    _return_vassal_forces(lord, vdata)
+                    forces_returned = True
+                clear_vassal_marker(state.calendar, vid, vassal)
+                vassal.removed = key in removed
+                vassal.ready = False
+                vassal.mustered = False
+            elif lord.state == "mustered" and vdata.get("special") in _SPECIAL_VASSAL_CARDS:
+                vassal.ready = _vassal_can_ready(state, lord.side, vdata, vassal)
+                if (vdata["special"] == "summer_crusaders" and vassal.ready and muster_open
+                        and _season_of_box(state.meta.box) == "summer"):
+                    if vassal.mustered:
+                        # The old entry-to-Muster hook already replenished this Vassal.
+                        vassal.last_crusade_levy = state.meta.box
+                    else:
+                        crusade_lords.append(lid)
+        if forces_returned:
+            _disband_empty_lord(state, lid)
+    for lid in crusade_lords:
+        _t11_summer_auto_muster(state, only_lord=lid)
 
 
 def _other(side: Side) -> Side:
@@ -368,6 +479,82 @@ def _reset_lordship(state: GameState) -> None:
     state.meta.lordship_bonus.clear()
     for lord in state.lords.values():
         lord.lordship_used = 0
+
+
+def _mustered_lord_count(state: GameState, side: Side) -> int:
+    return sum(lord.side == side and lord.state == "mustered" for lord in state.lords.values())
+
+
+def _has_excess_capabilities(state: GameState, side: Side) -> bool:
+    return len(_side_deck(state, side).capabilities_in_play) > _mustered_lord_count(state, side)
+
+
+def _continue_capability_discard(state: GameState, side: Side) -> list[dict[str, Any]]:
+    """Hand off 4.0 to the next owner with excess cards, or open Plan."""
+    from nevsky.campaign import _discard_side_capability
+
+    if _apply_immediate_campaign_victory(state):
+        # With no Lords, all of that side's board-edge cards must go.
+        cleanup = []
+        for owner in ("teutonic", "russian"):
+            if _mustered_lord_count(state, owner) == 0:
+                cards = _side_deck(state, owner).capabilities_in_play
+                while cards:
+                    cleanup.append(_discard_side_capability(state, owner, cards[0]))
+        return cleanup
+    for owner in (("teutonic", "russian") if side == "teutonic" else ("russian",)):
+        if _has_excess_capabilities(state, owner):
+            state.meta.active_player = owner
+            return []
+    state.meta.campaign_step = "plan"
+    state.meta.active_player = "teutonic"
+    return []
+
+
+def _resolve_referee_capability_discards(
+    state: GameState, selections: dict,
+) -> list[dict[str, Any]]:
+    """Replay explicit 4.0 choices supplied through the raw referee API."""
+    from nevsky.campaign import _discard_side_capability
+
+    for side, cards in selections.items():
+        if (side not in ("teutonic", "russian") or not isinstance(cards, list)
+                or any(not isinstance(card, str) for card in cards)
+                or len(cards) != len(set(cards))
+                or any(card not in _side_deck(state, side).capabilities_in_play for card in cards)):
+            raise IllegalAction("bad_rule_4_0_discards", f"invalid Capability choices for {side!r}")
+
+    cleanup = _continue_capability_discard(state, "teutonic")
+    side: Side
+    for side in ("teutonic", "russian"):
+        for card in selections.get(side, []):
+            if card not in _side_deck(state, side).capabilities_in_play:
+                continue  # A preceding discard may also remove William of Modena.
+            if (state.meta.campaign_step != "capability_discard"
+                    or state.meta.active_player != side):
+                raise IllegalAction("bad_rule_4_0_discards", f"{side} does not owe the next discard")
+            cleanup.append(_discard_side_capability(state, side, card))
+            cleanup.extend(_continue_capability_discard(state, side))
+    return cleanup
+
+
+def _h_discard_excess_capability(
+    state: GameState, side: str, args: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    from nevsky.campaign import _discard_side_capability
+
+    sd = _require_side_player(state, side)
+    _require_active(state, sd)
+    if (state.meta.phase != "campaign" or state.meta.campaign_step != "capability_discard"
+            or not _has_excess_capabilities(state, sd)):
+        raise IllegalAction("wrong_step", "excess Capabilities are discarded before Campaign Plan")
+    card = args.get("card_id")
+    if not isinstance(card, str) or card not in _side_deck(state, sd).capabilities_in_play:
+        raise IllegalAction("bad_capability_discard", "choose one of your side Capabilities in play")
+    discards = [_discard_side_capability(state, sd, card)]
+    discards.extend(_continue_capability_discard(state, sd))
+    return ({"discards": discards, "campaign_step": state.meta.campaign_step,
+             "active_player": state.meta.active_player}, [])
 
 
 def _h_advance_step(
@@ -398,20 +585,8 @@ def _h_advance_step(
     # Disband". advance_step previously had no guard, so a palette
     # agent could skip disband_resolve entirely and keep a
     # beyond-limit Lord Mustered through the whole Levy.
-    if state.meta.levy_step == "disband":
-        _resolved = (state.meta.disband_resolved_t if sd == "teutonic"
-                     else state.meta.disband_resolved_r)
-        if not _resolved:
-            _levy_box = _find_levy_marker_box(state)
-            for _lid, _lord in state.lords.items():
-                if _lord.side != sd or _lord.state != "mustered":
-                    continue
-                _smb = _find_service_marker_box(state, _lid)
-                if _smb is not None and _smb <= _levy_box:
-                    raise IllegalAction(
-                        "must_disband",
-                        f"{_lid} owes a mandatory Disband (3.3); resolve "
-                        "disband_resolve before advancing")
+    if state.meta.levy_step == "disband" and _owes_disband(state, sd):
+        raise IllegalAction("must_disband", "resolve Lord and Vassal Disband before advancing")
     if (state.meta.levy_step == "arts_of_war"
             and _side_deck(state, sd).pending_draw):
         # R199/R201 (SMOKE-131): a side may not advance Arts of War
@@ -432,6 +607,13 @@ def _h_advance_step(
         raise IllegalAction("must_draw_aow",
                             "draw and implement this Levy's Arts of War cards first (3.1)")
 
+    if "rule_4_0_discards" in args and (
+            state.meta.levy_step != "call_to_arms" or sd != "russian"
+            or not state.meta.levy_step_completed_t
+            or not isinstance(args["rule_4_0_discards"], dict)):
+        raise IllegalAction("bad_rule_4_0_discards",
+                            "supply a side map on the final Call to Arms advance")
+
     if sd == "teutonic":
         if state.meta.levy_step_completed_t:
             raise IllegalAction("already_done", "Teutonic side already finished this step")
@@ -442,6 +624,11 @@ def _h_advance_step(
             raise IllegalAction("already_done", "Russian side already finished this step")
         state.meta.levy_step_completed_r = True
 
+    if state.meta.levy_step == "call_to_arms":
+        _finish_vassal_muster(state, sd)
+
+    crusade = []
+    discards = []
     next_step = None
     if state.meta.levy_step_completed_t and state.meta.levy_step_completed_r:
         # Advance to next step.
@@ -490,7 +677,7 @@ def _h_advance_step(
             # Mustered and is Unbesieged. If already Mustered and any
             # Knights have been lost from the Lord's Forces, restore
             # Knight units up those shown on the Vassal marker."
-            _t11_summer_auto_muster(state)
+            crusade = _t11_summer_auto_muster(state)
         if next_step == "call_to_arms":
             state.meta.muster_lord_order = []
             # Lordship Holds apply to one Muster segment. A Legate or Veche
@@ -503,15 +690,6 @@ def _h_advance_step(
             # flags at CtA entry so "Each Call to Arms" auto-fires.
             for _flag in ("sea_trade_r8_used_this_cta", "sea_trade_r9_used_this_cta"):
                 state.meta.special_rules.pop(_flag, None)
-            # Advanced Vassal Service (3.4.2): "After a side finishes
-            # all Vassal Muster for this Levy, flip up all Service
-            # markers that are Coat-of-Arms side down (3.3.2), making
-            # them Ready for Muster later in the game."
-            if state.meta.optional_rules.get("advanced_vassal_service", False):
-                for lord in state.lords.values():
-                    for vstate in lord.vassals.values():
-                        if not vstate.ready and not vstate.mustered:
-                            vstate.ready = True
         if next_step == "done":
             # SMOKE-106 (Round 152) + SMOKE-107 (Round 153): clear
             # Legate-2c / Veche-C extra-Muster targets on CtA exit.
@@ -530,9 +708,9 @@ def _h_advance_step(
                 if _sd_deck.this_levy_events:
                     _sd_deck.discard.extend(_sd_deck.this_levy_events)
                     _sd_deck.this_levy_events = []
-            # Levy complete -- transition to Campaign Plan (4.0).
+            # Levy complete. Resolve any 4.0 discards before Plan.
             state.meta.phase = "campaign"
-            state.meta.campaign_step = "plan"
+            state.meta.campaign_step = "capability_discard"
             state.meta.plan_complete_t = False
             state.meta.plan_complete_r = False
             state.meta.active_player = "teutonic"
@@ -541,73 +719,17 @@ def _h_advance_step(
             state.meta.block_lords_this_levy_r = []
             _reset_lordship(state)
             state.meta.special_rules.pop("block_william_of_modena_this_levy", None)
-            # 4.0 capability discard (in excess of own Mustered Lord count).
-            # SMOKE-031: route each discard through _discard_side_capability
-            # so per-card cleanup (Summer Crusaders Disband on T11, Mongols/
-            # Kipchaqs Disband on R10, Legate-leaves-map on T13) cascades.
-            # PLAY-34 (4.0): "The players (Teutonic first) must SELECT and
-            # discard any Capability cards they have in excess of their
-            # number of Mustered Lords" -- WHICH cards go is the owner's
-            # choice. args.rule_4_0_discards = {side: [card_id, ...]}
-            # names each side's preferred discards (validated: in play for
-            # that side, no duplicates, at most the live excess count). Any
-            # remaining excess after the named cards falls back to the
-            # pre-PLAY-34 deterministic tail-drop.
-            from nevsky.campaign import _discard_side_capability as _disc_cap
-            _sel_4_0 = args.get("rule_4_0_discards") or {}
-            if not isinstance(_sel_4_0, dict):
-                raise IllegalAction(
-                    "bad_rule_4_0_discards",
-                    "rule_4_0_discards must be {side: [card_id, ...]}")
-            rule_4_0_cleanup: list[dict[str, Any]] = []
-            for sd_ in ("teutonic", "russian"):
-                deck = state.decks.teutonic if sd_ == "teutonic" else state.decks.russian
-                chosen = list(_sel_4_0.get(sd_) or [])
-                if chosen:
-                    if len(set(chosen)) != len(chosen):
-                        raise IllegalAction(
-                            "bad_rule_4_0_discards",
-                            f"duplicate card in rule_4_0_discards[{sd_}]")
-                    for cid_ in chosen:
-                        if cid_ not in deck.capabilities_in_play:
-                            raise IllegalAction(
-                                "bad_rule_4_0_discards",
-                                f"{cid_} not among {sd_} side Capabilities "
-                                f"in play: {deck.capabilities_in_play}")
-                    for cid_ in chosen:
-                        # An earlier card can Disband its Lord, increasing
-                        # the excess, or discard another named card (Legate).
-                        if cid_ not in deck.capabilities_in_play:
-                            continue
-                        mustered_count = sum(
-                            lord.side == sd_ and lord.state == "mustered"
-                            for lord in state.lords.values())
-                        if len(deck.capabilities_in_play) <= mustered_count:
-                            raise IllegalAction(
-                                "bad_rule_4_0_discards",
-                                f"{sd_} has no excess Capability to discard (4.0)")
-                        rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_))
-                while len(deck.capabilities_in_play) > sum(
-                        lord.side == sd_ and lord.state == "mustered"
-                        for lord in state.lords.values()):
-                    cid_to_drop = deck.capabilities_in_play[-1]
-                    rule_4_0_cleanup.append(_disc_cap(state, sd_, cid_to_drop))
-
-            # Rule 5.2 Campaign Victory at the Levy -> Campaign boundary. The
-            # rule applies "during Campaign", so a side that lost its last
-            # Mustered Lord during Levy (Disband 3.3) and did not re-Muster
-            # is at zero the instant Campaign begins -- the first moment of
-            # the new Campaign. Check here, before any Plan action is
-            # offered, so the engine never enters a live Campaign with a
-            # zero-Lord side. (The shared helper is a no-op during Levy, so
-            # this boundary call is the one that catches the Levy-disband
-            # case; mid-Campaign disbands are caught at the removal site.)
-            _apply_immediate_campaign_victory(state)
+            if "rule_4_0_discards" in args:
+                discards = _resolve_referee_capability_discards(state, args["rule_4_0_discards"])
+            else:
+                discards = _continue_capability_discard(state, "teutonic")
 
     return ({"new_step": state.meta.levy_step,
              "phase": state.meta.phase,
              "campaign_step": state.meta.campaign_step if state.meta.phase == "campaign" else None,
-             "active_player": state.meta.active_player}, [])
+             "active_player": state.meta.active_player,
+             **({"crusade": crusade} if crusade else {}),
+             **({"discards": discards} if discards else {})}, [])
 
 
 # ---------------------------------------------------------------------------
@@ -1110,6 +1232,30 @@ def _vassal_service_markers(
             yield vid, vassal, box
 
 
+def _due_vassal_markers(
+    state: GameState, lord_id: str, levy_box: int,
+) -> Iterator[tuple[str, VassalState, int]]:
+    return (entry for entry in _vassal_service_markers(state, lord_id) if entry[2] <= levy_box)
+
+
+def _disband_resolved(state: GameState, side: Side) -> bool:
+    return state.meta.disband_resolved_t if side == "teutonic" else state.meta.disband_resolved_r
+
+
+def _owes_disband(state: GameState, side: Side) -> bool:
+    if _disband_resolved(state, side):
+        return False
+    levy_box = _find_levy_marker_box(state)
+    for lord_id, lord in state.lords.items():
+        if lord.side != side or lord.state != "mustered":
+            continue
+        box = _find_service_marker_box(state, lord_id)
+        if (box is not None and box <= levy_box
+                or next(_due_vassal_markers(state, lord_id, levy_box), None) is not None):
+            return True
+    return False
+
+
 def _payable_service_steps(state: GameState, lord_id: str) -> int | None:
     """Rightward steps that move at least one marker, or None without Lord Service."""
     lord_box = _find_service_marker_box(state, lord_id)
@@ -1339,8 +1485,6 @@ def _h_disband_resolve(
         of CURRENT box (during Levy); pool forces/assets, discard cards.
       - Otherwise no Disband.
     """
-    from nevsky.static_data import load_lords
-
     sd = _require_side_player(state, side)
     _require_levy_phase(state)
     _require_levy_step(state, "disband")
@@ -1350,8 +1494,7 @@ def _h_disband_resolve(
     # pass, so a second disband_resolve by the same side in the same
     # Disband step does nothing. Reject it so an automated player cannot
     # spin on it.
-    if (sd == "teutonic" and state.meta.disband_resolved_t) or (
-            sd == "russian" and state.meta.disband_resolved_r):
+    if _disband_resolved(state, sd):
         raise IllegalAction(
             "already_resolved",
             f"{sd} already resolved Disband this Disband step (3.3)",
@@ -1361,14 +1504,23 @@ def _h_disband_resolve(
     else:
         state.meta.disband_resolved_r = True
 
+    return _resolve_service_disband(state, sd), []
+
+
+def _resolve_service_disband(state: GameState, side: str) -> dict[str, Any]:
+    """Resolve Service for a side during Levy or Campaign."""
+    from nevsky.static_data import load_lords
+
     static = load_lords()
     levy_box = _find_levy_marker_box(state)
+    # Process Vassal markers before a Lord's Disband can detach them.
+    vassal_disband = _advanced_vassal_disband_step(state, side)
 
     permanently_removed: list[str] = []
     disbanded: list[dict[str, Any]] = []
 
     for lord_id, lord in list(state.lords.items()):
-        if lord.side != sd or lord.state != "mustered":
+        if lord.side != side or lord.state != "mustered":
             continue
         sm_box = _find_service_marker_box(state, lord_id)
         if sm_box is None:
@@ -1382,14 +1534,8 @@ def _h_disband_resolve(
             _disband_at_limit(state, lord_id, new_box)
             disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
 
-    # Advanced Vassal Service (3.4.2 optional): also process Vassal
-    # markers — left of current box -> permanent remove + Forces return;
-    # at current box -> face-down on mat + Forces return.
-    vassal_disband = _advanced_vassal_disband_step(state, sd)
-
-    return ({"permanently_removed": permanently_removed,
-             "disbanded": disbanded,
-             "vassal_advanced": vassal_disband}, [])
+    return {"permanently_removed": permanently_removed, "disbanded": disbanded,
+            "vassal_advanced": vassal_disband}
 
 
 def _find_levy_marker_box(state: GameState) -> int:
@@ -1399,75 +1545,47 @@ def _find_levy_marker_box(state: GameState) -> int:
     raise IllegalAction("no_levy_marker", "Levy/Campaign marker not on Calendar")
 
 
-def _t11_summer_auto_muster(state: GameState) -> list[dict[str, Any]]:
-    """SMOKE-060 (Round 68): T11 Crusade auto-fire on Summer Levy.
-
-    AoW Reference T11 Tip: "automatically Musters all Summer Crusader
-    Knights to Andreas and Rudolf at no cost in Lordship actions, even
-    in enemy territory, provided that the Lord is himself Mustered and
-    is Unbesieged. If already Mustered and any Knights have been lost
-    from the Lord's Forces, restore Knight units up those shown on the
-    Vassal marker."
-
-    Fires on entry to the Muster step of a Summer Levy when T11 is in
-    play. Returns a list of {lord_id, vassal_id, action, ...} events.
-    """
-    if _season_of_box(state.meta.box) != "summer":
+def _t11_summer_auto_muster(
+    state: GameState, *, only_lord: str | None = None,
+) -> list[dict[str, Any]]:
+    """Muster or replenish eligible Crusaders once per Summer Levy."""
+    if (_season_of_box(state.meta.box) != "summer"
+            or "T11" not in state.decks.teutonic.capabilities_in_play):
         return []
-    if "T11" not in state.decks.teutonic.capabilities_in_play:
-        return []
-    from nevsky.campaign import _is_besieged
     from nevsky.static_data import load_lords
+
     lords_data = load_lords()
     events: list[dict[str, Any]] = []
     for lord_id, lord in state.lords.items():
-        if lord.side != "teutonic":
+        if (lord.side != "teutonic" or lord.state != "mustered" or lord.location is None
+                or _is_besieged(state, lord_id) or only_lord not in (None, lord_id)):
             continue
-        if lord.state != "mustered":
-            continue
-        if lord.location is None:
-            continue
-        if _is_besieged(state, lord_id):
-            continue
-        sl = lords_data.get(lord_id)
-        if not sl:
-            continue
+        sl = lords_data[lord_id]
         for vdata in sl.get("vassals", []):
             if vdata.get("special") != "summer_crusaders":
                 continue
             vid = vdata["vassal_id"]
             vstate = lord.vassals.get(vid)
-            if vstate is None:
+            if (vstate is None or not _vassal_can_ready(state, lord.side, vdata, vstate)
+                    or not _crusade_available_this_levy(state, vstate)):
                 continue
-            v_forces = vdata.get("forces", {})
+            vstate.last_crusade_levy = state.meta.box
             if not vstate.mustered:
-                # Free Muster: add Vassal forces to Lord, no Lordship.
-                for k, val in v_forces.items():
-                    lord.forces[k] = lord.forces.get(k, 0) + int(val)  # type: ignore[index]
-                vstate.ready = True
-                vstate.mustered = True
+                added = _deploy_vassal(state, lord_id, vdata)
                 events.append({
                     "lord_id": lord_id,
                     "vassal_id": vid,
                     "action": "t11_auto_muster",
-                    "added_forces": dict(v_forces),
+                    "added_forces": added,
                 })
             else:
-                # Already Mustered: restore lost Knights up to the
-                # Vassal marker's Knight count.
-                sc_knights = int(v_forces.get("knights", 0))
-                if sc_knights <= 0:
-                    continue
-                expected = int(sl.get("starting_forces", {}).get("knights", 0))
-                for v2 in sl.get("vassals", []):
-                    vs2 = lord.vassals.get(v2["vassal_id"])
-                    if vs2 and vs2.mustered:
-                        expected += int(v2.get("forces", {}).get("knights", 0))
-                actual = int(lord.forces.get("knights", 0))
-                missing = expected - actual
-                if missing > 0:
-                    restore = min(missing, sc_knights)
-                    lord.forces["knights"] = actual + restore  # type: ignore[index]
+                expected = sl["starting_forces"].get("knights", 0) + sum(
+                    v["forces"].get("knights", 0) for v in sl["vassals"]
+                    if (marked := lord.vassals.get(v["vassal_id"])) is not None and marked.mustered)
+                actual = lord.forces.get("knights", 0)
+                restore = min(expected - actual, vdata["forces"].get("knights", 0))
+                if restore > 0:
+                    lord.forces["knights"] = actual + restore
                     events.append({
                         "lord_id": lord_id,
                         "vassal_id": vid,
@@ -1741,103 +1859,61 @@ def _remove_lord_permanently(
     _lift_siege_if_no_besiegers(state, _smoke087_removed_location)
 
 
+def _return_vassal_forces(lord: Lord, vdata: dict[str, Any]) -> dict[str, int]:
+    returned: dict[str, int] = {}
+    for kind, count in vdata["forces"].items():
+        available = lord.forces.get(kind, 0)
+        take = min(count, available)
+        if take > 0:
+            if take == available:
+                del lord.forces[kind]
+            else:
+                lord.forces[kind] = available - take
+            returned[kind] = take
+    return returned
+
+
 def _advanced_vassal_disband_step(state: GameState, side: str) -> dict[str, Any]:
-    """Apply Advanced Vassal Service (3.4.2) Disband cleanup for `side`.
-
-    Per the rule:
-      - Vassal markers LEFT of current box: permanently remove. Return
-        the Vassal's Forces from the Lord's mat to the pool. If that
-        leaves the Lord without Forces, Disband him (1.6).
-      - Vassal markers IN the current box (Service limit): move to
-        Lord's mat face-down (Unready) and return Forces to pool too.
-        After the next Vassal Muster step, face-down markers flip up.
-      - Vassal markers RIGHT of current box: keep on Calendar.
-
-    Returns a result dict tracking removals and downgrades.
-    """
+    """Expire Vassals independently of their Lord's Service (3.4.2)."""
+    from nevsky.campaign import _disband_empty_lord
     from nevsky.static_data import load_lords
-    if not state.meta.optional_rules.get("advanced_vassal_service", False):
-        return {"side": side, "removed": [], "to_mat_unready": [],
-                "lord_disbanded_due_to_no_forces": []}
-    static = load_lords()
-    levy_box = _find_levy_marker_box(state)
-    cal = state.calendar
+
     removed: list[dict[str, Any]] = []
     to_mat_unready: list[dict[str, Any]] = []
     lord_disbanded: list[str] = []
-
-    # Iterate per-Lord on this side.
-    for lord_id, lord in list(state.lords.items()):
+    result = {"side": side, "removed": removed, "to_mat_unready": to_mat_unready,
+              "lord_disbanded_due_to_no_forces": lord_disbanded}
+    if not state.meta.optional_rules.get("advanced_vassal_service", False):
+        return result
+    static = load_lords()
+    levy_box = _find_levy_marker_box(state)
+    for lord_id, lord in state.lords.items():
         if lord.side != side or lord.state != "mustered":
             continue
-        sl = static.get(lord_id, {})
-        for vid, vstate in list(lord.vassals.items()):
-            if not vstate.on_calendar:
-                continue
-            box = vassal_marker_box(cal, vid, vstate)
-            if box is None:
-                continue
-            vdata = next((v for v in sl.get("vassals", [])
-                           if v["vassal_id"] == vid), None)
+        due = list(_due_vassal_markers(state, lord_id, levy_box))
+        if not due:
+            continue
+        printed = {v["vassal_id"]: v for v in static[lord_id]["vassals"]}
+        for vid, vassal, box in due:
+            vdata = printed.get(vid)
             if vdata is None:
                 continue
-            v_forces = vdata.get("forces", {}) or {}
+            receipt = {"lord_id": lord_id, "vassal_id": vid, "from_box": box,
+                       "returned_forces": _return_vassal_forces(lord, vdata)}
+            clear_vassal_marker(state.calendar, vid, vassal)
+            vassal.mustered = False
+            vassal.ready = False
             if box < levy_box:
-                # Permanent removal.
-                # Remove marker from calendar (a box or an off-edge roster).
-                detach_vassal_marker(cal, vid, vstate)
-                # Return Forces to pool: subtract from Lord's force totals
-                # to the degree able.
-                returned = {}
-                for k, v in v_forces.items():
-                    avail = lord.forces.get(k, 0)
-                    take = min(int(v), avail)
-                    if take > 0:
-                        lord.forces[k] = avail - take
-                        if lord.forces[k] == 0:
-                            del lord.forces[k]
-                        returned[k] = take
-                vstate.on_calendar = False
-                vstate.calendar_box = None
-                vstate.mustered = False
-                vstate.ready = False  # Vassal removed; no longer available
-                removed.append({"lord_id": lord_id, "vassal_id": vid,
-                                 "from_box": box, "returned_forces": returned})
-                # If the Lord has no Forces left, Disband him (1.6).
-                if not lord.forces:
-                    _disband_at_limit(state, lord_id,
-                                      _disband_return_box(state, lord_id, levy_box))
-                    lord_disbanded.append(lord_id)
-            elif box == levy_box:
-                # At Service limit: move to mat face-down (Unready) and
-                # return Forces.
-                detach_vassal_marker(cal, vid, vstate)
-                returned = {}
-                for k, v in v_forces.items():
-                    avail = lord.forces.get(k, 0)
-                    take = min(int(v), avail)
-                    if take > 0:
-                        lord.forces[k] = avail - take
-                        if lord.forces[k] == 0:
-                            del lord.forces[k]
-                        returned[k] = take
-                vstate.on_calendar = False
-                vstate.calendar_box = None
-                vstate.mustered = False
-                vstate.ready = False  # Coat-of-Arms side down
-                to_mat_unready.append({"lord_id": lord_id, "vassal_id": vid,
-                                        "from_box": box, "returned_forces": returned})
-                if not lord.forces:
-                    _disband_at_limit(state, lord_id,
-                                      _disband_return_box(state, lord_id, levy_box))
-                    lord_disbanded.append(lord_id)
-            # else box > levy_box: no change.
-
-    return {
-        "side": side, "removed": removed,
-        "to_mat_unready": to_mat_unready,
-        "lord_disbanded_due_to_no_forces": lord_disbanded,
-    }
+                vassal.removed = True
+                removed.append(receipt)
+            else:
+                vassal.unready_through_levy = levy_box + (state.meta.phase == "campaign")
+                to_mat_unready.append(receipt)
+        # The Lord's own expiry takes precedence over an empty mat.
+        lord_box = _find_service_marker_box(state, lord_id)
+        if (lord_box is None or lord_box > levy_box) and _disband_empty_lord(state, lord_id):
+            lord_disbanded.append(lord_id)
+    return result
 
 
 def _disband_return_box(state: GameState, lord_id: str, current_box: int) -> int:
@@ -1856,7 +1932,7 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
       drop it from the Calendar; mat is implicitly the Lord object).
     - Forces / Assets returned to pool (cleared).
     - This-lord capabilities returned to side's deck.
-    - Vassals returned to ready=True, mustered=False, on_calendar=False.
+    - Remaining Vassals return with their readiness restrictions intact.
     - Lord state -> 'disbanded'.
     """
     lord = state.lords[lord_id]
@@ -1889,13 +1965,13 @@ def _disband_at_limit(state: GameState, lord_id: str, new_box_with_overflow: int
     # marker stays on the Calendar even though VassalState says
     # on_calendar=False, which breaks later Vassal-marker reads (3.4.2
     # Advanced Vassal Service).
-    for vid, v in lord.vassals.items():
-        if v.on_calendar:
-            detach_vassal_marker(cal, vid, v)
-        v.ready = True
-        v.mustered = False
-        v.on_calendar = False
-        v.calendar_box = None
+    from nevsky.static_data import load_lords
+
+    printed = {v["vassal_id"]: v for v in load_lords()[lord_id]["vassals"]}
+    for vid, vassal in lord.vassals.items():
+        clear_vassal_marker(cal, vid, vassal)
+        vassal.ready = _vassal_can_ready(state, side, printed.get(vid, {}), vassal)
+        vassal.mustered = False
     lord.state = "disbanded"
     lord.location = None
     lord.lordship_used = 0
@@ -2251,7 +2327,7 @@ def _h_muster_lord(
             dice,
         )
 
-    _place_lord_on_map(state, target_id, seat, levy_box)
+    crusade = _place_lord_on_map(state, target_id, seat, levy_box)
     return (
         {
             "outcome": "mustered",
@@ -2260,6 +2336,7 @@ def _h_muster_lord(
             "seat": seat,
             "roll": roll,
             "fealty": fealty,
+            **({"crusade": crusade} if crusade else {}),
         },
         dice,
     )
@@ -2276,7 +2353,9 @@ def _find_cylinder_box(state: GameState, lord_id: str) -> int | None:
     return None
 
 
-def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int) -> None:
+def _place_lord_on_map(
+    state: GameState, lord_id: str, seat: str, levy_box: int,
+) -> list[dict[str, Any]]:
     """Apply the on-success Muster procedure (3.4.1)."""
     from nevsky.static_data import load_lords
 
@@ -2313,19 +2392,10 @@ def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int)
     # Vassal Service markers face up where their Capability is in effect;
     # special vassals stay aside if their gating Capability is not in
     # effect (Steppe Warriors / Crusade).
-    for v in sl.get("vassals", []):
-        special = v.get("special")
-        ready = special is None
-        if special == "summer_crusaders":
-            ready = "T11" in state.decks.teutonic.capabilities_in_play
-        elif special == "steppe_warriors":
-            # Mongols/Kipchaqs require R10 Steppe Warriors in play
-            # (3.4.2). The static data tags them as "steppe_warriors";
-            # earlier code mistakenly looked for "mongols"/"kipchaqs"
-            # which never matched (SMOKE-012 fix).
-            ready = "R10" in state.decks.russian.capabilities_in_play
-        lord.vassals[v["vassal_id"]].ready = ready
-        lord.vassals[v["vassal_id"]].mustered = False
+    for vdata in sl["vassals"]:
+        vassal = lord.vassals[vdata["vassal_id"]]
+        vassal.ready = _vassal_can_ready(state, lord.side, vdata, vassal)
+        vassal.mustered = False
     # Place Service marker at SERVICE_RATING boxes right of Levy box.
     srating = int(sl["ratings"]["service"])
     sm_box = levy_box + srating
@@ -2397,12 +2467,30 @@ def _place_lord_on_map(state: GameState, lord_id: str, seat: str, levy_box: int)
                 )
             )
             slot_idx_global += 1
+    return _t11_summer_auto_muster(state, only_lord=lord_id)
+
+
+def _deploy_vassal(state: GameState, lord_id: str, vdata: dict) -> dict[str, int]:
+    lord = state.lords[lord_id]
+    vid = vdata["vassal_id"]
+    vassal = lord.vassals[vid]
+    added = dict(vdata["forces"])
+    for kind, count in added.items():
+        lord.forces[kind] = lord.forces.get(kind, 0) + count
+    vassal.ready = True
+    vassal.mustered = True
+    if state.meta.optional_rules.get("advanced_vassal_service"):
+        target_box = _find_levy_marker_box(state) + vdata["service"]
+        lord_box = _find_service_marker_box(state, lord_id)
+        if lord_box is not None and target_box < lord_box:
+            move_vassal_marker(state.calendar, vid, vassal, target_box)
+    return added
 
 
 def _h_muster_vassal(
     state: GameState, side: str, args: dict[str, Any]
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """3.4.2 Muster a Vassal. Costs 1 Lordship.
+    """3.4.2 Muster a Vassal. Costs 1 Lordship except under Crusade.
 
     args: by_lord (the parent Lord), vassal_id.
     Vassal must be ready (face up) on by_lord's mat. Vassal's Forces are
@@ -2437,57 +2525,26 @@ def _h_muster_vassal(
     if vdata is None:
         raise IllegalAction("unknown_vassal", f"static data missing Vassal {vid!r}")
 
-    special = vdata.get("special")
-    if special == "summer_crusaders":
-        if "T11" not in state.decks.teutonic.capabilities_in_play:
-            raise IllegalAction(
-                "vassal_gated",
-                "Summer Crusaders require T11 Crusade in play (3.4.2)",
-            )
-        # SMOKE-059 (Round 67): AoW Reference T11 Tip — "Teutons may
-        # Levy the Crusade Capability card in any Season, but Crusader
-        # Forces still would Muster only in Summer." Reject Muster in
-        # non-Summer seasons even when T11 is in play.
-        from nevsky.campaign import _season_of_box
-        if _season_of_box(state.meta.box) != "summer":
-            raise IllegalAction(
-                "vassal_season",
-                "Summer Crusaders may Muster only in Summer (T11 Tip)",
-            )
-    elif special == "steppe_warriors":
-        # Mongols/Kipchaqs (SMOKE-013 fix: was checking
-        # "mongols"/"kipchaqs" which never matched).
-        if "R10" not in state.decks.russian.capabilities_in_play:
-            raise IllegalAction(
-                "vassal_gated",
-                "Steppe Warriors (Mongols/Kipchaqs) require R10 in play (3.4.2)",
-            )
-
-    if not vstate.ready:
+    card = _SPECIAL_VASSAL_CARDS.get(vdata.get("special"))
+    if card is not None and card not in _side_deck(state, sd).capabilities_in_play:
+        raise IllegalAction("vassal_gated", f"Vassal {vid} requires {card} in play (3.4.2)")
+    if card == "T11" and _season_of_box(state.meta.box) != "summer":
+        raise IllegalAction("vassal_season", "Summer Crusaders may Muster only in Summer (T11 Tip)")
+    if not vstate.ready or not _vassal_can_ready(state, sd, vdata, vstate):
         raise IllegalAction("vassal_unready", f"Vassal {vid} is not face-up Ready")
 
-    _spend_lordship(state, by_id)
-    # Add Vassal forces to parent.
-    for k, v in vdata.get("forces", {}).items():
-        lord.forces[k] = lord.forces.get(k, 0) + int(v)  # type: ignore[index]
-    vstate.mustered = True
-    # Advanced Vassal Service (3.4.2 optional): place Service marker on
-    # Calendar at (current_levy_box + vassal.service) IF that's left of
-    # the Lord's Service marker. Otherwise the marker stays on the mat
-    # (the default) because the Lord's Service governs.
-    if state.meta.optional_rules.get("advanced_vassal_service", False):
-        levy_box = _find_levy_marker_box(state)
-        v_service = int(vdata.get("service", 0))
-        target_box = levy_box + v_service
-        lord_svc_box = _find_service_marker_box(state, by_id)
-        # off_right_service Lord = effectively box 17.
-        lord_svc_box_eff = lord_svc_box if lord_svc_box is not None else 17
-        if 1 <= target_box <= 16 and target_box < lord_svc_box_eff:
-            # Place Vassal marker on Calendar.
-            state.calendar.boxes[target_box - 1].vassal_service_markers.append(vid)
-            vstate.on_calendar = True
-            vstate.calendar_box = target_box
-    return ({"by_lord": by_id, "vassal_id": vid, "added_forces": vdata.get("forces", {})}, [])
+    if card == "T11":
+        # Old saved positions may reach a Summer Muster without having
+        # deployed their eligible Crusaders. Resolve the free Muster.
+        if lord.state != "mustered" or lord.location is None or _is_besieged(state, by_id):
+            raise IllegalAction("vassal_unready", f"{vid} requires an Unbesieged Lord on the map")
+        if not _crusade_available_this_levy(state, vstate):
+            raise IllegalAction("vassal_unready", f"Vassal {vid} already used Crusade this Levy")
+        vstate.last_crusade_levy = state.meta.box
+    else:
+        _spend_lordship(state, by_id)
+    added = _deploy_vassal(state, by_id, vdata)
+    return ({"by_lord": by_id, "vassal_id": vid, "added_forces": added}, [])
 
 
 def _h_levy_transport(
@@ -2721,8 +2778,9 @@ def _h_levy_capability(
         deck.deck.remove(cid)
     else:
         deck.discard.remove(cid)
-    _acquire_side_capability(state, sd, cid)
-    return ({"by_lord": by_id, "card_id": cid, "scope": "side_wide", "from": from_loc}, [])
+    crusade = _acquire_side_capability(state, sd, cid)
+    return ({"by_lord": by_id, "card_id": cid, "scope": "side_wide", "from": from_loc,
+             **({"crusade": crusade} if crusade else {})}, [])
 
 
 # ---------------------------------------------------------------------------
@@ -2851,8 +2909,10 @@ def _h_legate_use(
         free = _free_seats_for(state, target_id)
         if pawn_locale not in free:
             raise IllegalAction("seat_not_free", f"{pawn_locale} is not a Free Seat for {target_id}")
-        _place_lord_on_map(state, target_id, pawn_locale, levy_box)  # type: ignore[arg-type]
+        crusade = _place_lord_on_map(state, target_id, pawn_locale, levy_box)
         result_extra: dict[str, Any] = {"target_lord": target_id, "seat": pawn_locale}
+        if crusade:
+            result_extra["crusade"] = crusade
     elif sub == "2b":
         # slide cylinder of a Lord on the Calendar 1 box LEFT, requires
         # pawn at that Lord's Seat
@@ -3473,6 +3533,7 @@ def _h_aow_lordship_plus_2(
 
 _HANDLERS: dict[str, Any] = {
     "advance_step": _h_advance_step,
+    "discard_excess_capability": _h_discard_excess_capability,
     "confirm_setup_transport": _h_confirm_setup_transport,
     "set_setup_transport": _h_set_setup_transport,
     "confirm_all_setup_transports": _h_confirm_all_setup_transports,

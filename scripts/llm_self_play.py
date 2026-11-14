@@ -274,6 +274,9 @@ def cmd_apply(args):
 
     action = {k: v for k, v in chosen.items()
               if k in ("type", "side", "args")}
+    action_args = action.get("args")
+    if isinstance(action_args, dict) and "rule_4_0_discards" in action_args:
+        raise SystemExit("choose your own Capability with discard_excess_capability")
     side = action["side"]  # A raw-JSON Hold may interrupt the other side.
     if action.get("type") == "cmd_storm" and isinstance(action.get("args", {}), dict):
         action["args"] = {**action.get("args", {}), "choose_defender_front": True}
@@ -303,10 +306,8 @@ def cmd_fallback(args):
     cmd_pass / end_card / legate_skip)."""
     state, scenario_id, history = load_state(Path(args.state))
     side = active_side(state)
-    fb = safe_fallback_for_side(state, side)
-    if fb is None:
-        raise SystemExit("no safe fallback available")
     try:
+        fb = safe_fallback_for_side(state, side)
         result = apply_action(state, fb)
     except IllegalAction as e:
         raise SystemExit(f"fallback rejected ({e.code}): {e}")

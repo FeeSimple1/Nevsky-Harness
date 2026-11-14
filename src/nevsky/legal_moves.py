@@ -18,9 +18,9 @@ from typing import Any
 
 from nevsky.actions import (
     _BISHOPRICS,
+    _crusade_available_this_levy,
     _find_cylinder_box,
     _find_levy_marker_box,
-    _find_service_marker_box,
     _free_seats_for,
     _is_besieged,
     _is_extra_muster_actor,
@@ -28,8 +28,11 @@ from nevsky.actions import (
     _is_ready,
     _lordship_budget,
     _may_continue_muster,
+    _owes_disband,
     _payable_service_steps,
     _season_of_box,
+    _side_deck,
+    _vassal_can_ready,
 )
 from nevsky.state import GameState, Side
 from nevsky.static_data import load_cards, load_locales, load_lords
@@ -88,6 +91,14 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
     if (reward := pending_reward(state)) is not None:
         return reward_moves(state, reward)
 
+    if state.meta.phase == "campaign" and state.meta.campaign_step == "capability_discard":
+        cards = load_cards()
+        return [
+            {"type": "discard_excess_capability", "side": side, "args": {"card_id": card},
+             "note": f"Discard {cards[card]['capability_name']} ({card}) under rule 4.0"}
+            for card in _side_deck(state, side).capabilities_in_play
+        ]
+
     # Printed Transport (any) quantities are player choices. Keep each
     # unresolved slot discoverable, including those with Q-001 defaults
     # that will otherwise auto-confirm when the player proceeds with Levy.
@@ -106,12 +117,14 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
         moves.append({"type": "confirm_all_setup_transports", "side": side, "args": {}})
     if state.meta.phase == "levy":
         step = state.meta.levy_step
+        owes_disband = step == "disband" and _owes_disband(state, side)
         if step == "arts_of_war":
             moves.extend(_aow_moves(state, side))
         elif step == "pay":
             moves.extend(_pay_moves(state, side))
-        elif step == "disband":
-            moves.extend(_disband_moves(state, side))
+        elif owes_disband:
+            moves.append({"type": "disband_resolve", "side": side, "args": {},
+                          "note": "Resolve Lord and Vassal Service expiries (3.3)"})
         elif step == "muster":
             moves.extend(_muster_moves(state, side))
         elif step == "call_to_arms":
@@ -124,29 +137,12 @@ def legal_moves(state: GameState, *, with_previews: bool = True) -> list[dict[st
         # Pending cards always have a clearing move: implement (cap or
         # event-with-target), auto-discard (no eligible Lord, Q-R190-A),
         # or bare-implement no-op-discard (un-targetable Event, R201).
-        # PLAY-19 (Fable audit): in the Disband step, advance_step is
-        # illegal while this side owes a mandatory 3.3 Disband (the
-        # handler raises must_disband); suppress it so the palette
-        # only offers the clearing move (disband_resolve).
-        _owes_disband = False
-        if step == "disband":
-            _resolved = (state.meta.disband_resolved_t if side == "teutonic"
-                         else state.meta.disband_resolved_r)
-            if not _resolved:
-                _levy_box_ds = _find_levy_marker_box(state)
-                for _lid, _lord in state.lords.items():
-                    if _lord.side != side or _lord.state != "mustered":
-                        continue
-                    _smb = _find_service_marker_box(state, _lid)
-                    if _smb is not None and _smb <= _levy_box_ds:
-                        _owes_disband = True
-                        break
         from nevsky.actions import _pending_aow_choice
         _owes_aow = (step == "arts_of_war" and (
             _sd_deck.pending_draw
             or not (state.meta.aow_drawn_t if side == "teutonic" else state.meta.aow_drawn_r)
             or _pending_aow_choice(state) is not None))
-        if not _owes_aow and not _owes_disband:
+        if not _owes_aow and not owes_disband:
             moves.append({"type": "advance_step", "side": side, "args": {}})
     elif state.meta.phase == "campaign":
         moves.extend(_campaign_moves(state, side, with_previews=with_previews))
@@ -371,31 +367,6 @@ def _pay_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
     return out
 
 
-def _disband_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
-    # Only offer disband_resolve while a Disband would actually fire, i.e.
-    # this side has a Mustered Lord whose Service marker is at-or-left-of
-    # the Levy box. Once resolved (or if none was ever pending) the action
-    # is a pure no-op; suppressing it keeps an automated player from
-    # looping on it. The side advances via advance_step instead.
-    levy_box = _find_levy_marker_box(state)
-    pending = False
-    for lid, lord in state.lords.items():
-        if lord.side != side or lord.state != "mustered":
-            continue
-        sm_box = _find_service_marker_box(state, lid)
-        if sm_box is not None and sm_box <= levy_box:
-            pending = True
-            break
-    if not pending:
-        return []
-    return [{
-        "type": "disband_resolve",
-        "side": side,
-        "args": {},
-        "note": "auto-resolves Lords whose Service marker is at-or-left-of Levy (3.3)",
-    }]
-
-
 def _muster_moves(
     state: GameState, side: Side, *, only_lord: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -459,39 +430,22 @@ def _muster_moves(
                         "note": f"{by_lid} (Lordship) Musters {tgt_lid} at {seat} (1d6<=Fealty success)",
                     })
 
-    # Muster Vassal.
-    # SMOKE-162 (R225, found by GPT-5.5 self-play turn 297/298): mirror the
-    # special-Vassal gates _h_muster_vassal enforces, so the enumerator
-    # never offers a guaranteed-illegal Muster:
-    #   - summer_crusaders: needs T11 Crusade in play AND Summer season
-    #     (T11 Tip / SMOKE-059 — "Crusader Forces ... Muster only in Summer").
-    #   - steppe_warriors (Mongols/Kipchaqs): needs R10 Steppe Warriors in play.
-    _season_now = _season_of_box(state.meta.box)
-
-    def _vassal_special_ok(by_lid: str, vid: str) -> bool:
-        vdata = next((v for v in static[by_lid].get("vassals", [])
-                      if v["vassal_id"] == vid), None)
-        special = (vdata or {}).get("special")
-        if special == "summer_crusaders":
-            return ("T11" in state.decks.teutonic.capabilities_in_play
-                    and _season_now == "summer")
-        if special == "steppe_warriors":
-            return "R10" in state.decks.russian.capabilities_in_play
-        return True
-
-    vassal_options: dict[str, list[str]] = {}
+    # Muster Vassal. Eligible Crusaders are normally deployed automatically.
     for lid in by_with_budget:
         lord = state.lords[lid]
-        opts = [vid for vid, vst in lord.vassals.items()
-                if vst.ready and not vst.mustered and _vassal_special_ok(lid, vid)]
-        if opts:
-            vassal_options[lid] = opts
-    for by_lid, vlist in vassal_options.items():
-        for vid in vlist:
+        for vdata in static[lid]["vassals"]:
+            vid = vdata["vassal_id"]
+            vassal = lord.vassals.get(vid)
+            if (vassal is None or not vassal.ready or vassal.mustered
+                    or not _vassal_can_ready(state, side, vdata, vassal)):
+                continue
+            if (vdata.get("special") == "summer_crusaders"
+                    and not _crusade_available_this_levy(state, vassal)):
+                continue
             out.append({
                 "type": "muster_vassal", "side": side,
-                "args": {"by_lord": by_lid, "vassal_id": vid},
-                "note": f"{by_lid} Musters Vassal {vid}",
+                "args": {"by_lord": lid, "vassal_id": vid},
+                "note": f"{lid} Musters Vassal {vid}",
             })
 
     # Levy Transport.
