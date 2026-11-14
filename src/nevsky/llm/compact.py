@@ -75,6 +75,13 @@ def compact_briefing(state, side):
     enabled = {k: v for k, v in meta["optional_rules"].items() if v}
     if enabled:
         lines.append("Optional rules: " + encode(enabled))
+    if step == "capability_discard":
+        owner = meta["active_player"]
+        lords = sum(lord["side"] == owner and lord["state"] == "mustered"
+                    for lord in view["lords"].values())
+        cards = len(view["decks"][owner]["capabilities_in_play"])
+        lines.append(f"{owner} has {cards} side Capabilities and {lords} Mustered Lords. "
+                     "Choose an excess Capability before Plan (4.0).")
     if meta["phase"] == "campaign":
         turn = view["campaign_turn"]
         # Absent ancillary fields have their explicit zero/false/empty defaults;

@@ -27,12 +27,12 @@ from nevsky.actions import (
     IllegalAction,
     _disband_at_limit,
     _disband_return_box,
-    _find_levy_marker_box,
     _find_service_marker_box,
     _is_friendly_locale,
-    _remove_lord_permanently,
     _require_active,
     _require_side_player,
+    _resolve_service_disband,
+    _return_vassal_forces,
     _season_of_box,
     _shift_lord_service,
     _side_deck,
@@ -44,7 +44,7 @@ from nevsky.state import (
     GameState,
     PendingDecision,
     Side,
-    detach_vassal_marker,
+    clear_vassal_marker,
     pending_storm_front,
 )
 from nevsky.static_data import load_locales, load_lords, load_ways, neighbors
@@ -615,31 +615,9 @@ def _fpd_finalize(
     Runs after Feed (and after any Pay step). Clears this side's Pay window.
     """
     state.campaign_turn.fpd_pay_window_side = None
-    # 4.8.2 Disband check: any Lord whose Service marker is at-or-left-of Levy.
-    static = load_lords()
-    levy_box = _find_levy_marker_box(state)
-    permanently_removed: list[str] = []
-    disbanded: list[dict[str, Any]] = []
-    for lord_id, lord in list(state.lords.items()):
-        if lord.side != sd or lord.state != "mustered":
-            continue
-        sm_box = _find_service_marker_box(state, lord_id)
-        if sm_box is None:
-            continue
-        if sm_box < levy_box:
-            _remove_lord_permanently(state, lord_id, static[lord_id])
-            permanently_removed.append(lord_id)
-        elif sm_box == levy_box:
-            new_box = _disband_return_box(state, lord_id, levy_box)
-            _disband_at_limit(state, lord_id, new_box)
-            disbanded.append({"lord_id": lord_id, "new_box": min(new_box, 17)})
-
-    # 3.4.2 Advanced Vassal Service: Vassal markers at/over their Service
-    # limit are removed/downgraded in this Campaign Disband too (parity
-    # with the Levy Disband). No-op unless the optional rule is enabled.
-    if state.meta.optional_rules.get("advanced_vassal_service", False):
-        from nevsky.actions import _advanced_vassal_disband_step
-        _advanced_vassal_disband_step(state, sd)
+    disband = _resolve_service_disband(state, sd)
+    if not state.meta.optional_rules.get("advanced_vassal_service"):
+        disband.pop("vassal_advanced")
 
     # 4.8.3: remove MOVED_FOUGHT markers.
     for lord in state.lords.values():
@@ -653,9 +631,7 @@ def _fpd_finalize(
     # complete, advance the reveal pointer, transition to end_campaign, or
     # advance the calendar past a game that should already be over.
     if state.meta.campaign_step == "done":
-        return ({"side": sd, "feed": feed_results,
-                 "permanently_removed": permanently_removed,
-                 "disbanded": disbanded, "advanced": False,
+        return ({"side": sd, "feed": feed_results, **disband, "advanced": False,
                  "game_over": True}, [])
 
     # Mark side complete.
@@ -694,8 +670,7 @@ def _fpd_finalize(
             state.meta.active_player = next_side
         advanced = True
 
-    return ({"side": sd, "feed": feed_results, "permanently_removed": permanently_removed,
-             "disbanded": disbanded, "advanced": advanced}, [])
+    return ({"side": sd, "feed": feed_results, **disband, "advanced": advanced}, [])
 
 
 def _h_fpd_resolve(
@@ -1830,25 +1805,12 @@ def _disband_special_vassals(state: GameState, side: str, special_kind: str
                            if v["vassal_id"] == vid), None)
             if vdata is None or vdata.get("special") != special_kind:
                 continue
-            v_forces = vdata.get("forces", {}) or {}
-            returned: dict[str, int] = {}
-            if vstate.mustered:
-                for k, v in v_forces.items():
-                    avail = lord.forces.get(k, 0)
-                    take = min(int(v), avail)
-                    if take > 0:
-                        lord.forces[k] = avail - take
-                        if lord.forces[k] == 0:
-                            del lord.forces[k]
-                        returned[k] = take
+            returned = _return_vassal_forces(lord, vdata) if vstate.mustered else {}
             was_mustered = vstate.mustered
             was_ready = vstate.ready
             vstate.mustered = False
             vstate.ready = False
-            if vstate.on_calendar:
-                detach_vassal_marker(cal, vid, vstate)
-                vstate.on_calendar = False
-                vstate.calendar_box = None
+            clear_vassal_marker(cal, vid, vstate)
             disbanded.append({
                 "lord_id": lord_id, "vassal_id": vid,
                 "was_mustered": was_mustered, "was_ready": was_ready,
@@ -1856,10 +1818,6 @@ def _disband_special_vassals(state: GameState, side: str, special_kind: str
             })
             lord_returns.append(vid)
         if lord_returns and _disband_empty_lord(state, lord_id):
-            # The ordinary Disband readies Vassals for a future Muster;
-            # these Special Vassals remain unavailable without their card.
-            for vid in lord_returns:
-                lord.vassals[vid].ready = False
             disbanded[-1]["lord_disbanded"] = True
     return disbanded
 

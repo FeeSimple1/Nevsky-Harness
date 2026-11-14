@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nevsky.actions import IllegalAction, apply_action
+from nevsky.actions import IllegalAction, _owes_disband, apply_action
 from nevsky.legal_moves import legal_moves
 from nevsky.state import STORM_FRONT_ACTION, pending_storm_front
 
@@ -29,7 +29,8 @@ def legal_actions_for_side(state, side: str) -> list[dict[str, Any]]:
     if state.meta.active_player != side:
         from nevsky.campaign import pending_sally_fate
         from nevsky.rewards import pending_reward
-        if (pending_sally_fate(state) is not None or pending_storm_front(state) is not None
+        if ((state.meta.phase == "campaign" and state.meta.campaign_step == "capability_discard")
+                or pending_sally_fate(state) is not None or pending_storm_front(state) is not None
                 or pending_reward(state) is not None):
             return []
         from nevsky.held_actions import held_actions_for_side
@@ -145,6 +146,9 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
                             f"caller is {side}; action declares side={action['side']!r}")
     kind = action.get("type")
     args = action.get("args", {})
+    if isinstance(args, dict) and "rule_4_0_discards" in args:
+        raise IllegalAction("wrong_actor",
+                            "choose your own Capability with discard_excess_capability")
     if kind in ("stand_battle", "cmd_sally", "cmd_storm") and isinstance(args, dict):
         _validate_combat_owner(state, side, kind, args)
         if kind == "cmd_sally":
@@ -153,7 +157,16 @@ def apply_action_for_side(state, side: str, action: dict) -> dict:
             action["args"] = {**args, "choose_retreat_keep": True}
         elif kind == "cmd_storm":
             action["args"] = {**args, "choose_defender_front": True}
-    return apply_action(state, action)
+    result = apply_action(state, action)
+    if state.meta.optional_rules.get("hidden_mats") and (
+            "crusade" in result or "discards" in result or "vassal_advanced" in result):
+        from copy import deepcopy
+
+        from nevsky.llm.view import mask_vassal_results
+
+        result = deepcopy(result)
+        mask_vassal_results(result, {lid for lid, lord in state.lords.items() if lord.side == side})
+    return result
 
 
 def safe_fallback_for_side(state, side: str) -> dict:
@@ -185,16 +198,12 @@ def safe_fallback_for_side(state, side: str) -> dict:
                     return {k: action[k] for k in ("type", "side", "args")}
         if levy_step == "call_to_arms" and side == "teutonic":
             return {"type": "legate_skip", "side": side, "args": {}}
-        if levy_step == "disband":
-            # PLAY-19: advance_step is rejected (must_disband) while a
-            # mandatory 3.3 Disband is owed; the safe fallback must
-            # resolve it, not spin on advance_step.
-            _resolved = (state.meta.disband_resolved_t if side == "teutonic"
-                         else state.meta.disband_resolved_r)
-            if not _resolved:
-                return {"type": "disband_resolve", "side": side, "args": {}}
+        if levy_step == "disband" and _owes_disband(state, side):
+            return {"type": "disband_resolve", "side": side, "args": {}}
         return {"type": "advance_step", "side": side, "args": {}}
     if phase == "campaign":
+        if camp_step == "capability_discard":
+            raise IllegalAction("capability_discard_pending", "choose an excess Capability to discard")
         if camp_step == "command":
             if state.campaign_turn.in_feed_pay_disband:
                 return {"type": "fpd_resolve", "side": side, "args": {}}

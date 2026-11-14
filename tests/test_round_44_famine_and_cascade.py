@@ -117,8 +117,8 @@ def test_smoke_030_supply_counter_resets_at_command_reveal():
 
 # ----- SMOKE-031 Cascade on side-wide cap discard -----
 
-def _end_of_levy_advance(s):
-    """Drive a state to end of call_to_arms and trigger advance_step."""
+def _end_of_levy_advance(s, side=None, card=None):
+    """Drive a state to the 4.0 discard and choose a test card when supplied."""
     s.meta.phase = "levy"
     s.meta.levy_step = "call_to_arms"
     s.meta.active_player = "teutonic"
@@ -126,11 +126,12 @@ def _end_of_levy_advance(s):
     s.meta.levy_step_completed_r = False
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
+    if card is not None:
+        apply_action(s, {"type": "discard_excess_capability", "side": side, "args": {"card_id": card}})
 
 
-def test_smoke_031_rule_4_0_pops_t11_disbands_summer_crusaders():
-    """Rule 4.0: side-wide caps in excess of Mustered Lord count get
-    popped to discard. When T11 is popped, Summer Crusaders Disband."""
+def test_smoke_031_rule_4_0_t11_discard_disbands_summer_crusaders():
+    """Summer Crusaders Disband on a 4.0 Crusade discard."""
     s = load_scenario("crusade_on_novgorod", seed=42)
     # Force exactly 1 Teutonic Lord Mustered (Andreas, with Summer Crusaders).
     for lid, l in s.lords.items():
@@ -141,14 +142,14 @@ def test_smoke_031_rule_4_0_pops_t11_disbands_summer_crusaders():
             else:
                 l.state = "ready"
                 l.location = None
-    s.decks.teutonic.capabilities_in_play = ["T1", "T12", "T11"]  # T11 last -> popped first
+    s.decks.teutonic.capabilities_in_play = ["T1", "T12", "T11"]
     vid = "andreas_summer_crusaders_1"
     s.lords["andreas"].vassals[vid].mustered = True
     s.lords["andreas"].vassals[vid].ready = True
     pre_k = s.lords["andreas"].forces.get("knights", 0)
     s.lords["andreas"].forces["knights"] = pre_k + 3
 
-    _end_of_levy_advance(s)
+    _end_of_levy_advance(s, "teutonic", "T11")
 
     assert "T11" in s.decks.teutonic.discard
     assert "T11" not in s.decks.teutonic.capabilities_in_play
@@ -158,8 +159,7 @@ def test_smoke_031_rule_4_0_pops_t11_disbands_summer_crusaders():
     assert s.lords["andreas"].forces.get("knights", 0) == pre_k
 
 
-def test_smoke_031_rule_4_0_pops_r10_disbands_mongols():
-    """Rule 4.0: R10 popped -> Mongols/Kipchaqs Disband."""
+def test_smoke_031_rule_4_0_r10_discard_disbands_mongols():
     s = load_scenario("crusade_on_novgorod", seed=42)
     # Force exactly 1 Russian Lord Mustered (Aleksandr, with Mongols).
     for lid, l in s.lords.items():
@@ -177,7 +177,7 @@ def test_smoke_031_rule_4_0_pops_r10_disbands_mongols():
     pre_ah = s.lords["aleksandr"].forces.get("asiatic_horse", 0)
     s.lords["aleksandr"].forces["asiatic_horse"] = pre_ah + 2
 
-    _end_of_levy_advance(s)
+    _end_of_levy_advance(s, "russian", "R10")
 
     assert "R10" in s.decks.russian.discard
     assert "R10" not in s.decks.russian.capabilities_in_play
@@ -187,8 +187,7 @@ def test_smoke_031_rule_4_0_pops_r10_disbands_mongols():
     assert s.lords["aleksandr"].forces.get("asiatic_horse", 0) == pre_ah
 
 
-def test_smoke_031_rule_4_0_pops_t13_removes_legate():
-    """Rule 4.0: T13 popped -> William of Modena/Legate leaves map."""
+def test_smoke_031_rule_4_0_t13_discard_removes_legate():
     s = load_scenario("crusade_on_novgorod", seed=42)
     # Force exactly 1 Teutonic Lord, with Legate at a locale.
     for lid, l in s.lords.items():
@@ -202,7 +201,7 @@ def test_smoke_031_rule_4_0_pops_t13_removes_legate():
     s.legate.location = "locale"
     s.legate.locale_id = "reval"
 
-    _end_of_levy_advance(s)
+    _end_of_levy_advance(s, "teutonic", "T13")
 
     assert "T13" in s.decks.teutonic.discard
     assert "T13" not in s.decks.teutonic.capabilities_in_play

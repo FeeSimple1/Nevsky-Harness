@@ -27,6 +27,14 @@
           "title": "Off Left Service",
           "type": "array"
         },
+        "off_left_vassal": {
+          "description": "Vassal Service markers past the left edge.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Off Left Vassal",
+          "type": "array"
+        },
         "off_right": {
           "description": "Cylinders past the right edge.",
           "items": {
@@ -41,6 +49,14 @@
             "type": "string"
           },
           "title": "Off Right Service",
+          "type": "array"
+        },
+        "off_right_vassal": {
+          "description": "Vassal Service markers past the right edge.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Off Right Vassal",
           "type": "array"
         },
         "pleskau_lords_removed_russian": {
@@ -145,6 +161,11 @@
           "title": "Actions Remaining",
           "type": "integer"
         },
+        "actions_used_this_card": {
+          "default": 0,
+          "title": "Actions Used This Card",
+          "type": "integer"
+        },
         "active_card": {
           "anyOf": [
             {
@@ -179,9 +200,40 @@
           "title": "Fpd Completed T",
           "type": "boolean"
         },
+        "fpd_pay_window_side": {
+          "anyOf": [
+            {
+              "enum": [
+                "teutonic",
+                "russian"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fpd Pay Window Side"
+        },
         "in_feed_pay_disband": {
           "default": false,
           "title": "In Feed Pay Disband",
+          "type": "boolean"
+        },
+        "legate_bonus_available": {
+          "default": false,
+          "title": "Legate Bonus Available",
+          "type": "boolean"
+        },
+        "legate_bonus_base": {
+          "default": 0,
+          "title": "Legate Bonus Base",
+          "type": "integer"
+        },
+        "legate_bonus_elected": {
+          "default": false,
+          "title": "Legate Bonus Elected",
           "type": "boolean"
         },
         "next_to_reveal": {
@@ -192,6 +244,11 @@
           ],
           "title": "Next To Reveal",
           "type": "string"
+        },
+        "seat_supply_this_card": {
+          "default": 0,
+          "title": "Seat Supply This Card",
+          "type": "integer"
         }
       },
       "title": "CampaignTurn",
@@ -201,6 +258,50 @@
       "additionalProperties": false,
       "description": "Pending Approach / Battle decision (4.3.4 - 4.4).\n\nSet by cmd_march when Marching into a Locale containing enemy\nLord(s). Defender (whose Lords are at the target) chooses one of:\navoid_battle (Unladen, 4.3.4), withdraw (4.3.4 into a Friendly\nStronghold), or stand_battle (4.4 begins).\nCleared after the chosen response resolves.",
       "properties": {
+        "ambush_block_pending": {
+          "default": false,
+          "title": "Ambush Block Pending",
+          "type": "boolean"
+        },
+        "approach_started_siege": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approach Started Siege"
+        },
+        "attacker_absorption_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "weakest_first",
+          "title": "Attacker Absorption Policy"
+        },
+        "attacker_concede_round": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attacker Concede Round"
+        },
         "attacker_group": {
           "items": {
             "type": "string"
@@ -222,6 +323,43 @@
           ],
           "title": "Attacker Side",
           "type": "string"
+        },
+        "attacker_strike_order": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Attacker Strike Order",
+          "type": "object"
+        },
+        "avoid_blocked_by_ambush": {
+          "default": false,
+          "title": "Avoid Blocked By Ambush",
+          "type": "boolean"
+        },
+        "avoid_spoils": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Avoid Spoils",
+          "type": "object"
+        },
+        "defender_absorption_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "weakest_first",
+          "title": "Defender Absorption Policy"
         },
         "defender_lords": {
           "items": {
@@ -254,6 +392,11 @@
           "title": "Laden",
           "type": "boolean"
         },
+        "pending_avoid_args": {
+          "additionalProperties": true,
+          "title": "Pending Avoid Args",
+          "type": "object"
+        },
         "pending_response_by": {
           "enum": [
             "teutonic",
@@ -262,6 +405,21 @@
           "title": "Pending Response By",
           "type": "string"
         },
+        "sally_join": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sally Join"
+        },
         "to_locale": {
           "title": "To Locale",
           "type": "string"
@@ -269,6 +427,13 @@
         "way_type": {
           "title": "Way Type",
           "type": "string"
+        },
+        "withdrawn_lords": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Withdrawn Lords",
+          "type": "array"
         }
       },
       "required": [
@@ -348,6 +513,18 @@
           "default": false,
           "title": "Acted This Call To Arms",
           "type": "boolean"
+        },
+        "extra_muster_target_lord": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extra Muster Target Lord"
         },
         "locale_id": {
           "anyOf": [
@@ -637,6 +814,16 @@
           "title": "Aggressor",
           "type": "string"
         },
+        "aow_drawn_r": {
+          "default": false,
+          "title": "Aow Drawn R",
+          "type": "boolean"
+        },
+        "aow_drawn_t": {
+          "default": false,
+          "title": "Aow Drawn T",
+          "type": "boolean"
+        },
         "block_lords_this_levy_r": {
           "items": {
             "type": "string"
@@ -661,6 +848,7 @@
         "campaign_step": {
           "default": "plan",
           "enum": [
+            "capability_discard",
             "plan",
             "command",
             "end_campaign",
@@ -668,6 +856,16 @@
           ],
           "title": "Campaign Step",
           "type": "string"
+        },
+        "disband_resolved_r": {
+          "default": false,
+          "title": "Disband Resolved R",
+          "type": "boolean"
+        },
+        "disband_resolved_t": {
+          "default": false,
+          "title": "Disband Resolved T",
+          "type": "boolean"
         },
         "edition": {
           "const": "2",
@@ -688,6 +886,11 @@
         "first_levy_done": {
           "default": false,
           "title": "First Levy Done",
+          "type": "boolean"
+        },
+        "game_over": {
+          "default": false,
+          "title": "Game Over",
           "type": "boolean"
         },
         "levy_step": {
@@ -718,6 +921,20 @@
             "type": "integer"
           },
           "title": "Lordship Bonus",
+          "type": "object"
+        },
+        "muster_lord_order": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Muster Lord Order",
+          "type": "array"
+        },
+        "optional_rules": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "title": "Optional Rules",
           "type": "object"
         },
         "phase": {
@@ -781,6 +998,35 @@
           "additionalProperties": true,
           "title": "Special Rules",
           "type": "object"
+        },
+        "victory_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Victory Reason"
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "enum": [
+                "teutonic",
+                "russian",
+                "draw"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Winner"
         }
       },
       "required": [
@@ -910,7 +1156,7 @@
     },
     "VassalState": {
       "additionalProperties": false,
-      "description": "Per-Vassal mutable state.\n\n`ready` reflects the Vassal Service marker face (CoA up = ready, CoA\ndown = unready). `mustered` is true once the Vassal's Forces have\nbeen deployed onto the Lord's mat via Muster Vassal action (3.4.2);\nwhen mustered, the Vassal's Forces are merged into the parent Lord's\n`forces` dict.\n\n`on_calendar` and `calendar_box` cover the Advanced Vassal Service\noptional rule (3.4.2) where a Vassal's Service marker is placed on\nthe Calendar instead of staying on the Lord's mat. For Phase 2 this\nis captured but not exercised by any default action; the basic\nMuster Vassal action keeps markers on the mat.",
+      "description": "Per-Vassal mutable state.\n\n`ready` reflects the Vassal Service marker face (CoA up = ready, CoA\ndown = unready). `mustered` is true once the Vassal's Forces have\nbeen deployed onto the Lord's mat via Muster Vassal action (3.4.2);\nwhen mustered, the Vassal's Forces are merged into the parent Lord's\n`forces` dict.\n\nAdvanced Service tracks the Calendar position, permanent removal, and\ntemporary Unreadiness through the named Levy. Crusade separately tracks\nits once-per-Summer-Levy free Muster or restoration.",
       "properties": {
         "calendar_box": {
           "anyOf": [
@@ -926,6 +1172,20 @@
           "default": null,
           "title": "Calendar Box"
         },
+        "last_crusade_levy": {
+          "anyOf": [
+            {
+              "maximum": 16,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Crusade Levy"
+        },
         "mustered": {
           "default": false,
           "title": "Mustered",
@@ -940,6 +1200,25 @@
           "default": true,
           "title": "Ready",
           "type": "boolean"
+        },
+        "removed": {
+          "default": false,
+          "title": "Removed",
+          "type": "boolean"
+        },
+        "unready_through_levy": {
+          "anyOf": [
+            {
+              "maximum": 17,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unready Through Levy"
         },
         "vassal_id": {
           "title": "Vassal Id",
@@ -967,6 +1246,18 @@
           "minimum": 0,
           "title": "Coin",
           "type": "integer"
+        },
+        "extra_muster_target_lord": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extra Muster Target Lord"
         },
         "novgorod_conquered": {
           "default": false,

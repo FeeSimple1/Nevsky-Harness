@@ -75,6 +75,29 @@ def plain(entry):
     return {k: v for k, v in entry.items() if k != "_unvalidated_template"}
 
 
+def test_excess_capability_ids_are_owner_bound_and_stale_after_discard():
+    nv = helper()
+    state = load_scenario("peipus", seed=1)
+    attach(nv, state)
+    state.meta.phase = "campaign"
+    state.meta.levy_step = "done"
+    state.meta.campaign_step = "capability_discard"
+    state.decks.teutonic.capabilities_in_play = ["T12", "T16", "T8"]
+    rows = all_pages(nv, side="teutonic", category="discard_excess_capability", page_size=1)
+    assert [row["action"]["args"]["card_id"] for row in rows] == ["T12", "T16", "T8"]
+    assert nv.actions(side="russian")["items"] == []
+    before = state.model_dump_json()
+    with pytest.raises(SelectionError):
+        nv.apply(rows[0]["id"], side="russian")
+    assert state.model_dump_json() == before
+    nv.apply(rows[0]["id"], side="teutonic")
+    assert state.decks.teutonic.capabilities_in_play == ["T16", "T8"]
+    before = state.model_dump_json()
+    with pytest.raises(SelectionError, match="stale"):
+        nv.apply(rows[1]["id"], side="teutonic")
+    assert state.model_dump_json() == before
+
+
 @pytest.mark.parametrize("index", range(len(positions())))
 def test_all_pages_and_category_filters_are_lossless(index, capsys):
     nv = helper()

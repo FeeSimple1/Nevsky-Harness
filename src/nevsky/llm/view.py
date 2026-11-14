@@ -41,16 +41,31 @@ def _mask_cards(cards: list) -> list[str]:
     return ["<hidden>"] * len(cards)
 
 
+def mask_vassal_results(result: dict[str, Any], owned_lords: set[str]) -> None:
+    """Screen mat details while retaining public Calendar and card effects."""
+    if "crusade" in result:
+        result["crusade"] = [event for event in result["crusade"] if event["lord_id"] in owned_lords]
+    for discard in result.get("discards", []):
+        discard["disbanded_vassals"] = [row for row in discard["disbanded_vassals"]
+                                        if row["lord_id"] in owned_lords]
+    expiry = result.get("vassal_advanced", {})
+    for row in expiry.get("removed", []) + expiry.get("to_mat_unready", []):
+        if row["lord_id"] not in owned_lords:
+            row.pop("returned_forces", None)
+
+
 def _filter_history(entry: dict[str, Any], side: str, *, hidden_mats: bool,
                     owned_lords: set[str]) -> None:
     """Redact private details in an already detached history copy."""
     action = entry["action"]
     result = entry["result"]
     kind = action.get("type")
-    if hidden_mats and kind == "fpd_resolve":
-        for row in result.get("feed", []):
-            if row.get("lord_id") not in owned_lords:
-                row.pop("units", None)
+    if hidden_mats:
+        mask_vassal_results(result, owned_lords)
+        if kind == "fpd_resolve":
+            for row in result.get("feed", []):
+                if row.get("lord_id") not in owned_lords:
+                    row.pop("units", None)
     if entry["actor"] == side or entry["actor"] == "system":
         return
     if hidden_mats:

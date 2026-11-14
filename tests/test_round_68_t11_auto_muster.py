@@ -76,6 +76,8 @@ def test_t11_restores_lost_knights_when_sc_already_mustered():
 
     # Restored 2 knights (capped by SC marker)
     assert rudolf.forces["knights"] == 2
+    assert _t11_summer_auto_muster(s) == []
+    assert rudolf.forces["knights"] == 2
 
 
 def test_t11_skips_besieged_lord():

@@ -61,6 +61,7 @@ LevyStep = Literal[
     "done",
 ]
 CampaignStep = Literal[
+    "capability_discard",
     "plan",
     "command",
     "end_campaign",
@@ -339,11 +340,9 @@ class VassalState(BaseModel):
     when mustered, the Vassal's Forces are merged into the parent Lord's
     `forces` dict.
 
-    `on_calendar` and `calendar_box` cover the Advanced Vassal Service
-    optional rule (3.4.2) where a Vassal's Service marker is placed on
-    the Calendar instead of staying on the Lord's mat. For Phase 2 this
-    is captured but not exercised by any default action; the basic
-    Muster Vassal action keeps markers on the mat.
+    Advanced Service tracks the Calendar position, permanent removal, and
+    temporary Unreadiness through the named Levy. Crusade separately tracks
+    its once-per-Summer-Levy free Muster or restoration.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -353,6 +352,9 @@ class VassalState(BaseModel):
     mustered: bool = False
     on_calendar: bool = False
     calendar_box: int | None = Field(default=None, ge=1, le=16)
+    removed: bool = False
+    unready_through_levy: int | None = Field(default=None, ge=1, le=17)
+    last_crusade_levy: int | None = Field(default=None, ge=1, le=16)
 
 
 class Lord(BaseModel):
@@ -588,6 +590,18 @@ class GameState(BaseModel):
                 lid = effect.get("lord_id")
                 if effect.get("bonus") == 2 and lid in self.meta.lordship_bonus:
                     played[lid] = played.get(lid, 0) + 2
+        return self
+
+    @model_validator(mode="after")
+    def _restore_vassal_service(self) -> Self:
+        """Recover recorded expiries and Special Vassal availability in old saves."""
+        legacy = {(lid, vid) for lid, lord in self.lords.items()
+                  for vid, vassal in lord.vassals.items()
+                  if "removed" not in vassal.model_fields_set}
+        if legacy and self.history:
+            from nevsky.actions import _restore_legacy_vassals
+
+            _restore_legacy_vassals(self, legacy)
         return self
 
     @model_validator(mode="after")

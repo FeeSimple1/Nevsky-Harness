@@ -233,10 +233,8 @@ def test_advanced_vassal_disband_step_no_op_when_flag_off():
     assert res["to_mat_unready"] == []
 
 
-def test_advanced_vassal_flip_up_at_end_of_muster_step():
-    """When levy_step transitions from muster to call_to_arms with the
-    variant on, all face-down (unready, unmustered) Vassal markers
-    flip up (ready=True)."""
+def test_advanced_vassal_flips_up_after_own_call_to_arms():
+    """Face-down markers stay unready through extra Muster."""
     s = load_scenario("pleskau", seed=1, optional_rules={"advanced_vassal_service": True})
     apply_action(s, {"type": "confirm_all_setup_transports", "side": "teutonic", "args": {}})
     apply_action(s, {"type": "confirm_all_setup_transports", "side": "russian", "args": {}})
@@ -246,10 +244,12 @@ def test_advanced_vassal_flip_up_at_end_of_muster_step():
     vid = "gavrilo_pskov_1"
     gv.vassals[vid].ready = False
     gv.vassals[vid].mustered = False
+    gv.vassals[vid].unready_through_levy = s.meta.box
     # Advance through muster to call_to_arms.
     apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
     apply_action(s, {"type": "advance_step", "side": "teutonic", "args": {}})
-    # active flipped + step advanced.
+    assert gv.vassals[vid].ready is False
+    # Finish Russian Call to Arms and turn the marker face-up.
     apply_action(s, {"type": "advance_step", "side": "russian", "args": {}})
     # Vassal should now be face-up Ready.
     assert gv.vassals[vid].ready is True

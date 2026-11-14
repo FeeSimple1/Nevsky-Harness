@@ -21,16 +21,19 @@ Campaign actions.
   Levy step finished. T-then-R order per Sequence of Play 2.2.4. When
   both T and R have called `advance_step`, the harness advances to the
   next Levy step (`arts_of_war` -> `pay` -> `disband` -> `muster` ->
-  `call_to_arms` -> `done`). The call that completes `call_to_arms`
-  (the Russian one) also runs the 4.0 CAPABILITY DISCARD: each side
-  must discard side Capabilities in excess of its Mustered Lord count.
-  PLAY-34: WHICH cards go is the owner's choice -- pass
-  `args.rule_4_0_discards = {side: [card_id, ...]}` on that call
-  (validated: in play for that side, no duplicates, at most the excess
-  count; cascade cleanup per SMOKE-031 applies). Unnamed excess falls
-  back to the deterministic tail-drop.
+  `call_to_arms` -> `done`). When both sides finish Call to Arms,
+  any excess side Capabilities must be discarded before Campaign Plan.
   Arts of War cannot be advanced until the side has drawn its cards
   and implemented every pending card, including any opponent-owned choice.
+- **`discard_excess_capability`** (4.0) — `args.card_id` identifies one
+  of the active player's side-wide Capabilities. Teutons choose first.
+  The harness recounts each side's Mustered Lords after each discard and
+  applies any immediate effects. This-Lord Capabilities are exempt.
+  Campaign Plan opens automatically once both sides meet the limit.
+
+The raw referee API also accepts `args.rule_4_0_discards = {side: [card_id, ...]}`
+on the final Russian Call to Arms advance. The map replays explicit choices
+in faction order and leaves any remaining choices to the active player.
 
 ## 3.1 Arts of War
 
@@ -98,7 +101,10 @@ Besieged Lords cannot Muster.
   (Veche-only via Option B per 3.5.2).
 - **`muster_vassal`** — `args.by_lord`, `vassal_id`. Adds Vassal's
   pictured Forces to the Lord's mat. Mongols / Kipchaqs require R10
-  Steppe Warriors in play. Summer Crusaders require T11 Crusade.
+  Steppe Warriors in play. T11 Crusade automatically Musters eligible
+  Summer Crusaders for free. With Advanced Vassal Service, a marker
+  returned face-down stays Unready through all of that side's Muster
+  for the applicable Levy, including extra Muster in Call to Arms.
 - **`levy_transport`** — `args.by_lord`, `transport_type`. Adds 1
   Boat / Cart / Sled / Ship. Ship requires `ships_authorized` on
   the Lord's mat. Max 8 of any type per Lord.

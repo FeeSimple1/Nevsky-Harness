@@ -299,15 +299,22 @@ def apply(choice, side: str | None = None, *, args: dict | None = None):
     elif isinstance(choice, dict):
         action = {k: v for k, v in choice.items() if k in ("type", "side", "args")}
         action.setdefault("side", side)
+        if (action.get("type") == "discard_excess_capability" and action["side"] != side):
+            raise IllegalAction("wrong_actor", "choose your own Capability to discard")
         side = action["side"]
     else:
         raise TypeError("choice must be a state-bound ID, int index, or action dict")
     if action.get("type") == "cmd_storm" and isinstance(action.get("args", {}), dict):
         action["args"] = {**action.get("args", {}), "choose_defender_front": True}
+    # Reject referee elections and invalid 4.0 choices without a fallback.
+    action_args = action.get("args")
+    if isinstance(action_args, dict) and "rule_4_0_discards" in action_args:
+        raise IllegalAction("wrong_actor", "choose your own Capability with discard_excess_capability")
     try:
         result = apply_action(s, action)
     except IllegalAction as e:
-        if strict:
+        if (strict or action.get("type") == "discard_excess_capability"
+                or (s.meta.phase == "campaign" and s.meta.campaign_step == "capability_discard")):
             print(f"Rejected: {e}; no fallback applied. Inspect action(ID) or supply valid args.")
             raise
         _S["findings"].append({"kind": "illegal_concrete_action", "turn": _S["turn"],
