@@ -593,6 +593,23 @@ class GameState(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _restore_this_levy_events(self) -> Self:
+        """Return prematurely discarded Events to their zone in old saves."""
+        if self.meta.phase != "levy" or self.meta.levy_step != "call_to_arms":
+            return self
+        for entry in reversed(self.history):
+            kind = entry.action.get("type")
+            if kind == "advance_step" and entry.actor == "russian":
+                break  # The last Russian advance opened Call to Arms.
+            if kind == "aow_discard_this_levy" and entry.actor != "system":
+                deck = getattr(self.decks, entry.actor)
+                for card in entry.result.get("discarded", []):
+                    if card in deck.discard:
+                        deck.discard.remove(card)
+                        deck.this_levy_events.append(card)
+        return self
+
+    @model_validator(mode="after")
     def _restore_vassal_service(self) -> Self:
         """Recover recorded expiries and Special Vassal availability in old saves."""
         legacy = {(lid, vid) for lid, lord in self.lords.items()

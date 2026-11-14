@@ -60,7 +60,8 @@ in faction order and leaves any remaining choices to the active player.
   - No-Event / No-Capability cards: removed from play permanently
     per 3.1.3 (2E). Crusade-on-Novgorod scenario retains them via
     the `keep_no_event_cards` special rule.
-- **`aow_discard_this_levy`** — 3.5.3, discard own this-Levy events.
+- Both sides' This Levy Events go to discard automatically when the
+  final `advance_step` closes Call to Arms (3.5.3).
 
 ## 3.2 Pay
 
@@ -786,12 +787,14 @@ discard. Effects:
 ### Tier 3 hold events (via aow_play_hold)
 
 - **T3 Vodian Treachery**: `args.target` ∈ {kaibolovo, koporye}.
-  Conquers if Teutonic Lord is strictly closer (by Way distance) than
-  any Russian. Blocked by Walls +1.
-- **T13 Heinrich Sees the Curia**: `args.recipients` (list of 2
-  Teutonic Lord ids on map), `args.assets` (optional dict
-  `{recipient: {asset_type: count}}` totaling 4 per recipient, no Loot).
-  Disbands Heinrich; adds the Assets.
+  Conquers a Fort without Spoils if a Teutonic Lord is strictly closer
+  (by Way distance) than any Russian. Any Walls +1 marker stays in place.
+  Castle conversion makes the Locale ineligible.
+- **T13 Heinrich Sees the Curia**: Disbands Heinrich. Supply
+  `args.recipients` as two distinct on-map Teutonic Lord IDs other than
+  Heinrich. By default, each gets 4 Coin. An optional `args.assets` map
+  `{recipient: {asset_type: count}}` must specify four non-Loot Assets
+  per chosen Lord using nonnegative integer counts.
 
 ## Round 7: Architectural updates
 

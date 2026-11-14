@@ -1038,9 +1038,8 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     Russian to Kaibolovo or Koporye Fort to Conquer it (no Spoils).
 
     "Closer" means shortest chain of adjacent Locales (by Ways, not by
-    sea). Cannot apply if a Stone Kremlin (R18) Walls +1 marker is at
-    the target. If Stonemasons converted both Forts to Castles, the
-    event cannot be played.
+    sea). A Fort keeps any Walls +1 marker after Conquest. A Fort
+    converted into a Castle is ineligible.
 
     args:
       target: "kaibolovo" | "koporye"
@@ -1065,14 +1064,11 @@ def _ev_vodian_treachery(state: GameState, args: dict[str, Any]) -> dict[str, An
     # be played, because neither Locale has a Fort." The static type
     # stays "fort" even after a Castle marker is placed; we must
     # consult state.locales[*].teutonic_castle / russian_castle.
-    if state.locales[target].teutonic_castle or state.locales[target].russian_castle:
+    if loc.teutonic_castle or loc.russian_castle:
         raise IllegalAction(
             "castle_marker",
             f"{target} has a Castle marker; Vodian Treachery requires a Fort (T3 Tip)",
         )
-    # Walls +1 from R18 blocks Vodian Treachery.
-    if state.locales[target].walls_plus_one:
-        raise IllegalAction("stone_kremlin", f"{target} has Walls +1; Vodian Treachery blocked")
     # Compute closeness: BFS from target via Ways. Find min distance to
     # any T-side Mustered Lord vs any R-side.
     ways = load_ways()
@@ -1131,11 +1127,11 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
     add 4 non-Loot Assets each to 2 on-map Teutonic Lords.
 
     args:
-      recipients: list of 2 Teutonic Lord ids (on map).
+      recipients: 2 distinct on-map Teutonic Lord ids other than Heinrich.
       assets: optional dict {recipient_id: dict[asset_type, int]} where
               asset_type in {coin, provender, boat, cart, sled, ship}
-              and totals 4 per recipient. If not provided, default:
-              4 Coin to each.
+              and nonnegative integer counts total 4 per recipient.
+              Defaults to 4 Coin to each when omitted.
     """
 
     if "heinrich" not in state.lords:
@@ -1147,8 +1143,12 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
             "Heinrich must be on map; otherwise this event is held until he Musters",
         )
     recipients = args.get("recipients", [])
-    if not isinstance(recipients, list) or len(recipients) != 2:
-        raise IllegalAction("bad_recipients", "args.recipients must be 2 Teutonic Lord ids")
+    if (not isinstance(recipients, list) or len(recipients) != 2
+            or any(not isinstance(rid, str) or rid == "heinrich" for rid in recipients)
+            or recipients[0] == recipients[1]):
+        raise IllegalAction(
+            "bad_recipients", "choose two distinct Teutonic Lords other than Heinrich",
+        )
     for rid in recipients:
         if rid not in state.lords:
             raise IllegalAction("bad_recipients", f"{rid} not in state")
@@ -1156,29 +1156,30 @@ def _ev_heinrich_curia(state: GameState, args: dict[str, Any]) -> dict[str, Any]
         if r.side != "teutonic" or r.state != "mustered" or r.location is None:
             raise IllegalAction("bad_recipients", f"{rid} must be Teutonic and on map")
 
-    asset_grants = args.get("assets") or {rid: {"coin": 4} for rid in recipients}
-    # Validate totals = 4 per recipient and no Loot.
-    distributed = {}
+    asset_grants = args.get("assets", {rid: {"coin": 4} for rid in recipients})
+    if not isinstance(asset_grants, dict) or asset_grants.keys() != set(recipients):
+        raise IllegalAction("bad_grant", "give one Asset grant for each chosen Lord")
     for rid, grant in asset_grants.items():
-        if rid not in recipients:
-            raise IllegalAction("bad_grant", f"{rid} not in recipients list")
         if not isinstance(grant, dict):
-            raise IllegalAction("bad_grant", f"{rid} grant must be a dict")
+            raise IllegalAction("bad_grant", f"{rid} grant must map Asset types to counts")
         if "loot" in grant:
             raise IllegalAction("loot_forbidden", "Heinrich Curia: no Loot")
-        total = sum(int(v) for v in grant.values())
+        for asset, count in grant.items():
+            if asset not in ("coin", "provender", "boat", "cart", "sled", "ship"):
+                raise IllegalAction("bad_grant_type", f"{asset} not a valid asset type")
+            if type(count) is not int or count < 0:
+                raise IllegalAction(
+                    "bad_grant_count", f"{rid} {asset} count must be a nonnegative integer",
+                )
+        total = sum(grant.values())
         if total != 4:
             raise IllegalAction("bad_grant_total", f"{rid} grant total {total} != 4")
-        for k in grant:
-            if k not in ("coin", "provender", "boat", "cart", "sled", "ship"):
-                raise IllegalAction("bad_grant_type", f"{k} not a valid asset type")
-        distributed[rid] = dict(grant)
 
-    # Apply.
+    distributed = {rid: dict(grant) for rid, grant in asset_grants.items()}
     for rid, grant in distributed.items():
         recip = state.lords[rid]
-        for k, v in grant.items():
-            recip.assets[k] = min(8, recip.assets.get(k, 0) + int(v))  # type: ignore[index]
+        for asset, count in grant.items():
+            recip.assets[asset] = min(8, recip.assets.get(asset, 0) + count)
 
     # T13 Disbands Heinrich regardless of Service; apply the 3.3.2 return date.
     from nevsky.actions import _disband_at_limit, _disband_return_box

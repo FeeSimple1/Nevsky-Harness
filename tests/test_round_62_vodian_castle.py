@@ -64,8 +64,8 @@ def test_vodian_allowed_when_no_castle_marker():
     assert result["conquered"] == "kaibolovo"
 
 
-def test_vodian_blocked_castle_takes_precedence_over_walls_plus_one():
-    """Both Castle and Walls+1 markers: Castle check fires first."""
+def test_vodian_blocked_by_castle_with_walls_plus_one():
+    """A Castle with a Walls +1 marker is still ineligible."""
     st = _setup("kaibolovo")
     st.locales["kaibolovo"].teutonic_castle = True
     st.locales["kaibolovo"].walls_plus_one = True

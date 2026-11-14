@@ -122,14 +122,3 @@ def test_aow_subsequent_levy_hold_event_goes_to_holds() -> None:
     s.decks.teutonic.pending_draw = ["T7"]  # T7 Tverdilo, hold
     apply_action(s, {"type": "aow_implement_card", "side": "teutonic", "args": {}})
     assert "T7" in s.decks.teutonic.holds
-
-
-def test_aow_discard_this_levy_clears_those_events() -> None:
-    """3.5.3: both sides discard This-Levy events."""
-    s = load_scenario("pleskau", seed=42)
-    s.meta.levy_step = "call_to_arms"
-    s.meta.active_player = "teutonic"
-    s.decks.teutonic.this_levy_events = ["T7"]
-    apply_action(s, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
-    assert "T7" in s.decks.teutonic.discard
-    assert s.decks.teutonic.this_levy_events == []

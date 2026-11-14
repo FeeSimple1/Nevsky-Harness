@@ -132,8 +132,7 @@ def mock_decider():
     def decide(side: str, briefing: str, actions: list[dict]) -> tuple[int, str]:
         order = sorted(range(len(actions)),
                        key=lambda i: (actions[i].get("type") in
-                                      ("cmd_pass", "end_card", "legate_skip",
-                                       "aow_discard_this_levy"),
+                                      ("cmd_pass", "end_card", "legate_skip"),
                                       counter[(actions[i].get("type"),)]))
         idx = order[0]
         counter[(actions[idx].get("type"),)] += 1

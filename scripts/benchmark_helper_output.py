@@ -76,6 +76,9 @@ def windows():
     prefix = ROOT / "reports/return_prince_20261028"
     logs = {name: json.loads((prefix / name / "transcript.json").read_text())
             for name in ("logistics", "combined", "maritime")}
+    for name, log in logs.items():
+        # The final Call to Arms advance now handles the Rule 3.5.3 discard.
+        logs[name] = [r for r in log if r["action"]["type"] != "aow_discard_this_levy"]
     plan = next(i for i, r in enumerate(logs["combined"])
                 if r["action"]["type"] == "plan_add_card")
     mid = next(i for i, r in enumerate(logs["logistics"])

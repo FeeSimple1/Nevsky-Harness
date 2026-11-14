@@ -619,10 +619,6 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                     })
         if not state.legate.acted_this_call_to_arms:
             out.append({"type": "legate_skip", "side": "teutonic", "args": {}})
-        # R223: only offer the 3.5.3 discard when there is actually a
-        # This-Levy event to discard; otherwise it is a repeatable no-op.
-        if state.decks.teutonic.this_levy_events:
-            out.append({"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     else:  # russian
         levy_box = _find_levy_marker_box(state)
         # Sea-trade (R8 Black Sea / R9 Baltic). SMOKE-148 (R209): mirror
@@ -733,10 +729,6 @@ def _call_to_arms_moves(state: GameState, side: Side) -> list[dict[str, Any]]:
                 "args": {"option": "skip"},
                 "note": "Veche skip: take no Veche action this Call to Arms",
             })
-        # R223: only offer the 3.5.3 discard when there is actually a
-        # This-Levy event to discard; otherwise it is a repeatable no-op.
-        if state.decks.russian.this_levy_events:
-            out.append({"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     return out
 
 

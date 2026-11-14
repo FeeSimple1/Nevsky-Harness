@@ -147,8 +147,8 @@ def test_t3_vodian_treachery_conquers_kaibolovo_when_teuton_closer() -> None:
     assert s.locales["kaibolovo"].teutonic_conquered >= 1
 
 
-def test_t3_vodian_treachery_blocked_by_stone_kremlin() -> None:
-    """T3: cannot Conquer a Locale with Walls +1 marker (R18)."""
+def test_t3_vodian_treachery_keeps_stone_kremlin() -> None:
+    """The T3 Tip preserves the R18 Walls +1 marker on the Conquered Fort."""
     s = load_scenario("watland", seed=1)
     teu = next(lid for lid, l in s.lords.items() if l.side == "teutonic" and l.state == "mustered")
     from nevsky.static_data import load_ways
@@ -162,9 +162,9 @@ def test_t3_vodian_treachery_blocked_by_stone_kremlin() -> None:
         pytest.skip("no adj")
     s.lords[teu].location = adj
     s.locales["kaibolovo"].walls_plus_one = True
-    with pytest.raises(IllegalAction) as exc:
-        resolve_hold_event(s, "T3", {"target": "kaibolovo"})
-    assert exc.value.code == "stone_kremlin"
+    result = resolve_hold_event(s, "T3", {"target": "kaibolovo"})
+    assert result["conquered"] == "kaibolovo"
+    assert s.locales["kaibolovo"].walls_plus_one
 
 
 def test_t3_vodian_treachery_blocked_when_target_is_castle() -> None:

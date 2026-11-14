@@ -79,7 +79,6 @@ def main() -> int:
 
     print("\n--- Russian CtA: try Veche options ---")
     apply_action(s2, {"type": "legate_skip", "side": "teutonic", "args": {}})
-    apply_action(s2, {"type": "aow_discard_this_levy", "side": "teutonic", "args": {}})
     apply_action(s2, {"type": "advance_step", "side": "teutonic", "args": {}})
     # R Veche has VP markers? Check.
     print(f"  veche.vp_markers={s2.veche.vp_markers}, coin={s2.veche.coin}")
@@ -90,7 +89,6 @@ def main() -> int:
     step(s2, {"type": "veche_action", "side": "russian",
               "args": {"option": "sea_trade", "card_id": "R8"}}, expect_illegal=True)
     step(s2, {"type": "veche_action", "side": "russian", "args": {"option": "skip"}})
-    apply_action(s2, {"type": "aow_discard_this_levy", "side": "russian", "args": {}})
     apply_action(s2, {"type": "advance_step", "side": "russian", "args": {}})
 
     # Plan & Activation — set up a Storm scenario.

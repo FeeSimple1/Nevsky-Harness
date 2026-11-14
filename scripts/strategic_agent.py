@@ -111,7 +111,6 @@ def _action_score(s, action, side) -> int:
         "command_reveal": 88,
         "confirm_setup_transport": 100,
         "confirm_all_setup_transports": 100,
-        "aow_discard_this_levy": 80,
         "legate_skip": 70,
         "decline_ambush_block": 70,
     }
